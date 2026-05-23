@@ -83,6 +83,10 @@
 - ✅ `zillionare/specforge@1c02bd2` — GitHub 必定渲染为可点击链接
 - ❌ `1c02bd2` — 禁止：裸短 sha 在中文上下文中可能不被 autolink
 
+### Push 规则
+
+每次 commit 后必须立即 `git push`。推送触发 GitHub 状态更新（commit link 可点击）。不 push 则后续 Agent 看不到最新变更。Red/Green commit 必须立即 push，Refactor 阶段的中间 commit 可在最终确认后统一 push。
+
 ---
 
 ## 串行与并行
