@@ -76,6 +76,13 @@
 - Bug 修复 Green：`fix: green – BUG-{issue编号} {简要描述}`
 - Bug 修复 Refactor：`refactor: BUG-{issue编号} {简要描述}`
 
+### Commit 引用规范
+
+在 GitHub issue comment 中引用 commit 时，始终使用 `owner/repo@sha` 格式，禁止使用裸短 sha：
+
+- ✅ `zillionare/specforge@1c02bd2` — GitHub 必定渲染为可点击链接
+- ❌ `1c02bd2` — 禁止：裸短 sha 在中文上下文中可能不被 autolink
+
 ---
 
 ## 串行与并行

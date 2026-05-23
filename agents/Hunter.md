@@ -74,9 +74,16 @@
 
 ## 提交规范
 
-- Red: `[BUG-{issue编号}] Red: 复现 {Bug简要描述}`
-- Green: `[BUG-{issue编号}] Green: 修复 {Bug简要描述}`
-- Refactor: `[BUG-{issue编号}] Refactor: {重构描述}`
+- Red: `test: red – BUG-{issue编号} {简要描述}`
+- Green: `fix: green – BUG-{issue编号} {简要描述}`
+- Refactor: `refactor: BUG-{issue编号} {简要描述}`
+
+### Commit 引用规范
+
+在 GitHub issue comment 中引用 commit 时，始终使用 `owner/repo@sha` 格式：
+
+- ✅ `zillionare/specforge@1c02bd2` — GitHub 必定渲染为可点击链接
+- ❌ `1c02bd2` — 裸短 SHA，中文上下文中可能不被 autolink
 
 ---
 
