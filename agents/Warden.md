@@ -18,12 +18,12 @@
 ## 你只检查以下内容
 
 ### 1. 文档完整性
-- 飞书文档存在且包含：repo 名字、版本号、功能分支、GitHub project 链接
-- GitHub issue 已创建且引用了飞书文档链接
+- PRD 文档存在且包含：repo 名字、版本号、功能分支
+- Scout 的产出报告包含 GitHub Project 编号和名称
 
 ### 2. 权限验证
-- `gh` 可操作 repo、project、issue（需有实际命令执行证据，非口头声称）
-- 飞书文档可读写
+- `gh` 可操作 repo、issue（需有实际命令执行证据，非口头声称）
+- GitHub Project 已创建且 `gh project list` 可见
 
 ### 3. Agent 可用性
 - 所有子 Agent 的探测响应已确认（非假设）
