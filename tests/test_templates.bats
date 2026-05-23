@@ -1,0 +1,56 @@
+#!/usr/bin/env bats
+
+TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/templates"
+
+@test "UT-011-01: prd.md exists" {
+    [ -f "$TEMPLATES_DIR/prd.md" ]
+}
+
+@test "UT-011-02: spec.md exists" {
+    [ -f "$TEMPLATES_DIR/spec.md" ]
+}
+
+@test "UT-011-03: issues.md exists" {
+    [ -f "$TEMPLATES_DIR/issues.md" ]
+}
+
+@test "UT-011-04: test-plan.md exists" {
+    [ -f "$TEMPLATES_DIR/test-plan.md" ]
+}
+
+@test "UT-011-05: task-plan.md exists" {
+    [ -f "$TEMPLATES_DIR/task-plan.md" ]
+}
+
+@test "UT-011-06: task-log.md exists" {
+    [ -f "$TEMPLATES_DIR/task-log.md" ]
+}
+
+@test "UT-011-07: acceptance.md exists" {
+    [ -f "$TEMPLATES_DIR/acceptance.md" ]
+}
+
+@test "UT-011-08: bug-fix.md exists" {
+    [ -f "$TEMPLATES_DIR/bug-fix.md" ]
+}
+
+@test "UT-012-01: prd.md has all required level-2 headings" {
+    for heading in "背景" "目标" "验收标准" "非目标" "风险"; do
+        run grep -q "^## ${heading}" "$TEMPLATES_DIR/prd.md"
+        [ "$status" -eq 0 ] || { echo "Missing heading: ## ${heading}" >&2; false; }
+    done
+}
+
+@test "UT-012-02: spec.md has all required level-2 headings" {
+    for heading in "用户故事" "功能需求" "非功能需求" "澄清记录"; do
+        run grep -q "^## ${heading}" "$TEMPLATES_DIR/spec.md"
+        [ "$status" -eq 0 ] || { echo "Missing heading: ## ${heading}" >&2; false; }
+    done
+}
+
+@test "UT-012-03: task-log.md has all required level-2 headings" {
+    for heading in "Phase 1: Red" "Phase 2: Green" "Phase 3: Refactor" "Keeper"; do
+        run grep -q "^## ${heading}" "$TEMPLATES_DIR/task-log.md"
+        [ "$status" -eq 0 ] || { echo "Missing heading: ## ${heading}" >&2; false; }
+    done
+}
