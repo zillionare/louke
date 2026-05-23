@@ -58,9 +58,23 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 
 ### Step 4: 验证权限与可用性
 
-- `gh` CLI 可操作 repo、issue、project
+- `gh` CLI 可操作 repo、issue
 - 本地工作区目录正确
 - 所有 Agent prompt 文件存在（`agents/*.md`）
+
+### Step 5: 写入状态文件
+
+将收集到的项目信息写入 `specs/project-info.md`，供后续 Agent（Warden、Clerk 等）读取：
+
+```markdown
+# Project Info
+
+- **Story**: {用户提供的一句话}
+- **Version**: {版本号}
+- **Repo**: github.com/{owner}/{repo}
+- **Project**: {repo}-{version} (#{编号})
+- **Created**: {YYYY-MM-DD}
+```
 
 ---
 
