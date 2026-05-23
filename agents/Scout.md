@@ -58,7 +58,9 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 
 ### Step 4: 验证权限与可用性
 
-- `gh` CLI 可操作 repo、issue
+- **Issue 权限**：创建测试 issue `Good First Issue: {repo}-{version}`，comment 并 close。记录编号
+- **PR 权限**：从当前分支创建测试 PR（`gh pr create --title "Good First PR: {repo}-{version}" --body "权限验证测试"`），然后立即 close
+- 如果 gh pr create 报权限错误（如 "must be a collaborator"），则 **拒绝推进**，提示用户将当前账户添加为 repo collaborator
 - 本地工作区目录正确
 - 所有 Agent prompt 文件存在（`agents/*.md`）
 
@@ -73,6 +75,7 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 - **Version**: {版本号}
 - **Repo**: github.com/{owner}/{repo}
 - **Project**: {repo}-{version} (#{编号})
+- **Test Issue**: #{issue 编号}
 - **Created**: {YYYY-MM-DD}
 ```
 

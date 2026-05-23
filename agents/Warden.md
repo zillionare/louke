@@ -25,10 +25,14 @@
 - `gh project list` 中可见 `{repo}-{version}`
 
 ### 3. Issue 访问权限
-- 在 project-info.md 中找到 Test issue 的编号，读取该 issue，检查状态为 close
+- 在 project-info.md 中找到 Test Issue 编号，读取该 issue，检查状态为 closed
 - issue 的 title 为 `Good First Issue: {repo}-{version}`
 
-### 4. Agent 可用性
+### 4. PR 创建权限
+- 在 project-info.md 中找到 Test PR 编号，读取该 PR，检查状态为 closed
+- PR 的 title 为 `Good First PR: {repo}-{version}`
+
+### 5. Agent 可用性
 - `agents/*.md` 文件存在
 
 ---
