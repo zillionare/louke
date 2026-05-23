@@ -14,6 +14,8 @@ Agent 的详细 prompt 见 `agents/` 目录下同名 `.md` 文件。
 | 任务执行 | **Forge** (锻造) | **Prism** (棱镜) → **Keeper** (守门) | Forge 按 R-G-R 循环锻造代码 / Prism 多角度 Code Review / Keeper 守住完成门禁 |
 | 验收 | **Herald** (传令) | **Arbiter** (终审) | Herald 汇总全量测试与覆盖 / Arbiter 终审裁决 |
 | Bug 修复 | **Hunter** (猎手) | **Shield** (盾牌) | Hunter TDD 猎杀 Bug / Shield 守护无回归 |
+| — | **Guide** (向导) | — | 回答方法论问题，降低上手成本 | — |
+| — | **Librarian** (图书管理员) | — | 整合 Wiki 条目为单一真相源 | — |
 
 ## 流程对照
 
@@ -57,3 +59,5 @@ Bug 修复 ── Hunter → Shield (独立流程，同样 R-G-R)
 | Arbiter | 仲裁者 | 终审裁决 |
 | Hunter | 猎手 | 精确猎杀 Bug |
 | Shield | 盾牌 | 守护无回归 |
+| Guide | 向导 | 回答方法论问题，指引使用方向 |
+| Librarian | 图书管理员 | 整合 Wiki，维护项目记忆 |

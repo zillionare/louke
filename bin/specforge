@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SPECFORGE_HOME="${SPECFORGE_HOME:-${HOME}/.specforge}"
+
+show_help() {
+    echo "specforge v1.0.0"
+    echo "Usage: specforge init <project-name>"
+}
+
+case "${1:-help}" in
+    init)
+        PROJECT_NAME="${2:-}"
+        if [ -z "$PROJECT_NAME" ]; then
+            echo "Usage: specforge init <project-name>"
+            exit 1
+        fi
+        if [ -d "$PROJECT_NAME" ]; then
+            echo "Directory '$PROJECT_NAME' already exists. Choose a different name or remove the existing directory."
+            exit 1
+        fi
+        mkdir -p "$PROJECT_NAME"/{agents,templates,specs,wiki/entries,wiki/decisions}
+        cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/agents/" 2>/dev/null || {
+            echo "Error: Could not copy agent files from $SPECFORGE_HOME/agents/"
+            echo "Make sure specforge is installed: curl -sSL https://raw.githubusercontent.com/zillionare/specforge/main/install.sh | bash"
+            exit 1
+        }
+        cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/templates/" 2>/dev/null
+
+        AGENT_COUNT=$(ls "$PROJECT_NAME/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
+        TEMPLATE_COUNT=$(ls "$PROJECT_NAME/templates"/*.md 2>/dev/null | wc -l | tr -d ' ')
+
+        printf "\nspecforge project '%s' initialized!\n\n" "$PROJECT_NAME"
+        printf "  项目目录: %s\n" "$(pwd)/$PROJECT_NAME"
+        printf "  Agent 目录: %s/agents/  (%s 个 Agent prompt)\n" "$PROJECT_NAME" "$AGENT_COUNT"
+        printf "  模板目录:   %s/templates/ (%s 个模板)\n" "$PROJECT_NAME" "$TEMPLATE_COUNT"
+        printf "  Wiki 目录:  %s/wiki/\n\n" "$PROJECT_NAME"
+
+        printf "  下一步:\n"
+        printf "  1. cd %s\n" "$PROJECT_NAME"
+        printf "  2. 调用 Guide Agent 了解如何使用:\n"
+        printf "     用你的 AI 工具加载 agents/Guide.md 的 prompt，然后问 \"我该如何开始？\"\n"
+        printf "  3. 如果你已有所需功能的想法，调用 Scout Agent:\n"
+        printf "     加载 agents/Scout.md → 告诉它你要做什么\n\n"
+
+        printf "  推荐模型（国内版）:\n"
+        printf "    S 档 (深度推理): deepseek-v4-pro  → Sage, Forge, Hunter\n"
+        printf "    A 档 (综合规划): kimi-k2.6        → Maestro, Archer, Probe\n"
+        printf "    A-档 (稳定编码): qwen3.6-plus     → Lex, Judge\n"
+        printf "    C 档 (快速检查): deepseek-v4-flash → Warden, Keeper, Shield\n\n"
+
+        printf "  详细模型映射见: agents/README.md\n"
+        ;;
+    *)
+        show_help
+        ;;
+esac
