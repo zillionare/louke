@@ -89,6 +89,12 @@
 
 每次 commit 后必须立即 `git push`。推送触发 GitHub 状态更新（commit link 可点击）。不 push 则后续 Agent 看不到最新变更。Red/Green commit 必须立即 push，Refactor 阶段的中间 commit 可在最终确认后统一 push。
 
+### GitHub 操作规范
+
+- **comment 与 close 分离**：先 `gh issue comment` 留下修复信息，再 `gh issue close`（不带 `-c`）
+- 不要在 `gh issue close` 中使用 `-c` 参数：权限不足时 close 失败但 comment 已被写入，再次 comment 会重复
+- 如 close 权限不足，仅 comment 通知用户手动关闭
+
 ---
 
 ## 反模式
@@ -98,6 +104,7 @@
 ❌ 揣测 Bug 原因而不编写复现测试验证
 ❌ 复现测试的失败原因与 Bug 无关
 ❌ 跳过全量回归检查
+❌ `gh issue close -c` 带着 comment 关闭 issue
 
 ---
 
