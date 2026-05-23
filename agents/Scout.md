@@ -27,7 +27,17 @@
 ## 工作流程
 
 1. **读取 PRD** → 确认文档存在且非空，提取版本号
-2. **创建 GitHub Project** → 执行 `gh project create --title "<repo名> v{版本号}"`（如 Project 已存在则跳过创建）。此步骤确保 Clerk 在 Issue Tracker 阶段有可关联的 Project
+2. **创建 GitHub Project** → 
+   - 标题格式：`{repo-slug} v{版本号}`（如 `specforge v0.1`）
+   - 执行 `gh project create --title "{repo-slug} v{版本号}" --owner {owner}`
+   - 如 Project 已存在则跳过创建
+   - **配置 Status Board**：为 Project 添加 Status 字段和 Board 视图：
+     
+     a. 获取 project ID: `gh project list --owner {owner} --format json | jq '.[] | select(.title=="{repo-slug} v{版本号}") | .id'`
+     b. 添加 Status 字段 (Backlog=pink, In Progress=red, Pending Verify=yellow, Done=green)
+     c. 如 gh CLI 不支持字段创建，提示用户在 GitHub UI 中手动配置 Board 视图
+    
+  此步骤确保 Clerk 在 Issue Tracker 阶段有可关联的 Project，且所有 issue 可追踪状态
 3. **验证 GitHub 权限** → 执行 `gh` 命令，确认可操作 repo、issue
 4. **确认工作区** → 确定项目本地工作区目录
 5. **探测 Agent 可用性** → 向各子 Agent 发送探测请求，确认正常响应
