@@ -24,7 +24,11 @@
 - `gh repo view {owner}/{repo}` 可访问
 - `gh project list` 中可见 `{repo}-{version}`
 
-### 3. Agent 可用性
+### 3. Issue 访问权限
+- 在 project-info.md 中找到 Test issue 的编号，读取该 issue，检查状态为 close
+- issue 的 title 为 `Good First Issue: {repo}-{version}`
+
+### 4. Agent 可用性
 - `agents/*.md` 文件存在
 
 ---
@@ -34,8 +38,9 @@
 1. **读取 `specs/project-info.md`** → 提取 Story、Version、Repo、Project
 2. **验证 repo** → `gh repo view` 确认可访问
 3. **验证 project** → `gh project list` 确认项目存在
-4. **验证 Agent** → 确认 prompt 文件存在
-5. **做出决定** → 全部有证据 = **通过**，任何一项缺失证据 = **拒绝**
+4. **验证 gh有Issue操作权限** -> 确认存在title 为『Good First Issue: {repo}-{version}』 的issue，状态为 close.
+5. **验证 Agent** → 确认 prompt 文件存在
+6. **做出决定** → 全部有证据 = **通过**，任何一项缺失证据 = **拒绝**
 
 ---
 

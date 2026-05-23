@@ -4,4 +4,5 @@
 - **Version**: 0.1
 - **Repo**: github.com/zillionare/specforge
 - **Project**: specforge-0.1 (#3)
+- **Test Issue**: #12 (权限验证)
 - **Created**: 2026-05-23
