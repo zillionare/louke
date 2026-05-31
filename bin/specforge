@@ -19,7 +19,7 @@ case "${1:-help}" in
             echo "Directory '$PROJECT_NAME' already exists. Choose a different name or remove the existing directory."
             exit 1
         fi
-        mkdir -p "$PROJECT_NAME"/{agents,templates,specs,wiki/entries,wiki/decisions}
+        mkdir -p "$PROJECT_NAME"/{agents,templates,specs,wiki/pages,wiki/decisions,raw/sources}
         cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/agents/" 2>/dev/null || {
             echo "Error: Could not copy agent files from $SPECFORGE_HOME/agents/"
             echo "Make sure specforge is installed: curl -sSL https://raw.githubusercontent.com/zillionare/specforge/main/install.sh | bash"

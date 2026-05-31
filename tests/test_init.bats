@@ -37,10 +37,10 @@ teardown() {
     [ "$TEMPLATE_COUNT" -ge 8 ]
 }
 
-@test "UT-002-03: init creates wiki/entries/" {
+@test "UT-002-03: init creates wiki/pages/" {
     run bash "$SPECFORGE_HOME/bin/specforge" init test-project
     [ "$status" -eq 0 ]
-    [ -d "test-project/wiki/entries" ]
+    [ -d "test-project/wiki/pages" ]
 }
 
 @test "UT-002-04: init creates wiki/decisions/" {

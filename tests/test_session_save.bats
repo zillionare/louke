@@ -82,12 +82,12 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-02: wiki entry filename format is documented" {
-    run grep -q "YYYY-MM-DD" "$AGENTS_DIR/Forge.md"
+@test "UT-010-02: wiki page frontmatter fields are documented" {
+    run grep -qE "(type:|date:|title:)" "$AGENTS_DIR/Forge.md"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-03: wiki entry content fields are documented" {
-    run grep -qE "(讨论主题|关键结论|待决策)" "$AGENTS_DIR/Forge.md"
+@test "UT-010-03: wiki page wikilink syntax is documented" {
+    run grep -qE "\[\[.*\]\]" "$AGENTS_DIR/Forge.md"
     [ "$status" -eq 0 ]
 }

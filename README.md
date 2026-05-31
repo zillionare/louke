@@ -163,7 +163,64 @@ agents/
 └── README.md       # 本文件
 ```
 
-## 7. 如何使用
+## 7. Wiki 架构（LLM-Wiki 模式）
+
+基于 Karpathy 的 [LLM-Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 模式，三层架构：
+
+```
+raw/sources/        ← Agent 完整会话记录（零 token，由 Hook 或 Agent 自行写入）
+wiki/pages/         ← 结构化 wiki 页面（Agent 对话结束时零额外 token 写入，带 YAML frontmatter + [[wikilink]]）
+  ├── {主题}.md     ← 每个 Agent 会话产出为一个 wiki 页面
+  └── ...
+wiki/decisions/     ← 架构决策记录 (ADR)
+wiki/index.md       ← 导航目录（Librarian 维护）
+wiki/log.md         ← 操作日志（Librarian 维护）
+wiki/overview.md    ← 全局摘要（Librarian 维护）
+wiki/.cache         ← SHA256 增量缓存（Librarian 内部使用）
+```
+
+### 数据流
+
+```
+Agent 对话结束
+    ↓ 零额外 token（只是输出格式变了）
+    ├→ 写入 wiki/pages/{主题}.md（带 YAML frontmatter + [[wikilink]]）
+    └→ （未来 Hook 可用后）写入 raw/sources/{会话ID}.md
+
+Librarian 被触发
+    ↓ 仅处理增量（SHA256 对比）
+    ├→ 重建 wiki/index.md（导航目录）
+    ├→ 更新 wiki/overview.md（全局摘要）
+    └→ 执行 Lint（孤立页面、死链接、缺失元数据）
+
+Guide 查询 wiki
+    ↓ 读取 wiki/index.md 定位 → 读取相关 pages → 回答问题
+```
+
+### Wiki 页面格式
+
+```markdown
+---
+type: decision | experience | entity
+title: {简短标题}
+date: YYYY-MM-DD
+agents: [{参与 Agent}]
+sources: [{来源}]
+related: [[{其他 wiki 页面}]]
+---
+
+## {正文}
+{使用 [[wikilink]] 交叉引用，每条结论标注来源}
+```
+
+### Token 消耗对比
+
+| 方式 | 额外 token |
+|------|-----------|
+| Agent 直接写 wiki/pages/ | 零（本来就要写会话记录，只是格式变了） |
+| Librarian 维护 index/overview/lint | 极低（仅增量处理） |
+
+## 8. 如何使用
 
 每个 Agent 的 `.md` 文件即为其系统 prompt。调用方式取决于宿主工具：
 

@@ -1,0 +1,24 @@
+---
+type: experience
+title: Archer → Cynic — 执行规划与批评
+date: 2026-05-23
+agents: [Archer, Cynic, Maestro, User]
+sources: [archer-cynic]
+related: [[clerk-auditor], [herald-arbiter]]
+---
+
+## 讨论摘要
+
+Archer 初版将 12 个 FR 拆为 25 个任务，其中 T-006~T-023 为 19 个 Agent 各加一条完全相同指令，粒度被质疑。Cynic 拒绝（缺 IT-004 验证任务）。Maestro 裁定：驳回 Cynic 的 IT-004 阻塞（IT-004 由各任务的 Green 阶段自然覆盖），但接受粒度批评，退回 Archer 合并 T-006~T-023→T-006。修正后 8 个任务，Cynic 通过。
+
+## 关键结论
+
+- 任务粒度判断准则：共享相同 R-G-R 模式的任务应该合并，不应为"说文件不同"而拆分
+- Cynic 的批评有价值，但 Maestro 应有判断权：Cynic 阻塞 ≠ 必须照单全收
+- 修正后 8 个任务，3 个已完成（T-004/005/007/008），4 个待执行（T-001/002/003/006）
+
+## 已决策
+
+- [x] T-006~T-023 合并为 T-006
+- [x] Cynic IT-004 阻塞驳回
+- [x] 任务计划通过

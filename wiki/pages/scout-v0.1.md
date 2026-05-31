@@ -1,0 +1,24 @@
+---
+type: experience
+title: Scout v0.1 — 项目就绪勘探
+date: 2026-05-23
+agents: [Scout]
+sources: [scout-v0.1]
+related: [[first-conversation]], [[sage-interview]]
+---
+
+## 讨论摘要
+
+Scout 勘探了 specforge v0.1 项目：PRD 已存在，创建了 "specforge v0.1" Project (#2)，gh 权限正常，21 个 Agent prompt 文件就绪。
+
+## 关键结论
+
+- PRD: specs/001-specforge-v0.1/prd.md 存在且非空
+- Project: "specforge v0.1" (#2) 新创建（之前 v1.0.0 是错误版本号）
+- 版本号已确定: v0.1
+- 所有 Agent 文件存在，工作区就绪
+
+## 已决策
+
+- [x] v0.1 Project 已创建
+- [x] Scout 通过，可推进到 Warden

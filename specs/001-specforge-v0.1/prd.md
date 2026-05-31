@@ -1,4 +1,4 @@
-# specforge — PRD
+i# specforge — PRD
 
 ## 背景
 AI coding agent 生态已成熟（Claude Code、Codex、Kilo 等），但缺乏一套结构化的、TDD-first 的多 Agent 协作开发方法论。现有方案要么是单 Agent 自主开发（OpenHands），要么是有协作但无 TDD 纪律（MetaGPT、CrewAI），要么只有规范驱动但无多角色评审（spec-kit）。
