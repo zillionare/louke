@@ -41,13 +41,42 @@
 
 ---
 
+## Feature 开发流程 — Agent 调用顺序
+
+按阶段手动调用以下 Agent（次序不可调换）：
+
+```
+Stage 1: Story/PRD       → Scout（勘探前置条件，直接在默认分支工作）
+          Scout 完成后   → Warden（守门审核）
+Stage 2: Interview       → Sage（PR 模式：创建 `spec/{spec-id}` 分支、发 PR、用 `gh api` 逐行提问，PR merge 后创建 issue）
+          Sage 完成后    → Lex（审核 spec：用 `gh api` Request changes 或 Approve；PR merge 后验证 issue 覆盖完整性、补充遗漏、关联 Project）
+Stage 3: Test Plan       → Probe（设计分层测试）
+          Probe 完成后   → Judge（裁判可执行性）
+Stage 4: 执行规划        → Archer（任务划分与测试关联）
+          Archer 完成后  → Cynic（批评审核完整性）
+Stage 5: 任务执行        → Forge（R-G-R 循环编码，分支 `feat/{spec-id}/{task-id}`）
+          Forge 每轮后   → Prism（棱镜审视代码质量）
+          Prism 通过后   → Keeper（守住完成门禁）
+Stage 6: 验收            → Herald（汇总全量测试）
+          Herald 完成后  → Arbiter（终审裁决）
+
+Bug 修复流程（独立，同样 R-G-R，分支 `fix/{issue-number}`）:
+          Bug 修复       → Hunter（TDD 猎杀 Bug）
+          Hunter 完成后  → Shield（全量回归守护）
+
+独立工具（不属于开发流程）:
+          回答使用问题   → Guide
+          整合 Wiki       → Librarian
+```
+
+每个 Agent 的详细 prompt 见 `agents/` 目录下同名 `.md` 文件。
+
+---
+
 ## 常见问题速查
 
-**Q: Feature 开发流程有几个阶段？**
-A: 7 个阶段：Story/PRD → Interview → Issue Tracker → Test Plan → 执行规划 → 任务执行(TDD) → 验收。Bug 修复独立流程，同样 R-G-R。
-
 **Q: 哪些阶段可以跳过？**
-A: 小型任务可跳过 Interview（Sage → Lex）。Story/PRD 阶段如果已有明确的 PRD 也可跳过 Scout。但 Issue Tracker 之后的所有阶段不可跳过——这是 TDD 的基础。
+A: 小型任务可跳过 Interview（Sage → Lex）。Story/PRD 阶段如果已有明确的 PRD 也可跳过 Scout。但 Test Plan 之后的所有阶段不可跳过——这是 TDD 的基础。
 
 **Q: 如何选择模型？**
 A: 参考 `agents/README.md` 的能力矩阵。深度推理（Sage/Forge/Hunter/Cynic）用 S 档；综合规划（Maestro/Archer/Probe/Prism）用 A 档；结构化检查（Warden/Judge/Keeper 等）用 C 档。

@@ -22,16 +22,6 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-01: Clerk has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Clerk.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Auditor has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Auditor.md"
-    [ "$status" -eq 0 ]
-}
-
 @test "UT-010-01: Probe has session save instructions" {
     run grep -q "会话保存" "$AGENTS_DIR/Probe.md"
     [ "$status" -eq 0 ]

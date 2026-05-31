@@ -65,3 +65,43 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
         false
     }
 }
+
+@test "LEX-ISSUE-001: Lex verifies issue coverage after PR merge" {
+    run grep -qE "(验证.*issue|issue.*覆盖|盘点.*issue|补充.*issue)" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ] || {
+        echo "FAIL: Lex.md does not mention verifying issue coverage"
+        false
+    }
+}
+
+@test "LEX-ISSUE-002: Lex creates missing issues" {
+    run grep -qE "gh issue create" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ] || {
+        echo "FAIL: Lex.md does not mention creating missing issues"
+        false
+    }
+}
+
+@test "LEX-ISSUE-003: Lex associates issues to Project" {
+    run grep -qE "(关联.*Project|Project.*关联|添加到.*Project)" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ] || {
+        echo "FAIL: Lex.md does not mention associating issues to Project"
+        false
+    }
+}
+
+@test "NO-CLERK: Clerk.md has been removed" {
+    run [ ! -f "$AGENTS_DIR/Clerk.md" ]
+    [ "$status" -eq 0 ] || {
+        echo "FAIL: Clerk.md still exists, should have been removed after merge into Lex"
+        false
+    }
+}
+
+@test "NO-AUDITOR: Auditor.md has been removed" {
+    run [ ! -f "$AGENTS_DIR/Auditor.md" ]
+    [ "$status" -eq 0 ] || {
+        echo "FAIL: Auditor.md still exists, should have been removed after merge into Lex"
+        false
+    }
+}

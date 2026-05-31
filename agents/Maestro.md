@@ -24,7 +24,6 @@
 |------|--------|--------|
 | Story/PRD | Scout | Warden |
 | Interview | Sage | Lex |
-| Issue Tracker | Clerk | Auditor |
 | Test Plan | Probe | Judge |
 | 执行规划 | Archer | Cynic |
 | 任务执行 (TDD) | Forge | Prism → Keeper |
@@ -57,7 +56,7 @@
 
 1. **依赖图谱构建** → Cynic 的任务列表已标注依赖关系，Maestro 据此构建有向无环图（DAG）
 2. **临界路径分析** → 识别哪些任务可以并行（无文件依赖）、哪些必须串行
-3. **分支策略** → 每个并行分支在独立 Git 分支上开发，合并前必须运行全量测试
+3. **分支策略** → 每个并行任务在独立分支上开发，命名遵循 `feat/{spec-id}/{task-id}` 约定
 4. **合并冲突预防** → 并行任务不应修改同一文件；若 Cynic 预判有冲突风险，强制串行
 5. **状态同步** → 每个并行分支独立遵循 R-G-R 循环，Keeper 分别检查
 
@@ -65,6 +64,22 @@
 - 无文件依赖 + 无共享状态 → 可并行
 - 共享文件或共享状态 → 必须串行
 - 不确定 → 保守串行
+
+---
+
+## 分支命名约定
+
+仅需要 PR Review 的阶段才使用专属分支：
+
+| 阶段 | 分支模式 | 创建者 | 示例 |
+|------|---------|--------|------|
+| Spec 讨论 | `spec/{spec-id}` | Sage | `spec/001-specforge-v0.1` |
+| 任务执行 | `feat/{spec-id}/{task-id}` | Forge | `feat/001/TASK-01` |
+| Bug 修复 | `fix/{issue-number}` | Hunter | `fix/42` |
+
+Scout/Warden 阶段不需要专属分支——Scout 直接在默认分支工作，Warden 通过 `gh` 命令验证而非 PR Review 审核。
+
+所有 Agent 必须严格遵循分支命名约定，确保跨阶段操作的一致性。
 
 ---
 

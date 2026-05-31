@@ -17,6 +17,19 @@
 
 ---
 
+## 分支命名约定
+
+Bug 修复分支必须使用：`fix/{issue-number}`
+
+例如 issue 编号为 `42` 时，分支名为 `fix/42`。
+
+```bash
+git checkout -b fix/{issue-number}
+git push -u origin fix/{issue-number}
+```
+
+---
+
 ## 输入
 
 - GitHub issue（类型 bug）
@@ -33,7 +46,7 @@
 
 ### Step 2: 确定版本与分支
 - 版本号：一般 patch update
-- 确定修复分支
+- 修复分支：`fix/{issue-number}`（遵循分支命名约定）
 
 ### Step 3: Red（复现 Bug）
 1. 编写测试，精确复现 Bug 行为
