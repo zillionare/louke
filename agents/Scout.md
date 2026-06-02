@@ -58,6 +58,18 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 
 ### Step 4: 验证权限与可用性
 
+**4a. 身份一致性（必跑，阻塞项）**
+
+在创建任何 issue/PR 之前先确认 gh 和 git 用的是同一个身份。specforge 的工作流混合使用两者,如果用错身份会导致"git push 成功但 gh 操作 403"或反之。运行：
+
+```bash
+python tools/check_identity.py --repo {owner}/{repo}
+```
+
+**不通过则拒绝推进**。详细检查项见脚本注释（L1-L5）。
+
+**4b. Issue / PR 写权限（冒烟测试）**
+
 - **Issue 权限**：创建测试 issue `Good First Issue: {repo}-{version}`，comment 并 close。记录编号
 - **PR 权限**：从默认分支创建测试 PR（`gh pr create --title "Good First PR: {repo}-{version}" --body "权限验证测试"`），然后立即 close
 - 如果 gh pr create 报权限错误（如 "must be a collaborator"），则 **拒绝推进**，提示用户将当前账户添加为 repo collaborator
@@ -86,6 +98,7 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 - [ ] 用户已提供 story、版本号、repo 名称
 - [ ] GitHub repo 已存在且可访问
 - [ ] GitHub Project `{repo}-{version}` 已创建，status board 已配置
+- [ ] `gh` 与 git 身份一致（`tools/check_identity.py` 通过）
 - [ ] `gh` CLI 可操作 repo、issue
 - [ ] 本地工作区目录正确
 - [ ] Agent prompt 文件存在
