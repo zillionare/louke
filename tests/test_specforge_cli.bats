@@ -93,6 +93,36 @@ teardown() {
     [[ "$output" == *"dev"* ]]
 }
 
+@test "CLI-108: help 明确区分 User-driven vs Agent-driven 命令" {
+    run bash "$CLI" help
+    [ "$status" -eq 0 ]
+    # 必须在 help 顶部提示"agent 自动调用"原则
+    [[ "$output" == *"agent"* ]]
+    [[ "$output" == *"debug"* ]]
+    # 必须有显式分类标题
+    [[ "$output" == *"User-driven"* ]]
+    [[ "$output" == *"Agent-driven"* ]]
+}
+
+@test "CLI-109: help 把 checkup/verify-issue 标为 Agent-driven" {
+    # 防止以后有人改回「所有命令都是人跑」
+    run bash "$CLI" help
+    [ "$status" -eq 0 ]
+    # checkup 应出现在 Agent-driven 块,而非 User-driven 块
+    awk '/User-driven/{u=1; next} /Agent-driven/{u=0; a=1} u && /checkup/{print "FAIL: checkup in user block"; exit 1} a && /checkup/{found_checkup=1} END{exit !found_checkup}' <<<"$output"
+    # verify-issue 同样
+    awk '/User-driven/{u=1; next} /Agent-driven/{u=0; a=1} u && /verify-issue/{print "FAIL: verify-issue in user block"; exit 1} a && /verify-issue/{found_vi=1} END{exit !found_vi}' <<<"$output"
+}
+
+@test "CLI-110: help 把 init/upgrade 标为 User-driven" {
+    run bash "$CLI" help
+    [ "$status" -eq 0 ]
+    # init 必须在 User-driven 块
+    awk '/User-driven/{u=1; next} /Agent-driven/{u=0} u && /init/{found_init=1} END{exit !found_init}' <<<"$output"
+    # upgrade 必须在 User-driven 块
+    awk '/User-driven/{u=1; next} /Agent-driven/{u=0} u && /upgrade/{found_up=1} END{exit !found_up}' <<<"$output"
+}
+
 @test "CLI-107: help 自描述所有 6 个子命令" {
     run bash "$CLI" help
     [ "$status" -eq 0 ]

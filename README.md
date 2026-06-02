@@ -403,7 +403,11 @@ export PATH="$HOME/.local/bin:$PATH"
 specforge upgrade
 ```
 
-内部是 `git pull --ff-only origin main`。在非 main 分支上拒绝运行（避免误改 dev 仓）。
+内部是 `git pull --ff-only origin main`。**在非 main 分支上拒绝运行**（避免误改 dev 仓）—— 这是个安全护栏，不是 bug。
+
+升级前会 fetch + fast-forward merge，输出新版本号。建议每月一次，或看到新功能公告时升级。
+
+`upgrade` 是 **user-driven** 的 lifecycle 命令 —— agent 不会自动跑（升级有破坏性，agent prompts 文件会变）。
 
 ### 8.3 初始化项目
 
@@ -466,17 +470,19 @@ specforge checkup OWNER/REPO
 #    Sage → Lex → Probe → Judge → Archer → Cynic → Forge → ...
 ```
 
-### 8.6 验证与体检
+### 8.6 验证与体检（Agent 内部调用）
 
-| 命令 | 用途 | 何时跑 |
-|------|------|--------|
-| `specforge checkup OWNER/REPO` | 身份一致性 | 每次 Maestro 启动时（自动） |
-| `specforge doctor` | checkup 的别名 | 同上 |
-| `specforge verify-issue --spec ID` | 验证 Feature issue form schema | Lex 阶段三（自动） |
-| `specforge upgrade` | 升级 framework | 手动 |
-| `specforge version` | 打印版本 + 路径 | 调试 |
+下列命令**主路径上由 agent 在 AI 工具上下文内自动调用**，用户不需要切换到终端。`specforge help` 列出它们只是为了人在 agent 卡住时可以手动跑一次 debug。
+
+| 命令 | 用途 | 调用方 | 何时跑 |
+|------|------|--------|--------|
+| `specforge checkup OWNER/REPO` | 身份一致性体检 (L1-L5) | **Agent** — Maestro | 每次 Maestro 启动时（自动） |
+| `specforge doctor` | checkup 的别名 | **Agent** — Maestro | 同上 |
+| `specforge verify-issue --spec ID` | 验证 Feature issue form schema (L1-L8) | **Agent** — Lex | Lex 阶段三 issue 准入（自动） |
 
 **资源开销**：以上所有命令合计 0 LLM token，1 次 `gh api`，< 5 秒。
+
+**用户何时手动跑这些**：当 Maestro/Lex 报告 `[拒绝]` 或持续失败，但又看不出原因时，可以自己跑一次看完整 L1-L8 输出，再 `gh auth status` / `git config` 等 debug。**不是常规操作**。
 
 ### 8.7 卸载
 
@@ -495,6 +501,38 @@ rm ~/.local/bin/specforge
 - **Codex**: 将 prompt 写入 `~/.codex/agents/<name>.md`，或在 `AGENTS.md` 中引用
 - **Kilo Code**（specforge 自举所用）: 在 `.kilo/agent/*.md` 注册
 - **通用**: 将 prompt 作为 system message 注入任意 LLM 调用
+
+### 8.9 命令分类
+
+`specforge` 的 6 个子命令按"主调用方"分两类。**CLI 入口统一，但调用方不同**：
+
+#### User-driven（人在终端跑）
+
+用户主动跑。Agent 不会自动调，因为这些操作有破坏性或是一次性。
+
+| 命令 | 用途 | 频次 |
+|------|------|------|
+| `init <name>` | 初始化新项目（拷贝 agents/ + templates/） | 每个新项目一次 |
+| `upgrade` | 升级 framework 到最新 main | 每月一次 / 看公告时 |
+| `version` | 打印版本 + install 路径 | 偶尔 debug |
+| `help` | 用法 | 偶尔查 |
+
+#### Agent-driven（AI 工具在上下文内跑）
+
+主路径上由 agent prompt 触发，在 LLM token 流中作为 tool call 执行。**用户感知不到**。`specforge help` 列出它们只是为了人能在 agent 卡住时手动跑一次 debug。
+
+| 命令 | 用途 | 谁调 |
+|------|------|------|
+| `checkup <owner/repo>` | 身份一致性体检 (L1-L5) | Maestro (session-start) |
+| `doctor` | `checkup` 的别名 | Maestro |
+| `verify-issue --spec ID` | Feature issue form schema 验证 (L1-L8) | Lex (issue 准入) |
+
+**判定原则**：
+
+- **machine-consumed 验证**（输出是 L1-L8 失败列表，agent 自己消化）→ agent-driven；人不该看，也不该手动调
+- **lifecycle 动作**（建项目、升级、查版本）→ user-driven；agent 不该自作主张
+
+**调试路径**：agent 报告 `[拒绝]` 或卡在某步 → 用户手动跑对应命令 → 看完整 stdout → 决定是 `gh auth switch` / `gh auth refresh` / 改 git config 等。
 
 ---
 
