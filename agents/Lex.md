@@ -101,7 +101,7 @@ Spec 讨论分支由 Sage 创建，命名格式为 `spec/{spec-id}`。
   > Lex 审查已通过。由于当前 Agent 身份与你共享 gh 用户，无法执行 Approve。请你：
   > 1. 打开 PR: {链接}
   > 2. 点击 Files Changed → Review changes → Approve → Submit review
-  > 3. 点击 Merge pull request
+  > 3. 点击 Merge pull request，勾选 **Delete branch** 清理已完成的分支
   > 4. 完成后回到对话中告诉我 "已 merge"
 
 **每次 Request changes 最多列出 3 个阻塞问题。每个问题必须在 PR 对应行上留下 inline comment。**
