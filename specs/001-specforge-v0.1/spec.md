@@ -16,19 +16,40 @@
 
 ## 功能需求
 
-| ID | 需求 | 可测试性 |
-|----|------|----------|
-| FR-001 | Scout 收集 story/version/repo 信息并写入 `specs/project-info.md` | ✅ |
-| FR-002 | Scout 创建 GitHub repo（如不存在）和 Project `{repo}-{version}`，配置 status board | ✅ |
-| FR-003 | Scout 验证 issue 权限：创建测试 issue → comment → close | ✅ |
-| FR-004 | Scout 验证 Project 权限：能将 issue 添加到 Project 并移动 status | ✅ |
-| FR-005 | Warden 读取 `specs/project-info.md`，验证所有字段、repo 可访问、Project 存在、测试 issue 已 close | ✅ |
-| FR-006 | Sage 创建 spec 分支、生成初始 spec.md、发 PR 并在 Files Changed 逐行提问 | ✅ |
-| FR-007 | Lex 通过 GitHub PR Review 审核 spec，使用 Request changes/Approve | ✅ |
-| FR-008 | 全部 21 个 Agent prompt 文件就绪，会话保存指令已嵌入 | ✅ |
-| FR-009 | `specforge init` Shell 脚本可用（curl | bash 安装） | ✅ |
-| FR-010 | Guide Agent 可回答方法论问题，Librarian Agent 可整合 wiki | ✅ |
-| FR-011 | Clerk/Auditor/Probe/Judge/Archer/Cynic/Forge/Prism/Keeper/Herald/Arbiter/Hunter/Shield 的 prompt 按方法论就绪 | ⚠️ prompt 就绪但需集成测试 |
+> **锚点约定**：每个 FR 单元前必须有显式锚点 `<a id="fr-XXX"></a>`，供 GitHub issue 反向链接。
+
+<a id="fr-001"></a>
+**FR-001**: Scout 收集 story/version/repo 信息并写入 `specs/project-info.md`  可测试性: ✅
+
+<a id="fr-002"></a>
+**FR-002**: Scout 创建 GitHub repo（如不存在）和 Project `{repo}-{version}`，配置 status board  可测试性: ✅
+
+<a id="fr-003"></a>
+**FR-003**: Scout 验证 issue 权限：创建测试 issue → comment → close  可测试性: ✅
+
+<a id="fr-004"></a>
+**FR-004**: Scout 验证 Project 权限：能将 issue 添加到 Project 并移动 status  可测试性: ✅
+
+<a id="fr-005"></a>
+**FR-005**: Warden 读取 `specs/project-info.md`，验证所有字段、repo 可访问、Project 存在、测试 issue 已 close  可测试性: ✅
+
+<a id="fr-006"></a>
+**FR-006**: Sage 创建 spec 分支、生成初始 spec.md、发 PR 并在 Files Changed 逐行提问  可测试性: ✅
+
+<a id="fr-007"></a>
+**FR-007**: Lex 通过 GitHub PR Review 审核 spec，使用 Request changes/Approve  可测试性: ✅
+
+<a id="fr-008"></a>
+**FR-008**: 全部 21 个 Agent prompt 文件就绪，会话保存指令已嵌入  可测试性: ✅
+
+<a id="fr-009"></a>
+**FR-009**: `specforge init` Shell 脚本可用（curl | bash 安装）  可测试性: ✅
+
+<a id="fr-010"></a>
+**FR-010**: Guide Agent 可回答方法论问题，Librarian Agent 可整合 wiki  可测试性: ✅
+
+<a id="fr-011"></a>
+**FR-011**: Clerk/Auditor/Probe/Judge/Archer/Cynic/Forge/Prism/Keeper/Herald/Arbiter/Hunter/Shield 的 prompt 按方法论就绪  可测试性: ⚠️ prompt 就绪但需集成测试
 
 ## 非功能需求
 
@@ -59,3 +80,4 @@
 - [ ] 所有需求可追踪到用户故事
 - [ ] 所有需求可断言（有明确的测试方法）
 - [ ] 没有模糊词汇
+- [ ] 所有 FR 都有显式锚点 `<a id="fr-XXX"></a>`
