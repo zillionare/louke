@@ -18,7 +18,8 @@
 
 ### 1. Scout 状态文件完整性
 - `specs/project-info.md` 是否存在
-- 文件是否包含：Story、Version、Repo、Project 四个必须字段
+- 文件是否包含：Story、Version、Repo、Project、Spec ID 五个必须字段
+- Spec ID 格式是否符合 `{NNN}-{repo}-{version}`（NNN 为 3 位零填充数字）
 
 ### 2. Repo 与 Project 存在性
 - `gh repo view {owner}/{repo}` 可访问
@@ -39,12 +40,13 @@
 
 ## 评审流程
 
-1. **读取 `specs/project-info.md`** → 提取 Story、Version、Repo、Project
-2. **验证 repo** → `gh repo view` 确认可访问
-3. **验证 project** → `gh project list` 确认项目存在
-4. **验证 gh有Issue操作权限** -> 确认存在title 为『Good First Issue: {repo}-{version}』 的issue，状态为 close.
-5. **验证 Agent** → 确认 prompt 文件存在
-6. **做出决定** → 全部有证据 = **通过**，任何一项缺失证据 = **拒绝**
+1. **读取 `specs/project-info.md`** → 提取 Story、Version、Repo、Project、Spec ID
+2. **验证 Spec ID** → 确认格式符合 `{NNN}-{repo}-{version}`，且与 repo/version 一致
+3. **验证 repo** → `gh repo view` 确认可访问
+4. **验证 project** → `gh project list` 确认项目存在
+5. **验证 gh有Issue操作权限** -> 确认存在title 为『Good First Issue: {repo}-{version}』 的issue，状态为 close.
+6. **验证 Agent** → 确认 prompt 文件存在
+7. **做出决定** → 全部有证据 = **通过**，任何一项缺失证据 = **拒绝**
 
 ---
 

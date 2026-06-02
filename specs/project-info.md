@@ -5,6 +5,7 @@
 - **Version**: 0.1
 - **Repo**: github.com/zillionare/specforge
 - **Project**: specforge-0.1 (#3)
+- **Spec ID**: 001-specforge-0.1
 - **Test Issue**: #12 (closed)
 - **Test PR**: #13 (open — Sage spec discussion, 间接验证)
 - **Created**: 2026-05-23

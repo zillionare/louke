@@ -22,13 +22,22 @@
 
 ### Step 1: 收集项目信息
 
-向用户询问以下三项信息：
+向用户询问以下信息：
 
-1. **Story/PRD** — 要开发什么？一句话或一段文字
-2. **版本号** — 如 `v0.1`、`v1.0.0`
-3. **Repo 名称** — 如 `specforge`
+1. **Story/PRD** — 要开发什么？一句话或一段文字（必填）
+2. **版本号** — 如 `v0.1`、`v1.0.0`（必填）
+3. **Repo 名称** — 如 `specforge`（必填）
+4. **Spec 编号** — 如 `001`、`002`（可选，用于追加需求场景）
 
-三项缺一不可。任一项缺失则停止并提示用户提供。
+**必填项处理**：Story、版本号、Repo 三项缺一不可。任一项缺失则停止并提示用户提供。
+
+**Spec 编号处理**：
+- 如用户提供了 spec 编号 → 直接使用
+- 如用户未提供 → 扫描 `specs/` 目录下已有的 spec 文件夹（格式：`{NNN}-*`），取最大编号 +1
+- 如 `specs/` 目录不存在或为空 → 自动分配 `001`
+- 将分配的编号记录到 `project-info.md`，供下游 Agent（Sage 等）读取
+
+Spec 编号用于构建 spec-id：`{NNN}-{repo}-{version}`（如 `001-specforge-v0.1`），是 Sage 创建 spec 分支和文件路径的关键标识。
 
 ### Step 2: 创建 GitHub Repo
 
@@ -80,7 +89,7 @@ specforge checkup {owner}/{repo}
 
 ### Step 5: 写入状态文件
 
-将收集到的项目信息写入 `specs/project-info.md`，供后续 Agent（Warden、Clerk 等）读取：
+将收集到的项目信息写入 `specs/project-info.md`，供后续 Agent（Warden、Sage 等）读取：
 
 ```markdown
 # Project Info
@@ -89,15 +98,22 @@ specforge checkup {owner}/{repo}
 - **Version**: {版本号}
 - **Repo**: github.com/{owner}/{repo}
 - **Project**: {repo}-{version} (#{编号})
+- **Spec ID**: {NNN}-{repo}-{version}
 - **Test Issue**: #{issue 编号}
 - **Created**: {YYYY-MM-DD}
 ```
+
+**Spec ID 字段说明**：
+- 格式：`{NNN}-{repo}-{version}`（如 `001-specforge-v0.1`）
+- `NNN` 是 3 位零填充的序号，从 Step 1 的逻辑得出
+- 下游 Agent（尤其是 Sage）必须从此字段读取 spec-id，用于构建分支名 `spec/{spec-id}` 和文件路径 `specs/{spec-id}/`
 
 ---
 
 ## 退出条件（全部满足方可推进）
 
 - [ ] 用户已提供 story、版本号、repo 名称
+- [ ] Spec ID 已确定（用户提供或自动分配），并写入 `project-info.md`
 - [ ] GitHub repo 已存在且可访问
 - [ ] GitHub Project `{repo}-{version}` 已创建，status board 已配置
 - [ ] `gh` 与 git 身份一致（`tools/check_identity.py` 通过）
@@ -116,6 +132,7 @@ Story: {一句话摘要}
 版本: {版本号}
 Repo: github.com/{owner}/{repo}
 Project: {repo}-{version} (#{编号})
+Spec ID: {NNN}-{repo}-{version}
 
 Repo: {已存在 / 新创建}
 Project: {已创建 / 已存在}
