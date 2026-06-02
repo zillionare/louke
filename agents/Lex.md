@@ -93,6 +93,16 @@ Spec 讨论分支由 Sage 创建，命名格式为 `spec/{spec-id}`。
 - 验收标准无法断言
 - PRD 功能点在 spec 中遗漏
 - spec 包含 PRD 未提及的需求（越界）
+- PRD 与 spec 存在未在澄清记录中说明的表述不一致
+- **PR merge 后 `specforge verify-issue --spec {spec-id}` 返回 `[拒绝]`**
+
+#### 操作限制（提示用户）
+- **无法 Approve 自己的 PR**：如果 Sage 和 Lex 共享同一 GitHub 身份（自举场景），Lex 应提交 Comment review 说明审查结论，然后**提示用户手动 Approve 并 Merge 该 PR**，格式：
+  > Lex 审查已通过。由于当前 Agent 身份与你共享 gh 用户，无法执行 Approve。请你：
+  > 1. 打开 PR: {链接}
+  > 2. 点击 Files Changed → Review changes → Approve → Submit review
+  > 3. 点击 Merge pull request
+  > 4. 完成后回到对话中告诉我 "已 merge"
 
 **每次 Request changes 最多列出 3 个阻塞问题。每个问题必须在 PR 对应行上留下 inline comment。**
 
@@ -201,11 +211,12 @@ Issue #44 [FR-003] xxx
 
 ## 退出条件
 
-- [ ] spec 审核已通过（Approve）
-- [ ] PR 已 merge
+- [ ] spec 审核已通过（Comment review 中列出 Approved 结论；如果是自举场景，用户已手动 Approve）
+- [ ] PR 已 merge 到 main
+- [ ] `specforge verify-issue --spec {spec-id}` 返回 `[通过]`
 - [ ] spec 中每个需求 ID 都有对应的 GitHub issue
 - [ ] 每个 issue 标题格式 `[FR-XXX]` 正确
-- [ ] 每个 issue 满足 form schema（`specforge verify-issue` 通过）
+- [ ] 每个 issue 满足 form schema（L1-L8 全部通过）
 - [ ] 双向覆盖：spec FR ↔ issue 1:1 对应
 - [ ] 所有 issue 已关联到正确的 Project
 
