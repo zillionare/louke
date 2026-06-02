@@ -1,57 +1,166 @@
 #!/usr/bin/env bash
+# specforge — TDD-driven multi-agent development framework CLI
+#
+# 这个脚本是 specforge 工具的"统一入口",被:
+#   1. install.sh 装到 ~/.local/bin/specforge
+#   2. 每个项目的 agent prompt 调用 (通过 $PATH)
+#   3. 用户在终端直接调用
+#
+# 设计原则:
+#   - 永远不假设调用方知道工具的内部位置
+#   - 所有 Python 调用经由此脚本(未来加 venv 时改一处即可)
+#   - 子命令和 help 自描述(无需看 README 也能上手)
+
 set -euo pipefail
 
-SPECFORGE_HOME="${SPECFORGE_HOME:-${HOME}/.specforge}"
+# SPECFORGE_HOME: framework 安装目录 (含 agents/templates/tools/VERSION)
+# 默认 ~/.specforge; 开发者本地可直接 SPECFORGE_HOME=. ./bin/specforge ...
+SPECFORGE_HOME="${SPECFORGE_HOME:-$HOME/.specforge}"
 
-show_help() {
-    echo "specforge v1.0.0"
-    echo "Usage: specforge init <project-name>"
+VERSION="$(cat "$SPECFORGE_HOME/VERSION" 2>/dev/null || echo "dev")"
+
+# ---------- helpers ----------
+
+die() { echo "specforge: $*" >&2; exit 1; }
+note() { echo "specforge: $*" >&2; }
+
+# resolve_python: 选解释器,优先 framework 自带 venv(未来),否则系统 python3
+resolve_python() {
+    if [ -x "$SPECFORGE_HOME/.venv/bin/python" ]; then
+        echo "$SPECFORGE_HOME/.venv/bin/python"
+    elif command -v python3 >/dev/null 2>&1; then
+        command -v python3
+    else
+        die "python3 not found on PATH"
+    fi
 }
 
+# ---------- subcommands ----------
+
+cmd_version() {
+    echo "specforge $VERSION"
+    echo "  install path: $SPECFORGE_HOME"
+}
+
+cmd_help() {
+    cat <<EOF
+specforge $VERSION — TDD-driven multi-agent development framework
+
+Usage:
+  specforge <command> [args]
+
+Commands:
+  init <name>              在当前目录创建 <name>/ 子项目(拷贝 agents/ + templates/)
+  checkup <owner/repo>     身份一致性体检 (gh vs git, viewerPermission 等)
+  verify-issue --spec ID   验证所有 Feature issue 满足 form schema (L1-L8)
+  doctor                   checkup 的别名
+  upgrade                  git pull 最新 framework 到 \$SPECFORGE_HOME
+  version                  打印版本
+  help                     显示本帮助
+
+环境变量:
+  SPECFORGE_HOME           framework 安装目录 (默认 ~/.specforge)
+  GH_REPO                  specforge 的 GitHub repo (默认 zillionare/specforge)
+
+更多信息: https://github.com/\${GH_REPO:-zillionare/specforge}
+EOF
+}
+
+cmd_init() {
+    local PROJECT_NAME="${1:-}"
+    if [ -z "$PROJECT_NAME" ]; then
+        die "Usage: specforge init <project-name>"
+    fi
+    if [ -d "$PROJECT_NAME" ]; then
+        die "Directory '$PROJECT_NAME' already exists"
+    fi
+
+    [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
+    [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
+
+    mkdir -p "$PROJECT_NAME"/{agents,templates,specs,wiki/pages,wiki/decisions,raw/sources}
+    cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/agents/" 2>/dev/null || true
+    cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/templates/" 2>/dev/null || true
+    cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/agents/" 2>/dev/null || true
+
+    local AGENT_COUNT TEMPLATE_COUNT
+    AGENT_COUNT=$(ls "$PROJECT_NAME/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
+    TEMPLATE_COUNT=$(ls "$PROJECT_NAME/templates"/*.md 2>/dev/null | wc -l | tr -d ' ')
+
+    cat <<EOF
+
+specforge project '$PROJECT_NAME' initialized!
+
+  项目目录:   $(pwd)/$PROJECT_NAME
+  Agent 目录:  $PROJECT_NAME/agents/   ($AGENT_COUNT 个 Agent prompt)
+  模板目录:    $PROJECT_NAME/templates/ ($TEMPLATE_COUNT 个模板)
+  Wiki 目录:   $PROJECT_NAME/wiki/
+
+模型建议:
+  - A 档 (Sage/Lex/Maestro):  主推理模型 — kimi-k2 / sonnet / gpt-5
+  - B 档 (Scout/Probe 计划):  中等 — deepseek-v3 / qwen-max
+  - C 档 (Probe 实施):        廉价 — deepseek-v4-flash / haiku
+
+下一步:
+  1. cd $PROJECT_NAME
+  2. (建议) 运行体检:
+     specforge checkup OWNER/REPO
+  3. 加载 Guide Agent 了解如何使用:
+     加载 agents/Guide.md 到你的 AI 工具,问"我该如何开始?"
+  4. 有了功能想法后,加载 Scout Agent 启动 §2.1 项目奠基
+
+详细文档: agents/README.md 第 8 节
+EOF
+}
+
+cmd_checkup() {
+    local REPO="${1:-}"
+    [ -z "$REPO" ] && die "Usage: specforge checkup <owner/repo>"
+    local PY
+    PY="$(resolve_python)"
+    # 把 --offline / --gh-user 等后续参数完整透传,供 bats 离线模式使用
+    shift
+    exec "$PY" "$SPECFORGE_HOME/tools/check_identity.py" --repo "$REPO" "$@"
+}
+
+cmd_verify_issue() {
+    local PY
+    PY="$(resolve_python)"
+    # 所有参数透传给 Python 脚本
+    exec "$PY" "$SPECFORGE_HOME/tools/verify_issue_schema.py" "$@"
+}
+
+cmd_doctor() {
+    cmd_checkup "$@"
+}
+
+cmd_upgrade() {
+    [ -d "$SPECFORGE_HOME/.git" ] || die "$SPECFORGE_HOME is not a git clone; cannot upgrade"
+    # 拒绝在非 main 分支上升级 — 那是开发者的 dev 仓,不是 install 仓
+    local CURRENT
+    CURRENT="$(cd "$SPECFORGE_HOME" && git rev-parse --abbrev-ref HEAD)"
+    [ "$CURRENT" = "main" ] || die "refusing to upgrade on branch '$CURRENT' (only main is supported)"
+
+    note "fetching origin/main into $SPECFORGE_HOME ..."
+    (
+        cd "$SPECFORGE_HOME"
+        git fetch origin main
+        git merge --ff-only origin/main
+    )
+    local NEW_VERSION
+    NEW_VERSION="$(cat "$SPECFORGE_HOME/VERSION" 2>/dev/null || echo "?")"
+    note "upgraded to $NEW_VERSION"
+}
+
+# ---------- dispatch ----------
+
 case "${1:-help}" in
-    init)
-        PROJECT_NAME="${2:-}"
-        if [ -z "$PROJECT_NAME" ]; then
-            echo "Usage: specforge init <project-name>"
-            exit 1
-        fi
-        if [ -d "$PROJECT_NAME" ]; then
-            echo "Directory '$PROJECT_NAME' already exists. Choose a different name or remove the existing directory."
-            exit 1
-        fi
-        mkdir -p "$PROJECT_NAME"/{agents,templates,specs,wiki/pages,wiki/decisions,raw/sources}
-        cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/agents/" 2>/dev/null || {
-            echo "Error: Could not copy agent files from $SPECFORGE_HOME/agents/"
-            echo "Make sure specforge is installed: curl -sSL https://raw.githubusercontent.com/zillionare/specforge/main/install.sh | bash"
-            exit 1
-        }
-        cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/templates/" 2>/dev/null
-
-        AGENT_COUNT=$(ls "$PROJECT_NAME/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
-        TEMPLATE_COUNT=$(ls "$PROJECT_NAME/templates"/*.md 2>/dev/null | wc -l | tr -d ' ')
-
-        printf "\nspecforge project '%s' initialized!\n\n" "$PROJECT_NAME"
-        printf "  项目目录: %s\n" "$(pwd)/$PROJECT_NAME"
-        printf "  Agent 目录: %s/agents/  (%s 个 Agent prompt)\n" "$PROJECT_NAME" "$AGENT_COUNT"
-        printf "  模板目录:   %s/templates/ (%s 个模板)\n" "$PROJECT_NAME" "$TEMPLATE_COUNT"
-        printf "  Wiki 目录:  %s/wiki/\n\n" "$PROJECT_NAME"
-
-        printf "  下一步:\n"
-        printf "  1. cd %s\n" "$PROJECT_NAME"
-        printf "  2. 调用 Guide Agent 了解如何使用:\n"
-        printf "     用你的 AI 工具加载 agents/Guide.md 的 prompt，然后问 \"我该如何开始？\"\n"
-        printf "  3. 如果你已有所需功能的想法，调用 Scout Agent:\n"
-        printf "     加载 agents/Scout.md → 告诉它你要做什么\n\n"
-
-        printf "  推荐模型（国内版）:\n"
-        printf "    S 档 (深度推理): deepseek-v4-pro  → Sage, Forge, Hunter\n"
-        printf "    A 档 (综合规划): kimi-k2.6        → Maestro, Archer, Probe\n"
-        printf "    A-档 (稳定编码): qwen3.6-plus     → Lex, Judge\n"
-        printf "    C 档 (快速检查): deepseek-v4-flash → Warden, Keeper, Shield\n\n"
-
-        printf "  详细模型映射见: agents/README.md\n"
-        ;;
-    *)
-        show_help
-        ;;
+    init)        shift; cmd_init "$@" ;;
+    checkup)     shift; cmd_checkup "$@" ;;
+    verify-issue) shift; cmd_verify_issue "$@" ;;
+    doctor)      shift; cmd_doctor "$@" ;;
+    upgrade)     shift; cmd_upgrade "$@" ;;
+    version|-v|--version) cmd_version ;;
+    help|-h|--help|"") cmd_help ;;
+    *) die "unknown command: $1 (try 'specforge help')" ;;
 esac

@@ -63,8 +63,10 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 在创建任何 issue/PR 之前先确认 gh 和 git 用的是同一个身份。specforge 的工作流混合使用两者,如果用错身份会导致"git push 成功但 gh 操作 403"或反之。运行：
 
 ```bash
-python tools/check_identity.py --repo {owner}/{repo}
+specforge checkup {owner}/{repo}
 ```
+
+> agent 不直接调 Python 脚本——所有 framework 工具都通过 `specforge` CLI 入口,具体路径由 install 时决定,agent 无需关心。
 
 **不通过则拒绝推进**。详细检查项见脚本注释（L1-L5）。
 

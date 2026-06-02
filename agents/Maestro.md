@@ -35,7 +35,7 @@
 ## 工作流程
 
 1. **接收用户请求** → 判断是 Feature 还是 Bug
-2. **会话启动冒烟** → 跑 `tools/check_identity.py --repo {owner}/{repo}`（详见 §会话启动）—— **不通过则拒绝启动**
+2. **会话启动冒烟** → 跑 `specforge checkup {owner}/{repo}`（详见 §会话启动）—— **不通过则拒绝启动**
 3. **启动对应流程** → 调用第一个阶段的实施者
 4. **阶段推进** → 实施者完成 → 调用评审者 → 通过则推进到下一阶段 → 不通过则退回实施者
 5. **异常处理** → Agent 失响应 → 停止并提示用户修复
@@ -46,7 +46,7 @@
 每次 Maestro 启动新会话时，必须先确认 gh 与 git 身份一致 + token 权限足够。这一步 0 token（纯本地检查 + 1 次 `gh api`），却能避免"git push 成功但 gh 操作 403"这类一半成功一半失败的窘境。
 
 ```bash
-python tools/check_identity.py --repo {owner}/{repo}
+specforge checkup {owner}/{repo}
 ```
 
 - 输出 `[通过]` → 进入流程

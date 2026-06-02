@@ -367,11 +367,175 @@ related: [[{其他 wiki 页面}]]
 | Agent 直接写 wiki/pages/           | 零（本来就要写会话记录，只是格式变了） |
 | Librarian 维护 index/overview/lint | 极低（仅增量处理）                     |
 
-## 8. 如何使用
+## 8. 如何使用（用户手册）
+
+### 8.1 安装
+
+**一键安装**（推荐）：
+
+```bash
+curl -sSL https://raw.githubusercontent.com/zillionare/specforge/main/install.sh | bash
+```
+
+这会做：
+1. `git clone --depth 1` 到 `~/.specforge/`
+2. 把 `bin/specforge` 复制到 `~/.local/bin/specforge`
+3. 把 `~/.local/bin` 加进 PATH（如果还没在）
+
+**装完后**：
+```bash
+$ specforge version
+specforge 0.1.0
+  install path: /Users/you/.specforge
+```
+
+**手动安装**（适合 dev 或离线场景）：
+```bash
+git clone https://github.com/zillionare/specforge.git ~/.specforge
+cp ~/.specforge/bin/specforge ~/.local/bin/
+chmod +x ~/.local/bin/specforge
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### 8.2 升级
+
+```bash
+specforge upgrade
+```
+
+内部是 `git pull --ff-only origin main`。在非 main 分支上拒绝运行（避免误改 dev 仓）。
+
+### 8.3 初始化项目
+
+```bash
+specforge init my-project
+cd my-project
+ls
+# agents/  templates/  specs/  wiki/  raw/
+```
+
+`init` 会把 `agents/*.md` 和 `templates/*.md` 拷到你的项目目录。**Python 工具（`tools/*.py`）不复制**——它们是 framework 的实现细节，留在 `~/.specforge/tools/`，通过 `specforge` CLI 调用。
+
+### 8.4 配置
+
+#### 8.4.1 身份一致性（必做，会话级不变量）
+
+**为什么需要**：specforge 同时用 `gh` CLI（issue/PR/label）和 `git`（push/clone）。两者如果用不同 GitHub 账号，会出现 "git push 成功但 gh 操作 403" 这种半成功半失败的窘境。Maestro 会在每次会话启动时自动跑这个检查；用户也可以手动跑：
+
+```bash
+specforge checkup OWNER/REPO
+```
+
+输出三档：
+- `[通过]` — gh 与 git 身份完全一致，权限足够
+- `[通过+警告]` — 主体一致，但有提示项（如 remote owner 与 gh user 不同，可能是合法的个人 token 操作 org repo）
+- `[拒绝]` — 身份不一致或权限不足，**会话不能启动**
+
+修复（按提示）：
+- `gh auth switch` 切换到正确的 GitHub 账号
+- `gh auth refresh -h github.com -s repo,project` 加 scope
+- `git config user.email <gh 账号关联邮箱>` 改 git 身份
+
+#### 8.4.2 GitHub Token
+
+`specforge checkup` 会自动检查 token scopes。最简配置：
+- `repo`（创建/编辑 issue、PR、push code）
+- `project`（创建/管理 GitHub Project）
+
+可选：
+- `delete_repo`（CLI 删 repo）
+- `workflow`（编辑 `.github/workflows/`）
+
+#### 8.4.3 模型选择
+
+`agents/README.md` 第 5 节给了全局版和国内版两套模型映射。按表选即可，框架本身不绑死任何 provider。
+
+### 8.5 启动开发流程
+
+```bash
+# 1. (新会话) 跑一次身份体检
+specforge checkup OWNER/REPO
+
+# 2. 加载 Guide Agent 了解方法论
+#    把 agents/Guide.md 的内容粘贴到 AI 工具的 system message,问"我该如何开始"
+
+# 3. 有了 PRD/Story 后,加载 Scout Agent 启动 §2.1 项目奠基
+#    把 agents/Scout.md 加载,告诉它你的项目信息
+
+# 4. 流程推进:每个阶段 agent prompt 在 agents/{name}.md
+#    Sage → Lex → Probe → Judge → Archer → Cynic → Forge → ...
+```
+
+### 8.6 验证与体检
+
+| 命令 | 用途 | 何时跑 |
+|------|------|--------|
+| `specforge checkup OWNER/REPO` | 身份一致性 | 每次 Maestro 启动时（自动） |
+| `specforge doctor` | checkup 的别名 | 同上 |
+| `specforge verify-issue --spec ID` | 验证 Feature issue form schema | Lex 阶段三（自动） |
+| `specforge upgrade` | 升级 framework | 手动 |
+| `specforge version` | 打印版本 + 路径 | 调试 |
+
+**资源开销**：以上所有命令合计 0 LLM token，1 次 `gh api`，< 5 秒。
+
+### 8.7 卸载
+
+```bash
+rm -rf ~/.specforge
+rm ~/.local/bin/specforge
+# 也可手动从 ~/.zshrc / ~/.bashrc 删掉 PATH 那行
+```
+
+### 8.8 与 AI 工具的集成
 
 每个 Agent 的 `.md` 文件即为其系统 prompt。调用方式取决于宿主工具：
 
 - **Claude Code**: 将 prompt 内容写入 `~/.claude/agents/<name>.md`，通过 `/agents` 调用
 - **OpenCode**: 在 `opencode.jsonc` 的 `agents` 配置中引用，或通过 skill 机制注册
 - **Codex**: 将 prompt 写入 `~/.codex/agents/<name>.md`，或在 `AGENTS.md` 中引用
+- **Kilo Code**（specforge 自举所用）: 在 `.kilo/agent/*.md` 注册
 - **通用**: 将 prompt 作为 system message 注入任意 LLM 调用
+
+---
+
+## 9. 部署与分发路线图
+
+### 9.1 当前形态（v0.1.0）
+
+- **安装**：`curl ... | bash`（git clone 到 `~/.specforge/`）
+- **升级**：`specforge upgrade`（git pull ff-only）
+- **依赖**：Python 3 stdlib（无第三方包）、bash、git、gh CLI
+- **发布**：直推 GitHub `main` 分支，无版本号（直到加 VERSION 文件前）
+
+### 9.2 v0.2 计划
+
+- **VERSION 文件**（已加）→ `specforge version` 打印
+- **Homebrew tap**（`zillionare/homebrew-specforge`）：
+  - 用户：`brew install zillionare/specforge/specforge`
+  - 好处：macOS 用户最熟悉，自动 PATH 设置，签名校验
+- **Windows / WSL 支持**：当前 install.sh 是 bash only，Win 用户需 WSL
+
+### 9.3 v1.0 计划
+
+- **GitHub Releases with SHA256SUMS**：
+  - 每次发版打 tag，CI 生成 tarball + checksum
+  - install.sh 增加 `--verify` 模式（curl 后对 checksum）
+  - 适合企业用户、防供应链攻击
+- **可选 venv**（在 `bin/specforge` 的 `resolve_python` 切换）：
+  - 何时启用：当任何工具开始用第三方包（`requests`、`pyyaml`、`jinja2`）时
+  - 切换方式：`install.sh` 末尾 `python3 -m venv ~/.specforge/.venv && ~/.specforge/.venv/bin/pip install ...`
+  - **agent prompt 完全不需要改**——`bin/specforge` 已经是唯一入口
+- **离线安装包**：`specforge-{version}.tar.gz` 镜像（无网络环境）
+
+### 9.4 不会做的
+
+- **PyPI 包**：specforge 不是 Python 库，是 "framework + markdown prompts"，pip 装没意义
+- **Docker 镜像**：specforge 本质是 prompt + CLI 脚本，容器化反而增加门槛
+- **自托管 web 服务**：specforge 是给本地开发者用的，不是 SaaS
+
+### 9.5 升级兼容性策略
+
+- **次版本号（0.1 → 0.2）**：可加新子命令、新 agent，老 agent prompt 行为不变
+- **次版本号（0.x → 0.y）**：agent prompt 字段可加但不可改，老调用方式仍工作
+- **主版本号（0.x → 1.0）**：保证"在 0.9 写出的 spec 能用 1.0 的 verifier 校验"，反之亦然
+- **agent 协议变更**：必须同时更新 Scout（首次接触新 spec 的 agent） 和 Guide（方法论入口），并在 wiki/decisions/ 留 ADR
