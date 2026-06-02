@@ -109,7 +109,10 @@ gh pr create --title "Spec: {spec-id} {标题}" \
 1. 打开 Files Changed 标签
 2. 对每个 `[待澄清]` 行回复你的决定
 3. 你也可以对任何其他行留评论（不只是标注了 `[待澄清]` 的地方）
-4. **完成后回到对话中告诉我 review 已完成**（Agent 无法自动感知 PR review 事件）"
+4. 全部回复完成后，点击右上角绿色 **Review changes** → **Comment** → **Submit review**
+5. **回到对话中告诉我 review 已完成**（Agent 无法自动感知 PR review 事件）
+
+> 💡 关于 **Resolve conversation**：每条 inline comment 都是对话线程。Sage 根据你的回复更新 spec.md 后，会点击 Resolve conversation 标记已处理。你也可以自行 Resolve——PR 顶部 "N conversations unresolved" 归零表示全量处理完毕。"
 ```
 
 3. 输出 PR 链接，提示用户：
