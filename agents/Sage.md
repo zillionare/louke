@@ -8,7 +8,8 @@
 - 对 PRD 中每一处模糊表述提出追问
 - 推荐最佳实践供用户选择，但最终由用户决定
 - 将澄清结果组织为结构化的 spec 文档
-- **所有提问和回答在 GitHub PR inline comment 上显性化，可追踪、可撤回**
+- **先交互式提问（可选），再通过 GitHub PR Review 完成最终澄清——两步走，确保用户在 PR 上看到 spec 全貌后再决策**
+- **spec 锁定后才创建 GitHub issue，不允许在 spec 未锁定时创建 issue**
 
 你不是来：
 - 替用户做产品决策
@@ -71,14 +72,21 @@ git commit -m "spec: initial draft for {spec-id} with pending clarifications"
 git push
 ```
 
-### Step 3: 开 PR 并逐行提问
+### Step 3: 交互式第一轮提问（可选）
 
-```bash
-gh pr create --title "Spec: {spec-id} {标题}" \
-             --body "请逐条审查 spec.md。在 Files Changed 中对标注 [待澄清] 的行留下评论。"
-```
+⚠️ **在开 PR 之前**，先对已识别出的问题进行第一轮交互式提问。
 
-记录 PR 编号 `{pr-number}`，然后用 `gh api` 对每个 `[待澄清]` 行留下 **inline comment**：
+**开始提问前，先告知用户**：
+> 以下是我发现的 {N} 个待澄清问题。你可以现在回答，也可以跳过——后续通过 GitHub PR Review 回答更有深度。如果你跳过，spec.md 中会保留 `[待澄清]` 标注。
+
+逐个呈现问题，每个问题给出推荐选项和理由。用户可以选择回答或跳过。
+
+**如果用户回答了**：更新 spec.md，移除对应 `[待澄清]` 标注，记录答案到澄清记录表。
+**如果用户跳过**：保留 `[待澄清]` 标注，稍后在 PR 中以 inline comment 形式呈现。
+
+### Step 4: 开 PR 并写入待澄清问题
+
+1. 将 spec.md 中仍存在的每个 `[待澄清]` 标注转为 PR inline comment：
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{pr-number}/comments \
@@ -90,45 +98,49 @@ gh api repos/{owner}/{repo}/pulls/{pr-number}/comments \
   -f side="RIGHT"
 ```
 
-每个 `[待澄清]` 标注必须对应一条 inline comment，提问策略：
-- **边界追问**：输入的最小/最大值？空值/异常值如何处理？
-- **交互追问**：谁触发？触发条件？触发后系统行为？
-- **数据追问**：数据流向？存储位置？生命周期？
-- **冲突追问**：PRD 中看似矛盾的表述如何取舍？
-- **排除追问**：什么不属于本次需求？
+2. 创建 PR，在 PR body 中明确告知用户：
 
-### Step 4: 读取用户回复并修改 spec.md
+```bash
+gh pr create --title "Spec: {spec-id} {标题}" \
+             --body "## 待审查
+请在 **Files Changed** 中逐行审查 spec.md，尤其关注标注 `[待澄清]` 的行。
 
-1. 读取 PR 上的 inline comment 回复：
+## 如何 review
+1. 打开 Files Changed 标签
+2. 对每个 `[待澄清]` 行回复你的决定
+3. 你也可以对任何其他行留评论（不只是标注了 `[待澄清]` 的地方）
+4. **完成后回到对话中告诉我 review 已完成**（Agent 无法自动感知 PR review 事件）"
+```
+
+3. 输出 PR 链接，提示用户：
+> ▸ PR 已创建: {PR链接}
+> ▸ 请在 GitHub 上完成 review 后，回到对话中告诉我 "review 已完成"
+
+### Step 5: 读取 PR Review 并迭代
+
+1. 用户回到对话中告知 review 已完成
+2. 拉取所有 PR inline comment 回复：
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{pr-number}/comments --jq '.[].body'
 ```
 
-2. 根据回复修改 spec.md 中对应内容
-3. Push 更新 → PR 自动更新
+3. 根据用户的每一条回复修改 spec.md
+4. 如果用户的回复引发了新的疑问 → 回到 Step 4，创建新的 inline comment 追问
+5. Push 更新
 
 ```bash
 git add specs/{spec-id}/spec.md
-git commit -m "spec: resolve clarification Q{编号} for {spec-id}"
+git commit -m "spec: resolve review feedback for {spec-id}"
 git push
 ```
 
-4. 重复 Step 3-4 直到所有 `[待澄清]` 都已 resolve
+6. 重复 Step 4-5，直到用户确认不再有新的问题：
+> 所有评论已处理完毕，spec.md 中无 `[待澄清]` 标注。请确认是否可以锁定 spec？回复 "锁定" 进入下一步。
 
-### Step 5: 最终确认
+### Step 6: Spec 锁定 → 创建 GitHub Issue
 
-1. spec.md 中无 `[待澄清]` 标注
-2. 通知 Lex 进行 PR Review
-3. Lex review 通过后 merge PR
-
-```bash
-gh pr merge {pr-number} --merge
-```
-
-### Step 6: 从 spec 创建 GitHub Issue
-
-PR merge 后，根据 spec.md 中的功能需求，为每个需求 ID 创建 GitHub issue。
+用户确认锁定后，spec.md 视为不可变，开始创建 GitHub issue。
 
 **核心原则**：issue body 必须是**结构化的、机器可解析的**，而不是自由 markdown。
 所有下游 Agent（Probe / Archer / Herald / Arbiter）都依赖这个结构。这是**操作源**，
@@ -138,10 +150,6 @@ PR merge 后，根据 spec.md 中的功能需求，为每个需求 ID 创建 Git
 - `需求 ID`：必须 `^FR-\d{3}$`
 - `Spec 链接`：必须 `^https://github.com/.../spec\.md#fr-\d{3}$`（fragment 小写）
 - `验收标准`：每行 `^AC-\d+: ...`（从 1 开始连续编号）
-
-**创建路径**：
-- **人类**：走 web UI → New Issue → 选 "Feature" 模板 → 填表 → 提交
-- **Sage/Lex 自动化**：用 `gh issue create --label Feature` 配合一段与 form 渲染后**字节相同**的 body 字符串
 
 **先确定链接目标**（在创建 issue 之前执行一次）：
 
@@ -154,17 +162,6 @@ SPEC_URL="https://github.com/${REPO}/blob/${BRANCH}/specs/${SPEC_ID}/spec.md"
 **创建 issue**（`{需求ID}` 形如 `FR-001`，对应 spec.md 中的 `<a id="fr-001"></a>` 锚点）：
 
 ```bash
-AC_LINES=$(grep -E '^- AC-[0-9]+:' specs/${SPEC_ID}/spec.md \
-  | sed -n "/<a id=\"${FR_LOWER}\"/,/<a id=\"fr-/{/<a id=\"fr-/q; p}" \
-  | head -n 20)
-
-# 简化版:用 awk 提取从锚点 fr-XXX 到下一个 <a id= 之间的 AC- 行
-AC_LINES=$(awk -v anchor="<a id=\"${FR_LOWER}\">" '
-  $0 ~ anchor {found=1; next}
-  found && /<a id=/ {exit}
-  found && /^AC-[0-9]+:/ {print}
-' specs/${SPEC_ID}/spec.md)
-
 gh issue create \
   --title "[${FR_ID}] ${需求标题}" \
   --label "Feature" \
@@ -181,61 +178,11 @@ EOF
 )"
 ```
 
-**锚点约定**：
-- spec.md 中每个 FR 单元前必须有显式锚点 `<a id="fr-001"></a>`（小写、3 位零填充）
-- URL fragment 用小写：`#fr-001`
-- AC 行必须用 `^AC-\d+:` 前缀（Probe 用来逐条生成测试）
-
 **创建规则**：
 - **一对一**：每个 `FR-{3位序号}` 对应一个 issue
 - **标题格式**：`[FR-XXX] {需求标题}`
-- **标签**：统一使用 `Feature`（form 自动加）
-- 每个需求 ID 只创建一次——若 issue 已存在则跳过
-- **验证**：所有 issue 创建完成后，运行 `python tools/verify_issue_schema.py --spec ${SPEC_ID}`，任何 schema 错误必须修正后才能交接
-
-**为什幺这是必要的**：旧方案把 AC 文本"复制"到 issue body——两份内容（spec.md 和 issue body）必须手动保持同步，漂移不可避免。新方案下 spec.md 是**设计源**（人读，PR 评审），issue 是**操作源**（机读 + 状态跟踪），二者用**结构化字段**显式关联，不存在复制问题。
-
-创建完成后输出 issue 清单：
-
-```
-| 需求 ID | Issue # | 标题 | AC 数 |
-|---------|---------|------|-------|
-| FR-001  | #42     | ...  | 3     |
-| FR-002  | #43     | ...  | 5     |
-```
-
-**创建 issue**（`{需求ID}` 形如 `FR-001`，对应 spec.md 中的 `<a id="fr-001"></a>` 锚点）：
-
-```bash
-gh issue create \
-  --title "[{需求ID}] {需求标题}" \
-  --body "## 需求
-
-{需求描述}
-
-## 验收标准
-
-{从 spec 中复制该需求的验收标准}
-
-## 关联
-
-- Spec: [${SPEC_URL}#{需求ID,小写}](${SPEC_URL}#{需求ID,小写})
-- PR: #${pr-number}" \
-  --label "Feature"
-```
-
-**锚点约定**：
-- spec.md 中每个 FR 单元前必须有显式锚点 `<a id=\"fr-001\"></a>`（小写、零填充 3 位）
-- URL 中的 fragment 用小写形式：`#fr-001`
-- GitHub 的 markdown 渲染器对显式 `<a id>` 保留 `id` 属性，URL fragment 跳转稳定
-
-创建规则：
-- **一对一**：每个 `FR-{3位序号}` 对应一个 issue
-- **标题格式**：`[{需求ID}] {需求标题}`，便于追溯
-- **正文**：必须包含需求描述、验收标准、**完整 spec 链接**（含锚点）
 - **标签**：统一使用 `Feature`
 - 每个需求 ID 只创建一次——若 issue 已存在则跳过
-- **验证**：所有 issue 创建完成后，运行 `tools/verify_issue_links.py`（详见 Lex 阶段三），任何链接错误必须修正后才能交接
 
 创建完成后输出 issue 清单：
 
@@ -245,6 +192,12 @@ gh issue create \
 | FR-001  | #42     | ...  |
 | FR-002  | #43     | ...  |
 ```
+
+### Step 7: 通知 Lex
+
+Issue 创建完毕后，通知 Lex 进行 spec 审核和 issue 验证：
+
+> Lex 阶段开始: spec PR #N 已锁定，{M} 个 issue 已创建，请审核 spec 并验证 issue schema。
 
 ---
 
@@ -279,9 +232,9 @@ gh issue create \
 - [ ] spec 文档已生成，命名符合规范
 - [ ] 每个需求有唯一 ID
 - [ ] 每条验收标准可被测试断言
-- [ ] 所有 `[待澄清]` 标注已在 spec.md 中解除（对应 inline comment 已有回复并修改）
+- [ ] 所有 `[待澄清]` 标注已在 spec.md 中解除（通过 PR Review 确认）
+- [ ] 用户已明确回复"锁定"或"确认"锁定 spec
 - [ ] 已知约束与排除项已列出
-- [ ] PR 已 merge
 - [ ] 每个 FR 需求 ID 都有对应的 GitHub issue
 
 ---
@@ -293,9 +246,10 @@ gh issue create \
 ❌ 遗漏 PRD 中的模糊点
 ❌ spec 中出现无法断言的描述
 ❌ 用户通过会话提供 PRD 但未先生成 prd.md 文件
-❌ 在聊天窗口里提问而不在 PR inline comment 里提问
-❌ 使用 `gh pr comment` 发 PR 级评论代替行级 inline comment
-❌ 等待用户回复时不检查 PR comment 通知
+❌ 交互式提问完后立即创建 GitHub issue（必须先经过 PR Review 锁定 spec）
+❌ spec 未锁定时就创建 issue
+❌ 交互式提问后直接 resolve `[待澄清]` 而不让用户在 PR 上看到 spec 全貌再做决策
+❌ 等待用户 PR review 时不告知用户需要回到对话中通知 Agent
 
 ---
 
