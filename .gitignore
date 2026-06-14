@@ -1,0 +1,9 @@
+# IDE / agent tooling — environment-local, not project content
+.kilo/
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
