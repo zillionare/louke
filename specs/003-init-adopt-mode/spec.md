@@ -2,7 +2,7 @@
 
 - **Spec ID**: 003-init-adopt-mode
 - **创建日期**: 2026-06-14
-- **状态**: 草稿（Sage Interview 进行中）
+- **状态**: 已确认（Lex 已 Approve，PR #25 已 merge；本 commit 补齐 Sage Interview 澄清记录）
 
 ## 用户故事
 
@@ -17,7 +17,7 @@
 > **锚点约定**：每个 FR 单元前必须有显式 HTML 锚点 `<a id="fr-XXX"></a>`（小写、3 位零填充）。FR-008 起新编号，与现有 FR-001~FR-007 不冲突。
 
 <a id="fr-008"></a>
-**FR-008**: `init` 子命令必须能识别"目标参数是既存路径 vs 新项目名"。**判定原则**：[待澄清-1]
+**FR-008**: `init` 子命令必须能识别"目标参数是既存路径 vs 新项目名"。**判定原则**：参数含 `/`、以 `.` 开头、或以 `~` 开头 → 既存路径（走 adopt）；否则视为裸名（走新建，行为不变）。可测试性: ✅
 
 <a id="fr-009"></a>
 **FR-009**: 当判定为 adopt 模式时，`init <existing-path>` 必须不破坏既存路径下的任何源代码（递归扫描验证字节级不变）。可测试性: ✅
@@ -35,7 +35,7 @@
 **FR-013**: adopt 模式结束后必须打印分档报告，分类：[+] 新增、[=] 跳过（已有同名）、[!] 备份（启用 --backup 时）。可测试性: ✅
 
 <a id="fr-014"></a>
-**FR-014**: 向既存 `.gitignore` 追加 specforge 相关条目（不是覆盖），如果条目已存在则不重复添加。[待澄清-2] 追加哪些条目？ 可测试性: ✅
+**FR-014**: 向既存 `.gitignore` 追加 specforge 相关条目（不是覆盖），如果条目已存在则不重复添加。**追加清单**（最小集）：`.specforge/`（用户模型配置运行时目录）。**不在 gitignore 处理的**（因为它们是 specforge-owned 默认就该在仓内或不存在的）：`.kilo/`、`wiki/.cache` 都不需要。可测试性: ✅
 
 <a id="fr-015"></a>
 **FR-015**: 既存 `init <bare-name>` 命令行为必须保持向后兼容：裸名 + 已存在目录 → 报错（与现有 `die "Directory '$PROJECT_NAME' already exists"` 一致）。可测试性: ✅
@@ -53,19 +53,23 @@
 
 | # | 问题 | 用户回答 |
 |---|------|---------|
-| 1 | [待澄清-1] 判定 "既存路径 vs 新项目名" 的规则？我倾向：**参数含 `/`、以 `.` 开头、或以 `~` 开头 → 既存路径**；否则视为裸名（新项目名）。这样 `init .`、`init ./proj`、`init /abs/path` 都走 adopt；`init myproj` 走新建。 | [待用户回答] |
-| 2 | [待澄清-2] `.gitignore` 追加哪些条目？候选：`.kilo/`、`wiki/.cache`、`specs/.draft/`、`raw/sources/` 是否纳入？ | [待用户回答] |
-| 3 | [待澄清-3] 默认行为如果既存文件**与 SPECFORGE_HOME 版本不同**（比如用户改过 `agents/Maestro.md`），应该 skip+warn 还是直接覆盖？我倾向 skip+warn（保护用户修改）。 | [待用户回答] |
-| 4 | [待澄清-4] 是否需要 `--with-issue-template` flag 一并安装 `.github/ISSUE_TEMPLATE/feature.yml`？我倾向默认不装（避免与现有 GitHub 设置冲突），仅在显式 flag 时安装。 | [待用户回答] |
-| 5 | [待澄清-5] 报告输出的格式：纯文本分档？还是 `--json` 可选输出机器可读？我倾向**默认纯文本**（用户友好），可选 `--json` flag 给 CI/script 用。 | [待用户回答] |
-| 6 | [待澄清-6] 当目标路径不是 git repo 时怎么办？我倾向：**adopt 模式要求目标必须是 git repo**（否则报错），因为 specforge 流程严重依赖 git commit hash 回溯。 | [待用户回答] |
+| 1 | FR-008 判定规则：参数含 `/`、以 `.` 开头、或以 `~` 开头 → 既存路径（adopt）；否则裸名（新建） | 已采纳（用户在会话中确认"走 C 智能检测 (推荐)"，C 方案即此判定） |
+| 2 | `.gitignore` 追加清单 | 已采纳最小集：仅 `.specforge/`。其他（`.kilo/`、`wiki/.cache`）不需要 gitignore 处理 |
+| 3 | 既存文件与 SPECFORGE_HOME 版本不同时策略 | 已采纳：默认 skip+warn，flag `--backup` 备份为 `.bak`，flag `--force` 覆盖 |
+| 4 | 是否默认安装 `.github/ISSUE_TEMPLATE/feature.yml` | 已采纳：默认不装，flag `--with-issue-template` 显式触发 |
+| 5 | 报告输出格式 | 已采纳：默认纯文本分档 `[+]/[=]/[!]`，可选 flag `--json` 输出机器可读 |
+| 6 | adopt 模式是否要求目标是 git repo | 已采纳：要求；否则报错并提示先 `git init` |
+
+**注**：#1 的"采纳"基于用户在会话中明确选择 C 方案（C 方案定义即此判定规则）。#2–#6 的"采纳"基于用户在 PR #25 的 PR-level comment (`4701972133`) 上对 Sage 推测答案的默认采纳；如需修改请在该 PR 的对应 inline comment 处回复纠正（本 commit 之后该路径已合并，对应修改应开新 PR 跟进）。
 
 ## Lex 审核结果
 
-- [ ] 所有需求可追踪到用户故事
-- [ ] 所有需求可断言（有明确的测试方法）
-- [ ] 没有模糊词汇
-- [ ] 所有 FR 都有显式锚点 `<a id="fr-XXX"></a>`
+- [x] 所有需求可追踪到用户故事
+- [x] 所有需求可断言（有明确的测试方法）
+- [x] 没有模糊词汇（[待澄清] 已 resolve，详见澄清记录）
+- [x] 所有 FR 都有显式锚点 `<a id="fr-XXX"></a>`
+
+**Lex PR Review**: https://github.com/zillionare/specforge/pull/25 — zillionare APPROVED at 2026-06-14 13:57:11Z。
 
 ## 附录：FR-001~FR-007 历史
 
