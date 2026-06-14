@@ -74,6 +74,9 @@ class ParseResult:
     quotes: list[Quote] = field(default_factory=list)
     open_quotes: list[Quote] = field(default_factory=list)
     resolved_quotes: list[Quote] = field(default_factory=list)
+    blocked_quotes: list[Quote] = field(default_factory=list)
+    wontfix_quotes: list[Quote] = field(default_factory=list)
+    superseded_quotes: list[Quote] = field(default_factory=list)
     speaker_counts: dict[str, int] = field(default_factory=dict)
     depth_histogram: dict[int, int] = field(default_factory=dict)
     is_ready: bool = False
@@ -139,6 +142,12 @@ def parse_spec(spec_path: Path) -> ParseResult:
             result.open_quotes.append(quote)
         elif status == "resolved":
             result.resolved_quotes.append(quote)
+        elif status == "blocked":
+            result.blocked_quotes.append(quote)
+        elif status == "wontfix":
+            result.wontfix_quotes.append(quote)
+        elif status == "superseded":
+            result.superseded_quotes.append(quote)
 
         result.speaker_counts[speaker] = result.speaker_counts.get(speaker, 0) + 1
         result.depth_histogram[depth] = result.depth_histogram.get(depth, 0) + 1
@@ -192,11 +201,15 @@ def main() -> int:
             "total_quotes": len(result.quotes),
             "open_count": len(result.open_quotes),
             "resolved_count": len(result.resolved_quotes),
+            "blocked_count": len(result.blocked_quotes),
+            "wontfix_count": len(result.wontfix_quotes),
+            "superseded_count": len(result.superseded_quotes),
             "is_ready": result.is_ready,
             "speaker_counts": result.speaker_counts,
             "depth_histogram": {str(k): v for k, v in sorted(result.depth_histogram.items())},
             "open_quotes": [asdict(q) for q in result.open_quotes],
             "resolved_quotes": [asdict(q) for q in result.resolved_quotes],
+            "blocked_quotes": [asdict(q) for q in result.blocked_quotes],
         }
         print(json.dumps(out, ensure_ascii=False, indent=2))
     else:
@@ -204,6 +217,12 @@ def main() -> int:
         print(f"  total quotes: {len(result.quotes)}")
         print(f"  open: {len(result.open_quotes)}")
         print(f"  resolved: {len(result.resolved_quotes)}")
+        if result.blocked_quotes:
+            print(f"  blocked: {len(result.blocked_quotes)}")
+        if result.wontfix_quotes:
+            print(f"  wontfix: {len(result.wontfix_quotes)}")
+        if result.superseded_quotes:
+            print(f"  superseded: {len(result.superseded_quotes)}")
         print(f"  is_ready: {result.is_ready}")
         if result.speaker_counts:
             print(f"  speakers: {result.speaker_counts}")
