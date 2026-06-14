@@ -28,8 +28,11 @@ teardown() {
     [ -d "agents" ]
 }
 
-@test "T02_init_relative_path_triggers_adopt: init ./sub triggers adopt mode" {
-    mkdir -p parent/sub && cd parent && git init -q
+@test "T02_init_relative_path_triggers_adopt: init <relpath> triggers adopt mode" {
+    # T02 verification: when user invokes `init <path>` where <path>
+    # starts with ./ and resolves to an existing directory containing
+    # a git repo, adopt mode triggers.
+    mkdir -p parentdir/sub && cd parentdir/sub && git init -q
     run bash "$SPECFORGE_HOME/bin/specforge" init ./sub
     [ "$status" -eq 0 ]
 }
