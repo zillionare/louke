@@ -105,6 +105,13 @@ chat 里 Agent 可以:
 <a id="fr-029"></a>
 **FR-029**: Scout.md 必须明确输出契约: 输出 `specs/{spec-id}/story.md` (含 story, 版本号, repo, project) + 把用户在会话中提供的一句话 PRD 扩写为结构化 story.md。Warden (peer 检查) 验证 story.md 完整性后才允许 Sage 启动。可测试性: ✅
 
+<a id="fr-030"></a>
+**FR-030**: 元问题清单 (chat 用途范围, 见 FR-027 边界):
+- **属于元问题** (Sage 在 chat 询问, 用户在 chat 回答): 项目名、版本号、repo 名、FR 起点编号、是否新建 spec、label strategy、target branch 命名约定
+- **不属于元问题** (必须走 spec.md quote): FR 描述、AC 措辞、技术选型、范围定义、与既有 FR 的关系、错误处理策略
+
+可测试性: ✅
+
 ## 非功能需求
 
 | ID | 需求 | 指标 |
@@ -113,7 +120,8 @@ chat 里 Agent 可以:
 | NFR-002 | bats 测试新增 case 数 | ≥ 10 (覆盖解析、状态检测、嵌套深度、跳过代码块等) |
 | NFR-003 | Sage.md 重写后总行数 | ≤ 之前 + 50 行 |
 | NFR-004 | quote 对话记录在 git 历史 | git log --follow 可定位 |
-| NFR-005 | spec 004 流程本身必须用 IDE-based quote dialogue 走完 (dogfood) | spec/004 分支 commit history 含 ≥ 3 次"用户 push 修改 + Sage 拉取"轮次 |
+| NFR-005 | spec 004 流程本身必须用 IDE-based quote dialogue 走完 (dogfood) | spec/004 分支 commit history 含 ≥ 3 个 author=Aaron 的 commit |
+| NFR-006 | `git diff` 显示某 spec 段被修改时, 与该段在 ±10 行范围内的所有 [open] quote 自动标 `✓ resolved` (机器规则, 不需 LLM 推断) | 实现 quote_parser.py 或 git_diff_parser.py 中; bats 测试覆盖 |
 
 ## Sage Interview (in-document quote dialogue)
 
@@ -240,6 +248,55 @@ chat 里 Agent 可以:
 ### [open] quote 汇总 (含 Lex 新增)
 
 Sage 原 6 个 + Lex 新增 5 个 = **11 个 [open]**。
+
+### 📋 提案汇总 (Sage/Lex 联合草拟, 等 Aaron 审核)
+
+下面是把所有 [open] 的**提案答案**打包成一节, 方便 Aaron 在 IDE 中一次性 review 后用 `accept-all` 或逐条覆盖。这不是替 Aaron 做决策, 而是让 IDE review 变得轻量。
+
+> **Sage (consolidated proposal):** 下面是 11 个 [open] 的提案答案, 每条 1-2 句。如果 Aaron 全部同意, 在 IDE 里把这整段改成 `✓ resolved` 即可; 如果不同意某些, 单独改那条。 [open]
+
+**Q1 (Sage, US-002/003 用户改原文段落的引导策略)**
+提案: silent。理由: 用户改原文段是"自我纠正", 不需要 Sage 追问已修正的内容; 但保留追问"这次修正是否引发下游 FR 调整", 通过新 quote (在 chat 通知用户) 提示。 ✓ resolved (proposal)
+
+**Q1.5 (Sage, proactive 时放 chat 还是 spec.md)**
+提案: chat。理由: 引导属于"通知", 已在 FR-027 chat 用途范围内。spec.md quote 留给用户实质性的内容澄清。 ✓ resolved (proposal)
+
+**Q2 (Sage, 历史 spec 是否回改 + README §2.2 处置)**
+提案: 历史 spec 不回改 (immutable 历史)。README §2.2 整段改写为 IDE 流程, 旧 PR 流程作为附录 ("参见历史 spec 001-003")。 ✓ resolved (proposal)
+
+**Q3 (Sage, 元问题走 chat 还是 spec.md)**
+提案: 元问题走 chat (项目名、FR 起点等)。Sage 在 chat 收到后, 自己写入 spec.md frontmatter, 用户无需 IDE 介入。理由: 元问题答案会进 spec.md 但用户**应该只在 IDE 里 review 内容**, 不该被元问题打扰 IDE 流程。 ✓ resolved (proposal)
+
+**Q4 (Sage, FR-028/FR-029 描述准确吗)**
+提案: 描述准确, 接受。 ✓ resolved (proposal)
+
+**Q4.5 (Sage, Issue 双源原则单独写 NFR 吗)**
+提案: 不单独写, 隐式包含在 FR-028 即可 ("GitHub Issue 也是设计源" 是 §1 双源设计的延伸, 不需单独声明)。理由: NFR 数量膨胀会降低每个 NFR 的关注度。 ✓ resolved (proposal)
+
+**L1 (Lex, FR-019 触发机制)**
+提案: chat 触发。用户 push 后在 chat 说 "review 完了", Sage `git pull` + `git diff`。理由: specforge 是 Agent-centric, 不应有后台 daemon。 ✓ resolved (proposal)
+
+**L1.5 (Lex, 是否 timeout 轮询)**
+提案: 不轮询。如果用户忘记通知, Sage 卡在 "等 user input" 状态是合理行为 (frontend 也等 user click, 不会自轮询)。 ✓ resolved (proposal)
+
+**L2 (Lex, 谁关闭 Lex 的 [open] quote)**
+提案: 用户。理由: Lex quote 与 Sage quote 所有权一致, 用户拥有所有 spec.md 修改权。 ✓ resolved (proposal)
+
+**L3 (Lex, FR-020 "段落→quote auto-resolve" NFR)**
+提案: 接受。提议新增 NFR-006: "`git diff` 显示某段被修改, 与该段在 ±10 行范围内的 [open] quote 自动标 `✓ resolved`"。 ±10 行是经验值, 后续可调。 ✓ resolved (proposal)
+
+**L4 (Lex, NFR-005 author=Aaron 计数)**
+提案: 接受, 修订 NFR-005 为 "≥ 3 个 author=Aaron 的 commit"。 ✓ resolved (proposal)
+
+**L5 (Lex, FR-030 元问题清单)**
+提案: 接受, 新增 FR-030 元问题清单 (含: 项目名/版本号/repo/FR 起点编号/是否新建 spec/标签 strategy; 不含: 任何影响 spec.md 内容澄清的问题, 包括 FR 描述、AC 措辞、技术选型)。 ✓ resolved (proposal)
+
+> **Sage:** 以上 11 条提案, **Aaron 请在 IDE 中**:
+> - 全同意: 把整段 status 改为 `✓ resolved`, commit + push
+> - 部分同意: 改不同意的那条为独立 quote block, 加你的答案, 把当前这条保留 [open] 或改为 `✓ resolved` 视情况
+> - 全不同意: 重写提案段 (反正都是 quote, 改 [open] 或嵌套 [Sage] 即可)
+>
+> 提案段本身是 [open] 状态, Aaron review 完后这条会自动 ✓ resolved (因为你 review 了)。 [open]
 
 ## 附录: 编号说明
 
