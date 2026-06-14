@@ -43,25 +43,60 @@ Speckit 在规格定义阶段就要求赋予优先级，这当然没有错，但
 
 由 scout确保项目奠基，由 Warden 来进行检查。
 
-### 2.2. 需求澄清和分解
+### 2.2. 需求澄清和分解 (spec 004 修订: IDE-based)
 
-用户提供一句话的 story/PRD，Sage 通过苏格拉底式追问将模糊需求转化为可测试的需求，Lex 在审核后创建和验证 **结构化** GitHub issue。所有提问和审核通过 **GitHub PR Review 行级评论**显性化。
+用户提供一句话的 story/PRD, Sage 通过苏格拉底式追问将模糊需求转化为可测试的需求, Lex 审核后创建和验证 **结构化** GitHub issue。**所有提问和审核通过 markdown quote block 在 spec.md 中进行**, 用户在 IDE 中直接编辑 spec.md, 不需要 GitHub PR 权限 (Aaron 设计)。
 
-**双源设计**（避免重复解析和漂移）：
+**双源设计**（避免重复解析和漂移）:
 
 | 源                         | 形式                          | 用途                                           | Agent          |
 | -------------------------- | ----------------------------- | ---------------------------------------------- | -------------- |
-| **spec.md**（设计源）      | git 内 markdown，PR 评审      | 人读、Sage/Lex 评审、NFR/澄清记录              | Sage / Lex     |
-| **GitHub Issue**（操作源） | Issue form schema，结构化字段 | 机器读、Probe/Archer/Herald 工作输入、状态跟踪 | Probe / Herald |
+| **spec.md**（设计源）      | git 内 markdown + quote dialogue | 人读、Sage/Lex 评审、NFR/澄清记录              | Sage / Lex     |
+| **GitHub Issue**（操作源） | Issue form schema, 结构化字段 | 机器读、Probe/Archer/Herald 工作输入、状态跟踪 | Probe / Herald |
 
-1. Sage 创建 `spec/{spec-id}` 分支，生成含 `[待澄清]` 标注的 spec.md，开 PR 并在 Files Changed 留 inline comment 追问
-2. 用户在 PR inline comment 下逐条回复
-3. Sage 根据回复修改 spec.md 并 push，resolve 对应 comment
-4. 重复 2-3 直到所有 `[待澄清]` 已 resolve
-5. Lex 通过 `gh api` 提交 PR Review（行级 comment + Approve/Request changes）
-6. Lex 通过后 merge PR
-7. Sage 根据 spec 中的功能需求，**通过 issue form** 创建 GitHub issue（每个 FR 需求 ID 对应一个 issue）—— body 必须是 `### 需求 ID` / `### Spec 链接` / `### 验收标准` 三个 form 字段
-8. Lex 运行 `tools/verify_issue_schema.py` 验证所有 issue 满足 schema（L1-L8），补充遗漏，关联 Project
+**流程**：
+
+1. 用户把一句话 PRD 写入 `specs/{spec-id}/story.md` (或直接 chat 告诉 Sage)
+2. Sage 创建 `spec/{spec-id}` 分支, 写 spec.md, 在原文段落后追加 quote block 标注疑点 (FR-016):
+   ```markdown
+   <a id="fr-016"></a>
+   **FR-016**: 这是原文段落正文。
+   
+   > **Sage:** 这是 Sage 的疑问, 默认 pending (无显式状态 marker)。
+   > > 追问嵌套示例 (depth=2)。
+   ```
+3. Sage push 到 spec 分支, **在 chat 通知用户 "spec.md 已更新, 请在 IDE 中 review"** (FR-019 修订触发机制)
+4. **用户在 IDE 中直接编辑 spec.md** (Aaron: 不需要 git push, 可在本地工作区完成):
+   - 改 quote block 状态: `pending` → `✓ resolved` (FR-017 默认无 marker = pending)
+   - 改任何原文段: 视作"用户更正 Agent 记录", **silent** (FR-020)
+   - 加新 quote 追问
+5. 用户在 chat 说 "review 完了" 或 "continue"
+6. Sage `git pull` + `git diff` 解析变更 (FR-019), 决定下一步
+7. 仍有 pending → 回到 2; 全部 ✓ resolved → 进入 7
+8. Sage 根据 spec 中的功能需求, **通过 issue form** 创建 GitHub issue
+9. Lex 运行 `tools/quote_parser.py --check-ready` (FR-026 修订锁定信号, 替代 PR merged) + `tools/verify_issue_schema.py` 验证 issue 满足 schema
+
+**Quote 状态约定** (FR-017, Aaron 设计):
+
+| 标记 | 语义 |
+|---|---|
+| 无 marker (默认) | pending / open |
+| `✓ resolved` | 闭环 |
+| `[blocked-by-N]` | 被 FR-N 阻塞 |
+| `[wontfix]` | 终止 (不实施) |
+| `[superseded]` | 被新 spec 取代 |
+
+**markdown 示例**：
+
+```markdown
+原文段落。
+
+> **Sage:** 问题 (默认 pending)
+
+> > **Aaron:** 回答 ✓ resolved
+```
+
+**锚点约定**：spec.md 中每个 FR 单元前必须有 `<a id="fr-XXX"></a>`（小写、3 位零填充），保证 issue 的 Spec 链接跳转稳定。Probe/Archer/Herald 都不再重新解析 spec.md，直接消费 issue form 字段。
 
 **Issue Form Schema**（`.github/ISSUE_TEMPLATE/feature.yml`）：
 
@@ -71,15 +106,15 @@ Spec 链接:  ^https://github\.com/.../spec\.md#fr-\d{3}$   # 完整 URL,fragmen
 验收标准:  ^AC-\d+: ...                   # 每行一条,从 AC-1 连续编号
 ```
 
-**锚点约定**：spec.md 中每个 FR 单元前必须有 `<a id="fr-XXX"></a>`（小写、3 位零填充），保证 issue 的 Spec 链接跳转稳定。Probe/Archer/Herald 都不再重新解析 spec.md，直接消费 issue form 字段。
+**分支命名约定**：
 
-**分支命名约定**（仅需要 PR Review 的阶段才使用专属分支）：
+| 阶段      | 分支模式                   | 示例                      | 创建者 | 目的                                          |
+| --------- | -------------------------- | ------------------------- | ------ | --------------------------------------------- |
+| Spec 讨论 | `spec/{spec-id}`           | `spec/001-specforge-v0.1` | Sage   | IDE quote dialogue + chat trigger             |
+| 任务执行  | `feat/{spec-id}/{task-id}` | `feat/001/TASK-01`        | Forge  | R-G-R 循环 + Prism/Keeper 代码审查            |
+| Bug 修复  | `fix/{issue-number}`       | `fix/42`                  | Hunter | TDD Bug 修复 + Shield 回归审查                |
 
-| 阶段      | 分支模式                   | 示例                      | 创建者 | 目的                               |
-| --------- | -------------------------- | ------------------------- | ------ | ---------------------------------- |
-| Spec 讨论 | `spec/{spec-id}`           | `spec/001-specforge-v0.1` | Sage   | PR Review 行级提问与审核           |
-| 任务执行  | `feat/{spec-id}/{task-id}` | `feat/001/TASK-01`        | Forge  | R-G-R 循环 + Prism/Keeper 代码审查 |
-| Bug 修复  | `fix/{issue-number}`       | `fix/42`                  | Hunter | TDD Bug 修复 + Shield 回归审查     |
+> 旧版 PR Review 流程见 git history (pre-spec 004)。spec 003 之前的 spec 都用 PR Review, 自 spec 004 起改用 IDE-based quote dialogue.
 
 
 ### 2.3. 测试计划

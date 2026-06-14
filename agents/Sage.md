@@ -84,53 +84,52 @@ git push
 **如果用户回答了**：更新 spec.md，移除对应 `[待澄清]` 标注，记录答案到澄清记录表。
 **如果用户跳过**：保留 `[待澄清]` 标注，稍后在 PR 中以 inline comment 形式呈现。
 
-### Step 4: 开 PR 并写入待澄清问题
+### Step 4: 在 spec.md 中追加 quote block（待澄清问题）
 
-1. 将 spec.md 中仍存在的每个 `[待澄清]` 标注转为 PR inline comment：
+> **流程变更（spec 004）**：原 Step 4-5（PR inline comment 流程）已废弃, 改为 IDE-based quote dialogue 流程。Aaron 设计: "spec 澄清完全可以就在本地工作区完成"。
 
-```bash
-gh api repos/{owner}/{repo}/pulls/{pr-number}/comments \
-  -f body="**Q{编号}**: {边界/交互/数据/冲突/排除追问}
+1. Sage 把每个疑点直接写入 spec.md, 用 markdown quote block 形式, 紧跟被讨论的原文段落之后:
 
-💡 建议: {最佳实践推荐，最终决定权归用户}" \
-  -f path="specs/{spec-id}/spec.md" \
-  -f line={待澄清所在行号} \
-  -f side="RIGHT"
+```markdown
+## 功能需求
+
+<a id="fr-016"></a>
+**FR-016**: 这是原文段落正文。
+
+> **Sage:** 这是 Sage 的疑问, 默认 pending (无显式状态 marker)。
+> > 追问嵌套示例 (depth=2)。
+>
+> Aaron 审核这段 → 见 chat 通知。
 ```
 
-2. 创建 PR，在 PR body 中明确告知用户：
+2. 状态 marker 语义 (FR-017, Aaron 设计):
+   - 默认无 marker = pending
+   - `✓ resolved` 标闭环
+   - `[wontfix]` / `[superseded]` 标终止
+   - speaker 由 `**Name:**` 决定, 不是 depth
+3. 触发机制: Sage 把 spec.md push 到 spec 分支后, **在 chat 通知用户 "spec.md 已更新, 请在 IDE 中 review"** (FR-019 修订)。
+4. **不需要 gh api / gh pr create / gh pr merge** (Aaron: 不需要 GitHub PR)。
 
-```bash
-gh pr create --title "Spec: {spec-id} {标题}" \
-             --body "## 待审查
-请在 **Files Changed** 中逐行审查 spec.md，尤其关注标注 `[待澄清]` 的行。
+### Step 5: 读取用户在 IDE 中的修改并迭代
 
-## 如何 review
-1. 打开 Files Changed 标签
-2. 对每个 `[待澄清]` 行回复你的决定
-3. 你也可以对任何其他行留评论（不只是标注了 `[待澄清]` 的地方）
-4. 全部回复完成后，点击右上角绿色 **Review changes** → **Comment** → **Submit review**
-5. **回到对话中告诉我 review 已完成**（Agent 无法自动感知 PR review 事件）
-
-> 💡 关于 **Resolve conversation**：每条 inline comment 都是对话线程。Sage 根据你的回复更新 spec.md 后，会点击 Resolve conversation 标记已处理。你也可以自行 Resolve——PR 顶部 "N conversations unresolved" 归零表示全量处理完毕。"
-```
-
-3. 输出 PR 链接，提示用户：
-> ▸ PR 已创建: {PR链接}
-> ▸ 请在 GitHub 上完成 review 后，回到对话中告诉我 "review 已完成"
-
-### Step 5: 读取 PR Review 并迭代
-
-1. 用户回到对话中告知 review 已完成
-2. 拉取所有 PR inline comment 回复：
-
-```bash
-gh api repos/{owner}/{repo}/pulls/{pr-number}/comments --jq '.[].body'
-```
-
-3. 根据用户的每一条回复修改 spec.md
-4. 如果用户的回复引发了新的疑问 → 回到 Step 4，创建新的 inline comment 追问
-5. Push 更新
+1. **用户回到 chat 说 "review 完了"** (或 "continue")
+2. Sage 执行:
+   ```bash
+   git pull  # 拉取用户 push 的修改
+   git diff origin/spec/{id}..HEAD -- specs/{id}/spec.md
+   ```
+3. 解析 diff, 分类 (FR-020):
+   - **quote 状态变更** (open → resolved 等): 据此调整后续追问
+   - **原文段变更** (FR/AC 等): 视作"用户更正 Agent 记录", **silent** (默认不追问, 因为用户主动改已表明意图, 见 FR-020)
+   - **新增 quote**: 视作用户的追问
+4. 用 `tools/quote_parser.py` 验证 spec.md 状态:
+   ```bash
+   python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
+   # exit 0 = 所有 quote 都 ✓ resolved
+   # exit 1 = 还有 pending, 看 stderr 列表
+   ```
+5. 如果仍有 pending → 回到 Step 4, 在 spec.md 追加新的 Sage quote
+6. 如果所有 pending 闭环 → 进入 Step 6
 
 ```bash
 git add specs/{spec-id}/spec.md
@@ -200,7 +199,14 @@ EOF
 
 Issue 创建完毕后，通知 Lex 进行 spec 审核和 issue 验证：
 
-> Lex 阶段开始: spec PR #N 已锁定，{M} 个 issue 已创建，请审核 spec 并验证 issue schema。
+```bash
+python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
+# exit 0 → Lex 可进入; exit 1 → 等 Sage 继续追问
+```
+
+> Lex 阶段开始: spec.md 已锁定（所有 pending quote 都 ✓ resolved）, {M} 个 issue 已创建, 请审核 spec 并验证 issue schema。
+>
+> 注 (FR-026 修订): 锁定信号不再是 "PR merged", 而是 quote_parser `--check-ready` exit 0。
 
 ---
 
