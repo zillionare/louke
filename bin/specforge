@@ -76,6 +76,34 @@ cmd_init() {
     if [ -z "$PROJECT_NAME" ]; then
         die "Usage: specforge init <project-name>"
     fi
+
+    # Adopt mode: path with /, . prefix, or ~ prefix and target exists.
+    # Bare name (no separators and not .) → legacy create-new mode.
+    if is_existing_path "$PROJECT_NAME"; then
+        cmd_init_adopt "$PROJECT_NAME"
+        return
+    fi
+
+    cmd_init_new "$PROJECT_NAME"
+}
+
+# is_existing_path: detect whether the argument represents a path
+# to an existing directory (adopt mode) versus a new bare name (legacy).
+# Rules (per FR-008, spec 003-init-adopt-mode):
+#   - "." alone                              → adopt
+#   - starts with "./" "/" "~/" or "../"     → adopt if target exists
+#   - bare name (no separators)              → never adopt
+is_existing_path() {
+    local arg="$1"
+    case "$arg" in
+        "."|"./"|"../") return 0 ;;
+        ./*|../*|/*|~*) [ -d "$arg" ] && return 0 || return 1 ;;
+        *) return 1 ;;
+    esac
+}
+
+cmd_init_new() {
+    local PROJECT_NAME="$1"
     if [ -d "$PROJECT_NAME" ]; then
         die "Directory '$PROJECT_NAME' already exists"
     fi
@@ -116,6 +144,54 @@ specforge project '$PROJECT_NAME' initialized!
 
 详细文档: agents/README.md 第 8 节
 EOF
+}
+
+# cmd_init_adopt: stub for TASK-02+ implementation
+# Currently creates agents/ and templates/ only — full adopt flow
+# (source preservation, file skip/backup/force, .gitignore, reports)
+# is implemented in subsequent tasks.
+cmd_init_adopt() {
+    local TARGET="$1"
+    # Verify target is a git repo (FR-015 stub)
+    [ -d "$TARGET/.git" ] || die "adopt target '$TARGET' is not a git repo; run 'git init' first"
+
+    cd "$TARGET" || die "cannot cd to '$TARGET'"
+
+    [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
+    [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
+
+    # FR-010: create-if-missing for specforge-owned dirs
+    mkdir -p agents templates specs wiki/pages wiki/decisions raw/sources
+
+    # FR-011 (stub): copy agents/*.md if missing
+    for f in "$SPECFORGE_HOME"/agents/*.md; do
+        [ -f "$f" ] || continue
+        local name
+        name="$(basename "$f")"
+        if [ ! -e "agents/$name" ]; then
+            cp "$f" "agents/$name"
+            echo "[+] agents/$name"
+        else
+            echo "[=] agents/$name"
+        fi
+    done
+
+    # FR-011 (stub): copy templates/*.md if missing
+    for f in "$SPECFORGE_HOME"/templates/*.md; do
+        [ -f "$f" ] || continue
+        local name
+        name="$(basename "$f")"
+        if [ ! -e "templates/$name" ]; then
+            cp "$f" "templates/$name"
+            echo "[+] templates/$name"
+        else
+            echo "[=] templates/$name"
+        fi
+    done
+
+    echo
+    echo "specforge adopted into '$TARGET' (stub: agents/ + templates/ only)"
+    echo "Full adopt flow (FR-009 to FR-015) lands in TASK-02+"
 }
 
 cmd_checkup() {
