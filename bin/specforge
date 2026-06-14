@@ -53,19 +53,22 @@ Usage:
   specforge <command> [args]
 
 Commands (User-driven — 人跑):
-  init <name>              在当前目录创建 <name>/ 子项目(拷贝 agents/ + templates/)
-  upgrade                  git pull --ff-only 到 \$SPECFORGE_HOME (拒绝非 main 分支)
-  version                  打印版本 + install 路径
-  help                     显示本帮助
+  init <name>             新建 <name>/ 子项目(拷贝 agents/ + templates/)
+  init <path>             接入既存项目 (adopt 模式),非破坏性合并
+                          Flags: --dry-run --backup --force --no-gitignore
+                                 --with-issue-template --json
+  upgrade                 git pull --ff-only 到 \$SPECFORGE_HOME (拒绝非 main 分支)
+  version                 打印版本 + install 路径
+  help                    显示本帮助
 
 Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
-  checkup <owner/repo>     身份一致性体检 L1-L5 (Maestro 启动时跑)
-  doctor                   checkup 的别名
-  verify-issue --spec ID   Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
+  checkup <owner/repo>    身份一致性体检 L1-L5 (Maestro 启动时跑)
+  doctor                  checkup 的别名
+  verify-issue --spec ID  Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
 
 环境变量:
-  SPECFORGE_HOME           framework 安装目录 (默认 ~/.specforge)
-  GH_REPO                  specforge 的 GitHub repo (默认 zillionare/specforge)
+  SPECFORGE_HOME          framework 安装目录 (默认 ~/.specforge)
+  GH_REPO                 specforge 的 GitHub repo (默认 zillionare/specforge)
 
 更多信息: https://github.com/\${GH_REPO:-zillionare/specforge}
 EOF
