@@ -32,8 +32,7 @@ from pathlib import Path
 from typing import Any
 
 
-# 状态标记正则
-RE_STATUS = re.compile(
+RE_STATUS_EXPLICIT = re.compile(
     r"(?:"
     r"✓\s*resolved"
     r"|\[open\]"
@@ -49,7 +48,7 @@ RE_QUOTE_LINE = re.compile(
     r"(?P<name>[^*:]+?)"
     r":\*\*\s*"
     r"(?P<body>.*?)\s*"
-    r"(?P<status>✓\s*resolved|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded\])\s*$"
+    r"(?P<status>✓\s*resolved|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded])?\s*$"
 )
 
 RE_FENCE = re.compile(r"^\s*(```|~~~)")
@@ -106,9 +105,12 @@ def parse_spec(spec_path: Path) -> ParseResult:
 
         speaker = m.group("name").strip()
         body = m.group("body").strip()
-        status_raw = m.group("status").strip()
+        status_raw = (m.group("status") or "").strip()
 
-        if status_raw.startswith("✓"):
+        if not status_raw:
+            status = "open"
+            blocked_by = None
+        elif status_raw.startswith("✓"):
             status = "resolved"
             blocked_by = None
         elif status_raw == "[open]":

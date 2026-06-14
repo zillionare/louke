@@ -125,3 +125,40 @@ EOF
     # All Sage quotes must end with status marker (parser only counts those)
     [[ ! "$output" =~ "total quotes: 0" ]]
 }
+
+@test "QP_T17_no_status_means_open: quote without status marker = pending (Aaron's design)" {
+    # Per FR-017 update from Aaron: "[open] marker is unnecessary,
+    # absence of ✓ resolved = pending". This is the default state.
+    TEST_SPEC="$TEST_DIR/no-status.md"
+    cat > "$TEST_SPEC" <<'EOF'
+# test
+
+> **Sage:** a question without explicit status
+
+> **Aaron:** reply without status
+EOF
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" "$TEST_SPEC"
+    [ "$status" -eq 0 ]
+    # Both should be detected as open (pending)
+    [[ "$output" =~ "total quotes: 2" ]]
+    [[ "$output" =~ "open: 2" ]]
+    [[ "$output" =~ "resolved: 0" ]]
+    [[ "$output" =~ "is_ready: False" ]]
+}
+
+@test "QP_T18_explicit_resolved_overrides: ✓ resolved still works with new convention" {
+    # Backward compat: explicit ✓ resolved still marks as resolved
+    TEST_SPEC="$TEST_DIR/mixed-status.md"
+    cat > "$TEST_SPEC" <<'EOF'
+# test
+
+> **Sage:** resolved explicitly ✓ resolved
+
+> **Sage:** no status (default pending)
+EOF
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" "$TEST_SPEC"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "total quotes: 2" ]]
+    [[ "$output" =~ "open: 1" ]]
+    [[ "$output" =~ "resolved: 1" ]]
+}

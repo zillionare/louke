@@ -11,7 +11,7 @@
 | US-001 | 作为 specforge 用户，我希望在本地 IDE 中打开 spec.md 直接编辑、用 quote block 标注我的回复，以便需求澄清不依赖 GitHub PR 权限           | AC-1: 用户能用文本编辑器修改 spec.md; AC-2: quote 块用 markdown `>` 语法         | P0     |
 | US-002 | 作为 Sage，我需要在用户 push 之后通过 `git pull` + `git diff` 自动识别用户的修改，以便针对性追问                                        | AC-3: Sage 调用 `git diff origin/spec/{id}..HEAD -- specs/{id}/spec.md` 解析变更 | P0     |
 | US-003 | 作为 specforge 用户，我希望在 review 整个 spec.md 时能发现 Agent 自己的记录错误，并直接在文档里改正，以便需求澄清不只是回答问题         | AC-4: 用户可增删改任何段落, 不仅限 quote block                                   | P0     |
-| US-004 | 作为 specforge 用户，我希望 quote block 用 `[open]` / `✓ resolved` 等状态 marker 标注 Sage 的疑问，以便我自己 review 时知道哪里还有疑点 | AC-5: 0 个 `[open]` 时 Sage 进入 Lex 阶段                                        | P0     |
+| US-004 | 作为 specforge 用户，我希望 quote block 用 `✓ resolved` 显式标记闭环（默认 pending），以便我自己 review 时知道哪里还有疑点 | AC-5: 所有 pending quote 都有 `✓ resolved` 时 Lex 进入 Approve | P0     |
 | US-005 | 作为 specforge 用户，我希望 quote block 嵌套深度表示追问链（`>` = Sage, `>>` = 我, `>>>` = Sage 追问），以便对话结构可视化              | AC-6: 嵌套深度 ≥ 3 在 spec 004 中实际使用                                        | P0     |
 
 > **Aaron**： 请根据 story.md 重写此部分。特别是用户没有提出来要使用 git push。spec澄清完全可以就在本地工作区完成。
@@ -79,13 +79,17 @@ chat 里 Agent 可以:
 可测试性: ✅
 
 <a id="fr-020"></a>
-**FR-020**: 当 `git diff` 显示用户修改了原文段落（不是 quote block）时, Sage 必须能识别这是"用户更正 Agent 记录错误"而非"用户回答 quote 问题", 据此调整后续追问策略（例如减少对已修正段落的追问、增补由用户修正引发的下游疑问）。可测试性: ✅
+**FR-020**: 当 `git diff` 显示用户修改了原文段落（不是 quote block）时, Sage 必须能识别这是"用户更正 Agent 记录错误"而非"用户回答 quote 问题", 据此调整后续追问策略。
+
+> **Aaron:** 用户完成修改后, 回到对话, 提示 Agent 进行下一步。
+
+可测试性: ✅
 
 <a id="fr-021"></a>
-**FR-021**: Sage.md §2.2 必须改写: 移除 `gh api pulls/.../comments` / `gh pr create` / `gh pr merge` 调用; 改为 IDE-based 流程, 通过 `git push/pull` + `tools/quote_parser.py` + 直接编辑 spec.md。可测试性: ✅
+**FR-021**: Sage.md §2.2 必须改写: 移除 `gh api pulls/.../comments` / `gh pr create` / `gh pr merge` 调用; 改为 IDE-based 流程, 通过 `git pull` + `tools/quote_parser.py` + 直接编辑 spec.md。**git push 是可选的** (Aaron: spec 澄清可以在本地工作区完成)。可测试性: ✅
 
 <a id="fr-022"></a>
-**FR-022**: Lex.md 必须改写: 不使用 `gh api reviews`; 改为读 spec.md 中 quote 状态 (所有 `[open]` 为 0 时 Approve) + 在 spec.md 中用 quote 形式留 Lex 审查意见。可测试性: ✅
+**FR-022**: Lex.md 必须改写: 不使用 `gh api reviews`; 改为读 spec.md 中 quote 状态 (所有 pending 都标 `✓ resolved` 时 Approve) + 在 spec.md 中用 quote 形式留 Lex 审查意见。可测试性: ✅
 
 <a id="fr-023"></a>
 **FR-023**: README §2.2 章节必须改写, 演示 IDE-based 流程而非 PR inline comment。可测试性: ✅
@@ -101,7 +105,7 @@ chat 里 Agent 可以:
 可测试性: ✅
 
 <a id="fr-026"></a>
-**FR-026**: spec 流程结束时, 所有 `[open]` 必须为 0; 否则 Lex 拒绝 Approve 并由 Sage 继续追问。可测试性: ✅
+**FR-026**: spec 流程结束时, 所有 pending quote 必须标 `✓ resolved`; 否则 Lex 拒绝 Approve 并由 Sage 继续追问。可测试性: ✅
 
 <a id="fr-027"></a>
 **FR-027**: Sage 在 chat 中可以辅助引导, 但 chat 不是 quote dialogue 的载体。chat 用途限于: 通知用户 "spec.md 已更新, 请在 IDE 中 review"; 解释 Agent 设计意图; 询问元问题 (如"项目叫什么名字")。可测试性: ✅
@@ -151,6 +155,7 @@ chat 里 Agent 可以:
 > >> **Sage:** 但 README §2.2 是流程总入口, 不写过时流程等于遗忘。所以 README §2.2 整段改写为 IDE 流程, 旧的 PR 流程作为"参见历史 spec 001-003"附录, 不删除。
 > >>
 > >>> **[open]** Aaron, please decide: (1) 历史 spec 是否回改? (2) README §2.2 旧 PR 流程段是删除、保留、还是作为附录?
+> >>>> **Aaron** 历史 spec/acceptance/test-plan 不变。新的 spec 要说明对旧的 spec 变更记录。README 需要更新；每个版本的 acceptance/test-plan只对应自己的 spec，不需要care spec 变更历史。
 
 ### chat 引导的边界 (FR-027)
 
@@ -161,6 +166,7 @@ chat 里 Agent 可以:
 > >> **Sage:** (补充) 项目名 / FR 起点等元问题其实**也会影响 spec.md** (要写进 frontmatter 或开头), 所以严格按规则也应该走 spec.md。但用户体验上, 每次启动都要先开 IDE 编辑 spec.md 回答元问题, 太重。
 > >>
 > >>> **[open]** Aaron, please decide: 元问题 (项目名、FR 起点等) 走 chat 还是 spec.md? 如果走 chat, Sage 是不是要等用户 chat 回复后再初始化 spec.md?
+> >>>> **Aaron** 元问题走chat，Agent 发现不对，可以及时沟通。比 spec 快。
 
 ### 上游 Scout 契约 (Sage 启动条件)
 
