@@ -215,6 +215,32 @@ chat 里 Agent 可以:
 - [ ] 所有 `[open]` quote 已闭环
 - [ ] spec 自身用 IDE 流程走完 (NFR-005)
 
+### Lex 审查意见 (Lex 在 IDE 中追加的 quote)
+
+> **Lex:** FR-019 说 Sage `git diff` 识别用户变更, 但**Sage 怎么知道用户 push 了**? 轮询 git remote? Webhook? 还是用户手动 `chat 通知 "spec 已更新"`? 没有触发机制 FR。 [open]
+>
+> > **Lex:** 我倾向**chat 触发** (用户在 chat 说"review 完了" → Sage 拉), 因为 specforge 是 Agent-centric 而非 daemon, 不该有后台进程。代价: 用户多一次 chat 操作。 ✓ resolved (proposal)
+> >
+> >> **Lex:** (追问) 那用户忘记通知呢? 是否需要 timeout 自动轮询, 例如每 5 分钟 `git fetch` 一次? [open]
+
+> **Lex:** FR-022 说 Lex 在 spec.md 中留 quote 形式审查意见, 但**谁负责关闭 Lex 的 [open] quote**? 用户? Sage? 我倾向**用户** (Lex quote 跟 Sage quote 一致: 用户拥有修改权)。 [open]
+
+> **Lex:** FR-020 说"减少对已修正段落的追问", 但**减少多少? 用什么算法?** 没具体。例如: 是把该段相关的 quote 都自动 resolved, 还是只标记"用户已修正", 让 Sage 自己判断后续? 我倾向前者 (机械规则) 而非后者 (LLM 推断)。 ✓ resolved (proposal)
+>
+> > **Lex:** 提议新增 NFR: 当 `git diff` 显示某段落被修改, 与该段落相关的所有 [open] quote 自动标 `✓ resolved` (机器规则, 不需 LLM)。这是"用户用行动回答 quote"的语义。 [open]
+
+> **Lex:** NFR-005 说"≥ 3 次用户 push + Sage 拉取", 但**怎么计数**? commit 数? 还是 PR-style 的"轮次"? 现有 spec 004 我自己已经做了 4 次 push (含本次), 但 commit 数 ≠ 轮次。我倾向用 `git log --author={Aaron}` 计数, 因为 commit author 区分 Aaron push vs Sage push 较准确。 ✓ resolved (proposal)
+>
+> > **Lex:** 提议修订 NFR-005 为: "spec/004 分支的 commit history 含 ≥ 3 个 author=Aaron 的 commit (证明用户至少 push 修改过 3 次)"。 [open]
+
+> **Lex:** FR-027 说 chat 用于"元问题", 但**没定义什么算元问题**。例如"项目名"算元问题 (影响 spec.md frontmatter), 但"项目用 PostgreSQL 还是 MySQL"算不算? 边界模糊。我建议明确列表: 元问题 = 纯工作流/配置问题 (项目名、FR 起点、是否新建 spec), 不涉及 spec.md 内容澄清。 ✓ resolved (proposal)
+>
+> > **Lex:** 提议新增 FR-030 定义元问题清单 (含/不含示例), 减少歧义。 [open]
+
+### [open] quote 汇总 (含 Lex 新增)
+
+Sage 原 6 个 + Lex 新增 5 个 = **11 个 [open]**。
+
 ## 附录: 编号说明
 
 FR-016 起新编号。前置编号占用:
