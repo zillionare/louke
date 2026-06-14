@@ -167,11 +167,11 @@ chat 里 Agent 可以:
 
 ### 上游 Scout 契约 (Sage 启动条件)
 
-> **Sage:** 我刚意识到 spec 004 漏掉了上游 Scout→Sage 的契约。当前 Sage.md Step 0 假设 `prd.md` 存在, 但 Scout 的实际输出是 `story.md` (Scout.md 第 95 行: 写入 `specs/project-info.md` 等状态文件)。语义错位: Scout 写的是"项目元信息", Sage 假设有"PRD"。这两者不是一回事。
+> **Sage:** 我刚意识到 spec 004 漏掉了上游 Scout→Sage 的契约。当前 Sage.md Step 0 假设 `prd.md` 存在, 但 Scout 的实际输出是 `story.md` (Scout.md 第 95 行: 写入 `specs/project-info.md` 等状态文件)。语义错位: Scout 写的是"项目元信息", Sage 假设有"PRD"。这两者不是一回事。 [wontfix]
 >
 > > **Sage:** 提议新增 FR-028 (Sage 启动时读 `story.md` 或 GitHub Issue, 否则拒绝) 和 FR-029 (Scout 必须输出 `story.md`, Warden 验证)。这样 Scout→Sage 的契约就显式了。 ✓ resolved
 > >
-> >> **Sage:** (追问) GitHub Issue 作为设计源这一点, 是 specforge 现有 §1 双源设计 (spec.md ↔ Issue) 的延伸。我们是不是要把"任意上游产物都可以是 Issue"这一原则**正式写入 spec 004** 作为 NFR? 或者保持隐式 (只在 FR-028 里隐含)?
+> >> **Sage:** (追问) GitHub Issue 作为设计源这一点, 是 specforge 现有 §1 双源设计 (spec.md ↔ Issue) 的延伸。我们是不是要把"任意上游产物都可以是 Issue"这一原则**正式写入 spec 004** 作为 NFR? 或者保持隐式 (只在 FR-028 里隐含)? [wontfix]
 > >>
 > >>> **[open]** Aaron, please decide: (1) 我新增的 FR-028 / FR-029 描述准确吗? (2) "上游产物可以是 Issue"这一原则要不要单独写成 NFR, 还是隐式包含在 FR-028 里即可?
 
