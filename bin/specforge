@@ -185,9 +185,6 @@ cmd_init_adopt() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    # Report collectors (FR-013) — use sentinel to avoid set -u unbound array errors
-    local ADDED=" " SKIPPED=" " BACKED_UP=" "
-
     # FR-010: create-if-missing for specforge-owned dirs
     for d in agents templates specs wiki/pages wiki/decisions raw/sources; do
         if [ ! -d "$d" ]; then
@@ -201,29 +198,24 @@ cmd_init_adopt() {
     for src_dir in agents templates; do
         for f in "$SPECFORGE_HOME/$src_dir"/*.md; do
             [ -f "$f" ] || continue
-            local name
-            name="$(basename "$f")"
-            local dest="$src_dir/$name"
+            local dest="$src_dir/$(basename "$f")"
             if [ ! -e "$dest" ]; then
                 [ "$DRY_RUN" -eq 0 ] && cp "$f" "$dest"
                 added_list="${added_list}${dest}"$'\n'
             elif cmp -s "$f" "$dest"; then
                 # identical — silent skip (FR-011 AC-1)
                 skipped_list="${skipped_list}${dest}"$'\n'
+            elif [ "$FORCE" -eq 1 ]; then
+                [ "$DRY_RUN" -eq 0 ] && cp "$f" "$dest"
+                note "$dest exists, force-overwritten"
+                skipped_list="${skipped_list}${dest}"$'\n'
+            elif [ "$BACKUP" -eq 1 ]; then
+                [ "$DRY_RUN" -eq 0 ] && cp "$dest" "$dest.bak"
+                # Original preserved; .bak created; file NOT overwritten
+                backed_list="${backed_list}${dest}"$'\n'
             else
-                # different — apply flag policy
-                if [ "$FORCE" -eq 1 ]; then
-                    [ "$DRY_RUN" -eq 0 ] && cp "$f" "$dest"
-                    note "$dest exists, force-overwritten"
-                    skipped_list="${skipped_list}${dest}"$'\n'
-                elif [ "$BACKUP" -eq 1 ]; then
-                    [ "$DRY_RUN" -eq 0 ] && cp "$dest" "$dest.bak"
-                    # Original preserved; .bak is created; file is NOT overwritten
-                    backed_list="${backed_list}${dest}"$'\n'
-                else
-                    note "$dest exists, skipped"
-                    skipped_list="${skipped_list}${dest}"$'\n'
-                fi
+                note "$dest exists, skipped"
+                skipped_list="${skipped_list}${dest}"$'\n'
             fi
         done
     done
