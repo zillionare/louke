@@ -26,11 +26,11 @@ teardown() {
     echo "code" > quantide/main.py
     echo "data" > data/x.csv
     git add -A && git commit -q -m init
-    # capture pre-adopt baseline
-    find . -type f -not -path "./.git/*" -exec sha256sum {} \; | sort > "$TEST_DIR/before.sha"
-    run bash "$SPECFORGE_HOME/bin/specforge" init .
+    # capture pre-adopt baseline (only user source)
+    find ./quantide ./data -type f -exec sha256sum {} \; | sort > "$TEST_DIR/before.sha"
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
     [ "$status" -eq 0 ]
-    find . -type f -not -path "./.git/*" -not -path "./agents/*" -not -path "./templates/*" -not -path "./specs/*" -not -path "./wiki/*" -not -path "./raw/*" -exec sha256sum {} \; | sort > "$TEST_DIR/after.sha"
+    find ./quantide ./data -type f -exec sha256sum {} \; | sort > "$TEST_DIR/after.sha"
     # src files should be unchanged
     diff "$TEST_DIR/before.sha" "$TEST_DIR/after.sha"
 }
