@@ -94,6 +94,17 @@ chat 里 Agent 可以:
 <a id="fr-027"></a>
 **FR-027**: Sage 在 chat 中可以辅助引导, 但 chat 不是 quote dialogue 的载体。chat 用途限于: 通知用户 "spec.md 已更新, 请在 IDE 中 review"; 解释 Agent 设计意图; 询问元问题 (如"项目叫什么名字")。可测试性: ✅
 
+<a id="fr-028"></a>
+**FR-028**: Sage 启动时必须先检查上游 Scout 产物 `specs/{spec-id}/story.md`:
+- story.md 存在 → 作为 spec 的设计源
+- story.md 不存在但 GitHub 有匹配 Issue (label=Story 或 spec-id tag) → Issue body 作为设计源
+- 两者都不存在 → Sage 拒绝启动, 要求用户先走 Scout 流程 (或由 Sage 兼任 Scout)
+
+可测试性: ✅
+
+<a id="fr-029"></a>
+**FR-029**: Scout.md 必须明确输出契约: 输出 `specs/{spec-id}/story.md` (含 story, 版本号, repo, project) + 把用户在会话中提供的一句话 PRD 扩写为结构化 story.md。Warden (peer 检查) 验证 story.md 完整性后才允许 Sage 启动。可测试性: ✅
+
 ## 非功能需求
 
 | ID | 需求 | 指标 |
@@ -138,6 +149,16 @@ chat 里 Agent 可以:
 > >>
 > >>> **[open]** Aaron, please decide: 元问题 (项目名、FR 起点等) 走 chat 还是 spec.md? 如果走 chat, Sage 是不是要等用户 chat 回复后再初始化 spec.md?
 
+### 上游 Scout 契约 (Sage 启动条件)
+
+> **Sage:** 我刚意识到 spec 004 漏掉了上游 Scout→Sage 的契约。当前 Sage.md Step 0 假设 `prd.md` 存在, 但 Scout 的实际输出是 `story.md` (Scout.md 第 95 行: 写入 `specs/project-info.md` 等状态文件)。语义错位: Scout 写的是"项目元信息", Sage 假设有"PRD"。这两者不是一回事。
+>
+> > **Sage:** 提议新增 FR-028 (Sage 启动时读 `story.md` 或 GitHub Issue, 否则拒绝) 和 FR-029 (Scout 必须输出 `story.md`, Warden 验证)。这样 Scout→Sage 的契约就显式了。
+> >
+> >> **Sage:** (追问) GitHub Issue 作为设计源这一点, 是 specforge 现有 §1 双源设计 (spec.md ↔ Issue) 的延伸。我们是不是要把"任意上游产物都可以是 Issue"这一原则**正式写入 spec 004** 作为 NFR? 或者保持隐式 (只在 FR-028 里隐含)?
+> >>
+> >>> **[open]** Aaron, please decide: (1) 我新增的 FR-028 / FR-029 描述准确吗? (2) "上游产物可以是 Issue"这一原则要不要单独写成 NFR, 还是隐式包含在 FR-028 里即可?
+
 ### [open] quote 汇总
 
 当前 spec.md 仍 open 的问题:
@@ -145,6 +166,7 @@ chat 里 Agent 可以:
 1. 用户改原文段落后, Sage 主动引导 vs 静默接受?
 2. 历史 spec 是否回改? README §2.2 旧 PR 流程段处置?
 3. 元问题走 chat 还是 spec.md?
+4. FR-028/FR-029 描述准确吗? Issue 双源原则是否单独写 NFR?
 
 ## 流程示意（参考）
 
