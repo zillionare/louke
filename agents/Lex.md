@@ -58,27 +58,27 @@ Spec 讨论分支由 Sage 创建，命名格式为 `spec/{spec-id}`。
 - 已知约束是否列出
 - 排除项是否明确
 
-### 评审流程（通过 GitHub PR Review API）
+### 评审流程（IDE-based, 替代 PR Review）
 
-1. **查找 Sage 创建的 PR** → `gh pr list --head "spec/{spec-id}" --json number,url`
-2. **读取 spec.md 变更** → `gh pr diff {pr-number}` 找到 spec.md 的变更行
-3. **逐行检查** → 对每个需求 ID、每条验收标准：
+> **流程变更（spec 004）**：原 GitHub PR Review API 流程已废弃, 改为 IDE-based quote dialogue (FR-022)。Aaron 设计: Lex 在 spec.md 中追加自己的 quote 表达审查意见, 用户在 IDE 中回复, 不需要 gh api。
+
+1. **检查 spec.md 是否 ready** → `python3 tools/quote_parser.py specs/{id}/spec.md --check-ready`
+   - exit 0 = 所有 quote 都 `✓ resolved` (默认无 marker = pending, 见 FR-017)
+   - exit 1 = 还有 pending, 看 stderr 列表, 这些就是 Lex 要追问的项目
+2. **逐项检查** → 对每个需求 ID、每条验收标准：
    - 通过 → 不做操作
-   - 有问题 → 用 `gh api` 留 **inline comment**：
-     ```bash
-     gh api repos/{owner}/{repo}/pulls/{pr-number}/comments \
-       -f body="**{需求 ID}**: {具体问题}
-
-     修改建议: {具体建议}" \
-       -f path="specs/{spec-id}/spec.md" \
-       -f line={行号} \
-       -f side="RIGHT"
+   - 有问题 → 直接在 spec.md 追加 **Lex 的 quote**:
+     ```markdown
+     > **Lex:** **FR-XXX**: 具体问题
+     > 修改建议: 具体建议
+     > 状态: [open] (或 ✓ resolved 如果你打算接受 Aaron 的现有版本)
      ```
-4. **提交 Review 决定**：
-   - 无阻塞项 → `gh api repos/{owner}/{repo}/pulls/{pr-number}/reviews -f event="APPROVE" -f body="spec 审核通过"`
-   - 有阻塞项 → `gh api repos/{owner}/{repo}/pulls/{pr-number}/reviews -f event="REQUEST_CHANGES" -f body="存在 {N} 个阻塞项，请修正后重新提交"`
+3. **决定**：
+   - 无阻塞项 → 在 chat 通知 Sage: "Lex 阶段完成, spec.md is_ready=True, 进入 Step 6"
+   - 有阻塞项 → 在 chat 通知 Sage: "Lex 发现 N 个问题, 在 spec.md Lxx-Lyy, 继续追问"
+4. **不调用 `gh api reviews` 或 `gh pr comment`**。
 
-**每次 Request changes 最多 3 个阻塞 comment。**
+**每次"Request changes"最多 3 个阻塞 quote。**
 
 ### 决策框架
 
@@ -97,26 +97,24 @@ Spec 讨论分支由 Sage 创建，命名格式为 `spec/{spec-id}`。
 - **PR merge 后 `specforge verify-issue --spec {spec-id}` 返回 `[拒绝]`**
 
 #### 操作限制（提示用户）
-- **无法 Approve 自己的 PR**：如果 Sage 和 Lex 共享同一 GitHub 身份（自举场景），Lex 应提交 Comment review 说明审查结论，然后**提示用户手动 Approve 并 Merge 该 PR**，格式：
-  > Lex 审查已通过。由于当前 Agent 身份与你共享 gh 用户，无法执行 Approve。请你：
-  > 1. 打开 PR: {链接}
-  > 2. 点击 Files Changed → Review changes → Approve → Submit review
-  > 3. 点击 Merge pull request，勾选 **Delete branch** 清理已完成的分支
-  > 4. 完成后回到对话中告诉我 "已 merge"
+- **Lex 在 spec.md 中追加 quote (FR-022 修订)**: Lex 不调用 `gh api reviews`, 改为直接编辑 spec.md 追加自己的 quote block。
+- **共享 gh 身份场景 (自举)**: 如果用户和 Lex 是同一 GitHub 身份, Lex 仍能正常 edit spec.md (本地文件操作, 不需要 GitHub 权限), 无需 Approve PR 的过程。
 
-**每次 Request changes 最多列出 3 个阻塞问题。每个问题必须在 PR 对应行上留下 inline comment。**
+**每次 Request changes 最多列出 3 个阻塞问题。每个问题必须在 spec.md 中以 quote 形式表达。**
 
 ### PR Review Comment 格式
 
-阻塞问题（inline comment）：
-```
-**{FR-xxx}**: {具体问题描述}
-修改建议: {具体修改建议}
+阻塞问题（spec.md quote 形式）：
+```markdown
+> **Lex:** **FR-xxx**: {具体问题描述}
+> 修改建议: {具体修改建议}
+> 状态: [open]
 ```
 
-非阻塞建议（inline comment）：
-```
-💡 建议: {改进建议}
+非阻塞建议（spec.md quote 形式）：
+```markdown
+> **Lex:** 💡 建议: {改进建议}
+> 状态: ✓ resolved (默认 pending, 见 FR-017)
 ```
 
 ---
@@ -172,7 +170,7 @@ specforge verify-issue --spec {spec-id}
 | L1 | 标题格式 | `[FR-1] xxx` 缺少零填充 |
 | L2 | 需求 ID 字段 | 字段缺失、格式错误、与标题不一致 |
 | L3 | Spec 链接字段 | 相对路径、fragment 大写 `#FR-001`、缺锚点 |
-| L4 | spec 可达性 | `gh api` 拉取 spec.md 失败（权限/路径错） |
+| L4 | spec 可达性 | `python3 tools/quote_parser.py` 拉取 spec.md 失败（路径错） |
 | L5 | 锚点存在性 | spec.md 中找不到 `#fr-XXX`（FR 被删/重命名） |
 | L6 | 锚点内容 | 锚点上下文无 `FR-XXX` 字样（被错误复用） |
 | L7 | AC 列表 | 缺失、行格式错、编号不连续 |
