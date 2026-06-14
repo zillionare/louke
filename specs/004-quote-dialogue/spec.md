@@ -81,7 +81,7 @@ chat 里 Agent 可以:
 <a id="fr-020"></a>
 **FR-020**: 当 `git diff` 显示用户修改了原文段落（不是 quote block）时, Sage 必须能识别这是"用户更正 Agent 记录错误"而非"用户回答 quote 问题", 据此调整后续追问策略。
 
-> **Aaron:** 用户完成修改后, 回到对话, 提示 Agent 进行下一步。
+> **Aaron:** 用户完成修改后, 回到对话, 提示 Agent 进行下一步。 ✓ resolved
 
 可测试性: ✅
 
@@ -137,42 +137,39 @@ chat 里 Agent 可以:
 
 ### 用户故事澄清 (US-002 / US-003)
 
-> **Sage:** US-002 提到"用户 push 之后通过 git diff 自动识别", US-003 说"用户能改任何地方"。但如果用户改了 spec.md 中跟 quote 无关的段落, Sage 怎么知道这是"回答 quote"还是"重写错误"?
-
-> > **Sage:** 我建议分两类处理: (a) 用户改 quote block (状态变更 / 新增 quote) → 视作对 quote 的回复, Sage 据此调整; (b) 用户改原文段落 (US/FR/AC 等) → 视作"用户更正 Agent 记录", Sage 不追问已修正段落, 但可能追问"这次修正是否引发下游 FR 调整?"。区分方法: 用 `git diff` 中是否触及 quote 行判断。
+> **Sage:** US-002 提到"用户 push 之后通过 git diff 自动识别", US-003 说"用户能改任何地方"。但如果用户改了 spec.md 中跟 quote 无关的段落, Sage 怎么知道这是"回答 quote"还是"重写错误"? [wontfix]
+>
+> > **Sage:** 我建议分两类处理: (a) 用户改 quote block (状态变更 / 新增 quote) → 视作对 quote 的回复, Sage 据此调整; (b) 用户改原文段落 (US/FR/AC 等) → 视作"用户更正 Agent 记录", Sage 不追问已修正段落, 但可能追问"这次修正是否引发下游 FR 调整?"。区分方法: 用 `git diff` 中是否触及 quote 行判断。 ✓ resolved
 > >
-> >> **Sage:** (追问) 那么 chat 中是否需要 Sage 主动告知用户"我看到你改了 L42 段落的 AC-2, 是要顺便更新 AC-3 吗?", 还是静默接受用户的修改、不做引导?
+> >> **Sage:** (追问) 那么 chat 中是否需要 Sage 主动告知用户"我看到你改了 L42 段落的 AC-2, 是要顺便更新 AC-3 吗?", 还是静默接受用户的修改、不做引导? [wontfix]
 > >>
-> >>> **[open]** Aaron, please decide: (1) 用户改原文段落后, Sage 应主动引导下游调整 (proactive) 还是静默接受 (silent)? (2) 如果 proactive, 引导是放 chat 里还是放 spec.md 的 quote block 里?
-> >>>> **Aaron** 我已对 US-002提出质疑。待该问题决定后再讨论此问题，有可能就不存在了。
+> >>> **Aaron** 我已对 US-002 提出质疑. 待该问题决定后再讨论此问题, 有可能就不存在了。 ✓ resolved
 
 ### 与 PR 流程的关系 (跨 spec 影响)
 
-> **Sage:** spec 003 的 spec.md / acceptance.md / test-plan.md 中所有"git push 触发 PR Review"的描述现在过时了。要不要追加 fix commit 把过时描述换成 quote 流程描述, 还是接受历史描述"过时"?
+> **Sage:** spec 003 的 spec.md / acceptance.md / test-plan.md 中所有"git push 触发 PR Review"的描述现在过时了。要不要追加 fix commit 把过时描述换成 quote 流程描述, 还是接受历史描述"过时"? [wontfix]
 >
-> > **Sage:** 历史 spec 是 immutable 历史记录, 不应回改。可以在 README 加一段"历史说明"指向本 spec (004) 作为 supersede, 类似 ADR 的 Superseded 关系。
+> > **Sage:** 历史 spec 是 immutable 历史记录, 不应回改。可以在 README 加一段"历史说明"指向本 spec (004) 作为 supersede, 类似 ADR 的 Superseded 关系。 ✓ resolved
 > >
-> >> **Sage:** 但 README §2.2 是流程总入口, 不写过时流程等于遗忘。所以 README §2.2 整段改写为 IDE 流程, 旧的 PR 流程作为"参见历史 spec 001-003"附录, 不删除。
+> >> **Sage:** 但 README §2.2 是流程总入口, 不写过时流程等于遗忘。所以 README §2.2 整段改写为 IDE 流程, 旧的 PR 流程作为"参见历史 spec 001-003"附录, 不删除。 ✓ resolved
 > >>
-> >>> **[open]** Aaron, please decide: (1) 历史 spec 是否回改? (2) README §2.2 旧 PR 流程段是删除、保留、还是作为附录?
-> >>>> **Aaron** 历史 spec/acceptance/test-plan 不变。新的 spec 要说明对旧的 spec 变更记录。README 需要更新；每个版本的 acceptance/test-plan只对应自己的 spec，不需要care spec 变更历史。
+> >>> **Aaron** 历史 spec/acceptance/test-plan 不变. 新的 spec 要说明对旧的 spec 变更记录. README 需要更新; 每个版本的 acceptance/test-plan 只对应自己的 spec, 不需要 care spec 变更历史. ✓ resolved
 
 ### chat 引导的边界 (FR-027)
 
-> **Sage:** FR-027 限定 chat 用途为"通知用户 review / 解释设计意图 / 询问元问题"。但 spec 流程中, Sage 经常需要问"项目叫什么 / FR 编号从几开始 / 是否合并到现有 spec"等元问题。这些走 chat 还是 spec.md?
+> **Sage:** FR-027 限定 chat 用途为"通知用户 review / 解释设计意图 / 询问元问题"。但 spec 流程中, Sage 经常需要问"项目叫什么 / FR 编号从几开始 / 是否合并到现有 spec"等元问题。这些走 chat 还是 spec.md? [wontfix]
 >
-> > **Sage:** 我倾向**元问题走 chat** (快速、不进 spec), **内容澄清走 spec.md quote** (持久、可追溯)。区分依据: 答案是否影响 spec.md 内容。如果回答后会改 spec.md, 必须走 spec.md quote; 如果回答后只影响 Agent 工作流, 走 chat。
+> > **Sage:** 我倾向**元问题走 chat** (快速、不进 spec), **内容澄清走 spec.md quote** (持久、可追溯)。区分依据: 答案是否影响 spec.md 内容。如果回答后会改 spec.md, 必须走 spec.md quote; 如果回答后只影响 Agent 工作流, 走 chat。 ✓ resolved
 > >
-> >> **Sage:** (补充) 项目名 / FR 起点等元问题其实**也会影响 spec.md** (要写进 frontmatter 或开头), 所以严格按规则也应该走 spec.md。但用户体验上, 每次启动都要先开 IDE 编辑 spec.md 回答元问题, 太重。
+> >> **Sage:** (补充) 项目名 / FR 起点等元问题其实**也会影响 spec.md** (要写进 frontmatter 或开头), 所以严格按规则也应该走 spec.md。但用户体验上, 每次启动都要先开 IDE 编辑 spec.md 回答元问题, 太重。 ✓ resolved
 > >>
-> >>> **[open]** Aaron, please decide: 元问题 (项目名、FR 起点等) 走 chat 还是 spec.md? 如果走 chat, Sage 是不是要等用户 chat 回复后再初始化 spec.md?
-> >>>> **Aaron** 元问题走chat，Agent 发现不对，可以及时沟通。比 spec 快。
+> >>> **Aaron** 元问题走 chat, Agent 发现不对, 可以及时沟通. 比 spec 快。 ✓ resolved
 
 ### 上游 Scout 契约 (Sage 启动条件)
 
 > **Sage:** 我刚意识到 spec 004 漏掉了上游 Scout→Sage 的契约。当前 Sage.md Step 0 假设 `prd.md` 存在, 但 Scout 的实际输出是 `story.md` (Scout.md 第 95 行: 写入 `specs/project-info.md` 等状态文件)。语义错位: Scout 写的是"项目元信息", Sage 假设有"PRD"。这两者不是一回事。
 >
-> > **Sage:** 提议新增 FR-028 (Sage 启动时读 `story.md` 或 GitHub Issue, 否则拒绝) 和 FR-029 (Scout 必须输出 `story.md`, Warden 验证)。这样 Scout→Sage 的契约就显式了。
+> > **Sage:** 提议新增 FR-028 (Sage 启动时读 `story.md` 或 GitHub Issue, 否则拒绝) 和 FR-029 (Scout 必须输出 `story.md`, Warden 验证)。这样 Scout→Sage 的契约就显式了。 ✓ resolved
 > >
 > >> **Sage:** (追问) GitHub Issue 作为设计源这一点, 是 specforge 现有 §1 双源设计 (spec.md ↔ Issue) 的延伸。我们是不是要把"任意上游产物都可以是 Issue"这一原则**正式写入 spec 004** 作为 NFR? 或者保持隐式 (只在 FR-028 里隐含)?
 > >>
@@ -182,10 +179,7 @@ chat 里 Agent 可以:
 
 当前 spec.md 仍 open 的问题:
 
-1. 用户改原文段落后, Sage 主动引导 vs 静默接受?
-2. 历史 spec 是否回改? README §2.2 旧 PR 流程段处置?
-3. 元问题走 chat 还是 spec.md?
-4. FR-028/FR-029 描述准确吗? Issue 双源原则是否单独写 NFR?
+1. FR-028/FR-029 描述准确吗? Issue 双源原则是否单独写 NFR?
 
 ## 流程示意（参考）
 
