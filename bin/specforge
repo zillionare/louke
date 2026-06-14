@@ -53,19 +53,22 @@ Usage:
   specforge <command> [args]
 
 Commands (User-driven — 人跑):
-  init <name>              在当前目录创建 <name>/ 子项目(拷贝 agents/ + templates/)
-  upgrade                  git pull --ff-only 到 \$SPECFORGE_HOME (拒绝非 main 分支)
-  version                  打印版本 + install 路径
-  help                     显示本帮助
+  init <name>             新建 <name>/ 子项目(拷贝 agents/ + templates/)
+  init <path>             接入既存项目 (adopt 模式),非破坏性合并
+                          Flags: --dry-run --backup --force --no-gitignore
+                                 --with-issue-template --json
+  upgrade                 git pull --ff-only 到 \$SPECFORGE_HOME (拒绝非 main 分支)
+  version                 打印版本 + install 路径
+  help                    显示本帮助
 
 Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
-  checkup <owner/repo>     身份一致性体检 L1-L5 (Maestro 启动时跑)
-  doctor                   checkup 的别名
-  verify-issue --spec ID   Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
+  checkup <owner/repo>    身份一致性体检 L1-L5 (Maestro 启动时跑)
+  doctor                  checkup 的别名
+  verify-issue --spec ID  Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
 
 环境变量:
-  SPECFORGE_HOME           framework 安装目录 (默认 ~/.specforge)
-  GH_REPO                  specforge 的 GitHub repo (默认 zillionare/specforge)
+  SPECFORGE_HOME          framework 安装目录 (默认 ~/.specforge)
+  GH_REPO                 specforge 的 GitHub repo (默认 zillionare/specforge)
 
 更多信息: https://github.com/\${GH_REPO:-zillionare/specforge}
 EOF
@@ -80,7 +83,8 @@ cmd_init() {
     # Adopt mode: path with /, . prefix, or ~ prefix and target exists.
     # Bare name (no separators and not .) → legacy create-new mode.
     if is_existing_path "$PROJECT_NAME"; then
-        cmd_init_adopt "$PROJECT_NAME"
+        shift  # drop the path positional
+        cmd_init_adopt "$PROJECT_NAME" "$@"
         return
     fi
 
@@ -146,52 +150,114 @@ specforge project '$PROJECT_NAME' initialized!
 EOF
 }
 
-# cmd_init_adopt: stub for TASK-02+ implementation
-# Currently creates agents/ and templates/ only — full adopt flow
-# (source preservation, file skip/backup/force, .gitignore, reports)
-# is implemented in subsequent tasks.
+# cmd_init_adopt: full FR-009..FR-015 implementation
+# Flags:
+#   --backup         back up existing files as .bak before skip (FR-011)
+#   --force          overwrite existing files (FR-011)
+#   --dry-run        print what would happen, change nothing (FR-012)
+#   --with-issue-template  install .github/ISSUE_TEMPLATE/feature.yml
+#   --no-gitignore   skip .gitignore append (FR-014)
+#   --json           emit machine-readable JSON (FR-013)
 cmd_init_adopt() {
-    local TARGET="$1"
-    # Verify target is a git repo (FR-015 stub)
+    local BACKUP=0 FORCE=0 DRY_RUN=0 ISSUE_TEMPLATE=0 NO_GITIGNORE=0 JSON=0
+    local TARGET=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --backup)               BACKUP=1 ;;
+            --force)                FORCE=1 ;;
+            --dry-run)              DRY_RUN=1 ;;
+            --with-issue-template)  ISSUE_TEMPLATE=1 ;;
+            --no-gitignore)         NO_GITIGNORE=1 ;;
+            --json)                 JSON=1 ;;
+            -*)                     die "unknown flag: $1" ;;
+            *)                      TARGET="$1" ;;
+        esac
+        shift
+    done
+
+    [ -n "$TARGET" ] || die "Usage: specforge init <existing-path> [--dry-run] [--backup|--force] [--no-gitignore] [--with-issue-template] [--json]"
+
+    # FR-015: target must be a git repo
     [ -d "$TARGET/.git" ] || die "adopt target '$TARGET' is not a git repo; run 'git init' first"
 
-    cd "$TARGET" || die "cannot cd to '$TARGET'"
+    # Convert TARGET to absolute path for cd
+    local ABS_TARGET
+    ABS_TARGET="$(cd "$TARGET" && pwd)" || die "cannot resolve '$TARGET'"
+    cd "$ABS_TARGET" || die "cannot cd to '$TARGET'"
 
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
     # FR-010: create-if-missing for specforge-owned dirs
-    mkdir -p agents templates specs wiki/pages wiki/decisions raw/sources
-
-    # FR-011 (stub): copy agents/*.md if missing
-    for f in "$SPECFORGE_HOME"/agents/*.md; do
-        [ -f "$f" ] || continue
-        local name
-        name="$(basename "$f")"
-        if [ ! -e "agents/$name" ]; then
-            cp "$f" "agents/$name"
-            echo "[+] agents/$name"
-        else
-            echo "[=] agents/$name"
+    for d in agents templates specs wiki/pages wiki/decisions raw/sources; do
+        if [ ! -d "$d" ]; then
+            [ "$DRY_RUN" -eq 0 ] && mkdir -p "$d"
         fi
     done
 
-    # FR-011 (stub): copy templates/*.md if missing
-    for f in "$SPECFORGE_HOME"/templates/*.md; do
-        [ -f "$f" ] || continue
-        local name
-        name="$(basename "$f")"
-        if [ ! -e "templates/$name" ]; then
-            cp "$f" "templates/$name"
-            echo "[+] templates/$name"
-        else
-            echo "[=] templates/$name"
-        fi
+    # FR-011: copy agents/*.md and templates/*.md with skip/backup/force
+    # Track files with newline-separated lists (set -u safe)
+    local added_list="" skipped_list="" backed_list=""
+    for src_dir in agents templates; do
+        for f in "$SPECFORGE_HOME/$src_dir"/*.md; do
+            [ -f "$f" ] || continue
+            local dest="$src_dir/$(basename "$f")"
+            if [ ! -e "$dest" ]; then
+                [ "$DRY_RUN" -eq 0 ] && cp "$f" "$dest"
+                added_list="${added_list}${dest}"$'\n'
+            elif cmp -s "$f" "$dest"; then
+                # identical — silent skip (FR-011 AC-1)
+                skipped_list="${skipped_list}${dest}"$'\n'
+            elif [ "$FORCE" -eq 1 ]; then
+                [ "$DRY_RUN" -eq 0 ] && cp "$f" "$dest"
+                note "$dest exists, force-overwritten"
+                skipped_list="${skipped_list}${dest}"$'\n'
+            elif [ "$BACKUP" -eq 1 ]; then
+                [ "$DRY_RUN" -eq 0 ] && cp "$dest" "$dest.bak"
+                # Original preserved; .bak created; file NOT overwritten
+                backed_list="${backed_list}${dest}"$'\n'
+            else
+                note "$dest exists, skipped"
+                skipped_list="${skipped_list}${dest}"$'\n'
+            fi
+        done
     done
 
-    echo
-    echo "specforge adopted into '$TARGET' (stub: agents/ + templates/ only)"
-    echo "Full adopt flow (FR-009 to FR-015) lands in TASK-02+"
+    # FR-014: append .specforge/ to .gitignore (idempotent)
+    if [ "$NO_GITIGNORE" -eq 0 ]; then
+        if [ ! -f ".gitignore" ]; then
+            [ "$DRY_RUN" -eq 0 ] && printf ".specforge/\n" > ".gitignore"
+        elif ! grep -qxF '.specforge/' .gitignore 2>/dev/null; then
+            [ "$DRY_RUN" -eq 0 ] && printf "\n.specforge/\n" >> ".gitignore"
+        fi
+    fi
+
+    # Optional: install feature.yml (off by default)
+    if [ "$ISSUE_TEMPLATE" -eq 1 ]; then
+        mkdir -p ".github/ISSUE_TEMPLATE"
+        [ -f "$SPECFORGE_HOME/.github/ISSUE_TEMPLATE/feature.yml" ] \
+            && cp "$SPECFORGE_HOME/.github/ISSUE_TEMPLATE/feature.yml" ".github/ISSUE_TEMPLATE/feature.yml"
+    fi
+
+    # FR-013: report
+    local added_n skipped_n backed_n
+    added_n=$(echo -n "$added_list" | grep -c . || true)
+    skipped_n=$(echo -n "$skipped_list" | grep -c . || true)
+    backed_n=$(echo -n "$backed_list" | grep -c . || true)
+
+    if [ "$JSON" -eq 1 ]; then
+        local added_j="" skipped_j="" backed_j=""
+        [ -n "$added_list" ]   && added_j=$(echo "$added_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
+        [ -n "$skipped_list" ] && skipped_j=$(echo "$skipped_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
+        [ -n "$backed_list" ]  && backed_j=$(echo "$backed_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
+        echo "{ \"added\": [${added_j:-}], \"skipped\": [${skipped_j:-}], \"backed_up\": [${backed_j:-}] }"
+    else
+        [ -n "$added_list" ]   && echo "$added_list"   | grep . | sed 's/^/[+] /'
+        [ -n "$skipped_list" ] && echo "$skipped_list" | grep . | sed 's/^/[=] /'
+        [ -n "$backed_list" ]  && echo "$backed_list"  | grep . | sed 's/^/[!] /'
+        echo
+        echo "$added_n 个新文件, $skipped_n 个跳过, $backed_n 个备份"
+    fi
 }
 
 cmd_checkup() {

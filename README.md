@@ -430,6 +430,8 @@ specforge upgrade
 
 ### 8.3 初始化项目
 
+#### 8.3.1 新建项目
+
 ```bash
 specforge init my-project
 cd my-project
@@ -437,7 +439,53 @@ ls
 # agents/  templates/  specs/  wiki/  raw/
 ```
 
-`init` 会把 `agents/*.md` 和 `templates/*.md` 拷到你的项目目录。**Python 工具（`tools/*.py`）不复制**——它们是 framework 的实现细节，留在 `~/.specforge/tools/`，通过 `specforge` CLI 调用。
+`init <bare-name>` 会把 `agents/*.md` 和 `templates/*.md` 拷到你的项目目录。**Python 工具（`tools/*.py`）不复制**——它们是 framework 的实现细节，留在 `~/.specforge/tools/`，通过 `specforge` CLI 调用。
+
+#### 8.3.2 接入既存项目（adopt 模式）
+
+v0.3 起，`init` 支持把 specforge 非破坏性地接入既存项目：
+
+```bash
+cd /path/to/existing-project  # 必须是 git repo
+specforge init .               # 当前目录
+specforge init /abs/path       # 绝对路径
+specforge init ~/projects/x    # home 缩写
+specforge init ./sub           # 相对路径
+```
+
+**判定规则**：参数含 `/`、以 `.` 开头、以 `~` 开头 → 既存路径（adopt 模式）；否则视为裸名（新建项目）。
+
+**adopt 模式保证**：
+- 既存源代码字节级不变（递归 SHA256 验证）
+- `.git/` 不被触碰
+- `agents/` `templates/` 等 specforge-owned 目录：缺则创建，有则保留
+- 同名文件：默认 skip + warn；可加 `--backup`（备份为 `.bak`）或 `--force`（覆盖）
+- `.gitignore` 自动追加 `.specforge/`（`--no-gitignore` 跳过）
+- 三档报告：`[+]` 新增 / `[=]` 跳过 / `[!]` 备份
+
+**Flags**：
+
+| Flag | 作用 |
+|---|---|
+| `--dry-run` | 只打印将做什么，不实际改 |
+| `--backup` | 既存文件 → `.bak` 后跳过（不覆盖） |
+| `--force` | 既存文件强制覆盖 |
+| `--with-issue-template` | 同时安装 `.github/ISSUE_TEMPLATE/feature.yml` |
+| `--no-gitignore` | 不动 `.gitignore` |
+| `--json` | 输出机器可读 JSON 替代纯文本 |
+
+**示例**：
+
+```bash
+# 接入 millionaire，dry-run 预览
+specforge init . --dry-run
+
+# 接入并保留用户修改
+specforge init . --backup
+
+# CI/script 用法：JSON 输出
+specforge init . --json | jq '.added | length'
+```
 
 ### 8.4 配置
 
