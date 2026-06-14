@@ -114,3 +114,14 @@ EOF
     # No quote should have depth 0 (would mean false-positive on list markers)
     [[ ! "$output" =~ '"depth": 0' ]]
 }
+
+@test "QP_T16_self_parse_spec004: spec 004 self-parses with status markers" {
+    # This is the dogfood check: spec 004 must follow its own format
+    # so quote_parser.py can detect its open quotes correctly.
+    SPEC004="$SPECFORGE_HOME/specs/004-quote-dialogue/spec.md"
+    [ -f "$SPEC004" ]
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" "$SPEC004"
+    [ "$status" -eq 0 ]
+    # All Sage quotes must end with status marker (parser only counts those)
+    [[ ! "$output" =~ "total quotes: 0" ]]
+}
