@@ -216,18 +216,27 @@ EOF
 - **标签**：统一使用 `Feature`
 - 每个需求 ID 只创建一次——若 issue 已存在则跳过
 
+**关联 Project**：创建完 issue 后, **Sage 自己**将每个 issue 关联到 `specs/project-info.md` 中指定的 Project:
+
+```bash
+# PRD 中读 Project ID
+PROJECT_ID=$(gh project list --format json --owner zillionare | jq -r '.projects[] | select(.title=="specforge-v0.4") | .id')
+# 把 issue 加到 Project
+gh project item-add ${PROJECT_ID} --owner zillionare --url ${ISSUE_URL}
+```
+
 创建完成后输出 issue 清单：
 
 ```
-| 需求 ID | Issue # | 标题 |
-| ------- | ------- | ---- |
-| FR-001  | #42     | ...  |
-| FR-002  | #43     | ...  |
+| 需求 ID | Issue # | 标题 | Project |
+| ------- | ------- | ---- | ------- |
+| FR-001  | #42     | ...  | specforge-v0.4 |
+| FR-002  | #43     | ...  | specforge-v0.4 |
 ```
 
-### Step 6: 通知 Lex 启动阶段二 (issue 验证 + Project 关联)
+### Step 6: 通知 Lex 启动阶段二 (issue 验证)
 
-issue 创建完毕后, 通知 Lex 启动 issue 验证与 Project 关联：
+issue 创建 + Project 关联完毕后, 通知 Lex 启动验证：
 
 ```bash
 python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
@@ -235,11 +244,11 @@ python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
 # exit 1 → 等 Sage 继续追问 (有 pending quote)
 ```
 
-> **Lex 阶段二启动**: spec.md 已锁定 (所有 pending quote 都 ✓ resolved, FR/NFR 锚点已加), {M} 个 issue 已由 Sage Step 5 创建, 请验证 issue 覆盖完整性 + schema 合规性 + 关联 Project。
+> **Lex 阶段二启动**: spec.md 已锁定 (所有 pending quote 都 ✓ resolved, FR/NFR 锚点已加), {M} 个 issue 已由 Sage Step 5 创建, {P} 个 issue 已关联到 Project {PROJECT}, 请验证 issue 覆盖完整性 + schema 合规性 + Project 关联完整性。
 >
 > 注 (FR-026 修订): 锁定信号不再是 "PR merged", 而是 quote_parser `--check-ready` exit 0。
 >
-> 责任边界: **Sage 创建 issue**, **Lex 验证 issue**, 避免 creator/checker 同体。
+> 责任边界: **Sage 创建 issue + 关联 Project**, **Lex 验证 issue 覆盖 + schema + Project 关联**, 避免 creator/checker 同体。
 
 ---
 
