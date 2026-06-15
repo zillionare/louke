@@ -1,3 +1,8 @@
+---
+name: roster
+description: Agent 花名册与阶段映射
+---
+
 # Agent 花名册
 
 每个阶段有专门的实施者与评审者，由 Maestro 统一协调。

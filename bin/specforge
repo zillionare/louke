@@ -125,6 +125,17 @@ cmd_init_new() {
     cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
 
+    # FR-029: .vscode/agents/ 软链 (VS Code custom agent 发现)
+    mkdir -p "$PROJECT_NAME/.vscode"
+    ln -snf "../.specforge/agents" "$PROJECT_NAME/.vscode/agents"
+    # .gitignore 追加 .vscode/agents/ (VS Code 本地配置不入库)
+    local GITIGNORE="$PROJECT_NAME/.gitignore"
+    if [ ! -f "$GITIGNORE" ]; then
+        printf '.vscode/agents/\n' > "$GITIGNORE"
+    elif ! grep -qxF '.vscode/agents/' "$GITIGNORE" 2>/dev/null; then
+        printf '\n.vscode/agents/\n' >> "$GITIGNORE"
+    fi
+
     local AGENT_COUNT TEMPLATE_COUNT
     AGENT_COUNT=$(ls "$PROJECT_NAME/.specforge/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
     TEMPLATE_COUNT=$(ls "$PROJECT_NAME/.specforge/templates"/*.md 2>/dev/null | wc -l | tr -d ' ')
@@ -227,6 +238,18 @@ cmd_init_adopt() {
             fi
         done
     done
+
+    # FR-029: .vscode/agents/ 软链 (VS Code custom agent 发现)
+    [ "$DRY_RUN" -eq 0 ] && mkdir -p ".vscode"
+    [ "$DRY_RUN" -eq 0 ] && ln -snf "../.specforge/agents" ".vscode/agents"
+    # .gitignore 追加 .vscode/agents/ (VS Code 本地配置不入库)
+    if [ "$NO_GITIGNORE" -eq 0 ]; then
+        if [ ! -f ".gitignore" ]; then
+            [ "$DRY_RUN" -eq 0 ] && printf ".vscode/agents/\n" > ".gitignore"
+        elif ! grep -qxF '.vscode/agents/' .gitignore 2>/dev/null; then
+            [ "$DRY_RUN" -eq 0 ] && printf "\n.vscode/agents/\n" >> ".gitignore"
+        fi
+    fi
 
     # FR-014: append .specforge/ to .gitignore (idempotent)
     if [ "$NO_GITIGNORE" -eq 0 ]; then
