@@ -19,3 +19,12 @@
 - **Test Issue**: #15 (closed)
 - **Test PR**: #16 (closed)
 - **Created**: 2026-06-02
+
+## v0.4 (实战测试)
+- **Story**: 通过 markdown quote 语法完成 spec 澄清，免去 PR 流程；sage 用 > 提问、用户用 >> 回答，按 > 个数缩进。
+- **Version**: 0.4
+- **Repo**: github.com/zillionare/specforge
+- **Project**: specforge-v0.4 (TBD — 未创建)
+- **Spec ID**: 004-quote-dialogue-v0.4
+- **Release Branch**: `releases/v0.4`
+- **Created**: 2026-06-15
