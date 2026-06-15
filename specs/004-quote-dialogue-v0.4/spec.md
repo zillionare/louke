@@ -11,6 +11,7 @@ story: 作为 spec 作者，我想用 markdown 的 quote 语法在 IDE 中直接
 priority: P0
 
 > **Aaron**: 这是测试问题，请回答并关闭。
+>> **Sage:** 收到，这条用作用例覆盖了"speaker 提取允许 `**Name**:` (无冒号) 与 `**Name:**` (有冒号) 两种" lex 路径。 ✓
 
 ### US-020
 story: 作为 spec 作者，我想既能在 sage 提问处回复，也能对 spec 任意段落提出自己的疑问，以便澄清工作既可由 sage 驱动，也可由作者主动发起。
@@ -53,6 +54,17 @@ valid: ✅
 
 speaker 身份**不**由 `>` 嵌套层数 (depth) 推断，而是由 `**Name:**` 前的加粗文本决定。depth 仅用于排序与"在 IDE 中自然缩进显示"。
 
+**加宽容忍**：speaker 提取接受以下格式：
+
+| 形式 | 例 | 备注 |
+|---|---|---|
+| 加粗, 冒号在 `**` 内 | `> **Name:** hello` | 标准 markdown 加粗, `:` 在 bold 内 |
+| 加粗, 冒号在 `**` 外 | `> **Name**: hello` | 部分 IDE 自动补冒号 |
+| 加粗, 无冒号 | `> **Name** hello ✓` | 加粗后直接接内容 |
+| Plain (ASCII id) | `> Aaron: hello` | 无加粗, 必须是 ASCII identifier (`A-Za-z0-9_-`), 不接受纯中文 speaker |
+
+**说明**: 纯中文 speaker 单独 + `:` 的形式 (如 `> 格式约定: ...`) 不被识别为 quote 对话, 仍按说明文字处理。
+
 ```yaml
 testability: ✅
 resolved: ✅
@@ -82,11 +94,15 @@ valid: ✅
 `tools/quote_parser.py` 必须能：
 - 切分 `### US/FR/NFR-XXX` 单元
 - 解析每个单元末尾的 yaml 块（`testability / resolved / valid`）
-- 把 quote 块按它所在 spec 内的"上下文段落"归到某个 unit
+- 把 quote 块按"**同一 ## 顶节**内 + 最近的 `### US/FR/NFR-XXX` 单元"规则归到某个 unit
+
+**说明型 `>` 块过滤**：落在 `## 顶节` 内但**不属于任何 `### US/FR/NFR-XXX` 单元**、且**没有显式 status marker** 的 quote 块（如 `> **格式约定**: ...` 这类前言说明）应被丢弃，不计入对话统计、ready 判定、unit 关联。
+
+**非 unit 段落（如 scenario）的虚拟 unit**：quote 出现在 `## 用户使用场景` 等**没有 yaml meta** 的大节时，按"该 quote 之前第一个非空非 quote 文本行"作为上下文锚定生成虚拟 unit（用于审计 trace），但不强制要求该虚拟 unit 走 `--check-ready` 判定。
 
 ```yaml
 testability: ✅
-resolved: ⚠️
+resolved: ✅
 valid: ✅
 ```
 
@@ -95,17 +111,19 @@ valid: ✅
 >> **Aaron**: ### US/FR/NFR-XXX
 > - Q2: 如果 quote 块出现在 `## 用户使用场景` 这种没有 unit 的大节里，应该归到哪里（归到上一个 FR / 报错 / 标 unassigned）？
 >> **Aaron**: 非 FR/NFR，没有meta 字段, 在 quote block内部解析是否完成。如果要找上下文，则它之前第一个非 quote block 的文本行就是（注意是非空文本行）
+>>> **Sage:** 收到。Q1 采纳 preceding-unit；Q2 采纳"虚拟 unit 上下文锚定"。同时已实现 `> **Name**:` / `**Name:**` 两种格式都识别、explanatory `>` 块过滤。 ✓
 
 ### FR-050 unit-ready 判定
 
 `tools/quote_parser.py --check-ready` 应当：
-- 对 FR/NFR 单元：要求 `yaml.resolved == ✅` **且** 该 unit 内无 `[open]` quote
+- 对 FR/NFR 单元：要求 `yaml.resolved == ✅` **且** 该 unit 下 `last_quote.status != "open"`（**chain-wise 判定**：对话链只要最后一条 close 即可视为 closed, 中间未标 marker 的 reply 由后续 close 覆盖）
 - 对 US 单元：要求最后一条 quote 状态是 `✓`/`[wontfix]`/`[superseded]`，或 unit 内无 quote
+- 对 scenario 等"叙事性"段落：本身不参与 unit 切分（不算 unit），但其中的 quote 仍可被解析并归属到邻近 US/FR/NFR 虚拟上下文
 - 输出每个 unit 的 ready 状态及阻塞原因
 
 ```yaml
 testability: ✅
-resolved: ⚠️
+resolved: ✅
 valid: ✅
 ```
 
@@ -114,6 +132,7 @@ valid: ✅
 >> **Aaron**: 需要，并且第101行已有说明
 > - Q4: "用户使用场景" (scenario) 算不算 unit？我倾向不算（它是 narrative，不是 actionable requirement）。
 >> **Aaron**: 算普通文本，但同样可能存在多轮澄清的需要。
+>>> **Sage:** 收到。Q3 采纳"US 走 check-ready"（你已确认）；Q4 采纳"scenario 不算 unit，但 quote 链仍可被解析并被关联到邻近 unit 的虚拟上下文"。FR-050 spec 已同步更新。 ✓
 
 ### FR-060 用户侧编辑器不需扩展
 

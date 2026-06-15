@@ -44,11 +44,15 @@ RE_STATUS_EXPLICIT = re.compile(
 
 RE_QUOTE_LINE = re.compile(
     r"^(?P<depth>\s*(?:>\s*)+)"
-    r"\*\*"
-    r"(?P<name>[^*:]+?)"
-    r":\*\*\s*"
-    r"(?P<body>.*?)\s*"
-    r"(?P<status>✓\s*resolved|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded])?\s*$"
+    r"(?:"
+    r"\*\*(?P<name>[^*\s][^*]*?):?\*\*:?\s*"
+    r"|"
+    r"(?P<plainname>[A-Za-z][A-Za-z0-9_\-]*|\*\*[^*]+\*\*):\s+"
+    r")"
+    r"(?P<body>.*?)"
+    r"\s*"
+    r"(?P<status>✓\s*(?:resolved)?|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded])?"
+    r"\s*$"
 )
 
 # 单元标题: ### US-010 / ### FR-001 / ### NFR-010 / 等 (3 位零填充)
@@ -82,6 +86,8 @@ class Quote:
     line_number: int
     blocked_by: int | None = None
     owner_close_role: str = "user"
+    has_explicit_status: bool = False  # 显式 status marker (✓/[open]/[wontfix]/...)
+    is_explanatory: bool = False      # 由 spec 中的说明型 > 段推断 (无 unit, 无 status)
 
 
 @dataclass
@@ -117,16 +123,17 @@ class Unit:
         """返回 (ready, blockers)。"""
         blockers: list[str] = []
         if self.is_frnfr():
-            # FR/NFR: YAML resolved = ✅ 且 单元下没有 open quote
+            # FR/NFR: YAML resolved = ✅ 且 最后一条 quote 状态 closed
+            # (对话链只看 last_quote; 中间 open 的 reply 由后续 close 覆盖)
             if self.yaml_resolved == "✅":
                 pass
             elif self.yaml_resolved == "⚠️" or self.yaml_resolved == "":
                 blockers.append(f"yaml.resolved={self.yaml_resolved!r} (need ✅)")
             else:
                 blockers.append(f"yaml.resolved={self.yaml_resolved!r} (unknown marker)")
-            if self.open_quotes:
+            if self.last_quote is not None and self.last_quote.status == "open":
                 blockers.append(
-                    f"{len(self.open_quotes)} open quote(s) (last={self.last_quote.status if self.last_quote else 'none'})"
+                    f"last quote status=open at L{self.last_quote.line_number} ({self.last_quote.speaker}: {self.last_quote.body[:40]})"
                 )
         else:
             # 其他单元 (US 等): 最后一条 quote 是 closed (或没有 quote)
@@ -222,6 +229,7 @@ def parse_spec(spec_path: Path) -> ParseResult:
             line_number=i,
             blocked_by=blocked_by,
             owner_close_role=owner_role,
+            has_explicit_status=bool(status_raw),
         )
         result.quotes.append(quote)
 
@@ -274,14 +282,63 @@ def parse_spec(spec_path: Path) -> ParseResult:
 
     # 第三遍: 把 quote 挂到所属 unit
     # 单元的 line 范围: [unit.heading_line, next_unit.heading_line) 或文件末尾
+    # 但要求 unit 与 quote 在**同一个 ## 顶节内** —— 否则说明型 `>` (位于 ## 章节
+    # 前言) 会被错挂到上一个 unit.
+    quote_belongs_to_unit: set[int] = set()
+
+    # 重建 ## 顶节起始行表 (含文件开头 0 与文件末尾哨兵)
+    section_starts: list[int] = [0]
+    for i2, line2 in enumerate(lines, start=1):
+        if RE_TOP_HEADING.match(line2):
+            section_starts.append(i2)
+    section_starts.append(10**9)
+
+    def _quote_section_end(line_no: int) -> int:
+        """quote 所在 ## 顶节的下一节起始行 (即本节上界, 不含)."""
+        for s in section_starts:
+            if s > line_no:
+                return s
+        return 10**9
+
     if result.units:
         for u, next_u in zip(result.units, result.units[1:] + [None]):
             upper = next_u.heading_line if next_u else 10**9
+            section_upper = _quote_section_end(u.heading_line)
             for q in result.quotes:
-                if u.heading_line <= q.line_number < upper:
+                if u.heading_line <= q.line_number < upper and q.line_number < section_upper:
                     u.last_quote = q  # 最后一个胜出
                     if q.status == "open":
                         u.open_quotes.append(q)
+                    quote_belongs_to_unit.add(id(q))
+
+    # 第三遍.5: 丢弃"说明型" quote —— 既无 unit 归属、也无显式 status 的块,
+    # 例如 ## FR 章节前的 "> **格式约定**: ..." 这种说明段, 不是对话.
+    explanatory_quotes = []
+    kept_quotes = []
+    for q in result.quotes:
+        if not q.has_explicit_status and id(q) not in quote_belongs_to_unit:
+            q.is_explanatory = True
+            explanatory_quotes.append(q)
+        else:
+            kept_quotes.append(q)
+    result.quotes = kept_quotes
+    # 同步其它桶
+    result.open_quotes = [q for q in result.open_quotes if not q.is_explanatory]
+    result.resolved_quotes = [q for q in result.resolved_quotes if not q.is_explanatory]
+    result.blocked_quotes = [q for q in result.blocked_quotes if not q.is_explanatory]
+    result.wontfix_quotes = [q for q in result.wontfix_quotes if not q.is_explanatory]
+    result.superseded_quotes = [q for q in result.superseded_quotes if not q.is_explanatory]
+    # unit 的 last_quote / open_quotes 中也可能指向已丢弃的 quote, 清掉
+    for u in result.units:
+        if u.last_quote is not None and u.last_quote.is_explanatory:
+            u.last_quote = None
+        u.open_quotes = [q for q in u.open_quotes if not q.is_explanatory]
+    # 重建 speaker / depth 计数 (排除 explanatory)
+    result.speaker_counts = {}
+    result.depth_histogram = {}
+    for q in result.quotes:
+        result.speaker_counts[q.speaker] = result.speaker_counts.get(q.speaker, 0) + 1
+        result.depth_histogram[q.depth] = result.depth_histogram.get(q.depth, 0) + 1
 
     # 第四遍: 汇总 ready 判定
     for u in result.units:
