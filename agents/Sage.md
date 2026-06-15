@@ -216,7 +216,7 @@ EOF
 - **标签**：统一使用 `Feature`
 - 每个需求 ID 只创建一次——若 issue 已存在则跳过
 
-**关联 Project**：创建完 issue 后, **Sage 自己**将每个 issue 关联到 `specs/project-info.md` 中指定的 Project:
+**关联 Project**：创建完 issue 后, **Sage**将每个 issue 关联到 `specs/project-info.md` 中指定的 Project:
 
 ```bash
 # PRD 中读 Project ID
