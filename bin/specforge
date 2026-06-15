@@ -125,15 +125,26 @@ cmd_init_new() {
     cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
 
-    # FR-029: .vscode/agents/ 软链 (VS Code custom agent 发现)
-    mkdir -p "$PROJECT_NAME/.vscode"
-    ln -snf "../.specforge/agents" "$PROJECT_NAME/.vscode/agents"
-    # .gitignore 追加 .vscode/agents/ (VS Code 本地配置不入库)
-    local GITIGNORE="$PROJECT_NAME/.gitignore"
-    if [ ! -f "$GITIGNORE" ]; then
-        printf '.vscode/agents/\n' > "$GITIGNORE"
-    elif ! grep -qxF '.vscode/agents/' "$GITIGNORE" 2>/dev/null; then
-        printf '\n.vscode/agents/\n' >> "$GITIGNORE"
+    # FR-029: .github/agents/*.agent.md 软链 (VS Code custom agent 发现)
+    # 只有检测到 .vscode/ 目录 (说明用户使用 VS Code) 才创建, 不强制性.
+    if [ -d "$PROJECT_NAME/.vscode" ]; then
+        mkdir -p "$PROJECT_NAME/.github/agents"
+        local AGENT_DIR="$PROJECT_NAME/.specforge/agents"
+        for f in "$AGENT_DIR"/*.md; do
+            [ -f "$f" ] || continue
+            local agent_base
+            agent_base=$(basename "$f" .md)
+            # 相对路径: .github/agents/X.agent.md → ../../.specforge/agents/X.md
+            ln -snf "../../.specforge/agents/${agent_base}.md" \
+                "$PROJECT_NAME/.github/agents/${agent_base}.agent.md"
+        done
+        # .gitignore 追加 .github/agents/ (本地配置不入库)
+        local GITIGNORE="$PROJECT_NAME/.gitignore"
+        if [ ! -f "$GITIGNORE" ]; then
+            printf '.github/agents/\n' > "$GITIGNORE"
+        elif ! grep -qxF '.github/agents/' "$GITIGNORE" 2>/dev/null; then
+            printf '\n.github/agents/\n' >> "$GITIGNORE"
+        fi
     fi
 
     local AGENT_COUNT TEMPLATE_COUNT
@@ -239,15 +250,26 @@ cmd_init_adopt() {
         done
     done
 
-    # FR-029: .vscode/agents/ 软链 (VS Code custom agent 发现)
-    [ "$DRY_RUN" -eq 0 ] && mkdir -p ".vscode"
-    [ "$DRY_RUN" -eq 0 ] && ln -snf "../.specforge/agents" ".vscode/agents"
-    # .gitignore 追加 .vscode/agents/ (VS Code 本地配置不入库)
-    if [ "$NO_GITIGNORE" -eq 0 ]; then
-        if [ ! -f ".gitignore" ]; then
-            [ "$DRY_RUN" -eq 0 ] && printf ".vscode/agents/\n" > ".gitignore"
-        elif ! grep -qxF '.vscode/agents/' .gitignore 2>/dev/null; then
-            [ "$DRY_RUN" -eq 0 ] && printf "\n.vscode/agents/\n" >> ".gitignore"
+    # FR-029: .github/agents/*.agent.md 软链 (VS Code custom agent 发现)
+    # 只有检测到 .vscode/ 目录 (说明用户使用 VS Code) 才创建, 不强制性.
+    if [ -d ".vscode" ]; then
+        if [ "$DRY_RUN" -eq 0 ]; then
+            mkdir -p ".github/agents"
+            for f in ".specforge/agents"/*.md; do
+                [ -f "$f" ] || continue
+                local agent_base
+                agent_base=$(basename "$f" .md)
+                ln -snf "../../.specforge/agents/${agent_base}.md" \
+                    ".github/agents/${agent_base}.agent.md"
+            done
+        fi
+        # .gitignore 追加 .github/agents/
+        if [ "$NO_GITIGNORE" -eq 0 ]; then
+            if [ ! -f ".gitignore" ]; then
+                [ "$DRY_RUN" -eq 0 ] && printf ".github/agents/\n" > ".gitignore"
+            elif ! grep -qxF '.github/agents/' .gitignore 2>/dev/null; then
+                [ "$DRY_RUN" -eq 0 ] && printf "\n.github/agents/\n" >> ".gitignore"
+            fi
         fi
     fi
 
