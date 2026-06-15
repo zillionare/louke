@@ -43,15 +43,15 @@ from typing import Any
 
 # ---------- 正则定义(单一真相源) ----------
 
-RE_FR_ID = re.compile(r"^FR-\d{3}$")
-RE_FR_IN_TITLE = re.compile(r"^\[(FR-\d{3})\]")
+RE_FR_ID = re.compile(r"^(FR|NFR)-\d{3}$")
+RE_FR_IN_TITLE = re.compile(r"^\[(FR|NFR)-(\d{3})\]")
 RE_SPEC_URL = re.compile(
     r"^https://github\.com/"
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
     r"(?P<branch>[A-Za-z0-9._/-]+)/specs/(?P<spec_id>[A-Za-z0-9._-]+)/spec\.md"
-    r"#(?P<fragment>fr-\d{3})$"
+    r"#(?P<fragment>(?:fr|nfr)-\d{3})$"
 )
-RE_ANCHOR = re.compile(r'<a\s+id="(fr-\d{3})"></a>')
+RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{3})"></a>')
 RE_AC_LINE = re.compile(r"^AC-\d+:\s*\S+")
 RE_AC_FULL = re.compile(r"^AC-(\d+):\s*(.+)$")
 
@@ -129,10 +129,10 @@ def check_issue(
     m = RE_FR_IN_TITLE.match(ic.title)
     if not m:
         ic.failures.append(
-            f"L1 标题必须以 [FR-XXX] 开头,当前: {ic.title!r}"
+            f"L1 标题必须以 [FR-XXX] 或 [NFR-XXX] 开头,当前: {ic.title!r}"
         )
     else:
-        ic.fr_id = m.group(1)
+        ic.fr_id = m.group(1) + "-" + m.group(2)
 
     # 解析 form 字段
     fields = parse_issue_form(body)
@@ -143,7 +143,7 @@ def check_issue(
         ic.failures.append(f"L2 字段 '{FIELD_FR_ID}' 缺失")
     elif not RE_FR_ID.match(raw_fr):
         ic.failures.append(
-            f"L2 字段 '{FIELD_FR_ID}' 格式错误,期望 ^FR-\\d{{3}}$, 实际: {raw_fr!r}"
+            f"L2 字段 '{FIELD_FR_ID}' 格式错误,期望 ^(FR|NFR)-\\d{{3}}$, 实际: {raw_fr!r}"
         )
     elif ic.fr_id and raw_fr != ic.fr_id:
         ic.failures.append(
@@ -161,12 +161,12 @@ def check_issue(
         if not m:
             ic.failures.append(
                 f"L3 字段 '{FIELD_SPEC_URL}' 格式错误,期望完整 GitHub URL "
-                f"+ #fr-XXX (小写),实际: {raw_url!r}"
+                f"+ #fr-XXX (小写) 或 #nfr-XXX (小写),实际: {raw_url!r}"
             )
         else:
             ic.spec_url = raw_url
             ic.spec_url_parsed = m.groupdict()
-            expected_fragment = "fr-" + raw_fr.split("-")[1] if raw_fr else ""
+            expected_fragment = raw_fr.split("-")[0].lower() + "-" + raw_fr.split("-")[1] if raw_fr else ""
             if m.group("fragment") != expected_fragment:
                 ic.failures.append(
                     f"L3 URL fragment {m.group('fragment')!r} 与需求 ID {raw_fr!r} 不匹配 "
