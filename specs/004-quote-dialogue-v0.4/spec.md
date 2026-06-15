@@ -19,7 +19,7 @@ priority: P0
 ### scenario-010
 
 1. 用户在 IDE 中打开 `specs/{spec-id}/spec.md`
-2. 看到 sage 留下的 `> **Sage:**` 提问块，作者在下方插入 `>> **Aaron:**` 回复
+2. 看到 sage 留下的 `> **Sage:**` 提问块，作者在下方插入 `>> **Aaron:**` 回复。这里 Aaron 是用户名示例。
 3. 看到 spec 中某段自己不确定的描述，作者直接在段落后插入 `> **Aaron:** {question}` 块
 4. sage 在下一个回合读完整 spec，把所有新 `>` 块按 "speaker / depth" 解析，给出 `>>>` 回复
 5. 一轮轮迭代，直到所有单元的 `resolved: ✅` 且没有未解决的 quote 块
@@ -61,13 +61,13 @@ valid: ✅
 
 每条 quote 块的尾部（块内最后一行）允许用以下 5 种 status marker 之一收尾：
 
-| marker | 含义 |
-|---|---|
-| `✓` | 已解决 |
-| `[open]` | 仍开放，等下一轮 |
-| `[blocked-by-N]` | 被 quote N 阻塞 |
-| `[wontfix]` | 决定不处理 |
-| `[superseded]` | 已被新版本替代 |
+| marker           | 含义             |
+| ---------------- | ---------------- |
+| `✓`              | 已解决           |
+| `[open]`         | 仍开放，等下一轮 |
+| `[blocked-by-N]` | 被 quote N 阻塞  |
+| `[wontfix]`      | 决定不处理       |
+| `[superseded]`   | 已被新版本替代   |
 
 ```yaml
 testability: ✅
