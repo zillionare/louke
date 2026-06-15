@@ -10,6 +10,8 @@
 story: 作为 spec 作者，我想用 markdown 的 quote 语法在 IDE 中直接跟 sage 对话澄清需求，以便免去 PR review 的繁琐流程。
 priority: P0
 
+> **Aaron**: 这是测试问题，请回答并关闭。
+
 ### US-020
 story: 作为 spec 作者，我想既能在 sage 提问处回复，也能对 spec 任意段落提出自己的疑问，以便澄清工作既可由 sage 驱动，也可由作者主动发起。
 priority: P0
@@ -90,9 +92,9 @@ valid: ✅
 
 > **Sage:** FR-040 里"按它所在 spec 内的'上下文段落'归到某个 unit"，具体规则请你澄清：
 > - Q1: 你的预期是 **preceding-unit**（quote 块往上找到最近的 `### US/FR/NFR-XXX` 单元），还是 **section**（按 `## 用户故事 / ## 功能需求 / ## 非功能需求` 大节归属）？
+>> **Aaron**: ### US/FR/NFR-XXX
 > - Q2: 如果 quote 块出现在 `## 用户使用场景` 这种没有 unit 的大节里，应该归到哪里（归到上一个 FR / 报错 / 标 unassigned）？
->
-> ✓
+>> **Aaron**: 非 FR/NFR，没有meta 字段, 在 quote block内部解析是否完成。如果要找上下文，则它之前第一个非 quote block 的文本行就是（注意是非空文本行）
 
 ### FR-050 unit-ready 判定
 
@@ -109,9 +111,9 @@ valid: ✅
 
 > **Sage:** FR-050 我倾向先只覆盖 FR/NFR，但需要你拍板：
 > - Q3: US (用户故事) 单元要不要也走 `--check-ready` 判定？理由：US 主要是"我想要 X"，没 quote 时默认可视作 ready；但用同一套规则更简单。
+>> **Aaron**: 需要，并且第101行已有说明
 > - Q4: "用户使用场景" (scenario) 算不算 unit？我倾向不算（它是 narrative，不是 actionable requirement）。
->
-> [open]
+>> **Aaron**: 算普通文本，但同样可能存在多轮澄清的需要。
 
 ### FR-060 用户侧编辑器不需扩展
 
