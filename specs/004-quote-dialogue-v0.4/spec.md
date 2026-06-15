@@ -177,7 +177,7 @@ valid: false
 > **Lex:** FR-070 是负向断言 ("不应触发 PR 流程"), 缺正向 AC。
 > 修改建议: 改写为可断言: "对 `agents/Sage.md` `agents/Lex.md` `bin/specforge` 三处源码 grep `gh pr|gh api.*reviews|gh pr comment`, 匹配数 = 0" [open]
 >> Aaron: invalid。只要我们没要求，没提供工具，就不会有主动创建 PR 这回事。
->>> **Sage:** 收到, Lex 的负向重写建议被 Aaron 拒绝 (理由: 现状已足够, 不会主动创建 PR)。FR-070 spec 保持原样, yaml.valid 改为false。 ✓
+>>> **Sage:** 收到, Lex 的负向重写建议被 Aaron 拒绝 (理由: 现状已足够, 不会主动创建 PR)。FR-070 spec 保持原样, yaml.valid 维持 `✅`。 ✓
 
 ## 非功能需求
 
@@ -185,9 +185,11 @@ valid: false
 
 <a id="nfr-010"></a>
 
-### NFR-010 quote 解析在 1MB spec 内 < 1s
+### NFR-010 ~~废弃~~ quote 解析在 1MB spec 内 < 1s
 
 `tools/quote_parser.py` 解析单文件 < 1MB 的 spec.md，端到端解析时间 < 1 秒（不含 yaml 解析之外的 IO）。
+
+> **废弃说明 (Aaron 决定, sage round 3 关闭)**: Aaron 拒绝 Lex 的 AC 补全建议 (认为该 NFR 没必要)。已标 wontfix, 后续 Probe/Archer 不会为该废弃 NFR 生成测试。锚点保留, FR 编号不再复用。
 
 ```yaml
 testability: ✅
