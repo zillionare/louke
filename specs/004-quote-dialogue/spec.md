@@ -6,6 +6,7 @@
 
 ## 用户故事
 
+### 
 | ID     | 故事                                                                                                                                    | 验收标准                                                                         | 优先级 |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------ |
 | US-001 | 作为 specforge 用户，我希望在本地 IDE 中打开 spec.md 直接编辑、用 quote block 标注我的回复，以便需求澄清不依赖 GitHub PR 权限           | AC-1: 用户能用文本编辑器修改 spec.md; AC-2: quote 块用 markdown `>` 语法         | P0     |
@@ -55,6 +56,19 @@ chat 里 Agent 可以:
 
 > **Aaron**: [open]标识没有必要。quote block 只要没有被✓ resolved标识，就是没有完成。避免用户开启的会话，他忘了加[open]状态标记的情况。
 > **Aaron**: 此处应该给一个 markdown 的示例。
+> **Aaron** (新规则): **谁起头的 quote, 由谁来关**。`> **Sage:**` 起的, 只能 Sage 加 `✓ resolved` 关闭; `> **Aaron:**` 起的, 只能 Aaron 关闭。Sage 不能替 Aaron 关闭 quote (即使是看起来显而易见的 closure), 也不能把它标 [wontfix]。这是流程正确性的硬保证 — 避免 Agent 越权。
+
+#### markdown 示例
+
+```markdown
+这是原文段落正文。
+
+> **Sage:** 问题内容 (默认 pending, Sage 后续必须加 ✓ resolved)
+
+> > **Aaron:** 回答内容 (默认 pending, Aaron 后续必须加 ✓ resolved)
+
+> **Sage:** 追问 (默认 pending, Sage 后续必须加 ✓ resolved)
+```
 
 可测试性: ✅
 
@@ -81,7 +95,7 @@ chat 里 Agent 可以:
 <a id="fr-020"></a>
 **FR-020**: 当 `git diff` 显示用户修改了原文段落（不是 quote block）时, Sage 必须能识别这是"用户更正 Agent 记录错误"而非"用户回答 quote 问题", 据此调整后续追问策略。
 
-> **Aaron:** 用户完成修改后, 回到对话, 提示 Agent 进行下一步。 ✓ resolved
+> **Aaron:** 用户完成修改后, 回到对话, 提示 Agent 进行下一步。
 
 可测试性: ✅
 
@@ -137,41 +151,41 @@ chat 里 Agent 可以:
 
 ### 用户故事澄清 (US-002 / US-003)
 
-> **Sage:** US-002 提到"用户 push 之后通过 git diff 自动识别", US-003 说"用户能改任何地方"。但如果用户改了 spec.md 中跟 quote 无关的段落, Sage 怎么知道这是"回答 quote"还是"重写错误"? [wontfix]
+> **Sage:** US-002 提到"用户 push 之后通过 git diff 自动识别", US-003 说"用户能改任何地方"。但如果用户改了 spec.md 中跟 quote 无关的段落, Sage 怎么知道这是"回答 quote"还是"重写错误"?
 >
-> > **Sage:** 我建议分两类处理: (a) 用户改 quote block (状态变更 / 新增 quote) → 视作对 quote 的回复, Sage 据此调整; (b) 用户改原文段落 (US/FR/AC 等) → 视作"用户更正 Agent 记录", Sage 不追问已修正段落, 但可能追问"这次修正是否引发下游 FR 调整?"。区分方法: 用 `git diff` 中是否触及 quote 行判断。 ✓ resolved
+> > **Sage:** 我建议分两类处理: (a) 用户改 quote block (状态变更 / 新增 quote) → 视作对 quote 的回复, Sage 据此调整; (b) 用户改原文段落 (US/FR/AC 等) → 视作"用户更正 Agent 记录", Sage 不追问已修正段落, 但可能追问"这次修正是否引发下游 FR 调整?"。区分方法: 用 `git diff` 中是否触及 quote 行判断。
 > >
-> >> **Sage:** (追问) 那么 chat 中是否需要 Sage 主动告知用户"我看到你改了 L42 段落的 AC-2, 是要顺便更新 AC-3 吗?", 还是静默接受用户的修改、不做引导? [wontfix]
+> >> **Sage:** (追问) 那么 chat 中是否需要 Sage 主动告知用户"我看到你改了 L42 段落的 AC-2, 是要顺便更新 AC-3 吗?", 还是静默接受用户的修改、不做引导?
 > >>
-> >>> **Aaron** 我已对 US-002 提出质疑. 待该问题决定后再讨论此问题, 有可能就不存在了。 ✓ resolved
+> >>> **Aaron** 我已对 US-002 提出质疑. 待该问题决定后再讨论此问题, 有可能就不存在了。
 
 ### 与 PR 流程的关系 (跨 spec 影响)
 
-> **Sage:** spec 003 的 spec.md / acceptance.md / test-plan.md 中所有"git push 触发 PR Review"的描述现在过时了。要不要追加 fix commit 把过时描述换成 quote 流程描述, 还是接受历史描述"过时"? [wontfix]
+> **Sage:** spec 003 的 spec.md / acceptance.md / test-plan.md 中所有"git push 触发 PR Review"的描述现在过时了。要不要追加 fix commit 把过时描述换成 quote 流程描述, 还是接受历史描述"过时"?
 >
-> > **Sage:** 历史 spec 是 immutable 历史记录, 不应回改。可以在 README 加一段"历史说明"指向本 spec (004) 作为 supersede, 类似 ADR 的 Superseded 关系。 ✓ resolved
+> > **Sage:** 历史 spec 是 immutable 历史记录, 不应回改。可以在 README 加一段"历史说明"指向本 spec (004) 作为 supersede, 类似 ADR 的 Superseded 关系。
 > >
-> >> **Sage:** 但 README §2.2 是流程总入口, 不写过时流程等于遗忘。所以 README §2.2 整段改写为 IDE 流程, 旧的 PR 流程作为"参见历史 spec 001-003"附录, 不删除。 ✓ resolved
+> >> **Sage:** 但 README §2.2 是流程总入口, 不写过时流程等于遗忘。所以 README §2.2 整段改写为 IDE 流程, 旧的 PR 流程作为"参见历史 spec 001-003"附录, 不删除。
 > >>
-> >>> **Aaron** 历史 spec/acceptance/test-plan 不变. 新的 spec 要说明对旧的 spec 变更记录. README 需要更新; 每个版本的 acceptance/test-plan 只对应自己的 spec, 不需要 care spec 变更历史. ✓ resolved
+> >>> **Aaron** 历史 spec/acceptance/test-plan 不变. 新的 spec 要说明对旧的 spec 变更记录. README 需要更新; 每个版本的 acceptance/test-plan 只对应自己的 spec, 不需要 care spec 变更历史.
 
 ### chat 引导的边界 (FR-027)
 
-> **Sage:** FR-027 限定 chat 用途为"通知用户 review / 解释设计意图 / 询问元问题"。但 spec 流程中, Sage 经常需要问"项目叫什么 / FR 编号从几开始 / 是否合并到现有 spec"等元问题。这些走 chat 还是 spec.md? [wontfix]
+> **Sage:** FR-027 限定 chat 用途为"通知用户 review / 解释设计意图 / 询问元问题"。但 spec 流程中, Sage 经常需要问"项目叫什么 / FR 编号从几开始 / 是否合并到现有 spec"等元问题。这些走 chat 还是 spec.md?
 >
-> > **Sage:** 我倾向**元问题走 chat** (快速、不进 spec), **内容澄清走 spec.md quote** (持久、可追溯)。区分依据: 答案是否影响 spec.md 内容。如果回答后会改 spec.md, 必须走 spec.md quote; 如果回答后只影响 Agent 工作流, 走 chat。 ✓ resolved
+> > **Sage:** 我倾向**元问题走 chat** (快速、不进 spec), **内容澄清走 spec.md quote** (持久、可追溯)。区分依据: 答案是否影响 spec.md 内容。如果回答后会改 spec.md, 必须走 spec.md quote; 如果回答后只影响 Agent 工作流, 走 chat。
 > >
-> >> **Sage:** (补充) 项目名 / FR 起点等元问题其实**也会影响 spec.md** (要写进 frontmatter 或开头), 所以严格按规则也应该走 spec.md。但用户体验上, 每次启动都要先开 IDE 编辑 spec.md 回答元问题, 太重。 ✓ resolved
+> >> **Sage:** (补充) 项目名 / FR 起点等元问题其实**也会影响 spec.md** (要写进 frontmatter 或开头), 所以严格按规则也应该走 spec.md。但用户体验上, 每次启动都要先开 IDE 编辑 spec.md 回答元问题, 太重。
 > >>
-> >>> **Aaron** 元问题走 chat, Agent 发现不对, 可以及时沟通. 比 spec 快。 ✓ resolved
+> >>> **Aaron** 元问题走 chat, Agent 发现不对, 可以及时沟通. 比 spec 快。
 
 ### 上游 Scout 契约 (Sage 启动条件)
 
-> **Sage:** 我刚意识到 spec 004 漏掉了上游 Scout→Sage 的契约。当前 Sage.md Step 0 假设 `prd.md` 存在, 但 Scout 的实际输出是 `story.md` (Scout.md 第 95 行: 写入 `specs/project-info.md` 等状态文件)。语义错位: Scout 写的是"项目元信息", Sage 假设有"PRD"。这两者不是一回事。 [wontfix]
+> **Sage:** 我刚意识到 spec 004 漏掉了上游 Scout→Sage 的契约。当前 Sage.md Step 0 假设 `prd.md` 存在, 但 Scout 的实际输出是 `story.md` (Scout.md 第 95 行: 写入 `specs/project-info.md` 等状态文件)。语义错位: Scout 写的是"项目元信息", Sage 假设有"PRD"。这两者不是一回事。
 >
-> > **Sage:** 提议新增 FR-028 (Sage 启动时读 `story.md` 或 GitHub Issue, 否则拒绝) 和 FR-029 (Scout 必须输出 `story.md`, Warden 验证)。这样 Scout→Sage 的契约就显式了。 ✓ resolved
+> > **Sage:** 提议新增 FR-028 (Sage 启动时读 `story.md` 或 GitHub Issue, 否则拒绝) 和 FR-029 (Scout 必须输出 `story.md`, Warden 验证)。这样 Scout→Sage 的契约就显式了。
 > >
-> >> **Sage:** (追问) GitHub Issue 作为设计源这一点, 是 specforge 现有 §1 双源设计 (spec.md ↔ Issue) 的延伸。我们是不是要把"任意上游产物都可以是 Issue"这一原则**正式写入 spec 004** 作为 NFR? 或者保持隐式 (只在 FR-028 里隐含)? [wontfix]
+> >> **Sage:** (追问) GitHub Issue 作为设计源这一点, 是 specforge 现有 §1 双源设计 (spec.md ↔ Issue) 的延伸。我们是不是要把"任意上游产物都可以是 Issue"这一原则**正式写入 spec 004** 作为 NFR? 或者保持隐式 (只在 FR-028 里隐含)?
 > >>
 > >>> **[open]** Aaron, please decide: (1) 我新增的 FR-028 / FR-029 描述准确吗? (2) "上游产物可以是 Issue"这一原则要不要单独写成 NFR, 还是隐式包含在 FR-028 里即可?
 
@@ -215,9 +229,9 @@ chat 里 Agent 可以:
                               ↓
 ┌──────────────────────────────────────────────────────────────────┐
 │ 5. Lex 在 spec.md 中追加 quote (Lex 的审查意见)                    │
-│    - 用 ✓ resolved 标 "accept" / [open] 标 "needs more"          │
+│    - 用 标 "accept" / [open] 标 "needs more"          │
 │    - 用户在 IDE 中回复 (Lex quote + 原 quote 区分)                 │
-│    - 全部 ✓ resolved → Sage 进入 issue 创建阶段                   │
+│    - 全部 → Sage 进入 issue 创建阶段                   │
 └──────────────────────────────────────────────────────────────────┘
 ```
 

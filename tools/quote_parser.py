@@ -51,6 +51,12 @@ RE_QUOTE_LINE = re.compile(
     r"(?P<status>✓\s*resolved|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded])?\s*$"
 )
 
+KNOWN_AGENT_NAMES = frozenset({
+    "Sage", "Lex", "Scout", "Warden", "Probe", "Judge",
+    "Archer", "Cynic", "Forge", "Prism", "Keeper",
+    "Herald", "Arbiter", "Hunter", "Shield", "Maestro",
+})
+
 RE_FENCE = re.compile(r"^\s*(```|~~~)")
 
 
@@ -64,6 +70,7 @@ class Quote:
     status: str
     line_number: int
     blocked_by: int | None = None
+    owner_close_role: str = "user"
 
 
 @dataclass
@@ -130,6 +137,7 @@ def parse_spec(spec_path: Path) -> ParseResult:
             status = "unknown"
             blocked_by = None
 
+        owner_role = "agent" if speaker in KNOWN_AGENT_NAMES else "user"
         quote = Quote(
             depth=depth,
             speaker=speaker,
@@ -137,6 +145,7 @@ def parse_spec(spec_path: Path) -> ParseResult:
             status=status,
             line_number=i,
             blocked_by=blocked_by,
+            owner_close_role=owner_role,
         )
         result.quotes.append(quote)
 
@@ -173,6 +182,11 @@ def main() -> int:
         help="exit 0 if 0 [open] quotes, exit 1 otherwise (for Maestro gate)",
     )
     parser.add_argument(
+        "--check-violations",
+        action="store_true",
+        help="detect ownership violations: who closed a quote that wasn't theirs",
+    )
+    parser.add_argument(
         "--format",
         choices=["text", "json"],
         default="text",
@@ -187,7 +201,6 @@ def main() -> int:
     result = parse_spec(args.spec_path)
 
     if args.check_ready:
-        # 用于 Maestro gate: 0 [open] → exit 0, 否则 exit 1
         if result.is_ready:
             return 0
         print(
@@ -196,6 +209,26 @@ def main() -> int:
         )
         for q in result.open_quotes:
             print(f"  {fmt_quote_summary(q)}", file=sys.stderr)
+        return 1
+
+    if args.check_violations:
+        violations = []
+        for q in result.resolved_quotes + result.blocked_quotes + result.wontfix_quotes + result.superseded_quotes:
+            if q.owner_close_role == "user" and q.status != "open":
+                violations.append(q)
+        if not violations:
+            print(f"no ownership violations in {args.spec_path}")
+            return 0
+        print(
+            f"OWNERSHIP VIOLATIONS: {len(violations)} quote(s) closed by non-owner",
+            file=sys.stderr,
+        )
+        for v in violations:
+            print(
+                f"  L{v.line_number} d{v.depth} {v.speaker} [status={v.status}]: "
+                f"a user quote should only be closed by user",
+                file=sys.stderr,
+            )
         return 1
 
     if args.format == "json":

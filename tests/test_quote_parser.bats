@@ -162,3 +162,44 @@ EOF
     [[ "$output" =~ "open: 1" ]]
     [[ "$output" =~ "resolved: 1" ]]
 }
+
+@test "QP_T19_owner_role_detection: agent names get role=agent" {
+    TEST_SPEC="$TEST_DIR/agent-quote.md"
+    cat > "$TEST_SPEC" <<'EOF'
+> **Sage:** my question
+EOF
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --format json "$TEST_SPEC"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ '"owner_close_role": "agent"' ]]
+}
+
+@test "QP_T20_owner_role_detection_user: non-agent names get role=user" {
+    TEST_SPEC="$TEST_DIR/user-quote.md"
+    cat > "$TEST_SPEC" <<'EOF'
+> **Aaron:** my question
+EOF
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --format json "$TEST_SPEC"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ '"owner_close_role": "user"' ]]
+}
+
+@test "QP_T21_check_violations_clean: no violations when roles match" {
+    TEST_SPEC="$TEST_DIR/clean.md"
+    cat > "$TEST_SPEC" <<'EOF'
+> **Sage:** my own question ✓ resolved
+> **Aaron:** user note
+EOF
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --check-violations "$TEST_SPEC"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "no ownership violations" ]]
+}
+
+@test "QP_T22_check_violations_user_closed: user quote closed by anyone → violation" {
+    TEST_SPEC="$TEST_DIR/violation.md"
+    cat > "$TEST_SPEC" <<'EOF'
+> **Aaron:** user note ✓ resolved
+EOF
+    run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --check-violations "$TEST_SPEC"
+    [ "$status" -eq 1 ]
+    [[ "$output" =~ "OWNERSHIP VIOLATIONS" ]]
+}
