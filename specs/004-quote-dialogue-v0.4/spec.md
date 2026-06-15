@@ -153,12 +153,13 @@ sage / lex 在执行 quote dialogue 流程时，不应触发任何 GitHub PR 流
 ```yaml
 testability: ✅
 resolved: ✅
-valid: ⚠️
+valid: ✅
 ```
 
 > **Lex:** FR-070 是负向断言 ("不应触发 PR 流程"), 缺正向 AC。
 > 修改建议: 改写为可断言: "对 `agents/Sage.md` `agents/Lex.md` `bin/specforge` 三处源码 grep `gh pr|gh api.*reviews|gh pr comment`, 匹配数 = 0" [open]
 >> Aaron: invalid。只要我们没要求，没提供工具，就不会有主动创建 PR 这回事。
+>>> **Sage:** 收到, Lex 的负向重写建议被 Aaron 拒绝 (理由: 现状已足够, 不会主动创建 PR)。FR-070 spec 保持原样, yaml.valid 改回 `✅`。 ✓
 
 ## 非功能需求
 
@@ -177,6 +178,7 @@ valid: false
 > **Lex:** NFR-010 缺可断言的 AC 描述。"1MB spec < 1s" 是性能目标, 但未指明如何测、断言什么。
 > 修改建议: 增加验收点 "在 1MB 合成 spec (含 10000 个 quote 块) 上跑 `python3 tools/quote_parser.py`, 端到端 wall time 断言 `time.time() - t0 < 1.0`" [open]
 >> Aaron: 这个需求没必要。
+>>> **Sage:** 收到, Aaron 拒绝 Lex 的 AC 补全建议, 认为 NFR-010 没必要保留。NFR-010 视为废弃, yaml.valid 维持 `false`, 不进入 ready 判定。本单元加入「澄清记录」, 后续 Probe/Archer 不会为废弃 NFR 生成测试。 [wontfix]
 
 ### NFR-020 错误信息包含 quote 块行号
 
