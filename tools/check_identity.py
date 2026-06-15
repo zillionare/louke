@@ -191,6 +191,31 @@ def check(ident: Identity, repo: str) -> Identity:
                     f"否则请用 'gh auth switch' 切换到 {remote_owner} 账号。"
                 )
 
+    # L6: agent 在 {repo} 上的角色必须是 OWNER 或 collaborator
+    # 允许两种协作模式:
+    #   - agent == owner: 一切权限天然
+    #   - agent == collaborator (WRITE 级别): 需被 repo owner 邀请,Project 创建在
+    #     agent 名下,然后调 updateProjectV2Collaborators 把 owner 设为 READER
+    # L2 已经验证了 WRITE/MAINTAIN/ADMIN 才能跑流程;此处加一条信息性提示
+    # 帮助用户理解两种模式
+    if ident.repo_role and ident.remote_url and ident.gh_user:
+        m = re.search(r"github\.com[:/]([\w.-]+)/", ident.remote_url)
+        if m:
+            remote_owner = m.group(1)
+            if remote_owner == ident.gh_user:
+                # Agent 身份 = repo owner
+                ident.warnings.append(
+                    f"L6 协作模式: agent 是 {remote_owner} 的 owner — Project 创建在 {remote_owner} 名下,无需额外邀请"
+                )
+            elif ident.repo_role in WRITE_ROLES:
+                # Agent 身份 = collaborator (有 WRITE)
+                ident.warnings.append(
+                    f"L6 协作模式: agent {ident.gh_user} 是 {remote_owner} 的 collaborator — "
+                    f"Project 将创建在 {ident.gh_user} 名下,完成后用 'specforge invite-owner' "
+                    f"把 {remote_owner} 设为 Project READER"
+                )
+            # L2 失败的情况已经在前面记录到 failures,这里不再重复
+
     return ident
 
 

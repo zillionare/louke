@@ -55,10 +55,13 @@ gh repo create {repo} --private --description "{story 摘要}"
 
 ### Step 3: 创建 GitHub Project
 
+**始终在 agent (gh) 身份下创建 project**，然后自动邀请 repo owner 为 project collaborator。这样不需要切换 gh 身份，owner 也能看到 project。
+
 Project 名称格式：`{repo}-{version}`（如 `specforge-v0.1`）
 
 ```
-gh project create --title "{repo}-{version}" --owner {owner}
+gh project create --title "{repo}-{version}" --owner {gh_user}
+specforge invite-owner {owner}/{repo} --version {version}
 ```
 
 配置 Project：
@@ -68,6 +71,12 @@ b. **Default Repository** — Project Settings > 关联到 `{owner}/{repo}`
 c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 
 如 gh CLI 不支持步骤 b/c，提示用户在 GitHub UI 中手动配置。
+
+> **身份与权限说明**：
+> - agent 身份 = repo owner: 正常创建，project 自然在 owner 名下
+> - agent 身份 = collaborator: 创建后 `specforge invite-owner` 调 GitHub GraphQL `updateProjectV2Collaborators` API 把 owner 设为 READER，owner 即可看到 project
+> - 任一情况都不需要切换 gh 身份
+> - checkup L6 会在跑前校验 agent 在 {repo} 的角色（OWNER 或 collaborator）
 
 
 ### Step 4: 创建 releases 分支

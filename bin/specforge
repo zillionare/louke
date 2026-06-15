@@ -67,6 +67,8 @@ Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
   foundation <owner/repo> 项目奠基检查 F1-F9 (Scout 完成后验证)
                           Flags: --version V --spec-id ID [--project-id N]
                                  [--upstream BRANCH] [--skip F3,F4] [--offline]
+  invite-owner <o/r>      把 repo owner 设为对应 Project 的 collaborator (READER)
+                          Flags: --version V
   verify-issue --spec ID  Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
 
 环境变量:
@@ -293,6 +295,70 @@ cmd_doctor() {
     cmd_checkup "$@"
 }
 
+# invite-owner: 把 repo owner 设为 {repo}-{version} project 的 READER
+# 使用场景: agent (gh) 不是 repo owner,创建的 project 在 agent 名下。
+#           需要把 repo owner 加为 project READER,让 owner 能看到 project。
+cmd_invite_owner() {
+    local REPO="${1:-}"
+    [ -z "$REPO" ] && die "Usage: specforge invite-owner <owner/repo> --version <version>"
+    local VERSION=""
+    shift
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --version) VERSION="$2"; shift 2 ;;
+            *) die "Unknown flag: $1" ;;
+        esac
+    done
+    [ -z "$VERSION" ] && die "specforge invite-owner: --version is required"
+
+    local REPO_BASENAME="${REPO##*/}"
+    local EXPECTED_TITLE="${REPO_BASENAME}-${VERSION}"
+
+    note "invite-owner: 查找 project '${EXPECTED_TITLE}' ..."
+
+    # 1. 拿 gh 身份 (project 在他名下)
+    local GH_USER
+    GH_USER="$(gh api user -q .login 2>/dev/null)" || die "gh 未认证"
+    note "  gh 身份: $GH_USER"
+
+    # 2. 找 project id (在 gh 名下找)
+    local PROJECT_ID
+    PROJECT_ID="$(gh project list --owner "$GH_USER" --format json 2>/dev/null \
+        | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for p in data.get('projects', []):
+    if p.get('title', '').lower() == '${EXPECTED_TITLE}'.lower():
+        print(p['id'])
+        break
+")"
+    if [ -z "$PROJECT_ID" ]; then
+        die "在 $GH_USER 名下未找到 project '${EXPECTED_TITLE}'。请先 'gh project create --owner $GH_USER --title ${EXPECTED_TITLE}'"
+    fi
+    note "  project id: $PROJECT_ID"
+
+    # 3. 拿 repo owner userId
+    local OWNER="${REPO%/*}"
+    local OWNER_ID
+    OWNER_ID="$(gh api graphql -f query="{ user(login: \"${OWNER}\") { id } }" -q .data.user.id 2>/dev/null)" \
+        || die "无法获取 ${OWNER} 的 user id (GraphQL)"
+    note "  owner ${OWNER} userId: $OWNER_ID"
+
+    # 4. 调 updateProjectV2Collaborators
+    local RESULT
+    RESULT="$(gh api graphql -f query="
+mutation {
+  updateProjectV2Collaborators(input: {
+    projectId: \"${PROJECT_ID}\",
+    collaborators: [{ userId: \"${OWNER_ID}\", role: READER }]
+  }) {
+    clientMutationId
+  }
+}")" || die "invite-owner: GraphQL mutation 失败: $RESULT"
+
+    echo "specforge: ${OWNER} 已加入 project '${EXPECTED_TITLE}' 为 READER"
+}
+
 cmd_upgrade() {
     [ -d "$SPECFORGE_HOME/.git" ] || die "$SPECFORGE_HOME is not a git clone; cannot upgrade"
     # 拒绝在非 main 分支上升级 — 那是开发者的 dev 仓,不是 install 仓
@@ -317,6 +383,7 @@ case "${1:-help}" in
     init)        shift; cmd_init "$@" ;;
     checkup)     shift; cmd_checkup "$@" ;;
     foundation)  shift; cmd_foundation "$@" ;;
+    invite-owner) shift; cmd_invite_owner "$@" ;;
     verify-issue) shift; cmd_verify_issue "$@" ;;
     doctor)      shift; cmd_doctor "$@" ;;
     upgrade)     shift; cmd_upgrade "$@" ;;
