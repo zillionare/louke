@@ -1,7 +1,7 @@
 # Agent 花名册
 
 每个阶段有专门的实施者与评审者，由 Maestro 统一协调。
-Agent 的详细 prompt 见 `agents/` 目录下同名 `.md` 文件。
+Agent 的详细 prompt 见 `.specforge/agents/` 目录下同名 `.md` 文件。
 
 | 阶段 | 实施者 | 评审者 | 一句话任务 |
 |------|--------|--------|-----------|

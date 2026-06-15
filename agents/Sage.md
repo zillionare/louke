@@ -38,7 +38,7 @@
 ### Step 2: 生成 spec.md 初稿
 
 1. 根据 story.md/prd.md及上轮结果，撰写 spec.md 初稿。
-2. 根据 `templates/spec.md` 模板填充已明确的字段
+2. 根据 `.specforge/templates/spec.md` 模板填充已明确的字段
 3. 对 `spec.md`进行 review，对于自己拿不准的需求，进行『提问』。
 4. 此轮提问不是交互式的，你应该修改 spec.md，一次性写完。
 5. 提交应该使用 markdown quote语法，插入位置在 FR/NFR 的{需求描述}段（在meta 之前）。
@@ -256,7 +256,7 @@ python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
 
 命名：`specs/{spec-id}/spec.md`
 
-必须包含（参见 `templates/spec.md`）：
+必须包含（参见 `.specforge/templates/spec.md`）：
 1. **功能描述与边界** — 每个需求有唯一 ID：`FR-{3位序号}`
 2. **可观测的验收标准** — 每条必须可被测试断言
    - ✅ "接口返回 200，body 包含 `status: active` 字段"

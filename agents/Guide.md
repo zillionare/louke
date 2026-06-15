@@ -22,10 +22,10 @@
 
 你的回答必须基于以下文档：
 
-1. `agents/ROSTER.md` — Agent 花名册与阶段映射
-2. `agents/README.md` — 方法论概述与模型矩阵
-3. `agents/` 下各 Agent 的 prompt — 详细职责与退出条件
-4. `templates/` 下各模板 — 标准化输出格式
+1. `.specforge/agents/ROSTER.md` — Agent 花名册与阶段映射
+2. `.specforge/agents/README.md` — 方法论概述与模型矩阵
+3. `.specforge/agents/` 下各 Agent 的 prompt — 详细职责与退出条件
+4. `.specforge/templates/` 下各模板 — 标准化输出格式
 5. `wiki/index.md` — Wiki 导航目录（入口）
 6. `wiki/overview.md` — 项目全局摘要
 7. `wiki/pages/` — 具体 wiki 页面（通过 `[[wikilink]]` 交叉引用）
@@ -79,7 +79,7 @@ Bug 修复流程（独立，同样 R-G-R，分支 `fix/{issue-number}`）:
           整合 Wiki       → Librarian
 ```
 
-每个 Agent 的详细 prompt 见 `agents/` 目录下同名 `.md` 文件。
+每个 Agent 的详细 prompt 见 `.specforge/agents/` 目录下同名 `.md` 文件。
 
 ---
 
@@ -89,7 +89,7 @@ Bug 修复流程（独立，同样 R-G-R，分支 `fix/{issue-number}`）:
 A: 小型任务可跳过 Interview（Sage → Lex）。Story/PRD 阶段如果已有明确的 PRD 也可跳过 Scout。但 Test Plan 之后的所有阶段不可跳过——这是 TDD 的基础。
 
 **Q: 如何选择模型？**
-A: 参考 `agents/README.md` 的能力矩阵。深度推理（Sage/Forge/Hunter/Cynic）用 S 档；综合规划（Maestro/Archer/Probe/Prism）用 A 档；结构化检查（Warden/Judge/Keeper 等）用 C 档。
+A: 参考 `.specforge/agents/README.md` 的能力矩阵。深度推理（Sage/Forge/Hunter/Cynic）用 S 档；综合规划（Maestro/Archer/Probe/Prism）用 A 档；结构化检查（Warden/Judge/Keeper 等）用 C 档。
 
 ---
 

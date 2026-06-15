@@ -53,7 +53,7 @@ Usage:
   specforge <command> [args]
 
 Commands (User-driven — 人跑):
-  init <name>             新建 <name>/ 子项目(拷贝 agents/ + templates/)
+  init <name>             新建 <name>/ 子项目(拷贝 agents/templates 到 .specforge/)
   init <path>             接入既存项目 (adopt 模式),非破坏性合并
                           Flags: --dry-run --backup --force --no-gitignore
                                  --with-issue-template --json
@@ -120,22 +120,22 @@ cmd_init_new() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    mkdir -p "$PROJECT_NAME"/{agents,templates,specs,wiki/pages,wiki/decisions,raw/sources}
-    cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/agents/" 2>/dev/null || true
-    cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/templates/" 2>/dev/null || true
-    cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/agents/" 2>/dev/null || true
+    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,specs,wiki/pages,wiki/decisions,raw/sources}
+    cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
+    cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
+    cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
 
     local AGENT_COUNT TEMPLATE_COUNT
-    AGENT_COUNT=$(ls "$PROJECT_NAME/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
-    TEMPLATE_COUNT=$(ls "$PROJECT_NAME/templates"/*.md 2>/dev/null | wc -l | tr -d ' ')
+    AGENT_COUNT=$(ls "$PROJECT_NAME/.specforge/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
+    TEMPLATE_COUNT=$(ls "$PROJECT_NAME/.specforge/templates"/*.md 2>/dev/null | wc -l | tr -d ' ')
 
     cat <<EOF
 
 specforge project '$PROJECT_NAME' initialized!
 
   项目目录:   $(pwd)/$PROJECT_NAME
-  Agent 目录:  $PROJECT_NAME/agents/   ($AGENT_COUNT 个 Agent prompt)
-  模板目录:    $PROJECT_NAME/templates/ ($TEMPLATE_COUNT 个模板)
+  Agent 目录:  $PROJECT_NAME/.specforge/agents/   ($AGENT_COUNT 个 Agent prompt)
+  模板目录:    $PROJECT_NAME/.specforge/templates/ ($TEMPLATE_COUNT 个模板)
   Wiki 目录:   $PROJECT_NAME/wiki/
 
 模型建议:
@@ -148,10 +148,10 @@ specforge project '$PROJECT_NAME' initialized!
   2. (建议) 运行体检:
      specforge checkup OWNER/REPO
   3. 加载 Guide Agent 了解如何使用:
-     加载 agents/Guide.md 到你的 AI 工具,问"我该如何开始?"
+     加载 .specforge/agents/Guide.md 到你的 AI 工具,问"我该如何开始?"
   4. 有了功能想法后,加载 Scout Agent 启动 §2.1 项目奠基
 
-详细文档: agents/README.md 第 8 节
+详细文档: .specforge/agents/README.md 第 8 节
 EOF
 }
 
@@ -194,19 +194,19 @@ cmd_init_adopt() {
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
     # FR-010: create-if-missing for specforge-owned dirs
-    for d in agents templates specs wiki/pages wiki/decisions raw/sources; do
+    for d in .specforge/agents .specforge/templates specs wiki/pages wiki/decisions raw/sources; do
         if [ ! -d "$d" ]; then
             [ "$DRY_RUN" -eq 0 ] && mkdir -p "$d"
         fi
     done
 
     # FR-011: copy agents/*.md and templates/*.md with skip/backup/force
-    # Track files with newline-separated lists (set -u safe)
+    # 目标路径改为 .specforge/ 下, 不污染项目根目录.
     local added_list="" skipped_list="" backed_list=""
     for src_dir in agents templates; do
         for f in "$SPECFORGE_HOME/$src_dir"/*.md; do
             [ -f "$f" ] || continue
-            local dest="$src_dir/$(basename "$f")"
+            local dest=".specforge/$src_dir/$(basename "$f")"
             if [ ! -e "$dest" ]; then
                 [ "$DRY_RUN" -eq 0 ] && cp "$f" "$dest"
                 added_list="${added_list}${dest}"$'\n'
