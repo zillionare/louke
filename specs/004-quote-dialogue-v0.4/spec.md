@@ -153,11 +153,12 @@ sage / lex 在执行 quote dialogue 流程时，不应触发任何 GitHub PR 流
 ```yaml
 testability: ✅
 resolved: ✅
-valid: ✅
+valid: ⚠️
 ```
 
 > **Lex:** FR-070 是负向断言 ("不应触发 PR 流程"), 缺正向 AC。
 > 修改建议: 改写为可断言: "对 `agents/Sage.md` `agents/Lex.md` `bin/specforge` 三处源码 grep `gh pr|gh api.*reviews|gh pr comment`, 匹配数 = 0" [open]
+>> Aaron: invalid。只要我们没要求，没提供工具，就不会有主动创建 PR 这回事。
 
 ## 非功能需求
 
