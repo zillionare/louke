@@ -113,6 +113,8 @@ valid: ✅
 >> **Aaron**: 非 FR/NFR，没有meta 字段, 在 quote block内部解析是否完成。如果要找上下文，则它之前第一个非 quote block 的文本行就是（注意是非空文本行）
 >>> **Sage:** 收到。Q1 采纳 preceding-unit；Q2 采纳"虚拟 unit 上下文锚定"。同时已实现 `> **Name**:` / `**Name:**` 两种格式都识别、explanatory `>` 块过滤。 ✓
 
+> **Lex:** 💡 建议: FR-040 的"虚拟 unit 上下文锚定"概念, 在 `tools/quote_parser.py` 数据结构上没明说。Lex 看到 `Unit` dataclass 的 `last_quote / open_quotes` 字段已能承载, 但 spec 里没显式说。建议在 FR-040 加一句"虚拟 unit 复用 `Unit` 结构 (heading_line = quote 所在行), 但**不**进入 `is_ready()` 判定"。本条 Lex 接受当前实现, 非阻塞。 ✓
+
 ### FR-050 unit-ready 判定
 
 `tools/quote_parser.py --check-ready` 应当：
@@ -154,6 +156,9 @@ resolved: ✅
 valid: ✅
 ```
 
+> **Lex:** FR-070 是负向断言 ("不应触发 PR 流程"), 缺正向 AC。
+> 修改建议: 改写为可断言: "对 `agents/Sage.md` `agents/Lex.md` `bin/specforge` 三处源码 grep `gh pr|gh api.*reviews|gh pr comment`, 匹配数 = 0" [open]
+
 ## 非功能需求
 
 > **必读**: 本节的格式、编号等要求同 FR，此处省略。
@@ -167,6 +172,9 @@ testability: ✅
 resolved: ✅
 valid: ✅
 ```
+
+> **Lex:** NFR-010 缺可断言的 AC 描述。"1MB spec < 1s" 是性能目标, 但未指明如何测、断言什么。
+> 修改建议: 增加验收点 "在 1MB 合成 spec (含 10000 个 quote 块) 上跑 `python3 tools/quote_parser.py`, 端到端 wall time 断言 `time.time() - t0 < 1.0`" [open]
 
 ### NFR-020 错误信息包含 quote 块行号
 

@@ -163,6 +163,83 @@ class ParseResult:
     ready_blockers: list[str] = field(default_factory=list)  # 详细描述哪些单元阻止 ready
 
 
+def _emit_quote_block(result: "ParseResult", block: list[tuple[int, str, "re.Match | None"]]) -> None:
+    """累积多行 quote block, 提取 (depth, speaker, body, status) 并加入 result.
+
+    block 列表中第一项必含 match (speaker 起始行), 后续项是续行 (match=None).
+    status marker 只在 block 最后一行 (status_raw) 中识别, 允许用户在多行 quote
+    末尾才标 [open]/✓/etc.
+    """
+    head_line, head_raw, head_m = block[0]
+    if head_m is None:
+        return
+    depth = head_m.group("depth").count(">")
+    speaker = (head_m.group("name") or "").strip()
+    body_parts = [head_m.group("body") or ""]
+    # 续行: body 从 raw_line 去掉 depth prefix 后拼接
+    for line_no, raw_line, m in block[1:]:
+        # raw_line 形如 '> 修改建议: ... [open]'
+        # 去掉开头的 '> ' 或 '>'
+        stripped = raw_line.lstrip()
+        if stripped.startswith(">"):
+            stripped = stripped[1:].lstrip()
+        body_parts.append(stripped)
+    full_text = " ".join(p.strip() for p in body_parts if p.strip())
+    # status: 只在 block 最后一行 raw_line 中找 marker
+    last_line = block[-1][1]
+    status_match = re.search(
+        r"(?P<status>\u2713\s*(?:resolved)?|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded])\s*$",
+        last_line,
+    )
+    status_raw = status_match.group("status").strip() if status_match else ""
+
+    if not status_raw:
+        status = "open"
+        blocked_by = None
+    elif status_raw.startswith("\u2713"):
+        status = "resolved"
+        blocked_by = None
+    elif status_raw == "[open]":
+        status = "open"
+        blocked_by = None
+    elif status_raw.startswith("[blocked-by-"):
+        n = int(re.search(r"\d+", status_raw).group(0))
+        status = "blocked"
+        blocked_by = n
+    elif status_raw == "[wontfix]":
+        status = "wontfix"
+        blocked_by = None
+    elif status_raw == "[superseded]":
+        status = "superseded"
+        blocked_by = None
+    else:
+        status = "unknown"
+        blocked_by = None
+
+    owner_role = "agent" if speaker in KNOWN_AGENT_NAMES else "user"
+    quote = Quote(
+        depth=depth,
+        speaker=speaker,
+        body=full_text,
+        status=status,
+        line_number=head_line,
+        blocked_by=blocked_by,
+        owner_close_role=owner_role,
+        has_explicit_status=bool(status_raw),
+    )
+    result.quotes.append(quote)
+    if status == "open":
+        result.open_quotes.append(quote)
+    elif status == "resolved":
+        result.resolved_quotes.append(quote)
+    elif status == "blocked":
+        result.blocked_quotes.append(quote)
+    elif status == "wontfix":
+        result.wontfix_quotes.append(quote)
+    elif status == "superseded":
+        result.superseded_quotes.append(quote)
+
+
 def parse_spec(spec_path: Path) -> ParseResult:
     """解析 spec.md。
 
@@ -180,72 +257,47 @@ def parse_spec(spec_path: Path) -> ParseResult:
     result = ParseResult()
     in_code_block = False
 
-    # 第一遍: quote block 解析 (保持原行为)
+    # 第一遍: quote block 解析 (累积多行)
+    # 规则: 一个 quote block 由一行 speaker 起始 (`> **Name:** ...`) 开头,
+    # 后续的 `>` 续行 (无 speaker 起始) 视为同一 quote 的一部分.
+    # status marker 只在 block 最后一行匹配 (允许用户多行写完最后才标 ✓).
+    in_code_block = False
+    cur_block: list[tuple[int, str, re.Match]] = []  # [(line_no, raw_line, match_or_None)]
     for i, line in enumerate(lines, start=1):
         if RE_FENCE.match(line):
             in_code_block = not in_code_block
+            if cur_block:
+                _emit_quote_block(result, cur_block)
+                cur_block = []
             continue
         if in_code_block:
+            if cur_block:
+                # code block 中断 quote
+                _emit_quote_block(result, cur_block)
+                cur_block = []
             continue
         m = RE_QUOTE_LINE.match(line)
-        if not m:
-            continue
-
-        prefix = m.group("depth")
-        depth = prefix.count(">")
-        speaker = m.group("name").strip()
-        body = m.group("body").strip()
-        status_raw = (m.group("status") or "").strip()
-
-        if not status_raw:
-            status = "open"
-            blocked_by = None
-        elif status_raw.startswith("✓"):
-            status = "resolved"
-            blocked_by = None
-        elif status_raw == "[open]":
-            status = "open"
-            blocked_by = None
-        elif status_raw.startswith("[blocked-by-"):
-            n = int(re.search(r"\d+", status_raw).group(0))
-            status = "blocked"
-            blocked_by = n
-        elif status_raw == "[wontfix]":
-            status = "wontfix"
-            blocked_by = None
-        elif status_raw == "[superseded]":
-            status = "superseded"
-            blocked_by = None
+        is_continuation = line.lstrip().startswith(">") and not m
+        if m:
+            # 新的 speaker 起始行
+            if cur_block:
+                _emit_quote_block(result, cur_block)
+            cur_block = [(i, line, m)]
+        elif is_continuation:
+            # quote 续行
+            if cur_block:
+                cur_block.append((i, line, None))
+            else:
+                # 游离的 `>` 续行 (没有 speaker 起始), 跳过
+                pass
         else:
-            status = "unknown"
-            blocked_by = None
-
-        owner_role = "agent" if speaker in KNOWN_AGENT_NAMES else "user"
-        quote = Quote(
-            depth=depth,
-            speaker=speaker,
-            body=body,
-            status=status,
-            line_number=i,
-            blocked_by=blocked_by,
-            owner_close_role=owner_role,
-            has_explicit_status=bool(status_raw),
-        )
-        result.quotes.append(quote)
-
-        if status == "open":
-            result.open_quotes.append(quote)
-        elif status == "resolved":
-            result.resolved_quotes.append(quote)
-        elif status == "blocked":
-            result.blocked_quotes.append(quote)
-        elif status == "wontfix":
-            result.wontfix_quotes.append(quote)
-        elif status == "superseded":
-            result.superseded_quotes.append(quote)
-
-        result.speaker_counts[speaker] = result.speaker_counts.get(speaker, 0) + 1
-        result.depth_histogram[depth] = result.depth_histogram.get(depth, 0) + 1
+            # 非 quote 行
+            if cur_block:
+                _emit_quote_block(result, cur_block)
+                cur_block = []
+    if cur_block:
+        _emit_quote_block(result, cur_block)
+        cur_block = []
 
     # 第二遍: 切单元 + 读 YAML meta
     current_unit: Unit | None = None
