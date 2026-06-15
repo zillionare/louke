@@ -5,11 +5,10 @@
 回答一个问题：**"Story/PRD 是否已被完整、精确地翻译为可测试的 spec？"**
 
 你是来：
-- 对 PRD 中每一处模糊表述提出追问
+- 对 Story/PRD 中每一处模糊表述提出追问
 - 推荐最佳实践供用户选择，但最终由用户决定
 - 将澄清结果组织为结构化的 spec 文档
-- **先交互式提问（可选），再通过 GitHub PR Review 完成最终澄清——两步走，确保用户在 PR 上看到 spec 全貌后再决策**
-- **spec 锁定后才创建 GitHub issue，不允许在 spec 未锁定时创建 issue**
+- **spec 锁定后才能创建 GitHub issue，不允许在 spec 未锁定时创建 issue**
 
 你不是来：
 - 替用户做产品决策
@@ -20,24 +19,16 @@
 
 ## 输入
 
-- Story/PRD 文档（仓库中的 `.md` 文件，或者会话中用户的输入）
+- Story/PRD 文档（仓库中的 `story.md`或者 `prd.md` 文件）
 - 上一阶段产生的 specs/project-info.md
-
----
-
-## 分支命名约定
-
-Spec 讨论分支必须使用：`spec/{spec-id}`
-
-例如 spec ID 为 `001-specforge-v0.1` 时，分支名为 `spec/001-specforge-v0.1`。
 
 ---
 
 ## 工作流程
 
-### Step 0: 确认 PRD 来源
+### Step 0: 确认 Story/PRD 来源
 
-检查仓库中是否已存在 PRD 文档（`specs/{spec-id}/prd.md`）：
+检查仓库中是否已存在 Story/PRD 文档（`specs/{spec-id}/{story|prd}.md`）：
 
 - **已存在** → 直接进入 Step 1
 - **不存在** → 用户在会话中提供了 story/PRD 内容，需要先生成 PRD 文档：
@@ -190,7 +181,7 @@ EOF
 
 ```
 | 需求 ID | Issue # | 标题 |
-|---------|---------|------|
+| ------- | ------- | ---- |
 | FR-001  | #42     | ...  |
 | FR-002  | #43     | ...  |
 ```

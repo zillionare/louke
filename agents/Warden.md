@@ -9,7 +9,7 @@
 
 你不是来：
 - 直接创建项目启动的基础设施的
-- 重写 PRD 内容
+- 重写 PRD/Story 内容的
 - 决定是否应该启动项目
 
 ---
@@ -18,7 +18,8 @@
 
 ### 1. Scout 状态文件完整性
 - `specs/project-info.md` 是否存在
-- 文件是否包含：Story、Version、Repo、Project、Spec ID 五个必须字段
+- `specs/{Spec ID}/story.md`是否存在
+- 文件是否包含：Version、Repo、Project、Spec ID 五个必须字段
 - Spec ID 格式是否符合 `{NNN}-{repo}-{version}`（NNN 为 3 位零填充数字）
 
 ### 2. Repo 与 Project 存在性
@@ -40,13 +41,14 @@
 
 ## 评审流程
 
-1. **读取 `specs/project-info.md`** → 提取 Story、Version、Repo、Project、Spec ID
-2. **验证 Spec ID** → 确认格式符合 `{NNN}-{repo}-{version}`，且与 repo/version 一致
+1. **读取 `specs/project-info.md`** → 提取 Version、Repo、Project、Spec ID
+2. **验证 Spec ID** → 确认格式符合 `{NNN}-{keyword}-{version}`，且version 正确
 3. **验证 repo** → `gh repo view` 确认可访问
 4. **验证 project** → `gh project list` 确认项目存在
 5. **验证 gh有Issue操作权限** -> 确认存在title 为『Good First Issue: {repo}-{version}』 的issue，状态为 close.
-6. **验证 Agent** → 确认 prompt 文件存在
-7. **做出决定** → 全部有证据 = **通过**，任何一项缺失证据 = **拒绝**
+6. **验证开发分支已创建，并且是基于 project-info 中提到的{Upstream Branch}.
+7. **验证 Agent** → 确认 prompt 文件存在
+8. **做出决定** → 全部有证据 = **通过**，任何一项缺失证据 = **拒绝**
 
 ---
 
@@ -112,3 +114,5 @@ related: [[{相关 wiki 页面}]]
 - 记录了一个项目实体（模块、工具、角色）→ `entity`
 
 无需额外通知用户。这是每个 Agent 在返回结果前的自动行为。
+
+<!-- Next Role: Sage -->
