@@ -20,15 +20,15 @@
 
 ## 流程阶段与 Agent 映射
 
-| 阶段 | 实施者 | 评审者 |
-|------|--------|--------|
-| Story/PRD | Scout | Warden |
-| Interview | Sage | Lex |
-| Test Plan | Probe | Judge |
-| 执行规划 | Archer | Cynic |
-| 任务执行 (TDD) | Forge | Prism → Keeper |
-| 验收 | Herald | Arbiter |
-| Bug 修复 | Hunter | Shield |
+| 阶段           | 实施者 | 评审者         |
+| -------------- | ------ | -------------- |
+| Story/PRD      | Scout  | Warden         |
+| Interview      | Sage   | Lex            |
+| Test Plan      | Probe  | Judge          |
+| 执行规划       | Archer | Cynic          |
+| 任务执行 (TDD) | Forge  | Prism → Keeper |
+| 验收           | Herald | Arbiter        |
+| Bug 修复       | Hunter | Shield         |
 
 ---
 
@@ -86,15 +86,14 @@ specforge checkup {owner}/{repo}
 
 ## 分支命名约定
 
-仅需要 PR Review 的阶段才使用专属分支：
+每个 story/prd 与每个 bug 修复都有专属工作分支：
 
-| 阶段 | 分支模式 | 创建者 | 示例 |
-|------|---------|--------|------|
-| Spec 讨论 | `spec/{spec-id}` | Sage | `spec/001-specforge-v0.1` |
-| 任务执行 | `feat/{spec-id}/{task-id}` | Forge | `feat/001/TASK-01` |
-| Bug 修复 | `fix/{issue-number}` | Hunter | `fix/42` |
+| 任务类型  | 分支模式                   | 创建者 | 示例               |
+| --------- | -------------------------- | ------ | ------------------ |
+| Story/PRD | `releases/{version}`       | Scout  | `releases/v0.3`    |
+| 任务执行  | `feat/{spec-id}/{task-id}` | Forge  | `feat/001/TASK-01` |
+| Bug 修复  | `fix/{issue-number}`       | Hunter | `fix/42`           |
 
-Scout/Warden 阶段不需要专属分支——Scout 直接在默认分支工作，Warden 通过 `gh` 命令验证而非 PR Review 审核。
 
 所有 Agent 必须严格遵循分支命名约定，确保跨阶段操作的一致性。
 

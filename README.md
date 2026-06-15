@@ -49,10 +49,10 @@ Speckit 在规格定义阶段就要求赋予优先级，这当然没有错，但
 
 **双源设计**（避免重复解析和漂移）:
 
-| 源                         | 形式                          | 用途                                           | Agent          |
-| -------------------------- | ----------------------------- | ---------------------------------------------- | -------------- |
+| 源                         | 形式                             | 用途                                           | Agent          |
+| -------------------------- | -------------------------------- | ---------------------------------------------- | -------------- |
 | **spec.md**（设计源）      | git 内 markdown + quote dialogue | 人读、Sage/Lex 评审、NFR/澄清记录              | Sage / Lex     |
-| **GitHub Issue**（操作源） | Issue form schema, 结构化字段 | 机器读、Probe/Archer/Herald 工作输入、状态跟踪 | Probe / Herald |
+| **GitHub Issue**（操作源） | Issue form schema, 结构化字段    | 机器读、Probe/Archer/Herald 工作输入、状态跟踪 | Probe / Herald |
 
 **流程**：
 
@@ -78,13 +78,13 @@ Speckit 在规格定义阶段就要求赋予优先级，这当然没有错，但
 
 **Quote 状态约定** (FR-017, Aaron 设计):
 
-| 标记 | 语义 |
-|---|---|
+| 标记             | 语义           |
+| ---------------- | -------------- |
 | 无 marker (默认) | pending / open |
-| `✓ resolved` | 闭环 |
-| `[blocked-by-N]` | 被 FR-N 阻塞 |
-| `[wontfix]` | 终止 (不实施) |
-| `[superseded]` | 被新 spec 取代 |
+| `✓ resolved`     | 闭环           |
+| `[blocked-by-N]` | 被 FR-N 阻塞   |
+| `[wontfix]`      | 终止 (不实施)  |
+| `[superseded]`   | 被新 spec 取代 |
 
 **markdown 示例**：
 
@@ -108,11 +108,11 @@ Spec 链接:  ^https://github\.com/.../spec\.md#fr-\d{3}$   # 完整 URL,fragmen
 
 **分支命名约定**：
 
-| 阶段      | 分支模式                   | 示例                      | 创建者 | 目的                                          |
-| --------- | -------------------------- | ------------------------- | ------ | --------------------------------------------- |
-| Spec 讨论 | `spec/{spec-id}`           | `spec/001-specforge-v0.1` | Sage   | IDE quote dialogue + chat trigger             |
-| 任务执行  | `feat/{spec-id}/{task-id}` | `feat/001/TASK-01`        | Forge  | R-G-R 循环 + Prism/Keeper 代码审查            |
-| Bug 修复  | `fix/{issue-number}`       | `fix/42`                  | Hunter | TDD Bug 修复 + Shield 回归审查                |
+| 阶段      | 分支模式                   | 示例                      | 创建者 | 目的                               |
+| --------- | -------------------------- | ------------------------- | ------ | ---------------------------------- |
+| Spec 讨论 | `spec/{spec-id}`           | `spec/001-specforge-v0.1` | Sage   | IDE quote dialogue + chat trigger  |
+| 任务执行  | `feat/{spec-id}/{task-id}` | `feat/001/TASK-01`        | Forge  | R-G-R 循环 + Prism/Keeper 代码审查 |
+| Bug 修复  | `fix/{issue-number}`       | `fix/42`                  | Hunter | TDD Bug 修复 + Shield 回归审查     |
 
 > 旧版 PR Review 流程见 git history (pre-spec 004)。spec 003 之前的 spec 都用 PR Review, 自 spec 004 起改用 IDE-based quote dialogue.
 
@@ -500,14 +500,14 @@ specforge init ./sub           # 相对路径
 
 **Flags**：
 
-| Flag | 作用 |
-|---|---|
-| `--dry-run` | 只打印将做什么，不实际改 |
-| `--backup` | 既存文件 → `.bak` 后跳过（不覆盖） |
-| `--force` | 既存文件强制覆盖 |
+| Flag                    | 作用                                          |
+| ----------------------- | --------------------------------------------- |
+| `--dry-run`             | 只打印将做什么，不实际改                      |
+| `--backup`              | 既存文件 → `.bak` 后跳过（不覆盖）            |
+| `--force`               | 既存文件强制覆盖                              |
 | `--with-issue-template` | 同时安装 `.github/ISSUE_TEMPLATE/feature.yml` |
-| `--no-gitignore` | 不动 `.gitignore` |
-| `--json` | 输出机器可读 JSON 替代纯文本 |
+| `--no-gitignore`        | 不动 `.gitignore`                             |
+| `--json`                | 输出机器可读 JSON 替代纯文本                  |
 
 **示例**：
 
@@ -679,3 +679,19 @@ rm ~/.local/bin/specforge
 - **次版本号（0.x → 0.y）**：agent prompt 字段可加但不可改，老调用方式仍工作
 - **主版本号（0.x → 1.0）**：保证"在 0.9 写出的 spec 能用 1.0 的 verifier 校验"，反之亦然
 - **agent 协议变更**：必须同时更新 Scout（首次接触新 spec 的 agent） 和 Guide（方法论入口），并在 wiki/decisions/ 留 ADR
+
+## Rationale
+
+1. 所有的功能开发都在 releases 下，没有 feature 分支。因为 Agent模式下，每一次 feature 开发理论上都可以很快完成。如果传统的 feature, dev 分支，如果有必要，可以使用 worktree 来实现。
+
+## 10. 架构决策记录（ADR）
+
+正式决策放在 [`wiki/decisions/`](wiki/decisions/) 下，README 仅作索引。每条 ADR 包含背景、决策、备选、后果四部分。
+
+| 编号 | 标题                                                                                               | 状态     | 影响范围                   |
+| ---- | -------------------------------------------------------------------------------------------------- | -------- | -------------------------- |
+| 001  | [Agent 设计参考文档](wiki/decisions/001-agent-design-reference.md)                                 | 已采纳   | Agent prompt 设计依据      |
+| 002  | [用私有 {repo}-dev 仓做项目内开发文档的版本管理](wiki/decisions/002-dev-repo-submodule.md)         | Proposed | specs/ 文档归属            |
+| 003  | [specforge 不引入 feature 分支与 develop 分支](wiki/decisions/003-no-feature-or-develop-branch.md) | 已采纳   | 分支命名约定、Agent 工作流 |
+
+> §Rationale 第 1 条与 ADR 003 同源：ADR 003 是该判断的形式化版本。

@@ -28,11 +28,10 @@
 
 向用户询问以下信息：
 
-1. **Story/PRD** — 要开发什么？一段话，或者是 github issue 编号（label 是 Story），必填。
+1. **Story/PRD** — 要开发什么？一段话，或者是 github issue 编号（label 是 Story），必填。用户也可以直接提供更详细的 prd 文件。Agent 将复制到正确的目录下。
 2. **版本号** — 如 `v0.1`、`v1.0.0`（必填）
-3. **上游分支** - 本次开发基于的upstream branch，如 `main`、`dev`（可选，默认为当前分支）
-4. **Repo 名称** — 如 `specforge`（如无法从 git 信息中获取，则必填）
-5. **Spec 编号** — 如 `001`、`002`（可选，用于追加需求场景）
+3. **Repo 名称** — 如 `specforge`（如无法从 git 信息中获取，则必填）
+4. **Spec 编号** — 如 `001`、`002`（可选，用于追加需求场景）
 
 **必填项处理**：Story、版本号、Repo 三项缺一不可。任一项缺失则停止并提示用户提供。
 
@@ -70,14 +69,63 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 
 如 gh CLI 不支持步骤 b/c，提示用户在 GitHub UI 中手动配置。
 
-### Step 4: 创建开发分支
+### Step 3.5: 检查所有 `releases/*` 分支是否已合入 main
 
-使用以下命令创建新开发分支，并推送到远程:
+在开新分支之前，必须扫描**所有** `releases/*` 分支，确认它们都已经合并到 `main`。任一未合并的 release 分支都意味着 `main` 处于「过期」状态——基于过期 main 开出的新 release 分支会丢失上版产物。
+
+**检测逻辑**（仅 git 本地检查，无 gh 依赖）：
+
+```bash
+# 列出所有未合并到 main 的 releases/* 分支
+UNMERGED=$(git branch -r --list 'origin/releases/*' \
+  | sed 's|origin/||' \
+  | while read -r br; do
+      git merge-base --is-ancestor "$br" main 2>/dev/null || echo "$br"
+    done)
+
+if [ -z "$UNMERGED" ]; then
+  echo "OK: 所有 releases/* 分支都已合入 main"
+else
+  echo "UNMERGED releases:"
+  echo "$UNMERGED"
+fi
+```
+
+- 若本项目**还没有任何 `releases/*` 分支**（首次启动）→ **跳过本步骤**
+- 若输出 `OK` → 直接进入 Step 4
+- 若输出 `UNMERGED releases:` → **警告用户并询问**：
 
 ```
-git checkout -b releases/{version} [上游分支]
+检测到以下 releases/* 分支尚未合并到 main：
+- releases/v0.2
+- releases/v0.3
+
+后果：基于过期 main 开出的新分支将丢失这些版本的产物；后续若把这些 release 合并回 main，会与本版产生冲突。
+
+是否仍要继续？（y/n）
+```
+
+- 用户答 **y** → 放行，继续 Step 4（本版产物独立演进，后续由用户/流程负责人手动 reconcile）
+- 用户答 **n**（或未明确确认）→ **拒绝推进**，提示用户先：
+  1. 通过 PR 将未合并的 release 合并到 main，或
+  2. 显式说明要废弃这些 release（与上面「继续」等价，但用户应主动确认）
+
+### Step 4: 创建 releases 分支
+
+本版本（version）的所有奠基产物（repo、Project、project-info、story/prd、wiki）都在 `releases/{version}` 分支上提交与推送。
+
+- **起点固定为 `main`**——不再向用户询问上游分支
+- 分支命名：**复数 `releases/{version}`**（区别于 Sage 的 `spec/{spec-id}` 单数）
+
+```
+git checkout main
+git pull --ff-only origin main
+git checkout -b releases/{version}
 git push -u origin releases/{version}
 ```
+
+- `releases/{version}` 是本版本所有上游产物的载体，后续 Sage/Finder 阶段在此基础上继续
+- 不要直接在 `main` 上 commit——Warden 会拒绝推进
 
 ### Step 5: 验证权限与可用性
 
@@ -112,13 +160,13 @@ specforge checkup {owner}/{repo}
 - **Repo**: github.com/{owner}/{repo}
 - **Project**: {repo}-{version} (#{编号})
 - **Spec ID**: {NNN}-{keyword}-{version}
-- **Upstream Branch**: {上游分支}
+- **Release Branch**: `releases/{version}`（Scout 产生的全部上游产物都在该分支上；上游固定为 `main`）
 - **Test Issue**: #{issue 编号}
 - **Created**: {YYYY-MM-DD}
 ```
 
 **Spec ID 字段说明**：
-- 格式：`{NNN}-{keyword}-{version}`（如 `001-adpot-mode-v0.1`）
+- 格式：`{NNN}-{keyword}-{version}`（如 `001-adopt-mode-v0.1`）
 - `NNN` 是 3 位零填充的序号，从 Step 1 的逻辑得出
 - 下游 Agent（尤其是 Sage）必须从此字段读取 Spec-ID，用于构建分支名 `spec/{Spec-ID}` 和文件路径 `specs/{Spec-ID}/`
 
@@ -129,15 +177,19 @@ specforge checkup {owner}/{repo}
 
 ### Step 8: 提交
 
-- 将本次会话中产生的 project-info, story 等文件提交并推送到 git server.
+- 提交前先确认当前所在分支是 `releases/{version}`（不要在 main 或其他分支上提交）
+- 将本次会话中产生的 project-info, story 等文件提交并推送到 `releases/{version}` 分支
 
 ```bash
+git status                                    # 确认当前在 releases/{version}
 git add specs/{Spec-ID}/*.md
 git add specs/project-info.md
 git add wiki/pages/{主题关键词}.md
 git commit -m "story/prd: initial draft from user conversation for {Spec-ID}"
-git push
+git push -u origin releases/{version}
 ```
+
+**如果当前不在 releases 分支**：`git checkout releases/{version}` 后再 add/commit/push，不要 `git commit --amend` 到 main。
 
 ---
 
