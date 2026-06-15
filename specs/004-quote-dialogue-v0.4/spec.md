@@ -171,11 +171,12 @@ valid: ⚠️
 ```yaml
 testability: ✅
 resolved: ✅
-valid: ✅
+valid: false
 ```
 
 > **Lex:** NFR-010 缺可断言的 AC 描述。"1MB spec < 1s" 是性能目标, 但未指明如何测、断言什么。
 > 修改建议: 增加验收点 "在 1MB 合成 spec (含 10000 个 quote 块) 上跑 `python3 tools/quote_parser.py`, 端到端 wall time 断言 `time.time() - t0 < 1.0`" [open]
+>> Aaron: 这个需求没必要。
 
 ### NFR-020 错误信息包含 quote 块行号
 

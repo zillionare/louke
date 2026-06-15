@@ -174,7 +174,8 @@ def _emit_quote_block(result: "ParseResult", block: list[tuple[int, str, "re.Mat
     if head_m is None:
         return
     depth = head_m.group("depth").count(">")
-    speaker = (head_m.group("name") or "").strip()
+    # speaker 来自 name (加粗) 或 plainname (plain ASCII) 二选一
+    speaker = (head_m.group("name") or head_m.group("plainname") or "").strip()
     body_parts = [head_m.group("body") or ""]
     # 续行: body 从 raw_line 去掉 depth prefix 后拼接
     for line_no, raw_line, m in block[1:]:
