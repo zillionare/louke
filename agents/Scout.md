@@ -69,52 +69,12 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 
 如 gh CLI 不支持步骤 b/c，提示用户在 GitHub UI 中手动配置。
 
-### Step 3.5: 检查所有 `releases/*` 分支是否已合入 main
-
-在开新分支之前，必须扫描**所有** `releases/*` 分支，确认它们都已经合并到 `main`。任一未合并的 release 分支都意味着 `main` 处于「过期」状态——基于过期 main 开出的新 release 分支会丢失上版产物。
-
-**检测逻辑**（仅 git 本地检查，无 gh 依赖）：
-
-```bash
-# 列出所有未合并到 main 的 releases/* 分支
-UNMERGED=$(git branch -r --list 'origin/releases/*' \
-  | sed 's|origin/||' \
-  | while read -r br; do
-      git merge-base --is-ancestor "$br" main 2>/dev/null || echo "$br"
-    done)
-
-if [ -z "$UNMERGED" ]; then
-  echo "OK: 所有 releases/* 分支都已合入 main"
-else
-  echo "UNMERGED releases:"
-  echo "$UNMERGED"
-fi
-```
-
-- 若本项目**还没有任何 `releases/*` 分支**（首次启动）→ **跳过本步骤**
-- 若输出 `OK` → 直接进入 Step 4
-- 若输出 `UNMERGED releases:` → **警告用户并询问**：
-
-```
-检测到以下 releases/* 分支尚未合并到 main：
-- releases/v0.2
-- releases/v0.3
-
-后果：基于过期 main 开出的新分支将丢失这些版本的产物；后续若把这些 release 合并回 main，会与本版产生冲突。
-
-是否仍要继续？（y/n）
-```
-
-- 用户答 **y** → 放行，继续 Step 4（本版产物独立演进，后续由用户/流程负责人手动 reconcile）
-- 用户答 **n**（或未明确确认）→ **拒绝推进**，提示用户先：
-  1. 通过 PR 将未合并的 release 合并到 main，或
-  2. 显式说明要废弃这些 release（与上面「继续」等价，但用户应主动确认）
 
 ### Step 4: 创建 releases 分支
 
 本版本（version）的所有奠基产物（repo、Project、project-info、story/prd、wiki）都在 `releases/{version}` 分支上提交与推送。
 
-- **起点固定为 `main`**——不再向用户询问上游分支
+- **起点固定为 `main`**（不向用户询问上游分支）
 - 分支命名：**复数 `releases/{version}`**（区别于 Sage 的 `spec/{spec-id}` 单数）
 
 ```
@@ -127,27 +87,28 @@ git push -u origin releases/{version}
 - `releases/{version}` 是本版本所有上游产物的载体，后续 Sage/Finder 阶段在此基础上继续
 - 不要直接在 `main` 上 commit——Warden 会拒绝推进
 
-### Step 5: 验证权限与可用性
+### Step 5: 验证 gh 写权限
 
-**5a. 身份一致性（必跑，阻塞项）**
+通过创建并立即关闭 Test Issue 和 Test PR，验证当前 gh 身份对目标 repo 有 issue/PR 写权限——这是 Scout 阶段必跑的安全门禁，避免后续 Sage/Forge 在创建正式 issue 时才暴露权限错误。
 
-在创建任何 issue/PR 之前先确认 gh 和 git 用的是同一个身份。specforge 的工作流混合使用两者,如果用错身份会导致"git push 成功但 gh 操作 403"或反之。运行：
+```
+ISSUE_URL=$(gh issue create \
+  --repo {owner}/{repo} \
+  --title "Good First Issue: {repo}-{version}" \
+  --body "Scout 权限冒烟测试" 2>&1)
+gh issue close $(echo "$ISSUE_URL" | grep -oE '[0-9]+$') --comment "Scout 权限验证完成"
 
-```bash
-specforge checkup {owner}/{repo}
+gh pr create \
+  --repo {owner}/{repo} \
+  --base main \
+  --head releases/{version} \
+  --title "Good First PR: {repo}-{version}" \
+  --body "Scout 权限冒烟测试" 2>&1 || true
+gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=false
 ```
 
-> agent 不直接调 Python 脚本——所有 framework 工具都通过 `specforge` CLI 入口,具体路径由 install 时决定,agent 无需关心。
-
-**不通过则拒绝推进**。详细检查项见脚本(tools/check_identity.py)注释（L1-L5）。
-
-**5b. Issue / PR 写权限（冒烟测试）**
-
-- **Issue 权限**：创建测试 issue `Good First Issue: {repo}-{version}`，comment 并 close。记录编号
-- **PR 权限**：向默认分支创建测试 PR（`gh pr create --title "Good First PR: {repo}-{version}" --body "权限验证测试"`），然后立即 close
-- 如果 gh pr create 报权限错误（如 "must be a collaborator"），则 **拒绝推进**，提示用户将当前账户添加为 repo collaborator
-- 本地工作区目录正确
-- 所有 Agent prompt 文件存在（`agents/*.md`）
+- 记录 Test Issue 编号到 `specs/project-info.md`（如人工需要回溯）
+- 如 `gh issue create` 报 `must be a collaborator` 或 `403` → 拒绝推进，提示用户将当前账户添加为 repo collaborator
 
 ### Step 6: 写入状态文件
 
@@ -161,7 +122,6 @@ specforge checkup {owner}/{repo}
 - **Project**: {repo}-{version} (#{编号})
 - **Spec ID**: {NNN}-{keyword}-{version}
 - **Release Branch**: `releases/{version}`（Scout 产生的全部上游产物都在该分支上；上游固定为 `main`）
-- **Test Issue**: #{issue 编号}
 - **Created**: {YYYY-MM-DD}
 ```
 

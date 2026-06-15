@@ -623,11 +623,12 @@ rm ~/.local/bin/specforge
 
 主路径上由 agent prompt 触发，在 LLM token 流中作为 tool call 执行。**用户感知不到**。`specforge help` 列出它们只是为了人能在 agent 卡住时手动跑一次 debug。
 
-| 命令                     | 用途                                   | 谁调                    |
-| ------------------------ | -------------------------------------- | ----------------------- |
-| `checkup <owner/repo>`   | 身份一致性体检 (L1-L5)                 | Maestro (session-start) |
-| `doctor`                 | `checkup` 的别名                       | Maestro                 |
-| `verify-issue --spec ID` | Feature issue form schema 验证 (L1-L8) | Lex (issue 准入)        |
+| 命令                         | 用途                                   | 谁调                    |
+| ---------------------------- | -------------------------------------- | ----------------------- |
+| `checkup <owner/repo>`       | 身份一致性体检 (L1-L5)                 | Maestro (session-start) |
+| `doctor`                     | `checkup` 的别名                       | Maestro                 |
+| `foundation <owner/repo>`    | 项目奠基检查 (F1-F9)                   | Scout (完成后验证)      |
+| `verify-issue --spec ID`     | Feature issue form schema 验证 (L1-L8) | Lex (issue 准入)        |
 
 **判定原则**：
 

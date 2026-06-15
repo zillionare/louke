@@ -64,6 +64,9 @@ Commands (User-driven — 人跑):
 Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
   checkup <owner/repo>    身份一致性体检 L1-L5 (Maestro 启动时跑)
   doctor                  checkup 的别名
+  foundation <owner/repo> 项目奠基检查 F1-F9 (Scout 完成后验证)
+                          Flags: --version V --spec-id ID [--project-id N]
+                                 [--upstream BRANCH] [--skip F3,F4] [--offline]
   verify-issue --spec ID  Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
 
 环境变量:
@@ -270,6 +273,15 @@ cmd_checkup() {
     exec "$PY" "$SPECFORGE_HOME/tools/check_identity.py" --repo "$REPO" "$@"
 }
 
+cmd_foundation() {
+    local REPO="${1:-}"
+    [ -z "$REPO" ] && die "Usage: specforge foundation <owner/repo> --version <version> [--spec-id <id>]"
+    local PY
+    PY="$(resolve_python)"
+    shift
+    exec "$PY" "$SPECFORGE_HOME/tools/check_foundation.py" "$REPO" "$@"
+}
+
 cmd_verify_issue() {
     local PY
     PY="$(resolve_python)"
@@ -304,6 +316,7 @@ cmd_upgrade() {
 case "${1:-help}" in
     init)        shift; cmd_init "$@" ;;
     checkup)     shift; cmd_checkup "$@" ;;
+    foundation)  shift; cmd_foundation "$@" ;;
     verify-issue) shift; cmd_verify_issue "$@" ;;
     doctor)      shift; cmd_doctor "$@" ;;
     upgrade)     shift; cmd_upgrade "$@" ;;
