@@ -41,7 +41,7 @@
 - 如 `specs/` 目录不存在或为空 → 自动分配 `001`
 - 将分配的编号记录到 `project-info.md`，供下游 Agent（Warden, Sage 等）读取
 
-Spec 编号用于构建 Spec-ID：`{NNN}-{keyword}-{version}`（如 `003-adopt-mode-v0.3`），是 Sage 创建 spec 分支和本地 specs 文件路径的关键标识。其中 keyword 是本 story 的关键词（空格转换为 -）
+Spec 编号用于构建 Spec-ID：`{NNN}-{keyword}-{version}`（如 `003-adopt-mode-v0.3`），是下游 Agent（尤其是 Sage）定位本地 specs/{Spec-ID}/ 目录的关键标识。其中 keyword 是本 story 的关键词（空格转换为 -）
 
 ### Step 2: 创建 GitHub Repo
 
@@ -84,7 +84,7 @@ c. **README** — 在 Project README 中写入用户提供的 Story/PRD 内容
 本版本（version）的所有奠基产物（repo、Project、project-info、story/prd、wiki）都在 `releases/{version}` 分支上提交与推送。
 
 - **起点固定为 `main`**（不向用户询问上游分支）
-- 分支命名：**复数 `releases/{version}`**（区别于 Sage 的 `spec/{spec-id}` 单数）
+- 分支命名：**复数 `releases/{version}`**
 
 ```
 git checkout main
@@ -137,7 +137,9 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 **Spec ID 字段说明**：
 - 格式：`{NNN}-{keyword}-{version}`（如 `001-adopt-mode-v0.1`）
 - `NNN` 是 3 位零填充的序号，从 Step 1 的逻辑得出
-- 下游 Agent（尤其是 Sage）必须从此字段读取 Spec-ID，用于构建分支名 `spec/{Spec-ID}` 和文件路径 `specs/{Spec-ID}/`
+- `keyword`从 story/prd 中提取本功能的核心关键词。多个关键词（不超过3个）使用「-」连接。
+- `version`是此次开发确定的版本号，由用户提供。
+- 下游 Agent 从 `specs/project-info.md` 的 Spec ID 字段读取后定位本地 `specs/{Spec-ID}/` 目录
 
 ### Step 7: 写入 story 文件
 
