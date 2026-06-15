@@ -6,12 +6,16 @@
 
 ## 用户故事
 
+<a id="us-010"></a>
+
 ### US-010
 story: 作为 spec 作者，我想用 markdown 的 quote 语法在 IDE 中直接跟 sage 对话澄清需求，以便免去 PR review 的繁琐流程。
 priority: P0
 
 > **Aaron**: 这是测试问题，请回答并关闭。
 >> **Sage:** 收到，这条用作用例覆盖了"speaker 提取允许 `**Name**:` (无冒号) 与 `**Name:**` (有冒号) 两种" lex 路径。 ✓
+
+<a id="us-020"></a>
 
 ### US-020
 story: 作为 spec 作者，我想既能在 sage 提问处回复，也能对 spec 任意段落提出自己的疑问，以便澄清工作既可由 sage 驱动，也可由作者主动发起。
@@ -37,6 +41,8 @@ priority: P0
 > **编号约定(必读)**： FR 的编码采用3位数字，0填充，初稿时从10开始，每次增加10；以便后续可以随时在中间插入新的 FR。
 > **必读**： FR-XXX 编号即该需求的 id。禁止删除已有需求 id，以避免引用混淆；如需废弃某 FR，在其元数据中, valid 改为 false，并在澄清记录中说明。
 
+<a id="fr-010"></a>
+
 ### FR-010 quote-block 语法识别
 
 `tools/quote_parser.py` 必须能够：
@@ -49,6 +55,8 @@ testability: ✅
 resolved: ✅
 valid: ✅
 ```
+
+<a id="fr-020"></a>
 
 ### FR-020 speaker 身份由加粗 name 决定
 
@@ -71,6 +79,8 @@ resolved: ✅
 valid: ✅
 ```
 
+<a id="fr-030"></a>
+
 ### FR-030 状态标记
 
 每条 quote 块的尾部（块内最后一行）允许用以下 5 种 status marker 之一收尾：
@@ -88,6 +98,8 @@ testability: ✅
 resolved: ✅
 valid: ✅
 ```
+
+<a id="fr-040"></a>
 
 ### FR-040 unit 划分与 yaml 元数据
 
@@ -115,6 +127,8 @@ valid: ✅
 
 > **Lex:** 💡 建议: FR-040 的"虚拟 unit 上下文锚定"概念, 在 `tools/quote_parser.py` 数据结构上没明说。Lex 看到 `Unit` dataclass 的 `last_quote / open_quotes` 字段已能承载, 但 spec 里没显式说。建议在 FR-040 加一句"虚拟 unit 复用 `Unit` 结构 (heading_line = quote 所在行), 但**不**进入 `is_ready()` 判定"。本条 Lex 接受当前实现, 非阻塞。 ✓
 
+<a id="fr-050"></a>
+
 ### FR-050 unit-ready 判定
 
 `tools/quote_parser.py --check-ready` 应当：
@@ -136,6 +150,8 @@ valid: ✅
 >> **Aaron**: 算普通文本，但同样可能存在多轮澄清的需要。
 >>> **Sage:** 收到。Q3 采纳"US 走 check-ready"（你已确认）；Q4 采纳"scenario 不算 unit，但 quote 链仍可被解析并被关联到邻近 unit 的虚拟上下文"。FR-050 spec 已同步更新。 ✓
 
+<a id="fr-060"></a>
+
 ### FR-060 用户侧编辑器不需扩展
 
 用户只用原生 IDE 即可完成澄清（无需装 markdown 插件或扩展工具）。quote 块只是普通 markdown。
@@ -146,6 +162,8 @@ resolved: ✅
 valid: ✅
 ```
 
+<a id="fr-070"></a>
+
 ### FR-070 agent 侧无 PR 依赖
 
 sage / lex 在执行 quote dialogue 流程时，不应触发任何 GitHub PR 流程（包括开 PR、request review、PR review 评论）。所有"评审/澄清"动作都只发生在 spec.md 的 quote 块上。
@@ -153,17 +171,19 @@ sage / lex 在执行 quote dialogue 流程时，不应触发任何 GitHub PR 流
 ```yaml
 testability: ✅
 resolved: ✅
-valid: ✅
+valid: false
 ```
 
 > **Lex:** FR-070 是负向断言 ("不应触发 PR 流程"), 缺正向 AC。
 > 修改建议: 改写为可断言: "对 `agents/Sage.md` `agents/Lex.md` `bin/specforge` 三处源码 grep `gh pr|gh api.*reviews|gh pr comment`, 匹配数 = 0" [open]
 >> Aaron: invalid。只要我们没要求，没提供工具，就不会有主动创建 PR 这回事。
->>> **Sage:** 收到, Lex 的负向重写建议被 Aaron 拒绝 (理由: 现状已足够, 不会主动创建 PR)。FR-070 spec 保持原样, yaml.valid 改回 `✅`。 ✓
+>>> **Sage:** 收到, Lex 的负向重写建议被 Aaron 拒绝 (理由: 现状已足够, 不会主动创建 PR)。FR-070 spec 保持原样, yaml.valid 改为false。 ✓
 
 ## 非功能需求
 
 > **必读**: 本节的格式、编号等要求同 FR，此处省略。
+
+<a id="nfr-010"></a>
 
 ### NFR-010 quote 解析在 1MB spec 内 < 1s
 
@@ -179,6 +199,8 @@ valid: false
 > 修改建议: 增加验收点 "在 1MB 合成 spec (含 10000 个 quote 块) 上跑 `python3 tools/quote_parser.py`, 端到端 wall time 断言 `time.time() - t0 < 1.0`" [open]
 >> Aaron: 这个需求没必要。
 >>> **Sage:** 收到, Aaron 拒绝 Lex 的 AC 补全建议, 认为 NFR-010 没必要保留。NFR-010 视为废弃, yaml.valid 维持 `false`, 不进入 ready 判定。本单元加入「澄清记录」, 后续 Probe/Archer 不会为废弃 NFR 生成测试。 [wontfix]
+
+<a id="nfr-020"></a>
 
 ### NFR-020 错误信息包含 quote 块行号
 
