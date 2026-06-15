@@ -51,6 +51,17 @@ RE_QUOTE_LINE = re.compile(
     r"(?P<status>✓\s*resolved|\[open\]|\[blocked-by-\d+\]|\[wontfix\]|\[superseded])?\s*$"
 )
 
+# 单元标题: ### US-010 / ### FR-001 / ### NFR-010 / 等 (3 位零填充)
+RE_UNIT_HEADING = re.compile(r"^###\s+(US|FR|NFR)-(\d{3})\b")
+# 顶节标题: ## 功能需求 / ## 用户故事 / ## 非功能需求 / ## 排除项 等
+RE_TOP_HEADING = re.compile(r"^##\s+\S")
+
+# YAML 字段: resolved: ✅ / resolved: ⚠️ / resolved: 某个状态
+RE_YAML_FIELD = re.compile(r"^\s*resolved\s*:\s*(\S+)\s*$", re.IGNORECASE)
+# YAML 字段: testability / valid
+RE_YAML_TESTABILITY = re.compile(r"^\s*testability\s*:\s*(\S+)\s*$", re.IGNORECASE)
+RE_YAML_VALID = re.compile(r"^\s*valid\s*:\s*(\S+)\s*$", re.IGNORECASE)
+
 KNOWN_AGENT_NAMES = frozenset({
     "Sage", "Lex", "Scout", "Warden", "Probe", "Judge",
     "Archer", "Cynic", "Forge", "Prism", "Keeper",
@@ -74,6 +85,61 @@ class Quote:
 
 
 @dataclass
+class Unit:
+    """spec.md 中的一个需求/故事单元
+
+    范围: ### US-XXX / ### FR-XXX / ### NFR-XXX 标题后, 到下一个 ### 或 ## 之前。
+    """
+    id: str                            # 例 "FR-010", "US-001"
+    kind: str                          # "US" | "FR" | "NFR"
+    heading_line: int
+    last_quote: Quote | None = None    # 该单元下最后一条 quote
+    open_quotes: list[Quote] = field(default_factory=list)
+    yaml_resolved: str = ""            # YAML 里的 resolved 值 (✅/⚠️/<empty>)
+    yaml_testability: str = ""
+    yaml_valid: str = ""
+
+    @property
+    def has_yaml(self) -> bool:
+        return self.yaml_resolved != ""
+
+    def quote_state_summary(self) -> str:
+        if not self.open_quotes:
+            if self.last_quote is None:
+                return "no-quote"
+            return self.last_quote.status
+        return f"{len(self.open_quotes)} open"
+
+    def is_frnfr(self) -> bool:
+        return self.kind in ("FR", "NFR")
+
+    def is_ready(self) -> tuple[bool, list[str]]:
+        """返回 (ready, blockers)。"""
+        blockers: list[str] = []
+        if self.is_frnfr():
+            # FR/NFR: YAML resolved = ✅ 且 单元下没有 open quote
+            if self.yaml_resolved == "✅":
+                pass
+            elif self.yaml_resolved == "⚠️" or self.yaml_resolved == "":
+                blockers.append(f"yaml.resolved={self.yaml_resolved!r} (need ✅)")
+            else:
+                blockers.append(f"yaml.resolved={self.yaml_resolved!r} (unknown marker)")
+            if self.open_quotes:
+                blockers.append(
+                    f"{len(self.open_quotes)} open quote(s) (last={self.last_quote.status if self.last_quote else 'none'})"
+                )
+        else:
+            # 其他单元 (US 等): 最后一条 quote 是 closed (或没有 quote)
+            if self.last_quote is None:
+                pass  # 无对话 = 未被质疑 = 视为 closed
+            elif self.last_quote.status != "resolved":
+                blockers.append(
+                    f"last quote status={self.last_quote.status!r} (need resolved or no quote)"
+                )
+        return (len(blockers) == 0, blockers)
+
+
+@dataclass
 class ParseResult:
     """spec.md 解析结果"""
 
@@ -85,31 +151,41 @@ class ParseResult:
     superseded_quotes: list[Quote] = field(default_factory=list)
     speaker_counts: dict[str, int] = field(default_factory=dict)
     depth_histogram: dict[int, int] = field(default_factory=dict)
+    units: list[Unit] = field(default_factory=list)
     is_ready: bool = False
+    ready_blockers: list[str] = field(default_factory=list)  # 详细描述哪些单元阻止 ready
 
 
 def parse_spec(spec_path: Path) -> ParseResult:
-    """解析 spec.md, 返回所有 quote + 统计"""
+    """解析 spec.md。
+
+    两层解析:
+      1) quote block 解析 (原有) — 统计对话
+      2) unit 切分 + YAML meta 解析 (新) — 按 ### 标题切单元, 读每个单元的 YAML
+
+    ready 判定:
+      - FR/NFR 单元: yaml.resolved == ✅ 且 单元下没有 open quote
+      - 其他单元: 最后一条 quote 是 resolved, 或该单元没有 quote
+    """
     text = spec_path.read_text(encoding="utf-8")
     lines = text.splitlines()
 
     result = ParseResult()
     in_code_block = False
 
+    # 第一遍: quote block 解析 (保持原行为)
     for i, line in enumerate(lines, start=1):
         if RE_FENCE.match(line):
             in_code_block = not in_code_block
             continue
         if in_code_block:
             continue
-
         m = RE_QUOTE_LINE.match(line)
         if not m:
             continue
 
         prefix = m.group("depth")
         depth = prefix.count(">")
-
         speaker = m.group("name").strip()
         body = m.group("body").strip()
         status_raw = (m.group("status") or "").strip()
@@ -163,7 +239,56 @@ def parse_spec(spec_path: Path) -> ParseResult:
         result.speaker_counts[speaker] = result.speaker_counts.get(speaker, 0) + 1
         result.depth_histogram[depth] = result.depth_histogram.get(depth, 0) + 1
 
-    result.is_ready = len(result.open_quotes) == 0
+    # 第二遍: 切单元 + 读 YAML meta
+    current_unit: Unit | None = None
+    in_code_block = False
+    for i, line in enumerate(lines, start=1):
+        m_head = RE_UNIT_HEADING.match(line)
+        if m_head:
+            kind = m_head.group(1)
+            num = m_head.group(2)
+            unit_id = f"{kind}-{num}"
+            current_unit = Unit(id=unit_id, kind=kind, heading_line=i)
+            result.units.append(current_unit)
+            continue
+        if current_unit is None:
+            continue
+        if RE_TOP_HEADING.match(line):
+            # 下一个 ## 章节意味着当前单元结束
+            current_unit = None
+            continue
+        if RE_FENCE.match(line):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            m_r = RE_YAML_FIELD.match(line)
+            m_t = RE_YAML_TESTABILITY.match(line)
+            m_v = RE_YAML_VALID.match(line)
+            if m_r:
+                current_unit.yaml_resolved = m_r.group(1)
+            elif m_t:
+                current_unit.yaml_testability = m_t.group(1)
+            elif m_v:
+                current_unit.yaml_valid = m_v.group(1)
+            continue
+
+    # 第三遍: 把 quote 挂到所属 unit
+    # 单元的 line 范围: [unit.heading_line, next_unit.heading_line) 或文件末尾
+    if result.units:
+        for u, next_u in zip(result.units, result.units[1:] + [None]):
+            upper = next_u.heading_line if next_u else 10**9
+            for q in result.quotes:
+                if u.heading_line <= q.line_number < upper:
+                    u.last_quote = q  # 最后一个胜出
+                    if q.status == "open":
+                        u.open_quotes.append(q)
+
+    # 第四遍: 汇总 ready 判定
+    for u in result.units:
+        ready, blockers = u.is_ready()
+        if not ready:
+            result.ready_blockers.append(f"{u.id}: " + "; ".join(blockers))
+    result.is_ready = len(result.ready_blockers) == 0
     return result
 
 
@@ -203,12 +328,9 @@ def main() -> int:
     if args.check_ready:
         if result.is_ready:
             return 0
-        print(
-            f"spec not ready: {len(result.open_quotes)} [open] quote(s)",
-            file=sys.stderr,
-        )
-        for q in result.open_quotes:
-            print(f"  {fmt_quote_summary(q)}", file=sys.stderr)
+        print(f"spec not ready: {len(result.ready_blockers)} unit(s) blocking", file=sys.stderr)
+        for b in result.ready_blockers:
+            print(f"  {b}", file=sys.stderr)
         return 1
 
     if args.check_violations:
@@ -240,11 +362,13 @@ def main() -> int:
             "wontfix_count": len(result.wontfix_quotes),
             "superseded_count": len(result.superseded_quotes),
             "is_ready": result.is_ready,
+            "ready_blockers": result.ready_blockers,
             "speaker_counts": result.speaker_counts,
             "depth_histogram": {str(k): v for k, v in sorted(result.depth_histogram.items())},
             "open_quotes": [asdict(q) for q in result.open_quotes],
             "resolved_quotes": [asdict(q) for q in result.resolved_quotes],
             "blocked_quotes": [asdict(q) for q in result.blocked_quotes],
+            "units": [asdict(u) for u in result.units],
         }
         print(json.dumps(out, ensure_ascii=False, indent=2))
     else:
@@ -258,7 +382,12 @@ def main() -> int:
             print(f"  wontfix: {len(result.wontfix_quotes)}")
         if result.superseded_quotes:
             print(f"  superseded: {len(result.superseded_quotes)}")
+        print(f"  units: {len(result.units)}")
         print(f"  is_ready: {result.is_ready}")
+        if result.ready_blockers:
+            print("\n[ready] blockers:")
+            for b in result.ready_blockers:
+                print(f"  {b}")
         if result.speaker_counts:
             print(f"  speakers: {result.speaker_counts}")
         if result.depth_histogram:
