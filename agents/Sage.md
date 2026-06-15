@@ -151,7 +151,7 @@ git push
 
 ### Step 4: Spec 锁定
 
-当 Sepc 锁定之后，你还要做一件事，给每个 FR/NFR/US 项目，增加一个 html锚。示例如下：
+现在，你要给每个 FR/NFR/US 项目，增加一个 html锚。示例如下：
 
 ```md
 <a id="us-010"></a>
@@ -170,7 +170,7 @@ story: 作为设计师，我想有一个画圆的工具
 
 提交并推送修改。
 
-### Step 5: Spec 锁定 → 创建 GitHub Issue
+### Step 5: 创建 GitHub Issue
 
 用户确认锁定后，spec.md 视为不可变，**Sage 创建 GitHub issue**（spec 锚点已由 Step 4 加好）。
 
