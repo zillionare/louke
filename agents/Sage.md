@@ -172,7 +172,7 @@ story: 作为设计师，我想有一个画圆的工具
 
 ### Step 5: Spec 锁定 → 创建 GitHub Issue
 
-用户确认锁定后，spec.md 视为不可变，开始创建 GitHub issue。
+用户确认锁定后，spec.md 视为不可变，**Sage 创建 GitHub issue**（spec 锚点已由 Step 4 加好）。
 
 **核心原则**：issue body 必须是**结构化的、机器可解析的**，而不是自由 markdown。
 所有下游 Agent 都依赖这个结构。这是**操作源**，和 spec.md（**设计源**）分离，避免重复解析和漂移。
@@ -225,18 +225,21 @@ EOF
 | FR-002  | #43     | ...  |
 ```
 
-### Step 6: 通知 Lex
+### Step 6: 通知 Lex 启动阶段二 (issue 验证 + Project 关联)
 
-Issue 创建完毕后，通知 Lex 进行 spec 审核和 issue 验证：
+issue 创建完毕后, 通知 Lex 启动 issue 验证与 Project 关联：
 
 ```bash
 python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
-# exit 0 → Lex 可进入; exit 1 → 等 Sage 继续追问
+# exit 0 → 通知 Lex 进入阶段二
+# exit 1 → 等 Sage 继续追问 (有 pending quote)
 ```
 
-> Lex 阶段开始: spec.md 已锁定（所有 pending quote 都 ✓ resolved）, {M} 个 issue 已创建, 请审核 spec 并验证 issue schema。
+> **Lex 阶段二启动**: spec.md 已锁定 (所有 pending quote 都 ✓ resolved, FR/NFR 锚点已加), {M} 个 issue 已由 Sage Step 5 创建, 请验证 issue 覆盖完整性 + schema 合规性 + 关联 Project。
 >
 > 注 (FR-026 修订): 锁定信号不再是 "PR merged", 而是 quote_parser `--check-ready` exit 0。
+>
+> 责任边界: **Sage 创建 issue**, **Lex 验证 issue**, 避免 creator/checker 同体。
 
 ---
 
