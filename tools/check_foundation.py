@@ -105,7 +105,7 @@ def check_f1_repo(repo: str) -> CheckResult:
 
 
 def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckResult:
-    """F2: GitHub Project 存在"""
+    """F2: GitHub Project 存在 (允许创建在 repo owner 或 gh 身份下)"""
     r = CheckResult(code="F2", name="Project 存在")
     expected_title = f"{repo.split('/')[-1]}-{version}"
 
@@ -119,24 +119,38 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
             r.message = f"{data['title']} (#{data['number']})"
             return r
 
-    # 搜索 project 列表
-    owner = repo.split("/")[0]
-    data, ok = _gh_json("project", "list", "--owner", owner,
-                        "--format", "json", "--limit", "50")
-    if not ok or not data:
-        r.error = f"无法列出 {owner} 的 Projects — gh CLI 可能不支持 project v2"
-        r.warning = True  # 不阻塞, 可能是 gh 版本问题
-        return r
+    # 搜索 project 列表 — 同时查 repo owner 和 gh 身份 (collaborator 模式)
+    repo_owner = repo.split("/")[0]
+    gh_user_out, _ = _gh("api", "user", "-q", ".login")
+    gh_user = gh_user_out.strip()
+    owners_to_check = list({repo_owner, gh_user})  # 去重保序
 
-    # 在列表中查找匹配的 project
-    for p in (data if isinstance(data, list) else []):
-        title = p.get("title", "")
-        if expected_title.lower() in title.lower():
-            r.passed = True
-            r.message = f"{title} (#{p.get('number', '?')})"
-            return r
+    for owner in owners_to_check:
+        data, ok = _gh_json("project", "list", "--owner", owner,
+                            "--format", "json", "--limit", "50")
+        if not ok or not data:
+            continue
+        # gh project list --format json 返回 {"projects": [...], "totalCount": N}
+        if isinstance(data, dict):
+            projects = data.get("projects", [])
+        elif isinstance(data, list):
+            projects = data
+        else:
+            continue
+        for p in projects:
+            title = p.get("title", "")
+            if expected_title.lower() in title.lower():
+                project_owner = p.get("owner", {}).get("login", "?")
+                r.passed = True
+                r.message = f"{title} (#{p.get('number', '?')}, owner: {project_owner})"
+                return r
 
-    r.error = f"未找到 Project '{expected_title}' — 请先创建: gh project create --title \"{expected_title}\" --owner {owner}"
+    r.error = (
+        f"未找到 Project '{expected_title}' — 请先创建。"
+        f"可创建在 {repo_owner} 或 {gh_user} 名下。"
+        f"如创建在 {gh_user} 名下,运行 'specforge invite-owner {repo} --version {version}' "
+        f"把 {repo_owner} 设为 project READER"
+    )
     return r
 
 
@@ -317,16 +331,20 @@ def check_f9_spec_id(spec_id: str) -> CheckResult:
     return r
 
 
-def check_f10_unmerged_releases(repo: str) -> CheckResult:
+def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -> CheckResult:
     """F10: 检查所有未合并到 main 的 releases/* 分支
 
-    如果存在未合并 release, 但 project-info 中显式列出了
+    豁免规则: 当前正在工作的 release (--version 对应的 releases/{version})
+    不算作 orphan — 它是本版奠基的工作分支,还没合并是正常的。
+
+    其他未合并 release: 如果 project-info 中显式列出了
     'Acknowledged-Orphan-Releases' 字段, 则作为警告放行 (warning=True)。
     这与 Scout Step 3.5 中 "用户答 y" 的语义对称:
       - Scout 警告 + 询问 → 用户答 y
       - Warden 检查 + 警告放行 → 不阻塞, 但在输出中标记 [!]
     """
     r = CheckResult(code="F10", name="未合并 releases/* 分支")
+    exempt = f"releases/{current_release}" if current_release else None
 
     # 1. 列出所有未合并到 main 的 releases/* 远程分支
     try:
@@ -351,6 +369,9 @@ def check_f10_unmerged_releases(repo: str) -> CheckResult:
             continue
         ref = parts[1]
         branch = ref.removeprefix("refs/heads/")
+        # 豁免当前正在工作的 release 分支
+        if branch == exempt:
+            continue
         # 检查是否已合并到 main (merge-base --is-ancestor)
         rc = subprocess.run(
             ["git", "merge-base", "--is-ancestor", branch, "main"],
@@ -507,7 +528,7 @@ def main() -> int:
     if args.upstream and "F8" not in skip_set:
         results.append(check_f8_dev_branch(args.version, args.upstream))
     if "F10" not in skip_set:
-        results.append(check_f10_unmerged_releases(args.repo))
+        results.append(check_f10_unmerged_releases(args.repo, args.version))
     if "F11" not in skip_set:
         results.append(check_f11_identity(args.repo))
 
