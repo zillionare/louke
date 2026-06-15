@@ -84,9 +84,15 @@ valid: ✅
 
 ```yaml
 testability: ✅
-resolved: ⚠️ {单位归属规则待澄清}
+resolved: ⚠️
 valid: ✅
 ```
+
+> **Sage:** FR-040 里"按它所在 spec 内的'上下文段落'归到某个 unit"，具体规则请你澄清：
+> - Q1: 你的预期是 **preceding-unit**（quote 块往上找到最近的 `### US/FR/NFR-XXX` 单元），还是 **section**（按 `## 用户故事 / ## 功能需求 / ## 非功能需求` 大节归属）？
+> - Q2: 如果 quote 块出现在 `## 用户使用场景` 这种没有 unit 的大节里，应该归到哪里（归到上一个 FR / 报错 / 标 unassigned）？
+>
+> ✓
 
 ### FR-050 unit-ready 判定
 
@@ -97,9 +103,15 @@ valid: ✅
 
 ```yaml
 testability: ✅
-resolved: ⚠️ {其他 type 的 unit 是否也要走该判定，待澄清}
+resolved: ⚠️
 valid: ✅
 ```
+
+> **Sage:** FR-050 我倾向先只覆盖 FR/NFR，但需要你拍板：
+> - Q3: US (用户故事) 单元要不要也走 `--check-ready` 判定？理由：US 主要是"我想要 X"，没 quote 时默认可视作 ready；但用同一套规则更简单。
+> - Q4: "用户使用场景" (scenario) 算不算 unit？我倾向不算（它是 narrative，不是 actionable requirement）。
+>
+> [open]
 
 ### FR-060 用户侧编辑器不需扩展
 
