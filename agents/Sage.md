@@ -86,7 +86,20 @@ git push
 
 以下是关于如何在 spec.md 中，查找这三种情况的指示：
 
-当 Agent 在会话中，收到用户已完成 spec review 的确认后，进入第一轮基于文档的澄清。此时，Agent 看到的文档可能是这样的：
+当 Agent 在会话中，收到用户已完成 spec review 的确认后，进入第一轮基于文档的澄清。**关键点：用户说"review 完了"或"continue"后，Sage 必须立即**：
+
+1. **先 commit 用户的 review 改动**（用户经常忘 commit，但**用户的 review 是 Sage 流程的输入**，不 commit 的话 git diff 之后会污染）。命令:
+   ```bash
+   git add specs/{spec-id}/spec.md
+   git commit -m "spec: user review on {spec-id} (pre-sage-response)"
+   git push
+   ```
+   这一步与 Sage 的"问答"无关，只为保留清晰边界。**如果 git diff 为空也要 commit**（为了将工作区与 HEAD 同步，让后续 diff 是 sage 回应 而不是 review 残留）。
+2. 再**拉取远端**（处理用户可能手动 push 的情况）:
+   ```bash
+   git pull --rebase
+   ```
+3. 再进入第一轮基于文档的澄清。此时，Agent 看到的文档可能是这样的：
 
 ````markdown
 ## 用户故事
@@ -119,9 +132,22 @@ valid: ✅
 2. 用户通过 quote block提出了一个问题（如示例中的第7行），需要你回答。你要通过 quote block 来进行回答他
 3. 用户回答了你的提问（如示例中的第16行）。注意，他使用了'>>'，表明是对你问题的回答。当你**回复**用户时，一般也要增加一个'>'（即缩进）。如果你对他的回答满意，则需要将该 FR 的 resolved 字段值改为✅
 
-如果本轮还不能结束需求澄清，做完你该做的工作（提问和回答）之后，提交并推送 spec.md，再请用户进行新一轮 review。
+如果本轮还不能结束需求澄清，做完你该做的工作（提问和回答）之后，**必须 commit + push** 你的 Sage 回应，命令:
+
+```bash
+git add specs/{spec-id}/spec.md
+git commit -m "spec: sage response on {spec-id} (round N)"
+git push
+```
+
+再请用户进行新一轮 review。**Push 是必须的**——不 push 的话下一轮你无法在远端看到自己的修改，下次再跑 Sage 会拿到 stale 版本。
 
 如果本轮可以结束，则给用户一个明确的 summary，请他确认能否确认锁定需求，转入下一阶段。
+
+> **Sage 强约束 — 每轮 review 循环必须做 3 个 commit**：
+> 1. review 前：commit 用户的 review 改动
+> 2. review 中：commit Sage 自己的回应
+> 3. 锁定后：commit 锚点 + final spec
 
 ### Step 4: Spec 锁定
 
