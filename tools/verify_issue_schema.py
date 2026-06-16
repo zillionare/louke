@@ -24,7 +24,7 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
   python tools/verify_issue_schema.py --spec 001-specforge-v0.1
   python tools/verify_issue_schema.py --spec 001-specforge-v0.1 --repo owner/repo
   python tools/verify_issue_schema.py --offline \\
-      --spec-file specs/001-specforge-v0.1/spec.md \\
+      --spec-file .specforge/specs/001-specforge-v0.1/spec.md \\
       --issues-json /tmp/issues.json
 """
 
@@ -48,7 +48,7 @@ RE_FR_IN_TITLE = re.compile(r"^\[(FR|NFR)-(\d{3})\]")
 RE_SPEC_URL = re.compile(
     r"^https://github\.com/"
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
-    r"(?P<branch>[A-Za-z0-9._/-]+)/specs/(?P<spec_id>[A-Za-z0-9._-]+)/spec\.md"
+    r"(?P<branch>[A-Za-z0-9._/-]+)/\.specforge/specs/(?P<spec_id>[A-Za-z0-9._-]+)/spec\.md"
     r"#(?P<fragment>(?:fr|nfr)-\d{3})$"
 )
 RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{3})"></a>')
@@ -190,7 +190,7 @@ def check_issue(
 
             if spec_text is None:
                 ic.failures.append(
-                    f"L4 无法获取 spec 文件 specs/{m.group('spec_id')}/spec.md "
+                    f"L4 无法获取 spec 文件 .specforge/specs/{m.group('spec_id')}/spec.md "
                     f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
                 )
             else:
@@ -251,7 +251,7 @@ def fetch_spec_markdown(
     用 gh api 拉取 spec.md 原文。返回 None 表示拉取失败。
     gh api 自动处理公私仓库 auth。
     """
-    path = f"specs/{spec_id}/spec.md"
+    path = f".specforge/specs/{spec_id}/spec.md"
     try:
         out = subprocess.check_output(
             [

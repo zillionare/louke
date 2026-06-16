@@ -42,11 +42,11 @@ description: 项目奠基 — 执行 §2.1 初始化流程
 
 **Spec 编号处理**：
 - 如用户提供了 spec 编号 → 直接使用
-- 如用户未提供 → 扫描 `specs/` 目录下已有的 spec 文件夹（格式：`{NNN}-*`），取最大编号 +1
-- 如 `specs/` 目录不存在或为空 → 自动分配 `001`
+- 如用户未提供 → 扫描 `.specforge/specs/` 目录下已有的 spec 文件夹（格式：`{NNN}-*`），取最大编号 +1
+- 如 `.specforge/specs/` 目录不存在或为空 → 自动分配 `001`
 - 将分配的编号记录到 `project-info.md`，供下游 Agent（Warden, Sage 等）读取
 
-Spec 编号用于构建 Spec-ID：`{NNN}-{keyword}-{version}`（如 `003-adopt-mode-v0.3`），是下游 Agent（尤其是 Sage）定位本地 specs/{Spec-ID}/ 目录的关键标识。其中 keyword 是本 story 的关键词（空格转换为 -）
+Spec 编号用于构建 Spec-ID：`{NNN}-{keyword}-{version}`（如 `003-adopt-mode-v0.3`），是下游 Agent（尤其是 Sage）定位本地 .specforge/specs/{Spec-ID}/ 目录的关键标识。其中 keyword 是本 story 的关键词（空格转换为 -）
 
 ### Step 2: 创建 GitHub Repo
 
@@ -121,12 +121,12 @@ gh pr create \
 gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=false
 ```
 
-- 记录 Test Issue 编号到 `specs/project-info.md`（如人工需要回溯）
+- 记录 Test Issue 编号到 `.specforge/specs/project-info.md`（如人工需要回溯）
 - 如 `gh issue create` 报 `must be a collaborator` 或 `403` → 拒绝推进，提示用户将当前账户添加为 repo collaborator
 
 ### Step 6: 写入状态文件
 
-将收集到的项目信息写入 `specs/project-info.md`，供后续 Agent（Warden、Sage 等）读取：
+将收集到的项目信息写入 `.specforge/specs/project-info.md`，供后续 Agent（Warden、Sage 等）读取：
 
 ```markdown
 # Project Info
@@ -144,12 +144,12 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 - `NNN` 是 3 位零填充的序号，从 Step 1 的逻辑得出
 - `keyword`从 story/prd 中提取本功能的核心关键词。多个关键词（不超过3个）使用「-」连接。
 - `version`是此次开发确定的版本号，由用户提供。
-- 下游 Agent 从 `specs/project-info.md` 的 Spec ID 字段读取后定位本地 `specs/{Spec-ID}/` 目录
+- 下游 Agent 从 `.specforge/specs/project-info.md` 的 Spec ID 字段读取后定位本地 `.specforge/specs/{Spec-ID}/` 目录
 
 ### Step 7: 写入 story 文件
 
-- 将用户提供的 Story 写入 `specs/{Spec-ID}/story.md`，供下游 Agent（Warden、Sage 等）读取。
-- 如果 Story 是以 github issue 方式提供的，则从 issue 中提取正文写入 `specs/{Spec-ID}/story.md`
+- 将用户提供的 Story 写入 `.specforge/specs/{Spec-ID}/story.md`，供下游 Agent（Warden、Sage 等）读取。
+- 如果 Story 是以 github issue 方式提供的，则从 issue 中提取正文写入 `.specforge/specs/{Spec-ID}/story.md`
 
 ### Step 8: 提交
 
@@ -158,8 +158,8 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 
 ```bash
 git status                                    # 确认当前在 releases/{version}
-git add specs/{Spec-ID}/*.md
-git add specs/project-info.md
+git add .specforge/specs/{Spec-ID}/*.md
+git add .specforge/specs/project-info.md
 git add wiki/pages/{主题关键词}.md
 git commit -m "story/prd: initial draft from user conversation for {Spec-ID}"
 git push -u origin releases/{version}

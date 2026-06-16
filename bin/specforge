@@ -35,6 +35,30 @@ resolve_python() {
     fi
 }
 
+# resolve_spec_path: 给定相对/绝对路径,如果原路径不存在,
+# 尝试在 git root 重新解析。这样 agent 在任意 cwd 跑 quote-check 都能找到 spec。
+# 用法: resolve_spec_path <arg>  → echo 解析后的绝对路径
+resolve_spec_path() {
+    local P="$1"
+    [ -z "$P" ] && { echo ""; return; }
+    # 已经是绝对路径 / 原路径存在 → 原样返回
+    if [[ "$P" = /* ]] || [ -f "$P" ]; then
+        echo "$P"
+        return
+    fi
+    # 尝试 git root 下的相对路径
+    if command -v git >/dev/null 2>&1; then
+        local ROOT
+        ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+        if [ -n "$ROOT" ] && [ -f "$ROOT/$P" ]; then
+            echo "$ROOT/$P"
+            return
+        fi
+    fi
+    # 找不到就原样返回,让 Python 脚本自己报错
+    echo "$P"
+}
+
 # ---------- subcommands ----------
 
 cmd_version() {
@@ -70,6 +94,9 @@ Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
   invite-owner <o/r>      把 repo owner 设为对应 Project 的 collaborator (READER)
                           Flags: --version V
   verify-issue --spec ID  Feature issue form schema 验证 L1-L8 (Lex 阶段三跑)
+  quote-check [args]     解析 spec.md quote block + --check-ready 验证
+                          (Sage/Lex 阶段六用,所有参数透传给 quote_parser.py)
+                          spec path 缺失时自动在 git root 下解析
 
 环境变量:
   SPECFORGE_HOME          framework 安装目录 (默认 ~/.specforge)
@@ -120,7 +147,7 @@ cmd_init_new() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,specs,wiki/pages,wiki/decisions,raw/sources}
+    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,.specforge/specs,wiki/pages,wiki/decisions,raw/sources}
     cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
@@ -216,7 +243,7 @@ cmd_init_adopt() {
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
     # FR-010: create-if-missing for specforge-owned dirs
-    for d in .specforge/agents .specforge/templates specs wiki/pages wiki/decisions raw/sources; do
+    for d in .specforge/agents .specforge/templates .specforge/specs wiki/pages wiki/decisions raw/sources; do
         if [ ! -d "$d" ]; then
             [ "$DRY_RUN" -eq 0 ] && mkdir -p "$d"
         fi
@@ -336,6 +363,28 @@ cmd_verify_issue() {
     exec "$PY" "$SPECFORGE_HOME/tools/verify_issue_schema.py" "$@"
 }
 
+# quote-check: 包装 tools/quote_parser.py,避免 agent 直接 python3 调用
+# (避免环境/版本/路径差异)
+# 自动解析 spec path:即使 cwd 不是 git root,也能找到 .specforge/specs/... 下的文件
+cmd_quote_check() {
+    local PY
+    PY="$(resolve_python)"
+    local RESOLVED_ARGS=()
+    local SPEC_PATH=""
+    # 把第一个非 flag 参数当作 spec path 解析(quote_parser 用法: file 或 --check-ready file)
+    for arg in "$@"; do
+        if [[ "$arg" == -* ]]; then
+            RESOLVED_ARGS+=("$arg")
+        elif [ -z "$SPEC_PATH" ]; then
+            SPEC_PATH="$(resolve_spec_path "$arg")"
+            RESOLVED_ARGS+=("$SPEC_PATH")
+        else
+            RESOLVED_ARGS+=("$arg")
+        fi
+    done
+    exec "$PY" "$SPECFORGE_HOME/tools/quote_parser.py" "${RESOLVED_ARGS[@]}"
+}
+
 cmd_doctor() {
     cmd_checkup "$@"
 }
@@ -430,6 +479,7 @@ case "${1:-help}" in
     foundation)  shift; cmd_foundation "$@" ;;
     invite-owner) shift; cmd_invite_owner "$@" ;;
     verify-issue) shift; cmd_verify_issue "$@" ;;
+    quote-check) shift; cmd_quote_check "$@" ;;
     doctor)      shift; cmd_doctor "$@" ;;
     upgrade)     shift; cmd_upgrade "$@" ;;
     version|-v|--version) cmd_version ;;

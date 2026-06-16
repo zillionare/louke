@@ -27,7 +27,7 @@ description: 需求澄清与 spec 撰写 — 把 story 翻译为可追踪的 spe
 ## 输入
 
 - Story/PRD 文档（仓库中的 `story.md`或者 `prd.md` 文件）
-- 上一阶段产生的 specs/project-info.md
+- 上一阶段产生的 .specforge/specs/project-info.md
 
 ---
 
@@ -76,7 +76,7 @@ Agent说的话，将使用**Agent**引起。当你提出一个问题，还没有
 第6条将使用以下命令：
 
 ```bash
-git add specs/{spec-id}/spec.md
+git add .specforge/specs/{spec-id}/spec.md
 git commit -m "spec: initial draft for {spec-id} with pending clarifications"
 git push
 ```
@@ -95,7 +95,7 @@ git push
 
 1. **先 commit 用户的 review 改动**（用户经常忘 commit，但**用户的 review 是 Sage 流程的输入**，不 commit 的话 git diff 之后会污染）。命令:
    ```bash
-   git add specs/{spec-id}/spec.md
+   git add .specforge/specs/{spec-id}/spec.md
    git commit -m "spec: user review on {spec-id} (pre-sage-response)"
    git push
    ```
@@ -140,7 +140,7 @@ valid: ✅
 如果本轮还不能结束需求澄清，做完你该做的工作（提问和回答）之后，**必须 commit + push** 你的 Sage 回应，命令:
 
 ```bash
-git add specs/{spec-id}/spec.md
+git add .specforge/specs/{spec-id}/spec.md
 git commit -m "spec: sage response on {spec-id} (round N)"
 git push
 ```
@@ -221,7 +221,7 @@ EOF
 - **标签**：统一使用 `Feature`
 - 每个需求 ID 只创建一次——若 issue 已存在则跳过
 
-**关联 Project**：创建完 issue 后, **Sage**将每个 issue 关联到 `specs/project-info.md` 中指定的 Project:
+**关联 Project**：创建完 issue 后, **Sage**将每个 issue 关联到 `.specforge/specs/project-info.md` 中指定的 Project:
 
 ```bash
 # PRD 中读 Project ID
@@ -244,7 +244,7 @@ gh project item-add ${PROJECT_ID} --owner zillionare --url ${ISSUE_URL}
 issue 创建 + Project 关联完毕后, 通知 Lex 启动验证：
 
 ```bash
-python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
+specforge quote-check .specforge/specs/{id}/spec.md --check-ready
 # exit 0 → 通知 Lex 进入阶段二
 # exit 1 → 等 Sage 继续追问 (有 pending quote)
 ```
@@ -259,7 +259,7 @@ python3 tools/quote_parser.py specs/{id}/spec.md --check-ready
 
 ## spec 文档要求
 
-命名：`specs/{spec-id}/spec.md`
+命名：`.specforge/specs/{spec-id}/spec.md`
 
 必须包含（参见 `.specforge/templates/spec.md`）：
 1. **功能描述与边界** — 每个需求有唯一 ID：`FR-{3位序号}`

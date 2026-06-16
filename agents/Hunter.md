@@ -98,7 +98,8 @@ git push -u origin fix/{issue-number}
 
 ### Commit 引用规范
 
-在 GitHub issue comment 中引用 commit 时，始终使用 `owner/repo@sha` 格式：
+- commit message 中使用 `Closes #N` / `Refs #N` 自动关联 GitHub issue，确保 issue timeline 中能看到对应 commit
+- 在 GitHub issue comment 中引用 commit 时，始终使用 `owner/repo@sha` 格式：
 
 - ✅ `zillionare/specforge@1c02bd2` — GitHub 必定渲染为可点击链接
 - ❌ `1c02bd2` — 禁止：裸短 sha 在中文上下文中可能不被 autolink
