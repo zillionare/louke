@@ -97,6 +97,9 @@ Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
   quote-check [args]     解析 spec.md quote block + --check-ready 验证
                           (Sage/Lex 阶段六用,所有参数透传给 quote_parser.py)
                           spec path 缺失时自动在 git root 下解析
+  verify-acceptance     验证 Sage 生成的 acceptance.md (Lex 阶段一)
+                          Flags: --spec ID | --offline --spec-file F --acceptance-file F
+                          (L1-L5: 文件存在/FR-NFR 对应/AC 编号/AC 内容/反向覆盖)
 
 环境变量:
   SPECFORGE_HOME          framework 安装目录 (默认 ~/.specforge)
@@ -385,6 +388,33 @@ cmd_quote_check() {
     exec "$PY" "$SPECFORGE_HOME/tools/quote_parser.py" "${RESOLVED_ARGS[@]}"
 }
 
+# verify-acceptance: 验证 Sage 生成的 acceptance.md (Lex 阶段一调用)
+cmd_verify_acceptance() {
+    local PY
+    PY="$(resolve_python)"
+    local RESOLVED_ARGS=()
+    # 把位置参数拷到数组, 然后用 while 遍历
+    local ARGS=("$@")
+    local n=${#ARGS[@]}
+    local i=0
+    while [ "$i" -lt "$n" ]; do
+        local arg="${ARGS[$i]}"
+        if [ "$arg" = "--spec-file" ] && [ $((i+1)) -lt "$n" ]; then
+            RESOLVED_ARGS+=("--spec-file" "$(resolve_spec_path "${ARGS[$((i+1))]}")")
+            i=$((i+2))
+            continue
+        fi
+        if [ "$arg" = "--acceptance-file" ] && [ $((i+1)) -lt "$n" ]; then
+            RESOLVED_ARGS+=("--acceptance-file" "$(resolve_spec_path "${ARGS[$((i+1))]}")")
+            i=$((i+2))
+            continue
+        fi
+        RESOLVED_ARGS+=("$arg")
+        i=$((i+1))
+    done
+    exec "$PY" "$SPECFORGE_HOME/tools/verify_acceptance.py" "${RESOLVED_ARGS[@]}"
+}
+
 cmd_doctor() {
     cmd_checkup "$@"
 }
@@ -480,6 +510,7 @@ case "${1:-help}" in
     invite-owner) shift; cmd_invite_owner "$@" ;;
     verify-issue) shift; cmd_verify_issue "$@" ;;
     quote-check) shift; cmd_quote_check "$@" ;;
+    verify-acceptance) shift; cmd_verify_acceptance "$@" ;;
     doctor)      shift; cmd_doctor "$@" ;;
     upgrade)     shift; cmd_upgrade "$@" ;;
     version|-v|--version) cmd_version ;;
