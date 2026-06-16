@@ -77,9 +77,16 @@ Agent说的话，将使用**Agent**引起。当你提出一个问题，还没有
 
 ```bash
 git add .specforge/specs/{spec-id}/spec.md
+git add .specforge/specs/{spec-id}/acceptance.md
 git commit -m "spec: initial draft for {spec-id} with pending clarifications"
 git push
 ```
+
+> **Step 2 必须同时生成两个文件**:
+> - `spec.md` — 需求描述 + 元数据 (testability/resolved/valid)
+> - `acceptance.md` — 验收标准, 每个 FR/NFR 一节, 每条 AC 一行, 编号 AC-1, AC-2 ...
+>
+> 初始化 acceptance.md: 复制 `templates/acceptance.md`, 按 spec.md 实际写出的 FR/NFR 编号填入节标题; AC 至少 1 条/FR, **必须可被测试断言** (例: "返回 200 + body 含 X"; "数据库出现状态 Y 的记录"). 初稿时 AC 同样可标 ⚠️ 待澄清, 与 spec.md 同步走 quote dialogue.
 
 ### Step 3: 对 quote block 的再澄清
 
