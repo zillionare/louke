@@ -60,11 +60,24 @@ RE_UNIT_HEADING = re.compile(r"^###\s+(US|FR|NFR)-(\d{3})\b")
 # 顶节标题: ## 功能需求 / ## 用户故事 / ## 非功能需求 / ## 排除项 等
 RE_TOP_HEADING = re.compile(r"^##\s+\S")
 
-# YAML 字段: resolved: ✅ / resolved: ⚠️ / resolved: 某个状态
-RE_YAML_FIELD = re.compile(r"^\s*resolved\s*:\s*(\S+)\s*$", re.IGNORECASE)
-# YAML 字段: testability / valid
-RE_YAML_TESTABILITY = re.compile(r"^\s*testability\s*:\s*(\S+)\s*$", re.IGNORECASE)
-RE_YAML_VALID = re.compile(r"^\s*valid\s*:\s*(\S+)\s*$", re.IGNORECASE)
+# FR/NFR 元数据 (表格格式, FR-082 起)
+# 表格行: | <col1> | <col2> | <col3> |
+RE_TABLE_ROW = re.compile(r"^\s*\|\s*(.+?)\s*\|\s*$")
+# 表头分隔行: |---|---|---| 或 |:--|:--:|--:|
+RE_TABLE_SEP = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
+# 表头里的列名
+COLUMN_ALIASES = {
+    # 有效需求 (原 valid)
+    "有效需求": "valid",
+    "valid": "valid",
+    # 可测性 (原 testability)
+    "可测性": "testability",
+    "testability": "testability",
+    # 是否已决定 (原 resolved)
+    "是否已决定": "resolved",
+    "已决定": "resolved",
+    "resolved": "resolved",
+}
 
 KNOWN_AGENT_NAMES = frozenset({
     "Sage", "Lex", "Scout", "Warden", "Probe", "Judge",
@@ -300,9 +313,12 @@ def parse_spec(spec_path: Path) -> ParseResult:
         _emit_quote_block(result, cur_block)
         cur_block = []
 
-    # 第二遍: 切单元 + 读 YAML meta
+    # 第二遍: 切单元 + 读表格元数据
     current_unit: Unit | None = None
     in_code_block = False
+    table_buf: list[list[str]] = []
+    in_table = False
+    col_map: dict[str, int] = {}
     for i, line in enumerate(lines, start=1):
         m_head = RE_UNIT_HEADING.match(line)
         if m_head:
@@ -321,17 +337,43 @@ def parse_spec(spec_path: Path) -> ParseResult:
         if RE_FENCE.match(line):
             in_code_block = not in_code_block
             continue
+        # 跳过代码块内的内容
         if in_code_block:
-            m_r = RE_YAML_FIELD.match(line)
-            m_t = RE_YAML_TESTABILITY.match(line)
-            m_v = RE_YAML_VALID.match(line)
-            if m_r:
-                current_unit.yaml_resolved = m_r.group(1)
-            elif m_t:
-                current_unit.yaml_testability = m_t.group(1)
-            elif m_v:
-                current_unit.yaml_valid = m_v.group(1)
             continue
+        # FR/NFR 表格元数据解析 (FR-082 起)
+        # 表格形式: | col1 | col2 | col3 |  +  分隔行  +  数据行
+        m_row = RE_TABLE_ROW.match(line)
+        if m_row and current_unit is not None:
+            cells = [c.strip() for c in m_row.group(1).split("|")]
+            # 第一行: 表头候选, 第二行: 分隔 (---|---|---), 第三行: 数据
+            table_buf.append(cells)
+            if len(table_buf) == 2 and RE_TABLE_SEP.match(line):
+                in_table = True  # 标记为表格中
+                # 解析表头
+                header = table_buf[0]
+                col_map: dict[str, int] = {}
+                for idx, col_name in enumerate(header):
+                    key = COLUMN_ALIASES.get(col_name.strip())
+                    if key:
+                        col_map[key] = idx
+            elif in_table and len(table_buf) >= 3:
+                # 数据行: 按列名索引取值
+                for key, idx in col_map.items():
+                    if idx < len(cells):
+                        val = cells[idx]
+                        if key == "valid" and not current_unit.yaml_valid:
+                            current_unit.yaml_valid = val
+                        elif key == "testability" and not current_unit.yaml_testability:
+                            current_unit.yaml_testability = val
+                        elif key == "resolved" and not current_unit.yaml_resolved:
+                            current_unit.yaml_resolved = val
+            continue
+        elif m_row is None:
+            # 非表格行, 重置表格缓冲
+            if table_buf:
+                table_buf = []
+                in_table = False
+                col_map = {}
 
     # 第三遍: 把 quote 挂到所属 unit
     # 单元的 line 范围: [unit.heading_line, next_unit.heading_line) 或文件末尾

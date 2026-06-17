@@ -50,11 +50,11 @@ priority: P0
 - 区分 speaker (从 `**Name:**` 取) 与 depth (从 `>` 的层数取)
 - 当同一段后存在多轮块时，按 depth 升序组织成对话链
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
 
 <a id="fr-020"></a>
 
@@ -73,11 +73,11 @@ speaker 身份**不**由 `>` 嵌套层数 (depth) 推断，而是由 `**Name:**`
 
 **说明**: 纯中文 speaker 单独 + `:` 的形式 (如 `> 格式约定: ...`) 不被识别为 quote 对话, 仍按说明文字处理。
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
 
 <a id="fr-030"></a>
 
@@ -93,11 +93,11 @@ valid: ✅
 | `[wontfix]`      | 决定不处理       |
 | `[superseded]`   | 已被新版本替代   |
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
 
 <a id="fr-040"></a>
 
@@ -112,11 +112,11 @@ valid: ✅
 
 **非 unit 段落（如 scenario）的虚拟 unit**：quote 出现在 `## 用户使用场景` 等**没有 yaml meta** 的大节时，按"该 quote 之前第一个非空非 quote 文本行"作为上下文锚定生成虚拟 unit（用于审计 trace），但不强制要求该虚拟 unit 走 `--check-ready` 判定。
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
 
 > **Sage:** FR-040 里"按它所在 spec 内的'上下文段落'归到某个 unit"，具体规则请你澄清：
 > - Q1: 你的预期是 **preceding-unit**（quote 块往上找到最近的 `### US/FR/NFR-XXX` 单元），还是 **section**（按 `## 用户故事 / ## 功能需求 / ## 非功能需求` 大节归属）？
@@ -137,11 +137,11 @@ valid: ✅
 - 对 scenario 等"叙事性"段落：本身不参与 unit 切分（不算 unit），但其中的 quote 仍可被解析并归属到邻近 US/FR/NFR 虚拟上下文
 - 输出每个 unit 的 ready 状态及阻塞原因
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
 
 > **Sage:** FR-050 我倾向先只覆盖 FR/NFR，但需要你拍板：
 > - Q3: US (用户故事) 单元要不要也走 `--check-ready` 判定？理由：US 主要是"我想要 X"，没 quote 时默认可视作 ready；但用同一套规则更简单。
@@ -156,11 +156,11 @@ valid: ✅
 
 用户只用原生 IDE 即可完成澄清（无需装 markdown 插件或扩展工具）。quote 块只是普通 markdown。
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
 
 <a id="fr-070"></a>
 
@@ -168,11 +168,11 @@ valid: ✅
 
 sage / lex 在执行 quote dialogue 流程时，不应触发任何 GitHub PR 流程（包括开 PR、request review、PR review 评论）。所有"评审/澄清"动作都只发生在 spec.md 的 quote 块上。
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: false
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| false | ✅ | ✅ |
+
 
 > **Lex:** FR-070 是负向断言 ("不应触发 PR 流程"), 缺正向 AC。
 > 修改建议: 改写为可断言: "对 `agents/Sage.md` `agents/Lex.md` `bin/specforge` 三处源码 grep `gh pr|gh api.*reviews|gh pr comment`, 匹配数 = 0" [open]
@@ -191,11 +191,11 @@ valid: false
 
 > **废弃说明 (Aaron 决定, sage round 3 关闭)**: Aaron 拒绝 Lex 的 AC 补全建议 (认为该 NFR 没必要)。已标 wontfix, 后续 Probe/Archer 不会为该废弃 NFR 生成测试。锚点保留, FR 编号不再复用。
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: false
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| false | ✅ | ✅ |
+
 
 > **Lex:** NFR-010 缺可断言的 AC 描述。"1MB spec < 1s" 是性能目标, 但未指明如何测、断言什么。
 > 修改建议: 增加验收点 "在 1MB 合成 spec (含 10000 个 quote 块) 上跑 `python3 tools/quote_parser.py`, 端到端 wall time 断言 `time.time() - t0 < 1.0`" [open]
@@ -208,8 +208,8 @@ valid: false
 
 当 quote 块缺 status marker、speaker 缺失、深度冲突时，`quote_parser.py` 抛错必须包含 `line:N` 位置信息，便于 IDE 跳转。
 
-```yaml
-testability: ✅
-resolved: ✅
-valid: ✅
-```
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
