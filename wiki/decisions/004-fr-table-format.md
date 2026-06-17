@@ -55,7 +55,7 @@ YAML 在 IDE / GitHub 渲染里都正常，但有三个痛点：
 ## 影响面
 
 - `templates/spec.md`：FR-010 / FR-020 / NFR-010 全部由 yaml 块改写为表格 + `---`。
-- `.specforge/specs/004-quote-dialogue-v0.4/spec.md`：所有 FR/NFR 元数据同步迁移。
+- `.specforge/specs/v0.4-004-quote-dialogue/spec.md`：所有 FR/NFR 元数据同步迁移。
 - `tests/fixtures/spec-with-quotes.md` 同步迁移（如使用了 yaml 元数据）。
 - `tests/test_quote_parser.bats` / `tests/test_spec004_*.bats` 适配新格式。
 - `agents/Sage.md`：示例与"yaml resolved"等表述改为"表格元数据 / 是否已决定"。

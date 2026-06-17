@@ -6,7 +6,7 @@
 - **runtime**: Python 3 stdlib (no third-party deps)
 - **test framework**: bats
 - **fixtures**: `tests/fixtures/spec-with-quotes.md` (reference fixture)
-- **self-dogfood**: `specs/004-quote-dialogue/spec.md` (parseable by parser, validated by QP_T16)
+- **self-dogfood**: `.specforge/specs/v0.4-004-quote-dialogue/spec.md` (parseable by parser, validated by QP_T16)
 - **隔离**: 每个 UT 在 `mktemp -d` 创建临时目录, teardown 删除
 
 ## 可追溯矩阵

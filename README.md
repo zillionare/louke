@@ -110,7 +110,7 @@ Spec 链接:  ^https://github\.com/.../spec\.md#fr-\d{3}$   # 完整 URL,fragmen
 
 | 阶段      | 分支模式                   | 示例                      | 创建者 | 目的                               |
 | --------- | -------------------------- | ------------------------- | ------ | ---------------------------------- |
-| Spec 讨论 | `spec/{spec-id}`           | `spec/001-specforge-v0.1` | Sage   | IDE quote dialogue + chat trigger  |
+| Spec 讨论 | `spec/{spec-id}`           | `spec/v0.1-001-specforge` | Sage   | IDE quote dialogue + chat trigger  |
 | 任务执行  | `feat/{spec-id}/{task-id}` | `feat/001/TASK-01`        | Forge  | R-G-R 循环 + Prism/Keeper 代码审查 |
 | Bug 修复  | `fix/{issue-number}`       | `fix/42`                  | Hunter | TDD Bug 修复 + Shield 回归审查     |
 

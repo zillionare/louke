@@ -1,6 +1,6 @@
 # specforge 模型配置 — Spec
 
-- **Spec ID**: 002-specforge-v0.2
+- **Spec ID**: v0.2-002-specforge
 - **创建日期**: 2026-06-02
 - **状态**: 已锁定
 

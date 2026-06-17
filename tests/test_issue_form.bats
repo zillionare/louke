@@ -112,7 +112,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L1"* ]]
@@ -126,7 +126,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L3"* ]]
@@ -140,7 +140,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L3"* ]]
@@ -154,7 +154,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L7"* ]]
@@ -168,7 +168,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L7"* ]]
@@ -179,12 +179,12 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/bad_anchor.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 6, "title": "[FR-999] x", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/specs/001-specforge-v0.1/spec.md#fr-999\n\n### 验收标准\nAC-1: x\n", "state": "open"}
+  {"number": 6, "title": "[FR-999] x", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/specs/v0.1-001-specforge/spec.md#fr-999\n\n### 验收标准\nAC-1: x\n", "state": "open"}
 ]
 EOF
     # 由于 L8 也会失败(spec 中只有 FR-001..FR-011,没有 FR-999),需要同时检查 L5
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L5"* ]]
@@ -192,8 +192,8 @@ EOF
 
 # ---------- 验证器在 spec 实例上跑通 ----------
 
-@test "VERIFY-300: specs/001-specforge-v0.1/spec.md 含 11 个 <a id> 锚点" {
-    run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/specs/001-specforge-v0.1/spec.md"
+@test "VERIFY-300: specs/v0.1-001-specforge/spec.md 含 11 个 <a id> 锚点" {
+    run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/specs/v0.1-001-specforge/spec.md"
     [ "$status" -eq 0 ]
     [ "$output" -eq 11 ]
 }
@@ -207,13 +207,13 @@ for i in range(1, 12):
     issues.append({
         'number': 100 + i,
         'title': f'[FR-{i:03d}] test',
-        'body': f'### 需求 ID\nFR-{i:03d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/specs/001-specforge-v0.1/spec.md#fr-{i:03d}\n\n### 验收标准\nAC-1: x\n',
+        'body': f'### 需求 ID\nFR-{i:03d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/specs/v0.1-001-specforge/spec.md#fr-{i:03d}\n\n### 验收标准\nAC-1: x\n',
         'state': 'open',
     })
 print(json.dumps(issues, ensure_ascii=False))
 " > "$FIXTURE"
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/specs/001-specforge-v0.1/spec.md" \
+        --spec-file "$REPO_ROOT/specs/v0.1-001-specforge/spec.md" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[通过]"* ]]

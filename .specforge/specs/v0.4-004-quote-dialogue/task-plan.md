@@ -19,7 +19,7 @@ tools/git_diff_quote_resolver.py [DONE: 5 bats tests GREEN]
 tests/test_quote_parser.bats     [DONE]
 tests/test_git_diff_resolver.bats [DONE]
 README.md                        [rewrite §2.2]
-specs/004-quote-dialogue/         [DONE: spec.md + test-plan.md]
+specs/v0.4-004-quote-dialogue/         [DONE: spec.md + test-plan.md]
 ```
 
 ## 任务列表

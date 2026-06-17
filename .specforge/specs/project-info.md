@@ -5,7 +5,7 @@
 - **Version**: 0.1
 - **Repo**: github.com/zillionare/specforge
 - **Project**: specforge-0.1 (#3)
-- **Spec ID**: 001-specforge-0.1
+- **Spec ID**: v0.1-001-specforge
 - **Test Issue**: #12 (closed)
 - **Test PR**: #13 (open — Sage spec discussion, 间接验证)
 - **Created**: 2026-05-23
@@ -15,7 +15,7 @@
 - **Version**: 0.2
 - **Repo**: github.com/zillionare/specforge
 - **Project**: specforge-v0.2 (#4)
-- **Spec ID**: 002-specforge-v0.2
+- **Spec ID**: v0.2-002-specforge
 - **Test Issue**: #15 (closed)
 - **Test PR**: #16 (closed)
 - **Created**: 2026-06-02
@@ -25,6 +25,6 @@
 - **Version**: 0.4
 - **Repo**: github.com/zillionare/specforge
 - **Project**: specforge-v0.4 (#7) [owner: quantclaws]
-- **Spec ID**: 004-quote-dialogue-v0.4
+- **Spec ID**: v0.4-004-quote-dialogue
 - **Release Branch**: `releases/v0.4`
 - **Created**: 2026-06-15

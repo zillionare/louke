@@ -25,6 +25,6 @@ specforge 定义了 19 个 Agent，每个 Agent 有推荐的模型档位（READM
 - 用户输入的模型名称不标准（如拼写错误），分配逻辑需容错
 
 ## 关联
-- Spec ID: 002-specforge-v0.2
+- Spec ID: v0.2-002-specforge
 - Project: specforge-v0.2 (#4)
-- 相关 Spec: 001-specforge-v0.1 (原始 specforge 流程定义)
+- 相关 Spec: v0.1-001-specforge (原始 specforge 流程定义)

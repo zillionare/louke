@@ -19,10 +19,10 @@ verify_acceptance.py — 验证 Sage 生成的 acceptance.md 是否合格
                       (防 acceptance 多出 spec 没有的"幽灵 FR")
 
 使用:
-  python tools/verify_acceptance.py --spec 001-specforge-v0.1
+  python tools/verify_acceptance.py --spec v0.1-001-specforge
   python tools/verify_acceptance.py --offline \\
-      --spec-file .specforge/specs/001-specforge-v0.1/spec.md \\
-      --acceptance-file .specforge/specs/001-specforge-v0.1/acceptance.md
+      --spec-file .specforge/specs/v0.1-001-specforge/spec.md \\
+      --acceptance-file .specforge/specs/v0.1-001-specforge/acceptance.md
 """
 
 from __future__ import annotations
@@ -323,7 +323,7 @@ def report(results: list[AccResult]) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="验证 acceptance.md 是否合格 (Lex 阶段一)")
-    p.add_argument("--spec", help="spec-id, 例如 001-specforge-v0.1")
+    p.add_argument("--spec", help="spec-id, 例如 v0.1-001-specforge")
     p.add_argument("--repo", default="zillionare/specforge", help="owner/repo, 默认 zillionare/specforge")
     p.add_argument("--branch", default="main", help="spec 所在分支, 默认 main")
     p.add_argument("--offline", action="store_true", help="离线模式: 直接用 --spec-file/--acceptance-file")

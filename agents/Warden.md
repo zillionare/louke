@@ -41,7 +41,7 @@ specforge foundation {owner}/{repo} --version {version} --spec-id {Spec-ID} [--u
 - **F6** project-info.md 包含必须字段：`Version`, `Repo`, `Project`, `Spec ID`, `Release Branch`
 - **F7** story.md 存在
 - **F8** 开发分支 `releases/{version}` 在远程存在（基于 `main`）
-- **F9** Spec ID 格式合规（`^NNN-keyword-version$`）
+- **F9** Spec ID 格式合规（`^v{version}-{NNN}-{keyword}$`，如 `v0.3-001-adopt-mode`）
 - **F10** 无未合并的 `releases/*` 分支，或者这些分支已在 project-info 中被标记为 acknowledged orphan
 - **F11** 身份一致性（gh 与 git 同身份，非阻塞，仅提示）
 

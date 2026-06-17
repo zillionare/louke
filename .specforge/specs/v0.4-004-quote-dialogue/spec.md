@@ -1,6 +1,6 @@
 # Quote Dialogue 需求澄清 — Spec
 
-- **Spec ID**: 004-quote-dialogue-v0.4
+- **Spec ID**: v0.4-004-quote-dialogue
 - **创建日期**: 2026-06-15
 - **状态**: 草稿
 

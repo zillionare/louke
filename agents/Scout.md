@@ -46,7 +46,7 @@ description: 项目奠基 — 执行 §2.1 初始化流程
 - 如 `.specforge/specs/` 目录不存在或为空 → 自动分配 `001`
 - 将分配的编号记录到 `project-info.md`，供下游 Agent（Warden, Sage 等）读取
 
-Spec 编号用于构建 Spec-ID：`{NNN}-{keyword}-{version}`（如 `003-adopt-mode-v0.3`），是下游 Agent（尤其是 Sage）定位本地 .specforge/specs/{Spec-ID}/ 目录的关键标识。其中 keyword 是本 story 的关键词（空格转换为 -）
+Spec 编号用于构建 Spec-ID：`v{version}-{NNN}-{keyword}`（如 `v0.3-003-init-adopt-mode`），是下游 Agent（尤其是 Sage）定位本地 .specforge/specs/{Spec-ID}/ 目录的关键标识。其中 keyword 是本 story 的关键词（空格转换为 -）；version 必须以 `v` 前缀开头。
 
 ### Step 2: 创建 GitHub Repo
 
@@ -134,13 +134,14 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 - **Version**: {版本号}
 - **Repo**: github.com/{owner}/{repo}
 - **Project**: {repo}-{version} (#{编号})
-- **Spec ID**: {NNN}-{keyword}-{version}
+- **Spec ID**: v{version}-{NNN}-{keyword}
 - **Release Branch**: `releases/{version}`（Scout 产生的全部上游产物都在该分支上；上游固定为 `main`）
 - **Created**: {YYYY-MM-DD}
 ```
 
 **Spec ID 字段说明**：
-- 格式：`{NNN}-{keyword}-{version}`（如 `001-adopt-mode-v0.1`）
+- 格式：`v{version}-{NNN}-{keyword}`（如 `v0.1-001-adopt-mode`）
+- `version` 必须带 `v` 前缀，紧随一个 `.` 分隔的 semver/类 semver 串（如 `v0.1`、`v0.4.1`）
 - `NNN` 是 3 位零填充的序号，从 Step 1 的逻辑得出
 - `keyword`从 story/prd 中提取本功能的核心关键词。多个关键词（不超过3个）使用「-」连接。
 - `version`是此次开发确定的版本号，由用户提供。
@@ -178,7 +179,7 @@ Story: {story摘要}
 版本: {版本号}
 Repo: github.com/{owner}/{repo}
 Project: {repo}-{version} (#{编号})
-Spec ID: {NNN}-{keyword}-{version}
+Spec ID: v{version}-{NNN}-{keyword}
 
 Repo: {已存在 / 新创建}
 Project: {已创建 / 已存在}

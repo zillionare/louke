@@ -72,7 +72,7 @@
 | Q6 | v0.1 "自举成功"定义？ | 本项目也要使用 specforge 将要定义的方法来完成 |
 
 ## 关联
-- PRD: `specs/001-specforge-v0.1/prd.md`
+- PRD: `specs/v0.1-001-specforge/prd.md`
 - PR: https://github.com/zillionare/specforge/pull/13
 
 ## Lex 审核结果

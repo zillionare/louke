@@ -23,14 +23,14 @@ check_foundation.py — 验证 Scout 奠基阶段的工作是否完整
                           Version, Repo, Project, Spec ID, Release Branch
   F7 story.md 存在:      .specforge/specs/{spec-id}/story.md 存在
   F8 开发分支存在:       releases/{version} 分支在远程存在 (基于 main)
-  F9 Spec ID 格式合规:   符合 {NNN}-{keyword}-{version}
+  F9 Spec ID 格式合规:   符合 v{version}-{NNN}-{keyword}
   F10 未合并的 releases/*: 无未合并 releases/*; 若存在, project-info 需
                           含 Acknowledged-Orphan-Releases 字段作为警告放行
   F11 身份一致性:       gh 与 git 同身份 (委托 check_identity.py L1-L5)
 
 使用:
   specforge foundation <owner/repo> --version <version> --spec-id <spec-id>
-  specforge foundation zillionare/specforge --version v0.1 --spec-id 001-specforge-v0.1
+  specforge foundation zillionare/specforge --version v0.1 --spec-id v0.1-001-specforge
 
   可选 flags:
     --project-id NUMBER   GitHub Project 数字 ID (跳过自动查找)
@@ -228,7 +228,7 @@ REQUIRED_PROJECT_INFO_FIELDS = [
     "Version", "Repo", "Project", "Spec ID", "Release Branch",
 ]
 
-RE_SPEC_ID = re.compile(r"^\d{3}-[\w-]+-[\w.]+$")
+RE_SPEC_ID = re.compile(r"^v[\w.]+-\d{3}-[\w-]+$")
 
 
 def check_f6_project_info(spec_id: str | None) -> CheckResult:
@@ -253,7 +253,7 @@ def check_f6_project_info(spec_id: str | None) -> CheckResult:
     # 如果提供了 spec_id, 验证 F9 (Spec ID 格式)
     if spec_id:
         if not RE_SPEC_ID.match(spec_id):
-            r.error = f"Spec ID 格式不合规: '{spec_id}' — 期望 NNN-keyword-version (如 001-adopt-mode-v0.3)"
+            r.error = f"Spec ID 格式不合规: '{spec_id}' — 期望 v{{version}}-{{NNN}}-{{keyword}} (如 v0.3-001-adopt-mode)"
             return r
         if f"**Spec ID**: {spec_id}" not in content and f"**Spec ID**: " not in content:
             r.error = f"project-info.md 中的 Spec ID 与参数 '{spec_id}' 不匹配"
@@ -326,7 +326,7 @@ def check_f9_spec_id(spec_id: str) -> CheckResult:
     else:
         r.error = (
             f"Spec ID '{spec_id}' 格式不合规 — "
-            f"期望 NNN-keyword-version (如 001-adopt-mode-v0.3)"
+            f"期望 v{{version}}-{{NNN}}-{{keyword}} (如 v0.3-001-adopt-mode)"
         )
     return r
 
@@ -490,7 +490,7 @@ def main() -> int:
     )
     p.add_argument("repo", help="owner/repo, 如 zillionare/specforge")
     p.add_argument("--version", required=True, help="版本号, 如 v0.1")
-    p.add_argument("--spec-id", dest="spec_id", help="Spec ID, 如 001-adopt-mode-v0.3")
+    p.add_argument("--spec-id", dest="spec_id", help="Spec ID, 如 v0.3-001-adopt-mode")
     p.add_argument("--project-id", dest="project_id", type=int,
                    help="GitHub Project 数字 ID (跳过自动查找)")
     p.add_argument("--upstream", help="上游分支名 (启用 F8 检查)")

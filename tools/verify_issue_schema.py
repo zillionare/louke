@@ -21,10 +21,10 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
   L8 双向覆盖:    spec 中每个 FR 都有 issue;issue 中每个 FR 都在 spec
 
 使用:
-  python tools/verify_issue_schema.py --spec 001-specforge-v0.1
-  python tools/verify_issue_schema.py --spec 001-specforge-v0.1 --repo owner/repo
+  python tools/verify_issue_schema.py --spec v0.1-001-specforge
+  python tools/verify_issue_schema.py --spec v0.1-001-specforge --repo owner/repo
   python tools/verify_issue_schema.py --offline \\
-      --spec-file .specforge/specs/001-specforge-v0.1/spec.md \\
+      --spec-file .specforge/specs/v0.1-001-specforge/spec.md \\
       --issues-json /tmp/issues.json
 """
 
@@ -363,7 +363,7 @@ def load_spec_frs_from_gh(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--spec", help="spec-id,例如 001-specforge-v0.1")
+    p.add_argument("--spec", help="spec-id,例如 v0.1-001-specforge")
     p.add_argument("--repo", help="owner/repo,默认从 gh repo view 推断")
     p.add_argument("--branch", help="默认分支,默认从 gh repo view 推断")
     p.add_argument(

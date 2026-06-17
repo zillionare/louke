@@ -130,7 +130,7 @@ EOF
 
 # IT-005: spec 004 self-parse end-to-end
 @test "IT-005_spec_004_self_parse: spec 004 is_ready=True (Aaron's dogfood)" {
-    SPEC004="$SPECFORGE_HOME/specs/004-quote-dialogue/spec.md"
+    SPEC004="$SPECFORGE_HOME/.specforge/specs/v0.4-004-quote-dialogue/spec.md"
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --check-ready "$SPEC004"
     [ "$status" -eq 0 ]
 }
