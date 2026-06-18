@@ -53,23 +53,24 @@ teardown() {
     mkdir -p fresh && cd fresh && git init -q
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
-    [ -d "agents" ]
-    [ -d "templates" ]
-    [ -d "specs" ]
+    [ -d ".specforge/agents" ]
+    [ -d ".specforge/templates" ]
+    [ -d ".specforge/project" ]
     [ -d "wiki/pages" ]
     [ -d "wiki/decisions" ]
     [ -d "raw/sources" ]
     # agents should have files
-    [ "$(ls agents/*.md 2>/dev/null | wc -l)" -ge 19 ]
+    [ "$(ls .specforge/agents/*.md 2>/dev/null | wc -l)" -ge 19 ]
 }
 
-@test "FR10_T02_existing_specs_preserved: existing specs/ contents kept" {
+@test "FR10_T02_existing_specs_preserved: existing .specforge/project/specs/ contents kept" {
     mkdir -p p && cd p && git init -q
-    mkdir -p specs/001-old && echo "old spec" > specs/001-old/spec.md
+    mkdir -p .specforge/project/specs/v0.1-001-old
+    echo "old spec" > .specforge/project/specs/v0.1-001-old/spec.md
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
-    [ -f "specs/001-old/spec.md" ]
-    grep -q "old spec" specs/001-old/spec.md
+    [ -f ".specforge/project/specs/v0.1-001-old/spec.md" ]
+    grep -q "old spec" .specforge/project/specs/v0.1-001-old/spec.md
 }
 
 @test "FR10_T03_existing_wiki_page_preserved: existing wiki/pages/x.md kept" {
@@ -167,12 +168,13 @@ teardown() {
 
 # ---------- FR-014: .gitignore append ----------
 
-@test "FR14_T01_no_gitignore_creates_one: missing .gitignore gets created with .specforge/" {
+@test "FR14_T01_no_gitignore_creates_one: missing .gitignore gets created with .specforge/agents/ + .specforge/templates/" {
     mkdir -p p && cd p && git init -q
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
     [ -f ".gitignore" ]
-    grep -q "^\.specforge/$" .gitignore
+    grep -q "^\.specforge/agents/$" .gitignore
+    grep -q "^\.specforge/templates/$" .gitignore
 }
 
 @test "FR14_T02_existing_gitignore_gets_appended: existing entries preserved" {
@@ -181,15 +183,24 @@ teardown() {
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
     grep -q "__pycache__" .gitignore
-    grep -q "^\.specforge/$" .gitignore
+    grep -q "^\.specforge/agents/$" .gitignore
+    grep -q "^\.specforge/templates/$" .gitignore
 }
 
-@test "FR14_T03_idempotent_append: second adopt doesn't duplicate .specforge/" {
+@test "FR14_T03_idempotent_append: second adopt doesn't duplicate .specforge/agents/" {
     mkdir -p p && cd p && git init -q
     bash "$SPECFORGE_HOME/bin/specforge" init . >/dev/null 2>&1
     bash "$SPECFORGE_HOME/bin/specforge" init . >/dev/null 2>&1
-    COUNT=$(grep -c "^\.specforge/$" .gitignore)
+    COUNT=$(grep -c "^\.specforge/agents/$" .gitignore)
     [ "$COUNT" -eq 1 ]
+}
+
+@test "FR14_T05_project_dir_NOT_ignored: .specforge/project/ must remain version-controlled" {
+    mkdir -p p && cd p && git init -q
+    bash "$SPECFORGE_HOME/bin/specforge" init . >/dev/null 2>&1
+    # 显式断言 .gitignore 没把整个 .specforge/ 屏蔽掉, 也没把 project/ 列出来.
+    ! grep -qE '^\.specforge/?$' .gitignore
+    ! grep -q '^\.specforge/project' .gitignore
 }
 
 @test "FR14_T04_no_gitignore_flag: --no-gitignore skips gitignore handling" {

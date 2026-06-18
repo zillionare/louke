@@ -205,7 +205,7 @@ EOF
     cat > "$TEST_DIR/issues.json" <<'EOF'
 [
   {"number": 1, "title": "[FR-001] test feature", "labels": [{"name": "Feature"}],
-   "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/specs/001/spec.md#fr-001\n\n### 验收标准\nAC-1: it works\n"}
+   "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.specforge/project/specs/001/spec.md#fr-001\n\n### 验收标准\nAC-1: it works\n"}
 ]
 EOF
     run bash "$CLI" verify-issue --offline \

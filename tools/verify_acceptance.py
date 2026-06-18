@@ -11,7 +11,7 @@ verify_acceptance.py — 验证 Sage 生成的 acceptance.md 是否合格
 - 离线可测: 支持 --offline + fixture 文件, bats 直接喂样例
 
 检查项(L1-L5):
-  L1 文件存在:        .specforge/specs/{id}/acceptance.md 存在
+  L1 文件存在:        .specforge/project/specs/{id}/acceptance.md 存在
   L2 FR/NFR 节存在:   spec.md 中的每个 FR/NFR 在 acceptance.md 中都有对应 ## 节
   L3 AC 编号连续:     每个 FR/NFR 节内, ### AC-N 从 1 开始连续递增
   L4 AC 内容非空:     每个 ### AC-N 至少 1 条项目符号, 且有可断言的具体内容
@@ -21,8 +21,8 @@ verify_acceptance.py — 验证 Sage 生成的 acceptance.md 是否合格
 使用:
   python tools/verify_acceptance.py --spec v0.1-001-specforge
   python tools/verify_acceptance.py --offline \\
-      --spec-file .specforge/specs/v0.1-001-specforge/spec.md \\
-      --acceptance-file .specforge/specs/v0.1-001-specforge/acceptance.md
+      --spec-file .specforge/project/specs/v0.1-001-specforge/spec.md \\
+      --acceptance-file .specforge/project/specs/v0.1-001-specforge/acceptance.md
 """
 
 from __future__ import annotations
@@ -95,13 +95,13 @@ def gh_api_read(path: str) -> str | None:
 
 
 def fetch_spec_text(spec_id: str) -> str | None:
-    """读 main 分支上的 .specforge/specs/{spec_id}/spec.md"""
-    return gh_api_read(f".specforge/specs/{spec_id}/spec.md")
+    """读 main 分支上的 .specforge/project/specs/{spec_id}/spec.md"""
+    return gh_api_read(f".specforge/project/specs/{spec_id}/spec.md")
 
 
 def fetch_acceptance_text(spec_id: str) -> str | None:
-    """读 main 分支上的 .specforge/specs/{spec_id}/acceptance.md"""
-    return gh_api_read(f".specforge/specs/{spec_id}/acceptance.md")
+    """读 main 分支上的 .specforge/project/specs/{spec_id}/acceptance.md"""
+    return gh_api_read(f".specforge/project/specs/{spec_id}/acceptance.md")
 
 
 def parse_fr_sections(text: str) -> list[SpecFRSpec]:
@@ -353,7 +353,7 @@ def main() -> int:
         spec_text = fetch_spec_text(args.spec)
         acceptance_text = fetch_acceptance_text(args.spec)
         if spec_text is None:
-            print(f"无法读取 main 分支上的 .specforge/specs/{args.spec}/spec.md", file=sys.stderr)
+            print(f"无法读取 main 分支上的 .specforge/project/specs/{args.spec}/spec.md", file=sys.stderr)
             return 1
         if acceptance_text is None:
             # 不报错, 走 L1 检查

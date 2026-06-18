@@ -135,7 +135,7 @@ for iss in json.load(open('/tmp/issues.json')):
 
 ## 退出条件
 
-- [ ] 测试计划文档已生成（写入 `.specforge/specs/{spec-id}/test-plan.md`）
+- [ ] 测试计划文档已生成（写入 `.specforge/project/specs/{spec-id}/test-plan.md`）
 - [ ] 每个 issue 的每条 AC 都有对应 UT
 - [ ] 跨 issue 场景有 IT 覆盖
 - [ ] 可追溯矩阵完整：issue# ↔ fr_id ↔ AC-N ↔ UT
@@ -145,7 +145,7 @@ for iss in json.load(open('/tmp/issues.json')):
 
 ## 输出
 
-- `.specforge/specs/{spec-id}/test-plan.md`
+- `.specforge/project/specs/{spec-id}/test-plan.md`
 - 文档路径（供下游使用）
 
 ---

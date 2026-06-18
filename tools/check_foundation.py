@@ -19,9 +19,9 @@ check_foundation.py — 验证 Scout 奠基阶段的工作是否完整
   F3 Test Issue 合规:    标题 "Good First Issue: {repo}-{version}", 状态 closed
   F4 Test PR 合规:       标题 "Good First PR: {repo}-{version}", 状态 closed
   F5 Agent 文件存在:     agents/*.md 文件存在
-  F6 project-info 完整:  specs/project-info.md 包含必须字段
+  F6 project-info 完整:  .specforge/project/project-info.md 包含必须字段
                           Version, Repo, Project, Spec ID, Release Branch
-  F7 story.md 存在:      .specforge/specs/{spec-id}/story.md 存在
+  F7 story.md 存在:      .specforge/project/specs/{spec-id}/story.md 存在
   F8 开发分支存在:       releases/{version} 分支在远程存在 (基于 main)
   F9 Spec ID 格式合规:   符合 v{version}-{NNN}-{keyword}
   F10 未合并的 releases/*: 无未合并 releases/*; 若存在, project-info 需
@@ -234,9 +234,9 @@ RE_SPEC_ID = re.compile(r"^v[\w.]+-\d{3}-[\w-]+$")
 def check_f6_project_info(spec_id: str | None) -> CheckResult:
     """F6: project-info.md 存在且包含必须字段"""
     r = CheckResult(code="F6", name="project-info.md 完整")
-    pi_path = Path("specs/project-info.md")
+    pi_path = Path(".specforge/project/project-info.md")
     if not pi_path.is_file():
-        r.error = "specs/project-info.md 不存在"
+        r.error = ".specforge/project/project-info.md 不存在"
         return r
 
     content = pi_path.read_text(encoding="utf-8")
@@ -271,14 +271,14 @@ def check_f7_story(spec_id: str) -> CheckResult:
         r.error = "未提供 spec-id, 无法检查 story.md"
         return r
 
-    story_path = Path(f".specforge/specs/{spec_id}/story.md")
+    story_path = Path(f".specforge/project/specs/{spec_id}/story.md")
     if not story_path.is_file():
-        r.error = f".specforge/specs/{spec_id}/story.md 不存在"
+        r.error = f".specforge/project/specs/{spec_id}/story.md 不存在"
         return r
 
     size = story_path.stat().st_size
     r.passed = True
-    r.message = f".specforge/specs/{spec_id}/story.md ({size} bytes)"
+    r.message = f".specforge/project/specs/{spec_id}/story.md ({size} bytes)"
     return r
 
 
@@ -386,7 +386,7 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
         return r
 
     # 2. 检查 project-info 是否显式承认这些 orphan
-    pi_path = Path("specs/project-info.md")
+    pi_path = Path(".specforge/project/project-info.md")
     acked: list[str] = []
     if pi_path.is_file():
         content = pi_path.read_text(encoding="utf-8")

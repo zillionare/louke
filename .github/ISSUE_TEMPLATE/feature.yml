@@ -18,10 +18,10 @@ body:
     attributes:
       label: Spec 链接
       description: 完整 GitHub URL，fragment 必须小写（#fr-001，不是 #FR-001）
-      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/specs/{spec-id}/spec.md#fr-001
+      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/spec.md#fr-001
     validations:
       required: true
-      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/specs/[A-Za-z0-9._-]+/spec\\.md#fr-\\d{3}$"
+      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/specs/[A-Za-z0-9._-]+/spec\\.md#fr-\\d{3}$"
 
   - type: textarea
     id: acceptance_criteria

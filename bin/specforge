@@ -150,7 +150,13 @@ cmd_init_new() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,.specforge/specs,wiki/pages,wiki/decisions,raw/sources}
+    # 目录布局:
+    #   .specforge/agents/      框架资产副本 (本地, 不入库)
+    #   .specforge/templates/   框架资产副本 (本地, 不入库)
+    #   .specforge/project/     项目产出物 (project-info.md, specs/) — install/uninstall 不触碰
+    #
+    # init 只创建 agents/ templates/ 与 project/ 占位; project/ 下的文件由 Scout/Sage 等后续 agent 创建.
+    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,.specforge/project,wiki/pages,wiki/decisions,raw/sources}
     cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
@@ -175,6 +181,18 @@ cmd_init_new() {
         elif ! grep -qxF '.github/agents/' "$GITIGNORE" 2>/dev/null; then
             printf '\n.github/agents/\n' >> "$GITIGNORE"
         fi
+    fi
+
+    # 把 agents/ 与 templates/ 副本从版本控制中排除 (本地缓存, 由 specforge install 重建);
+    # 但保留 .specforge/project/ 入库 — 那是项目的 spec / project-info 等产出物.
+    local GITIGNORE="$PROJECT_NAME/.gitignore"
+    if [ ! -f "$GITIGNORE" ]; then
+        printf '.specforge/agents/\n.specforge/templates/\n' > "$GITIGNORE"
+    else
+        grep -qxF '.specforge/agents/' "$GITIGNORE" 2>/dev/null \
+            || printf '\n.specforge/agents/\n' >> "$GITIGNORE"
+        grep -qxF '.specforge/templates/' "$GITIGNORE" 2>/dev/null \
+            || printf '.specforge/templates/\n' >> "$GITIGNORE"
     fi
 
     local AGENT_COUNT TEMPLATE_COUNT
@@ -245,8 +263,10 @@ cmd_init_adopt() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    # FR-010: create-if-missing for specforge-owned dirs
-    for d in .specforge/agents .specforge/templates .specforge/specs wiki/pages wiki/decisions raw/sources; do
+    # FR-010: create-if-missing for specforge-owned dirs.
+    # 注意: .specforge/project/ 是项目产出物根目录; init 不会触碰其下任何文件,
+    # 只在该目录缺失时 mkdir 一个空壳, 让 Scout/Sage 等后续 agent 写入时不至于路径不存在.
+    for d in .specforge/agents .specforge/templates .specforge/project wiki/pages wiki/decisions raw/sources; do
         if [ ! -d "$d" ]; then
             [ "$DRY_RUN" -eq 0 ] && mkdir -p "$d"
         fi
@@ -303,12 +323,18 @@ cmd_init_adopt() {
         fi
     fi
 
-    # FR-014: append .specforge/ to .gitignore (idempotent)
+    # FR-014: ignore agents/ + templates/ 副本 (本地缓存, 由 specforge install 重建);
+    # 但保留 .specforge/project/ 入库 — 那是项目的 spec / project-info 等产出物, 不能被 ignore.
     if [ "$NO_GITIGNORE" -eq 0 ]; then
         if [ ! -f ".gitignore" ]; then
-            [ "$DRY_RUN" -eq 0 ] && printf ".specforge/\n" > ".gitignore"
-        elif ! grep -qxF '.specforge/' .gitignore 2>/dev/null; then
-            [ "$DRY_RUN" -eq 0 ] && printf "\n.specforge/\n" >> ".gitignore"
+            [ "$DRY_RUN" -eq 0 ] && printf ".specforge/agents/\n.specforge/templates/\n" > ".gitignore"
+        else
+            if ! grep -qxF '.specforge/agents/' .gitignore 2>/dev/null; then
+                [ "$DRY_RUN" -eq 0 ] && printf "\n.specforge/agents/\n" >> ".gitignore"
+            fi
+            if ! grep -qxF '.specforge/templates/' .gitignore 2>/dev/null; then
+                [ "$DRY_RUN" -eq 0 ] && printf ".specforge/templates/\n" >> ".gitignore"
+            fi
         fi
     fi
 
@@ -368,7 +394,7 @@ cmd_verify_issue() {
 
 # quote-check: 包装 tools/quote_parser.py,避免 agent 直接 python3 调用
 # (避免环境/版本/路径差异)
-# 自动解析 spec path:即使 cwd 不是 git root,也能找到 .specforge/specs/... 下的文件
+# 自动解析 spec path:即使 cwd 不是 git root,也能找到 .specforge/project/specs/... 下的文件
 cmd_quote_check() {
     local PY
     PY="$(resolve_python)"

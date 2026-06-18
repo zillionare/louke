@@ -49,10 +49,10 @@ teardown() {
     [ -d "test-project/wiki/decisions" ]
 }
 
-@test "UT-002-05: init creates specs/" {
+@test "UT-002-05: init creates .specforge/project/" {
     run bash "$SPECFORGE_HOME/bin/specforge" init test-project
     [ "$status" -eq 0 ]
-    [ -d "test-project/specs" ]
+    [ -d "test-project/.specforge/project" ]
 }
 
 @test "UT-003-01: init prints onboarding guidance" {
