@@ -102,8 +102,8 @@ Speckit 在规格定义阶段就要求赋予优先级，这当然没有错，但
 
 ```yaml
 需求 ID:    ^FR-\d{3}$                    # 与 spec 锚点 fr-XXX 严格对应
-Spec 链接:  ^https://github\.com/.../spec\.md#fr-\d{3}$   # 完整 URL,fragment 小写
-验收标准:  ^AC-\d+: ...                   # 每行一条,从 AC-1 连续编号
+Spec 链接:  ^https://github\.com/.../spec\.md#(fr|nfr)-\d{3}$   # 完整 URL,fragment 小写
+验收标准:  ^https://github\.com/.../acceptance\.md#ac-(fr|nfr)-\d{3}$   # 指向 acceptance.md 中该 FR 的 AC 块锚点;AC 列表在 acceptance.md
 ```
 
 **分支命名约定**：
@@ -124,7 +124,7 @@ Probe 根据 **GitHub Feature issue form schema** 生成分层测试计划，Jud
 **Probe 的工作**：
 
 1. 拉取所有 Feature issue → `gh issue list --state all --label Feature --json body`
-2. 解析每个 issue form → 抽取 `fr_id` / `AC-N: ...`（复用 `tools/verify_issue_schema.py` 的解析逻辑）
+2. 解析每个 issue form → 抽取 `fr_id` / `验收标准` URL（复用 `tools/verify_issue_schema.py` 的解析逻辑），再按 URL 拉 acceptance.md，从中抽取 `AC-N: ...`
 3. 设计单元测试 → 每个 AC 至少一个 UT（命名 `UT-{issue#}-{AC序}-{测试序}`）
 4. 设计集成测试 → 跨 issue 场景（`IT-{序号}`）
 5. 设计视觉/E2E 测试（可选）→ UI 相关的端到端场景（`VT-{序号}`）

@@ -21,15 +21,14 @@ body:
       placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/spec.md#fr-001
     validations:
       required: true
-      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/specs/[A-Za-z0-9._-]+/spec\\.md#fr-\\d{3}$"
+      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/specs/[A-Za-z0-9._-]+/spec\\.md#(fr|nfr)-\\d{3}$"
 
-  - type: textarea
+  - type: input
     id: acceptance_criteria
     attributes:
       label: 验收标准
-      description: '每条 AC 单独一行，前缀 "AC-N: "（N 从 1 开始）。Probe 会逐行生成测试用例，Herald 会逐条核验。'
-      placeholder: |
-        AC-1: 输入合法 email 时返回 200，body 包含 status=active
-        AC-2: 邮箱为空时返回 400，错误码 INVALID_EMAIL
+      description: 指向 acceptance.md 中该 FR 的 AC 块锚点 URL（每个 FR 对应一个 ac-fr-XXX 锚，覆盖整个 AC 列表）。Probe 会从 acceptance.md 拉取 AC-N 列表生成测试用例，Herald 会逐条核验。
+      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/acceptance.md#ac-fr-001
     validations:
       required: true
+      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/specs/[A-Za-z0-9._-]+/acceptance\\.md#ac-(fr|nfr)-\\d{3}$"

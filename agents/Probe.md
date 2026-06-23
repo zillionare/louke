@@ -10,7 +10,7 @@ description: 测试计划 — 从 spec 需求生成可执行的测试计划
 回答一个问题：**"每个 issue 的验收标准是否都有可执行的测试方案？"**
 
 你是来：
-- 从 issue form 抽取 AC（每条 `AC-N: ...` = 1 个测试用例的输入/期望）
+- 从 issue form 抽取 AC 锚点 URL → 拉取 `acceptance.md` 中对应 FR 节的 `AC-N: ...` 列表（每条 = 1 个测试用例的输入/期望）
 - 设计单元测试覆盖每个 AC 的逻辑分支
 - 设计集成测试覆盖跨模块 / 跨 issue 的端到端场景
 - 建立可追溯矩阵：issue# ↔ fr_id ↔ AC-N ↔ 测试用例编号
@@ -21,24 +21,27 @@ description: 测试计划 — 从 spec 需求生成可执行的测试计划
 - 评判 issue 是否正确（Lex 已经验证过）
 - 重新设计 AC（这是 Sage 的工作）
 
+> **Schema 变化 (2026-06)**: issue body 不再内嵌 `AC-N: ...` 多行文本, 改为指向 `acceptance.md#ac-fr-XXX` 的 URL 锚点。AC 列表的单一真相源是 `acceptance.md`, Probe 必须按 issue 的 AC URL 拉取 acceptance.md 后再解析 `### AC-N` 段。
+
 ---
 
 ## 输入
 
 - Lex 已通过 `tools/verify_issue_schema.py` 验证的 Feature issue 列表
-- spec.md（**仅作背景参考，不作为解析源**）—— 设计语义以 issue form 字段为准
+- spec.md / acceptance.md（**仅作背景参考；AC 列表的解析源是 acceptance.md，不是 issue body**）
 
 ---
 
 ## 工作流程
 
 1. **拉取 issue 列表** → `gh issue list --state all --label Feature --json number,title,body,state`
-2. **解析每个 issue body** → 抽取 `fr_id`、`spec_url`、`AC-N: ...` 列表（与 schema 验证器同构）
-3. **为每个 AC 设计单元测试** → 每条 AC 至少一个 UT（`UT-{issue#}-{AC序}-{测试序}`）
-4. **跨 issue 设计集成测试** → 跨 FR 的端到端场景（`IT-{序号}`）
-5. **设计视觉/E2E 测试**（可选）→ UI 相关的端到端验收场景
-6. **建立可追溯矩阵** → 写到测试计划文档
-7. **说明测试环境** → 容器、数据库、mock、外部依赖
+2. **解析每个 issue body** → 抽取 `fr_id`、`spec_url`、`验收标准` 字段（`验收标准` 是 acceptance.md 的 URL，不是内嵌的 AC 文本）
+3. **拉 acceptance.md** → 按 `验收标准` URL 拉取 `acceptance.md` 原文，按锚点 `#ac-fr-XXX` 找到对应 FR 节，解析其下 `### AC-N` 列表
+4. **为每个 AC 设计单元测试** → 每条 AC 至少一个 UT（`UT-{issue#}-{AC序}-{测试序}`）
+5. **跨 issue 设计集成测试** → 跨 FR 的端到端场景（`IT-{序号}`）
+6. **设计视觉/E2E 测试**（可选）→ UI 相关的端到端验收场景
+7. **建立可追溯矩阵** → 写到测试计划文档
+8. **说明测试环境** → 容器、数据库、mock、外部依赖
 
 ### 拉取与解析示例
 
@@ -50,16 +53,22 @@ gh issue list \
   --json number,title,body,state \
   --limit 500 > /tmp/issues.json
 
-# 2. 复用 tools/verify_issue_schema.py 的解析逻辑
-# (Probe 不要重复实现 parse_issue_form,可 import)
+# 2. 复用 tools/verify_issue_schema.py 的解析逻辑抽取 fr_id / ac_url
 python -c "
 import sys; sys.path.insert(0, 'tools')
 from verify_issue_schema import parse_issue_form
 import json
 for iss in json.load(open('/tmp/issues.json')):
     fields = parse_issue_form(iss['body'] or '')
-    print(iss['number'], fields.get('需求 ID'), fields.get('验收标准', '')[:60])
+    print(iss['number'], fields.get('需求 ID'), fields.get('验收标准', ''))
 "
+
+# 3. 按 ac_url 拉 acceptance.md, 用锚点定位 FR 节, 解析 ### AC-N
+gh api \
+  -H "Accept: application/vnd.github.raw" \
+  "repos/{owner}/{repo}/contents/.specforge/project/specs/{spec-id}/acceptance.md?ref={branch}" \
+  > /tmp/acceptance.md
+# 然后用 grep/sed 提取对应 FR 节的 ### AC-N 列表
 ```
 
 ### 测试 ID 命名约定

@@ -11,13 +11,13 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
 - 离线可测: 支持 --offline + fixture 文件,bats 可直接喂样例
 
 检查项(L1-L8):
-  L1 标题格式:    ^\\[FR-\\d{3}\\]
-  L2 需求 ID 字段: 存在且匹配 ^FR-\\d{3}$
-  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec\\.md#fr-\\d{3}$
+  L1 标题格式:    ^\[FR-\d{3}\]
+  L2 需求 ID 字段: 存在且匹配 ^FR-\d{3}$
+  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec\.md#(fr|nfr)-\d{3}$
   L4 spec 可达:    gh api 可拉取 spec.md 原文
   L5 锚点存在:    spec.md 中存在 <a id="fr-XXX"></a>
   L6 锚点内容:    锚点上下文包含 "FR-XXX" 字样(防锚点误复用)
-  L7 AC 列表:      至少 1 行,每行 ^AC-\\d+: ... 格式
+  L7 AC 锚点:      验收标准字段是 acceptance.md 完整 URL + 锚点可达 + 锚点存在 + 上下文含 FR-XXX
   L8 双向覆盖:    spec 中每个 FR 都有 issue;issue 中每个 FR 都在 spec
 
 使用:
@@ -51,7 +51,14 @@ RE_SPEC_URL = re.compile(
     r"(?P<branch>[A-Za-z0-9._/-]+)/\.specforge/project/specs/(?P<spec_id>[A-Za-z0-9._-]+)/spec\.md"
     r"#(?P<fragment>(?:fr|nfr)-\d{3})$"
 )
+RE_AC_URL = re.compile(
+    r"^https://github\.com/"
+    r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
+    r"(?P<branch>[A-Za-z0-9._/-]+)/\.specforge/project/specs/(?P<spec_id>[A-Za-z0-9._-]+)/acceptance\.md"
+    r"#(?P<fragment>ac-(?:fr|nfr)-\d{3})$"
+)
 RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{3})"></a>')
+RE_AC_ANCHOR = re.compile(r'<a\s+id="(ac-(?:fr|nfr)-\d{3})"></a>')
 RE_AC_LINE = re.compile(r"^AC-\d+:\s*\S+")
 RE_AC_FULL = re.compile(r"^AC-(\d+):\s*(.+)$")
 
@@ -71,6 +78,8 @@ class IssueCheck:
     fr_id: str = ""
     spec_url: str = ""
     spec_url_parsed: dict = field(default_factory=dict)
+    ac_url: str = ""
+    ac_url_parsed: dict = field(default_factory=dict)
     ac_lines: list[str] = field(default_factory=list)
     failures: list[str] = field(default_factory=list)
 
@@ -91,11 +100,10 @@ def parse_issue_form(body: str) -> dict[str, str]:
         FR-001
 
         ### Spec 链接
-        https://...
+        https://.../spec.md#fr-001
 
         ### 验收标准
-        AC-1: ...
-        AC-2: ...
+        https://.../acceptance.md#ac-fr-001
     """
     fields: dict[str, str] = {}
     current: str | None = None
@@ -213,33 +221,69 @@ def check_issue(
                                 )
                             break
 
-    # L7: AC 列表
+    # L7: AC 验收标准字段 — 必须是 acceptance.md URL + 锚点存在 + 上下文匹配
     raw_ac = fields.get(FIELD_AC, "").strip()
     if not raw_ac:
         ic.failures.append(f"L7 字段 '{FIELD_AC}' 缺失")
     else:
-        lines = [
-            ln.strip() for ln in raw_ac.splitlines() if ln.strip()
-        ]
-        if not lines:
-            ic.failures.append(f"L7 字段 '{FIELD_AC}' 为空,至少需要 1 条 AC")
+        m = RE_AC_URL.match(raw_ac)
+        if not m:
+            ic.failures.append(
+                f"L7 字段 '{FIELD_AC}' 格式错误,期望完整 GitHub URL "
+                f"+ #ac-fr-XXX 或 #ac-nfr-XXX (小写),实际: {raw_ac!r}"
+            )
         else:
-            for ln in lines:
-                if not RE_AC_LINE.match(ln):
-                    ic.failures.append(
-                        f"L7 AC 行格式错误 (期望 'AC-N: 描述'),实际: {ln!r}"
-                    )
-            # AC 编号必须从 1 开始连续
-            nums = []
-            for ln in lines:
-                m = RE_AC_FULL.match(ln)
-                if m:
-                    nums.append(int(m.group(1)))
-            if nums and nums != list(range(1, len(nums) + 1)):
+            ic.ac_url = raw_ac
+            ic.ac_url_parsed = m.groupdict()
+            expected_frag = (
+                "ac-" + (raw_fr.split("-")[0].lower() + "-" + raw_fr.split("-")[1])
+                if raw_fr
+                else ""
+            )
+            if m.group("fragment") != expected_frag:
                 ic.failures.append(
-                    f"L7 AC 编号必须从 1 连续,实际: {nums}"
+                    f"L7 URL fragment {m.group('fragment')!r} 与需求 ID {raw_fr!r} 不匹配 "
+                    f"(应为 #{expected_frag!r})"
                 )
-            ic.ac_lines = lines
+
+            # 拉 acceptance.md 验证锚点
+            if "OFFLINE" in spec_cache and "OFFLINE_ACC" in spec_cache:
+                acc_text = spec_cache["OFFLINE_ACC"]
+            else:
+                acc_key = f"{m.group('owner')}/{m.group('repo')}@{m.group('branch')}:{m.group('spec_id')}"
+                if acc_key not in spec_cache:
+                    spec_cache[acc_key] = fetch_acceptance_markdown(
+                        m.group("owner"),
+                        m.group("repo"),
+                        m.group("branch"),
+                        m.group("spec_id"),
+                    )
+                acc_text = spec_cache[acc_key]
+
+            if acc_text is None:
+                ic.failures.append(
+                    f"L7 无法获取 acceptance 文件 .specforge/project/specs/{m.group('spec_id')}/acceptance.md "
+                    f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
+                )
+            else:
+                acc_anchors = RE_AC_ANCHOR.findall(acc_text)
+                if m.group("fragment") not in acc_anchors:
+                    ic.failures.append(
+                        f"L7 acceptance.md 中找不到锚点 {m.group('fragment')!r}; "
+                        f"已声明的 AC 锚点: {sorted(set(acc_anchors))}"
+                    )
+                else:
+                    # 锚点上下文(锚点行 + 后续 8 行)必须包含 "FR-XXX" 字样
+                    lines = acc_text.splitlines()
+                    for i, line in enumerate(lines):
+                        if f'<a id="{m.group("fragment")}">' in line:
+                            context = "\n".join(lines[i : i + 9])
+                            if raw_fr not in context:
+                                ic.failures.append(
+                                    f"L7 锚点 {m.group('fragment')!r} 周围找不到 {raw_fr!r}, "
+                                    f"可能锚点被错误复用。上下文:\n{context}"
+                                )
+                            break
 
     return ic
 
@@ -252,6 +296,40 @@ def fetch_spec_markdown(
     gh api 自动处理公私仓库 auth。
     """
     path = f".specforge/project/specs/{spec_id}/spec.md"
+    try:
+        out = subprocess.check_output(
+            [
+                "gh",
+                "api",
+                f"repos/{owner}/{repo}/contents/{path}",
+                "-H",
+                f"Accept: application/vnd.github.raw",
+                "--method",
+                "GET",
+                "--field",
+                f"ref={branch}",
+            ],
+            stderr=subprocess.STDOUT,
+        )
+        return out.decode("utf-8", errors="replace")
+    except subprocess.CalledProcessError as e:
+        sys.stderr.write(
+            f"[warn] gh api failed for {owner}/{repo}@{branch}:{path}\n"
+            f"       {e.output.decode(errors='replace')}\n"
+        )
+        return None
+    except FileNotFoundError:
+        sys.stderr.write(
+            "[warn] gh CLI not found;请安装 https://cli.github.com/\n"
+        )
+        return None
+
+
+def fetch_acceptance_markdown(
+    owner: str, repo: str, branch: str, spec_id: str
+) -> str | None:
+    """用 gh api 拉取 acceptance.md 原文。返回 None 表示拉取失败。"""
+    path = f".specforge/project/specs/{spec_id}/acceptance.md"
     try:
         out = subprocess.check_output(
             [
@@ -323,7 +401,7 @@ def report(checks: list[IssueCheck], spec_frs: set[str] | None) -> int:
     for c in checks:
         print(
             f"  Issue #{c.number}  {c.title}  "
-            f"({len(c.ac_lines)} 条 AC)"
+            f"(AC 锚点: {c.ac_url_parsed.get('fragment', '-')})"
         )
     return 0
 
@@ -369,9 +447,10 @@ def main() -> int:
     p.add_argument(
         "--offline",
         action="store_true",
-        help="离线模式(给 bats 用): 用 --spec-file + --issues-json",
+        help="离线模式(给 bats 用): 用 --spec-file + --acceptance-file + --issues-json",
     )
     p.add_argument("--spec-file", help="离线模式: spec.md 路径")
+    p.add_argument("--acceptance-file", help="离线模式: acceptance.md 路径(L7 锚点校验)")
     p.add_argument("--issues-json", help="离线模式: issue 列表 JSON 路径")
     args = p.parse_args()
 
@@ -383,9 +462,13 @@ def main() -> int:
         spec_frs = {f"FR-{a.split('-')[1].zfill(3)}" for a in RE_ANCHOR.findall(spec_text)}
         with open(args.issues_json, "r", encoding="utf-8") as f:
             issues = json.load(f)
-        # 离线模式:任何 spec_url 都视为指向同一份 spec fixture
-        # (L4 不发网络请求,L5/L6 用这份 fixture 的锚点表)
+        # 离线模式:任何 spec_url/ac_url 都视为指向同一份 fixture
+        # (L4/L7 不发网络请求,L5/L6 用 spec fixture 的锚点表;L7 用 acceptance fixture)
         spec_cache: dict[str, str] = {"OFFLINE": spec_text}
+        if args.acceptance_file:
+            acc_path = Path(args.acceptance_file)
+            if acc_path.exists():
+                spec_cache["OFFLINE_ACC"] = acc_path.read_text(encoding="utf-8")
     else:
         if not args.spec:
             sys.stderr.write("--spec 必填(或使用 --offline)\n")

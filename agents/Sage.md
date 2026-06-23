@@ -159,7 +159,7 @@ git push
 
 ### Step 4: Spec 锁定
 
-现在，你要给每个 FR/NFR/US 项目，增加一个 html锚。示例如下：
+现在，你要给每个 FR/NFR/US 项目，在 **spec.md** 中增加一个 html 锚。示例如下：
 
 ```md
 <a id="us-010"></a>
@@ -176,7 +176,20 @@ story: 作为设计师，我想有一个画圆的工具
 
 锚的格式是，对应的需求 ID 转为小写即可。
 
-提交并推送修改。
+**同时**，在 **acceptance.md** 中，给每个 `## FR-XXX` 小节也增加一个 html 锚（一个 FR 对应多条 AC，但只在 `## FR-XXX` 的**上方**插入一个锚，指向整个 AC 块）。示例如下：
+
+```md
+<a id="ac-fr-010"></a>
+
+## FR-010
+
+- AC-1: 用户点击工具栏中的"圆"按钮后，画布上出现一个半径 0.5m 的圆
+- AC-2: 圆的描边粗细与工具条当前设置一致
+```
+
+acceptance.md 中锚的格式固定为 `ac-{fr-id 小写}`，与 spec.md 中的 `fr-xxx` 锚区分开（同名锚在不同文件里其实不冲突，但加 `ac-` 前缀可以让下游 issue body 一眼看出指向 AC 块）。
+
+提交并推送修改（spec.md + acceptance.md 一并 commit）。
 
 ### Step 5: 创建 GitHub Issue
 
@@ -188,18 +201,19 @@ story: 作为设计师，我想有一个画圆的工具
 **Schema 来源**：`.github/ISSUE_TEMPLATE/feature.yml`（已 check in）定义了 3 个必填字段：
 - `需求 ID`：必须 `^FR-\d{3}$`
 - `Spec 链接`：必须 `^https://github.com/.../spec\.md#fr-\d{3}$`（fragment 小写）
-- `验收标准`：每行 `^AC-\d+: ...`（从 1 开始连续编号）
+- `验收标准`：指向 acceptance.md 中该 FR 的 AC 块锚点（`#ac-fr-\d{3}$`，fragment 小写）
 
 **先确定链接目标**（在创建 issue 之前执行一次）：
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-# spec.md 在 release 分支上,不在 main。读当前 checkout 的分支名。
+# spec.md / acceptance.md 都在 release 分支上,不在 main。读当前 checkout 的分支名。
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-SPEC_URL="https://github.com/${REPO}/blob/${BRANCH}/specs/${SPEC_ID}/spec.md"
+SPEC_URL="https://github.com/${REPO}/blob/${BRANCH}/.specforge/project/specs/${SPEC_ID}/spec.md"
+ACCEPTANCE_URL="https://github.com/${REPO}/blob/${BRANCH}/.specforge/project/specs/${SPEC_ID}/acceptance.md"
 ```
 
-**创建 issue**（`{需求ID}` 形如 `FR-001`，对应 spec.md 中的 `<a id="fr-001"></a>` 锚点）：
+**创建 issue**（`{需求ID}` 形如 `FR-001`，对应 spec.md 中的 `<a id="fr-001"></a>` 锚点，以及 acceptance.md 中的 `<a id="ac-fr-001"></a>` 锚点）：
 
 ```bash
 gh issue create \
@@ -213,10 +227,14 @@ ${FR_ID}
 ${SPEC_URL}#${FR_LOWER}
 
 ### 验收标准
-${AC_LINES}
+${ACCEPTANCE_URL}#${AC_LOWER}
 EOF
 )"
 ```
+
+其中：
+- `FR_LOWER` = `FR_ID` 转小写（如 `fr-001`），对应 spec.md 中 Step 4 插入的锚
+- `AC_LOWER` = `ac-${FR_LOWER}`（如 `ac-fr-001`），对应 acceptance.md 中 Step 4 插入的锚
 
 **创建规则**：
 - **一对一**：每个 `FR-{3位序号}` 对应一个 issue

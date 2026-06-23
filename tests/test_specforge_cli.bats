@@ -194,22 +194,31 @@ teardown() {
 # ---------- verify-issue 参数透传 ----------
 
 @test "CLI-400: verify-issue 透传 --offline + spec-file + issues-json" {
-    # 写一份最小 spec.md(只有一个锚点 FR-001)+ 一份合法 form-rendered issue
+    # 写一份最小 spec.md(只有一个锚点 FR-001)+ acceptance.md + 一份合法 form-rendered issue
     cat > "$TEST_DIR/spec.md" <<'EOF'
 # test spec
 <a id="fr-001"></a>
 ## FR-001
 done.
 EOF
+    cat > "$TEST_DIR/acceptance.md" <<'EOF'
+# test acceptance
+<a id="ac-fr-001"></a>
+## FR-001
+
+### AC-1
+- it works
+EOF
     # GitHub 把 form 字段渲染为 ### Label / value 格式
     cat > "$TEST_DIR/issues.json" <<'EOF'
 [
   {"number": 1, "title": "[FR-001] test feature", "labels": [{"name": "Feature"}],
-   "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.specforge/project/specs/001/spec.md#fr-001\n\n### 验收标准\nAC-1: it works\n"}
+   "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.specforge/project/specs/001/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.specforge/project/specs/001/acceptance.md#ac-fr-001\n"}
 ]
 EOF
     run bash "$CLI" verify-issue --offline \
         --spec-file "$TEST_DIR/spec.md" \
+        --acceptance-file "$TEST_DIR/acceptance.md" \
         --issues-json "$TEST_DIR/issues.json"
     [ "$status" -eq 0 ]
     [[ "$output" != *"L2"* ]]
