@@ -38,10 +38,12 @@ from typing import Any
 
 # ---------- 正则定义 ----------
 
-# spec.md 中的 FR/NFR 节: ## FR-010 {title} 或 ## NFR-020 {title}
-RE_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
+# spec.md 中的 FR/NFR 节: ### FR-010 {title} 或 ### NFR-020 {title}
+# (FR 用三级标题, 二级留给"功能需求/非功能需求"等语义分组节)
+RE_FR_SECTION = re.compile(r"^###\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
 
 # acceptance.md 中的 FR/NFR 节: ## FR-010 {title}
+# (acceptance.md 没有语义分组, FR 直接二级)
 RE_ACC_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
 
 # acceptance.md 中的 AC 节: ### AC-1 或 ### AC-2
