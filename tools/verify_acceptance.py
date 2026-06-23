@@ -39,10 +39,10 @@ from typing import Any
 # ---------- 正则定义 ----------
 
 # spec.md 中的 FR/NFR 节: ## FR-010 {title} 或 ## NFR-020 {title}
-RE_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\s", re.MULTILINE)
+RE_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
 
 # acceptance.md 中的 FR/NFR 节: ## FR-010 {title}
-RE_ACC_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\s", re.MULTILINE)
+RE_ACC_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
 
 # acceptance.md 中的 AC 节: ### AC-1 或 ### AC-2
 RE_AC_SECTION = re.compile(r"^###\s+AC-(\d+)\s*$", re.MULTILINE)
