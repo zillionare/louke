@@ -13,9 +13,10 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
 检查项(L1-L8):
   L1 标题格式:    ^\[FR-\d{3}\]
   L2 需求 ID 字段: 存在且匹配 ^FR-\d{3}$
-  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec\.md#(fr|nfr)-\d{3}$
-  L4 spec 可达:    gh api 可拉取 spec.md 原文
-  L5 锚点存在:    spec.md 中存在 <a id="fr-XXX"></a>
+  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec(-\w+)?\.md#(fr|nfr)-\d{3}$
+                  (支持单文件 spec.md 与多分册 spec-{name}.md)
+  L4 spec 可达:    gh api 可拉取 spec 原文 (尝试 /specs/{id}/ 和 /{id}/ 两种布局)
+  L5 锚点存在:    spec 中存在 <a id="fr-XXX"></a>
   L6 锚点内容:    锚点上下文包含 "FR-XXX" 字样(防锚点误复用)
   L7 AC 锚点:      验收标准字段是 acceptance.md 完整 URL + 锚点可达 + 锚点存在 + 上下文含 FR-XXX
   L8 双向覆盖:    spec 中每个 FR 都有 issue;issue 中每个 FR 都在 spec
@@ -45,16 +46,21 @@ from typing import Any
 
 RE_FR_ID = re.compile(r"^(FR|NFR)-\d{3}$")
 RE_FR_IN_TITLE = re.compile(r"^\[(FR|NFR)-(\d{3})\]")
+# spec 文件路径: 支持单文件 (spec.md) 和多分册 (spec-{name}.md)
+# 目录: /specs/{id}/ (spec 004 默认) 或 /{id}/ (部分项目, 如 millionaire)
 RE_SPEC_URL = re.compile(
     r"^https://github\.com/"
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
-    r"(?P<branch>[A-Za-z0-9._/-]+)/\.specforge/project/specs/(?P<spec_id>[A-Za-z0-9._-]+)/spec\.md"
+    r"(?P<branch>[A-Za-z0-9._/-]+)"
+    r"/\.specforge/project/(?:specs/)?(?P<spec_id>[A-Za-z0-9._-]+)/spec(?P<vol_suffix>-\w+)?\.md"
     r"#(?P<fragment>(?:fr|nfr)-\d{3})$"
 )
+# acceptance.md 不带 vol_suffix: 一个 spec-id 一份 acceptance.md
 RE_AC_URL = re.compile(
     r"^https://github\.com/"
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
-    r"(?P<branch>[A-Za-z0-9._/-]+)/\.specforge/project/specs/(?P<spec_id>[A-Za-z0-9._-]+)/acceptance\.md"
+    r"(?P<branch>[A-Za-z0-9._/-]+)"
+    r"/\.specforge/project/(?:specs/)?(?P<spec_id>[A-Za-z0-9._-]+)/acceptance\.md"
     r"#(?P<fragment>ac-(?:fr|nfr)-\d{3})$"
 )
 RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{3})"></a>')
@@ -186,19 +192,22 @@ def check_issue(
                 # 离线模式:复用 fixture spec
                 spec_text = spec_cache["OFFLINE"]
             else:
-                spec_key = f"{m.group('owner')}/{m.group('repo')}@{m.group('branch')}:{m.group('spec_id')}"
+                spec_filename = f"spec{m.group('vol_suffix') or ''}.md"
+                spec_key = f"{m.group('owner')}/{m.group('repo')}@{m.group('branch')}:{m.group('spec_id')}/{spec_filename}"
                 if spec_key not in spec_cache:
                     spec_cache[spec_key] = fetch_spec_markdown(
                         m.group("owner"),
                         m.group("repo"),
                         m.group("branch"),
                         m.group("spec_id"),
+                        spec_filename,
                     )
                 spec_text = spec_cache[spec_key]
 
             if spec_text is None:
+                spec_filename = f"spec{m.group('vol_suffix') or ''}.md"
                 ic.failures.append(
-                    f"L4 无法获取 spec 文件 .specforge/project/specs/{m.group('spec_id')}/spec.md "
+                    f"L4 无法获取 spec 文件 .specforge/project/(specs/)?{m.group('spec_id')}/{spec_filename} "
                     f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
                 )
             else:
@@ -262,7 +271,7 @@ def check_issue(
 
             if acc_text is None:
                 ic.failures.append(
-                    f"L7 无法获取 acceptance 文件 .specforge/project/specs/{m.group('spec_id')}/acceptance.md "
+                    f"L7 无法获取 acceptance 文件 .specforge/project/(specs/)?{m.group('spec_id')}/acceptance.md "
                     f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
                 )
             else:
@@ -289,74 +298,86 @@ def check_issue(
 
 
 def fetch_spec_markdown(
-    owner: str, repo: str, branch: str, spec_id: str
+    owner: str, repo: str, branch: str, spec_id: str, spec_filename: str = "spec.md"
 ) -> str | None:
     """
-    用 gh api 拉取 spec.md 原文。返回 None 表示拉取失败。
+    用 gh api 拉取 spec 原文。返回 None 表示拉取失败。
     gh api 自动处理公私仓库 auth。
+
+    spec_filename: 默认 spec.md; 多分册时为 spec-{vol}.md (如 spec-strategy.md).
+    同时尝试两种目录布局: /specs/{id}/ (spec 004+) 和 /{id}/ (部分项目).
     """
-    path = f".specforge/project/specs/{spec_id}/spec.md"
-    try:
-        out = subprocess.check_output(
-            [
-                "gh",
-                "api",
-                f"repos/{owner}/{repo}/contents/{path}",
-                "-H",
-                f"Accept: application/vnd.github.raw",
-                "--method",
-                "GET",
-                "--field",
-                f"ref={branch}",
-            ],
-            stderr=subprocess.STDOUT,
-        )
-        return out.decode("utf-8", errors="replace")
-    except subprocess.CalledProcessError as e:
+    candidates = [
+        f".specforge/project/specs/{spec_id}/{spec_filename}",
+        f".specforge/project/{spec_id}/{spec_filename}",
+    ]
+    last_err: str | None = None
+    for path in candidates:
+        try:
+            out = subprocess.check_output(
+                [
+                    "gh",
+                    "api",
+                    f"repos/{owner}/{repo}/contents/{path}",
+                    "-H",
+                    f"Accept: application/vnd.github.raw",
+                    "--method",
+                    "GET",
+                    "--field",
+                    f"ref={branch}",
+                ],
+                stderr=subprocess.STDOUT,
+            )
+            return out.decode("utf-8", errors="replace")
+        except subprocess.CalledProcessError as e:
+            last_err = e.output.decode(errors="replace")
+            continue
+    if last_err:
         sys.stderr.write(
-            f"[warn] gh api failed for {owner}/{repo}@{branch}:{path}\n"
-            f"       {e.output.decode(errors='replace')}\n"
+            f"[warn] gh api failed for {owner}/{repo}@{branch}: tried {candidates}\n"
+            f"       {last_err}\n"
         )
-        return None
-    except FileNotFoundError:
-        sys.stderr.write(
-            "[warn] gh CLI not found;请安装 https://cli.github.com/\n"
-        )
-        return None
+    return None
 
 
 def fetch_acceptance_markdown(
     owner: str, repo: str, branch: str, spec_id: str
 ) -> str | None:
-    """用 gh api 拉取 acceptance.md 原文。返回 None 表示拉取失败。"""
-    path = f".specforge/project/specs/{spec_id}/acceptance.md"
-    try:
-        out = subprocess.check_output(
-            [
-                "gh",
-                "api",
-                f"repos/{owner}/{repo}/contents/{path}",
-                "-H",
-                f"Accept: application/vnd.github.raw",
-                "--method",
-                "GET",
-                "--field",
-                f"ref={branch}",
-            ],
-            stderr=subprocess.STDOUT,
-        )
-        return out.decode("utf-8", errors="replace")
-    except subprocess.CalledProcessError as e:
+    """用 gh api 拉取 acceptance.md 原文。返回 None 表示拉取失败。
+
+    同样尝试两种目录布局: /specs/{id}/ 和 /{id}/.
+    """
+    candidates = [
+        f".specforge/project/specs/{spec_id}/acceptance.md",
+        f".specforge/project/{spec_id}/acceptance.md",
+    ]
+    last_err: str | None = None
+    for path in candidates:
+        try:
+            out = subprocess.check_output(
+                [
+                    "gh",
+                    "api",
+                    f"repos/{owner}/{repo}/contents/{path}",
+                    "-H",
+                    f"Accept: application/vnd.github.raw",
+                    "--method",
+                    "GET",
+                    "--field",
+                    f"ref={branch}",
+                ],
+                stderr=subprocess.STDOUT,
+            )
+            return out.decode("utf-8", errors="replace")
+        except subprocess.CalledProcessError as e:
+            last_err = e.output.decode(errors="replace")
+            continue
+    if last_err:
         sys.stderr.write(
-            f"[warn] gh api failed for {owner}/{repo}@{branch}:{path}\n"
-            f"       {e.output.decode(errors='replace')}\n"
+            f"[warn] gh api failed for {owner}/{repo}@{branch}: tried {candidates}\n"
+            f"       {last_err}\n"
         )
-        return None
-    except FileNotFoundError:
-        sys.stderr.write(
-            "[warn] gh CLI not found;请安装 https://cli.github.com/\n"
-        )
-        return None
+    return None
 
 
 # ---------- 报告 ----------

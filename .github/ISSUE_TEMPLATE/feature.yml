@@ -17,18 +17,18 @@ body:
     id: spec_url
     attributes:
       label: Spec 链接
-      description: 完整 GitHub URL，fragment 必须小写（#fr-001，不是 #FR-001）
+      description: 完整 GitHub URL，fragment 必须小写（#fr-001，不是 #FR-001）。支持单文件 (spec.md) 与多分册 (spec-{name}.md)，目录可放 /specs/{id}/ 或 /{id}/。
       placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/spec.md#fr-001
     validations:
       required: true
-      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/specs/[A-Za-z0-9._-]+/spec\\.md#(fr|nfr)-\\d{3}$"
+      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/(specs/)?[A-Za-z0-9._-]+/spec(-\\w+)?\\.md#(fr|nfr)-\\d{3}$"
 
   - type: input
     id: acceptance_criteria
     attributes:
       label: 验收标准
-      description: 指向 acceptance.md 中该 FR 的 AC 块锚点 URL（每个 FR 对应一个 ac-fr-XXX 锚，覆盖整个 AC 列表）。Probe 会从 acceptance.md 拉取 AC-N 列表生成测试用例，Herald 会逐条核验。
+      description: 指向 acceptance.md 中该 FR 的 AC 块锚点 URL（每个 FR 对应一个 ac-fr-XXX 锚，覆盖整个 AC 列表）。Probe 会从 acceptance.md 拉取 AC-N 列表生成测试用例，Herald 会逐条核验。目录可放 /specs/{id}/ 或 /{id}/。
       placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/acceptance.md#ac-fr-001
     validations:
       required: true
-      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/specs/[A-Za-z0-9._-]+/acceptance\\.md#ac-(fr|nfr)-\\d{3}$"
+      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/(specs/)?[A-Za-z0-9._-]+/acceptance\\.md#ac-(fr|nfr)-\\d{3}$"

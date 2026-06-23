@@ -60,15 +60,16 @@ make_acceptance_fixture() {
     [ "$status" -eq 0 ]
 }
 
-@test "FORM-007: Spec 链接字段的 regex 含 GitHub URL + spec.md + fr- 锚点" {
-    # Spec 链接字段的 regex 中, 同时含 spec.md 和 (fr|nfr)-
+@test "FORM-007: Spec 链接字段的 regex 含 GitHub URL + spec(.md|-\w+)/?md + fr- 锚点" {
+    # Spec 链接字段的 regex 中, 同时含 spec.md (含多分册 spec-{name}.md) 和 (fr|nfr)-
     run python3 -c "
 import yaml, sys
 y = yaml.safe_load(open('$FORM'))
 for f in y['body']:
     if f.get('id') == 'spec_url':
         r = f['validations']['regex']
-        assert 'spec.md' in r or 'spec\\\\.md' in r, f'spec.md missing in {r}'
+        # 支持单文件 spec.md 与多分册 spec(-\w+)?\.md
+        assert 'spec(-\\\\w+)?\\\\.md' in r or 'spec(-\\w+)?\\.md' in r, f'spec(-\\w+)?\\.md missing in {r}'
         assert 'fr|nfr' in r, f'fr|nfr missing in {r}'
         assert r.endswith(r'-\d{3}\$'), f'd3 anchor missing in {r}'
         sys.exit(0)
@@ -318,4 +319,106 @@ print(json.dumps(issues, ensure_ascii=False))
     [ "$status" -eq 0 ]
     [[ "$output" == *"[通过]"* ]]
     [[ "$output" == *"11 个"* ]]
+}
+
+# ---------- 多分册 spec (issue #69 场景) ----------
+
+@test "VERIFY-400: 多分册 spec (spec-{vol}.md) 离线模式通过" {
+    # 模拟 millionaire 项目: spec_id=v0.2-001, 文件名 spec-strategy.md
+    SPEC_FIX="$BATS_TEST_TMPDIR/multi_spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Strategy Spec
+<a id="fr-010"></a>
+**FR-010**: 策略一
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/multi_acc.md"
+    make_acceptance_fixture "$ACC_FIX" "010"
+    FIXTURE="$BATS_TEST_TMPDIR/multi_issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {
+    "number": 7,
+    "title": "[FR-010] 策略一",
+    "body": "### 需求 ID\nFR-010\n\n### Spec 链接\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.specforge/project/v0.2-001-strategy-framework/spec-strategy.md#fr-010\n\n### 验收标准\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.specforge/project/v0.2-001-strategy-framework/acceptance.md#ac-fr-010\n",
+    "state": "open"
+  }
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[通过]"* ]]
+}
+
+@test "VERIFY-401: 多分册 spec 文件名但无 vol_suffix 仍允许" {
+    # spec.md (无 -vol) 走 /specs/{id}/ 路径 (spec 004+ 默认)
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# spec
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_fixture "$ACC_FIX" "001"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.specforge/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[通过]"* ]]
+}
+
+@test "VERIFY-402: /specs/ 路径与裸 {id}/ 路径同时被允许" {
+    # /specs/{id}/ (spec 004+) 与 /{id}/ (millionaire 等) 都要支持
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# x
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_fixture "$ACC_FIX" "001"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.specforge/project/v0.2-001/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.specforge/project/v0.2-001/acceptance.md#ac-fr-001\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[通过]"* ]]
+}
+
+@test "VERIFY-403: L3 拒绝非 spec(.md|-\w+.md) 形式的文件名" {
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# x
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_fixture "$ACC_FIX" "001"
+    FIXTURE="$BATS_TEST_TMPDIR/bad_filename.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.specforge/project/specs/v0.4-004/requirements.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.specforge/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"L3"* ]]
 }
