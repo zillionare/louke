@@ -2,10 +2,10 @@
 
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 
-@test "WIKI-001: Librarian mentions wiki/pages/ directory" {
-    run grep -qE "wiki/pages/" "$AGENTS_DIR/Librarian.md"
+@test "WIKI-001: Librarian mentions .specforge/wiki/pages/ directory" {
+    run grep -qE "\.specforge/wiki/pages/" "$AGENTS_DIR/Librarian.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Librarian.md does not mention wiki/pages/"
+        echo "FAIL: Librarian.md does not mention .specforge/wiki/pages/"
         false
     }
 }
@@ -42,7 +42,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     }
 }
 
-@test "WIKI-006: All agents write to wiki/pages/ not wiki/entries/" {
+@test "WIKI-006: All agents write to .specforge/wiki/pages/ not wiki/entries/" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         # Skip Librarian and Guide, ROSTER, README
@@ -50,21 +50,21 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
             Librarian.md|Guide.md|ROSTER.md|README.md) continue ;;
         esac
         if grep -q "wiki/entries/" "$file"; then
-            echo "FAIL: $filename still references wiki/entries/ instead of wiki/pages/"
+            echo "FAIL: $filename still references wiki/entries/ instead of .specforge/wiki/pages/"
             return 1
         fi
     done
 }
 
-@test "WIKI-007: All agents with session save write to wiki/pages/" {
+@test "WIKI-007: All agents with session save write to .specforge/wiki/pages/" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         case "$filename" in
             Librarian.md|Guide.md|ROSTER.md|README.md) continue ;;
         esac
         if grep -q "会话保存规范" "$file"; then
-            grep -q "wiki/pages/" "$file" || {
-                echo "FAIL: $filename has session save but does not reference wiki/pages/"
+            grep -q "\.specforge/wiki/pages/" "$file" || {
+                echo "FAIL: $filename has session save but does not reference .specforge/wiki/pages/"
                 return 1
             }
         fi
@@ -101,10 +101,10 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     done
 }
 
-@test "WIKI-010: Guide references wiki/index.md for queries" {
-    run grep -qE "wiki/index\.md" "$AGENTS_DIR/Guide.md"
+@test "WIKI-010: Guide references .specforge/wiki/index.md for queries" {
+    run grep -qE "\.specforge/wiki/index\.md" "$AGENTS_DIR/Guide.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Guide.md does not reference wiki/index.md for queries"
+        echo "FAIL: Guide.md does not reference .specforge/wiki/index.md for queries"
         false
     }
 }

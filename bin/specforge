@@ -16,6 +16,9 @@ set -euo pipefail
 # SPECFORGE_HOME: framework 安装目录 (含 agents/templates/tools/VERSION)
 # 默认 ~/.specforge; 开发者本地可直接 SPECFORGE_HOME=. ./bin/specforge ...
 SPECFORGE_HOME="${SPECFORGE_HOME:-$HOME/.specforge}"
+# BIN_DIR: where install.sh places the user's $PATH entry. Used by `upgrade` to
+# refresh that copy so the new binary is in effect immediately (v0.5-005 NFR-030).
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 
 VERSION="$(cat "$SPECFORGE_HOME/VERSION" 2>/dev/null || echo "dev")"
 
@@ -80,7 +83,7 @@ Commands (User-driven — 人跑):
   init <name>             新建 <name>/ 子项目(拷贝 agents/templates 到 .specforge/)
   init <path>             接入既存项目 (adopt 模式),非破坏性合并
                           Flags: --dry-run --backup --force --no-gitignore
-                                 --with-issue-template --json
+                                 --no-migrate --with-issue-template --json
   upgrade                 git pull --ff-only 到 \$SPECFORGE_HOME (拒绝非 main 分支)
   version                 打印版本 + install 路径
   help                    显示本帮助
@@ -150,13 +153,15 @@ cmd_init_new() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    # 目录布局:
+    # 目录布局 (v0.5-005: 全部收归到 .specforge/ 命名空间):
     #   .specforge/agents/      框架资产副本 (本地, 不入库)
     #   .specforge/templates/   框架资产副本 (本地, 不入库)
     #   .specforge/project/     项目产出物 (project-info.md, specs/) — install/uninstall 不触碰
+    #   .specforge/wiki/        Agent 知识库 (wiki/pages + wiki/decisions + index/overview/log)
+    #   .specforge/raw/         Agent 会话原始记录 (raw/sources/)
     #
-    # init 只创建 agents/ templates/ 与 project/ 占位; project/ 下的文件由 Scout/Sage 等后续 agent 创建.
-    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,.specforge/project,wiki/pages,wiki/decisions,raw/sources}
+    # init 只创建占位; project/ 与 wiki/ 下的文件由 Scout/Sage 等后续 agent 创建.
+    mkdir -p "$PROJECT_NAME"/{.specforge/agents,.specforge/templates,.specforge/project,.specforge/wiki/pages,.specforge/wiki/decisions,.specforge/raw/sources}
     cp "$SPECFORGE_HOME"/agents/*.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
@@ -206,7 +211,8 @@ specforge project '$PROJECT_NAME' initialized!
   项目目录:   $(pwd)/$PROJECT_NAME
   Agent 目录:  $PROJECT_NAME/.specforge/agents/   ($AGENT_COUNT 个 Agent prompt)
   模板目录:    $PROJECT_NAME/.specforge/templates/ ($TEMPLATE_COUNT 个模板)
-  Wiki 目录:   $PROJECT_NAME/wiki/
+  Wiki 目录:   $PROJECT_NAME/.specforge/wiki/
+  会话原始:   $PROJECT_NAME/.specforge/raw/
 
 模型建议:
   - A 档 (Sage/Lex/Maestro):  主推理模型 — kimi-k2 / sonnet / gpt-5
@@ -225,6 +231,46 @@ specforge project '$PROJECT_NAME' initialized!
 EOF
 }
 
+# migrate_legacy_paths: v0.5-005 (FR-030/FR-040/FR-050)
+# Auto-move legacy root-level wiki/ and raw/ to .specforge/ namespace.
+# - uses git mv when paths are tracked, plain mv otherwise
+# - dry-run prints plan only
+# - --no-migrate skips entirely, hint recorded in migrated_list
+# - dies on conflict (both old and new exist) to prevent data loss
+migrate_legacy_paths() {
+    local pairs=("wiki:.specforge/wiki" "raw:.specforge/raw")
+    if [ "$NO_MIGRATE" -eq 1 ]; then
+        for pair in "${pairs[@]}"; do
+            local old="${pair%%:*}"
+            [ -d "$old" ] || continue
+            migrated_list="${migrated_list}${old}/ → .specforge/${old}/ (skipped: --no-migrate)"$'\n'
+        done
+        return
+    fi
+    for pair in "${pairs[@]}"; do
+        local old="${pair%%:*}"
+        local new="${pair##*:}"
+        [ -d "$old" ] || continue
+        if [ -e "$new" ]; then
+            die "cannot migrate '$old/' to '$new/': destination already exists. resolve manually then re-run init."
+        fi
+        if [ "$DRY_RUN" -eq 1 ]; then
+            migrated_list="${migrated_list}${old}/ → ${new}/ (dry-run)"$'\n'
+            continue
+        fi
+        # git mv requires the parent of the destination to exist
+        local parent
+        parent="$(dirname "$new")"
+        [ -d "$parent" ] || mkdir -p "$parent"
+        if git ls-files --error-unmatch "$old" >/dev/null 2>&1; then
+            git mv "$old" "$new" || die "git mv '$old' '$new' failed"
+        else
+            mv "$old" "$new" || die "mv '$old' '$new' failed"
+        fi
+        migrated_list="${migrated_list}${old}/ → ${new}/"$'\n'
+    done
+}
+
 # cmd_init_adopt: full FR-009..FR-015 implementation
 # Flags:
 #   --backup         back up existing files as .bak before skip (FR-011)
@@ -232,9 +278,10 @@ EOF
 #   --dry-run        print what would happen, change nothing (FR-012)
 #   --with-issue-template  install .github/ISSUE_TEMPLATE/feature.yml
 #   --no-gitignore   skip .gitignore append (FR-014)
+#   --no-migrate     skip auto-migration of legacy wiki/ and raw/ to .specforge/ (FR-040)
 #   --json           emit machine-readable JSON (FR-013)
 cmd_init_adopt() {
-    local BACKUP=0 FORCE=0 DRY_RUN=0 ISSUE_TEMPLATE=0 NO_GITIGNORE=0 JSON=0
+    local BACKUP=0 FORCE=0 DRY_RUN=0 ISSUE_TEMPLATE=0 NO_GITIGNORE=0 NO_MIGRATE=0 JSON=0
     local TARGET=""
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -243,6 +290,7 @@ cmd_init_adopt() {
             --dry-run)              DRY_RUN=1 ;;
             --with-issue-template)  ISSUE_TEMPLATE=1 ;;
             --no-gitignore)         NO_GITIGNORE=1 ;;
+            --no-migrate)           NO_MIGRATE=1 ;;
             --json)                 JSON=1 ;;
             -*)                     die "unknown flag: $1" ;;
             *)                      TARGET="$1" ;;
@@ -250,7 +298,7 @@ cmd_init_adopt() {
         shift
     done
 
-    [ -n "$TARGET" ] || die "Usage: specforge init <existing-path> [--dry-run] [--backup|--force] [--no-gitignore] [--with-issue-template] [--json]"
+    [ -n "$TARGET" ] || die "Usage: specforge init <existing-path> [--dry-run] [--backup|--force] [--no-gitignore] [--no-migrate] [--with-issue-template] [--json]"
 
     # FR-015: target must be a git repo
     [ -d "$TARGET/.git" ] || die "adopt target '$TARGET' is not a git repo; run 'git init' first"
@@ -263,10 +311,15 @@ cmd_init_adopt() {
     [ -d "$SPECFORGE_HOME/agents" ] || die "agents/ not found in $SPECFORGE_HOME — is specforge installed?"
     [ -d "$SPECFORGE_HOME/templates" ] || die "templates/ not found in $SPECFORGE_HOME"
 
-    # FR-010: create-if-missing for specforge-owned dirs.
+    # v0.5-005 FR-030: auto-migrate legacy root-level wiki/ and raw/ → .specforge/
+    # (replaces the create-if-missing loop in v0.3-003 FR-010 with new paths)
+    local migrated_list=""
+    migrate_legacy_paths
+
+    # v0.5-005 FR-020: create-if-missing for specforge-owned dirs (all under .specforge/).
     # 注意: .specforge/project/ 是项目产出物根目录; init 不会触碰其下任何文件,
     # 只在该目录缺失时 mkdir 一个空壳, 让 Scout/Sage 等后续 agent 写入时不至于路径不存在.
-    for d in .specforge/agents .specforge/templates .specforge/project wiki/pages wiki/decisions raw/sources; do
+    for d in .specforge/agents .specforge/templates .specforge/project .specforge/wiki/pages .specforge/wiki/decisions .specforge/raw/sources; do
         if [ ! -d "$d" ]; then
             [ "$DRY_RUN" -eq 0 ] && mkdir -p "$d"
         fi
@@ -345,24 +398,27 @@ cmd_init_adopt() {
             && cp "$SPECFORGE_HOME/.github/ISSUE_TEMPLATE/feature.yml" ".github/ISSUE_TEMPLATE/feature.yml"
     fi
 
-    # FR-013: report
-    local added_n skipped_n backed_n
+    # FR-013: report (v0.5-005: add [→] for migrations)
+    local added_n skipped_n backed_n migrated_n
     added_n=$(echo -n "$added_list" | grep -c . || true)
     skipped_n=$(echo -n "$skipped_list" | grep -c . || true)
     backed_n=$(echo -n "$backed_list" | grep -c . || true)
+    migrated_n=$(echo -n "$migrated_list" | grep -c . || true)
 
     if [ "$JSON" -eq 1 ]; then
-        local added_j="" skipped_j="" backed_j=""
-        [ -n "$added_list" ]   && added_j=$(echo "$added_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
+        local added_j="" skipped_j="" backed_j="" migrated_j=""
+        [ -n "$added_list"   ] && added_j=$(echo "$added_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
         [ -n "$skipped_list" ] && skipped_j=$(echo "$skipped_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
-        [ -n "$backed_list" ]  && backed_j=$(echo "$backed_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
-        echo "{ \"added\": [${added_j:-}], \"skipped\": [${skipped_j:-}], \"backed_up\": [${backed_j:-}] }"
+        [ -n "$backed_list"  ] && backed_j=$(echo "$backed_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
+        [ -n "$migrated_list" ] && migrated_j=$(echo "$migrated_list" | grep . | sed 's/.*/"&"/' | paste -sd, -)
+        echo "{ \"added\": [${added_j:-}], \"skipped\": [${skipped_j:-}], \"backed_up\": [${backed_j:-}], \"migrated\": [${migrated_j:-}] }"
     else
+        [ -n "$migrated_list" ] && echo "$migrated_list" | grep . | sed 's/^/[→] /'
         [ -n "$added_list" ]   && echo "$added_list"   | grep . | sed 's/^/[+] /'
         [ -n "$skipped_list" ] && echo "$skipped_list" | grep . | sed 's/^/[=] /'
         [ -n "$backed_list" ]  && echo "$backed_list"  | grep . | sed 's/^/[!] /'
         echo
-        echo "$added_n 个新文件, $skipped_n 个跳过, $backed_n 个备份"
+        echo "$added_n 个新文件, $skipped_n 个跳过, $backed_n 个备份, $migrated_n 个迁移"
     fi
 }
 
@@ -525,6 +581,17 @@ cmd_upgrade() {
     local NEW_VERSION
     NEW_VERSION="$(cat "$SPECFORGE_HOME/VERSION" 2>/dev/null || echo "?")"
     note "upgraded to $NEW_VERSION"
+
+    # v0.5-005 NFR-030: refresh $BIN_DIR/specforge so the user's $PATH entry picks up
+    # new subcommands/flags. install.sh copies this file at install time but the upgrade
+    # path didn't, so users kept running the pre-upgrade binary.
+    if [ -n "${BIN_DIR:-}" ] && [ -d "$BIN_DIR" ]; then
+        if cp "$SPECFORGE_HOME/bin/specforge" "$BIN_DIR/specforge" 2>/dev/null; then
+            note "refreshed $BIN_DIR/specforge"
+        else
+            note "could not refresh $BIN_DIR/specforge (not writable); call install.sh or cp manually"
+        fi
+    fi
 }
 
 # ---------- dispatch ----------

@@ -161,7 +161,7 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 git status                                    # 确认当前在 releases/{version}
 git add .specforge/project/specs/{Spec-ID}/*.md
 git add .specforge/project/project-info.md
-git add wiki/pages/{主题关键词}.md
+git add .specforge/wiki/pages/{主题关键词}.md
 git commit -m "story/prd: initial draft from user conversation for {Spec-ID}"
 git push -u origin releases/{version}
 ```
@@ -212,7 +212,7 @@ Agent 可用性: {数量} prompt 文件
 
 每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
 
-**写入路径**：`wiki/pages/{主题关键词}.md`
+**写入路径**：`.specforge/.specforge/wiki/pages/{主题关键词}.md`
 
 **写入格式**：
 ```

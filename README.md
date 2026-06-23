@@ -366,36 +366,38 @@ templates/
 
 ## 7. Wiki 架构（LLM-Wiki 模式）
 
-基于 Karpathy 的 [LLM-Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 模式，三层架构：
+基于 Karpathy 的 [LLM-Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 模式，三层架构。所有目录位于 `.specforge/` 命名空间下（v0.5-005 决策，见 ADR 006）：
 
 ```
-raw/sources/        ← Agent 完整会话记录（零 token，由 Hook 或 Agent 自行写入）
-wiki/pages/         ← 结构化 wiki 页面（Agent 对话结束时零额外 token 写入，带 YAML frontmatter + [[wikilink]]）
-  ├── {主题}.md     ← 每个 Agent 会话产出为一个 wiki 页面
+.specforge/raw/sources/         ← Agent 完整会话记录（零 token，由 Hook 或 Agent 自行写入）
+.specforge/wiki/pages/          ← 结构化 wiki 页面（Agent 对话结束时零额外 token 写入，带 YAML frontmatter + [[wikilink]]）
+  ├── {主题}.md                  ← 每个 Agent 会话产出为一个 wiki 页面
   └── ...
-wiki/decisions/     ← 架构决策记录 (ADR)
-wiki/index.md       ← 导航目录（Librarian 维护）
-wiki/log.md         ← 操作日志（Librarian 维护）
-wiki/overview.md    ← 全局摘要（Librarian 维护）
-wiki/.cache         ← SHA256 增量缓存（Librarian 内部使用）
+.specforge/wiki/decisions/      ← 架构决策记录 (ADR)
+.specforge/wiki/index.md        ← 导航目录（Librarian 维护）
+.specforge/wiki/log.md          ← 操作日志（Librarian 维护）
+.specforge/wiki/overview.md     ← 全局摘要（Librarian 维护）
+.specforge/wiki/.cache          ← SHA256 增量缓存（Librarian 内部使用）
 ```
+
+> **升级提示**：从 v0.4 升级到 v0.5+ 时，`init --adopt` 会自动 `git mv` 项目根的 `wiki/` 与 `raw/` 到新位置；可加 `--no-migrate` 跳过。
 
 ### 数据流
 
 ```
 Agent 对话结束
     ↓ 零额外 token（只是输出格式变了）
-    ├→ 写入 wiki/pages/{主题}.md（带 YAML frontmatter + [[wikilink]]）
-    └→ （未来 Hook 可用后）写入 raw/sources/{会话ID}.md
+    ├→ 写入 .specforge/wiki/pages/{主题}.md（带 YAML frontmatter + [[wikilink]]）
+    └→ （未来 Hook 可用后）写入 .specforge/raw/sources/{会话ID}.md
 
 Librarian 被触发
     ↓ 仅处理增量（SHA256 对比）
-    ├→ 重建 wiki/index.md（导航目录）
-    ├→ 更新 wiki/overview.md（全局摘要）
+    ├→ 重建 .specforge/wiki/index.md（导航目录）
+    ├→ 更新 .specforge/wiki/overview.md（全局摘要）
     └→ 执行 Lint（孤立页面、死链接、缺失元数据）
 
 Guide 查询 wiki
-    ↓ 读取 wiki/index.md 定位 → 读取相关 pages → 回答问题
+    ↓ 读取 .specforge/wiki/index.md 定位 → 读取相关 pages → 回答问题
 ```
 
 ### Wiki 页面格式
@@ -418,7 +420,7 @@ related: [[{其他 wiki 页面}]]
 
 | 方式                               | 额外 token                             |
 | ---------------------------------- | -------------------------------------- |
-| Agent 直接写 wiki/pages/           | 零（本来就要写会话记录，只是格式变了） |
+| Agent 直接写 .specforge/wiki/pages/           | 零（本来就要写会话记录，只是格式变了） |
 | Librarian 维护 index/overview/lint | 极低（仅增量处理）                     |
 
 ## 8. 如何使用（用户手册）
@@ -679,7 +681,7 @@ rm ~/.local/bin/specforge
 - **次版本号（0.1 → 0.2）**：可加新子命令、新 agent，老 agent prompt 行为不变
 - **次版本号（0.x → 0.y）**：agent prompt 字段可加但不可改，老调用方式仍工作
 - **主版本号（0.x → 1.0）**：保证"在 0.9 写出的 spec 能用 1.0 的 verifier 校验"，反之亦然
-- **agent 协议变更**：必须同时更新 Scout（首次接触新 spec 的 agent） 和 Guide（方法论入口），并在 wiki/decisions/ 留 ADR
+- **agent 协议变更**：必须同时更新 Scout（首次接触新 spec 的 agent） 和 Guide（方法论入口），并在 `.specforge/wiki/decisions/` 留 ADR
 
 ## Rationale
 
@@ -687,12 +689,15 @@ rm ~/.local/bin/specforge
 
 ## 10. 架构决策记录（ADR）
 
-正式决策放在 [`wiki/decisions/`](wiki/decisions/) 下，README 仅作索引。每条 ADR 包含背景、决策、备选、后果四部分。
+正式决策放在 [`.specforge/wiki/decisions/`](.specforge/wiki/decisions/) 下，README 仅作索引。每条 ADR 包含背景、决策、备选、后果四部分。
 
-| 编号 | 标题                                                                                               | 状态     | 影响范围                   |
-| ---- | -------------------------------------------------------------------------------------------------- | -------- | -------------------------- |
-| 001  | [Agent 设计参考文档](wiki/decisions/001-agent-design-reference.md)                                 | 已采纳   | Agent prompt 设计依据      |
-| 002  | [用私有 {repo}-dev 仓做项目内开发文档的版本管理](wiki/decisions/002-dev-repo-submodule.md)         | Proposed | specs/ 文档归属            |
-| 003  | [specforge 不引入 feature 分支与 develop 分支](wiki/decisions/003-no-feature-or-develop-branch.md) | 已采纳   | 分支命名约定、Agent 工作流 |
+| 编号 | 标题                                                                                                       | 状态     | 影响范围                   |
+| ---- | ---------------------------------------------------------------------------------------------------------- | -------- | -------------------------- |
+| 001  | [Agent 设计参考文档](.specforge/wiki/decisions/001-agent-design-reference.md)                              | 已采纳   | Agent prompt 设计依据      |
+| 002  | [用私有 {repo}-dev 仓做项目内开发文档的版本管理](.specforge/wiki/decisions/002-dev-repo-submodule.md)       | Proposed | specs/ 文档归属            |
+| 003  | [specforge 不引入 feature 分支与 develop 分支](.specforge/wiki/decisions/003-no-feature-or-develop-branch.md) | 已采纳   | 分支命名约定、Agent 工作流 |
+| 004  | [FR 表格格式约定](.specforge/wiki/decisions/004-fr-table-format.md)                                        | 已采纳   | spec.md 格式               |
+| 005  | [VS Code Copilot 集成](.specforge/wiki/decisions/005-vscode-copilot-integration.md)                        | 已采纳   | IDE 集成                   |
+| 006  | [init 后目录收归到 .specforge/ 命名空间](.specforge/wiki/decisions/006-namespace-cleanup.md)                | 已采纳   | init 目录布局、Agent 协议  |
 
 > §Rationale 第 1 条与 ADR 003 同源：ADR 003 是该判断的形式化版本。

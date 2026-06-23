@@ -23,7 +23,13 @@
 **FR-009**: 当判定为 adopt 模式时，`init <existing-path>` 必须不破坏既存路径下的任何源代码（递归扫描验证字节级不变）。可测试性: ✅
 
 <a id="fr-010"></a>
-**FR-010**: adopt 模式对 `agents/`、`templates/`、`specs/`、`wiki/{pages,decisions}/`、`raw/sources/` 这 5 个目录的处理：**只创建缺的，不动有的**。可测试性: ✅
+**FR-010**: ~~adopt 模式对 `agents/`、`templates/`、`specs/`、`wiki/{pages,decisions}/`、`raw/sources/` 这 5 个目录的处理：**只创建缺的，不动有的**。~~
+
+> **已废弃（superseded by v0.5-005 FR-020 + FR-030）** — 2026-06-23
+> 旧路径（根目录 `wiki/`、`raw/`）已收归到 `.specforge/wiki/`、`.specforge/raw/`。
+> 详见 `wiki/decisions/006-namespace-cleanup.md`。
+> 锚点保留以避免引用混淆；不再进入新功能的 ready 判定。
+> 有效需求: ❌（deprecated） | 可测性: ✅ | 是否已决定: ✅
 
 <a id="fr-011"></a>
 **FR-011**: adopt 模式对 `agents/*.md` 和 `templates/*.md` 文件的合并策略：**默认 skip + warn 同名已有文件**，可选 `--backup`（备份为 `.bak`）或 `--force`（覆盖）。可测试性: ✅

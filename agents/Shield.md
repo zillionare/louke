@@ -95,7 +95,7 @@ description: 安全检查 — 审查敏感信息泄露风险
 
 每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
 
-**写入路径**：`wiki/pages/{主题关键词}.md`
+**写入路径**：`.specforge/.specforge/wiki/pages/{主题关键词}.md`
 
 **写入格式**：
 ```

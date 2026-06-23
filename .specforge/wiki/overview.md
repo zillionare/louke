@@ -9,7 +9,7 @@ specforge 是一套 TDD-first 多 Agent 协作开发方法。当前有 6 个 wik
 - **PR 行级评论**: Sage 和 Lex 通过 `gh api` 留行级 inline comment，Lex 通过 `gh api .../reviews` 提交 Approve/Request changes。来源: [[branch-naming-convention]]
 - **分支命名约定**: `spec/{spec-id}` / `feat/{spec-id}/{task-id}` / `fix/{issue-number}`（Scout 不需要专属分支）。来源: [[branch-naming-convention]]
 - **Agent 合并**: Clerk+Auditor 合并入 Lex。Lex 职责扩展为：spec 审核 + issue 验证补充 + 关联 Project。来源: [[agent-merge-lex-clerk]]
-- **Wiki 系统**: 纯 Markdown + LLM-Wiki 三层架构（raw/sources + wiki/pages + index/overview/log），零外部依赖。来源: [[first-conversation]]
+- **Wiki 系统**: 纯 Markdown + LLM-Wiki 三层架构（.specforge/raw/sources + .specforge/wiki/pages + index/overview/log），零外部依赖。来源: [[first-conversation]]
 - **安装方式**: Shell 脚本 `curl | bash`。来源: [[sage-interview]]
 
 ## 流程经验

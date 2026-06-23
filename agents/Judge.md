@@ -116,7 +116,7 @@ description: 测试审计 — 跟踪回归测试结果并改善测试质量
 
 每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
 
-**写入路径**：`wiki/pages/{主题关键词}.md`
+**写入路径**：`.specforge/.specforge/wiki/pages/{主题关键词}.md`
 
 **写入格式**：
 ```

@@ -105,7 +105,7 @@ description: 测试实施 — 编写并运行测试用例
 
 每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
 
-**写入路径**：`wiki/pages/{主题关键词}.md`
+**写入路径**：`.specforge/.specforge/wiki/pages/{主题关键词}.md`
 
 **写入格式**：
 ```

@@ -47,18 +47,21 @@ teardown() {
     [ "$HEAD_BEFORE" = "$HEAD_AFTER" ]
 }
 
-# ---------- FR-010: create-if-missing ----------
+# ---------- FR-010 (v0.3-003) superseded by v0.5-005 FR-020: create-if-missing at new paths ----------
 
-@test "FR10_T01_empty_target_gets_full_init: empty project gets all dirs" {
+@test "FR10_T01_empty_target_gets_full_init: empty project gets all dirs under .specforge/" {
     mkdir -p fresh && cd fresh && git init -q
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
     [ -d ".specforge/agents" ]
     [ -d ".specforge/templates" ]
     [ -d ".specforge/project" ]
-    [ -d "wiki/pages" ]
-    [ -d "wiki/decisions" ]
-    [ -d "raw/sources" ]
+    [ -d ".specforge/wiki/pages" ]
+    [ -d ".specforge/wiki/decisions" ]
+    [ -d ".specforge/raw/sources" ]
+    # v0.5-005 NFR-020: root MUST NOT contain wiki/ or raw/
+    [ ! -d "wiki" ]
+    [ ! -d "raw" ]
     # agents should have files
     [ "$(ls .specforge/agents/*.md 2>/dev/null | wc -l)" -ge 19 ]
 }
@@ -73,52 +76,62 @@ teardown() {
     grep -q "old spec" .specforge/project/specs/v0.1-001-old/spec.md
 }
 
-@test "FR10_T03_existing_wiki_page_preserved: existing wiki/pages/x.md kept" {
+@test "FR10_T03_existing_wiki_page_preserved_after_migration: legacy wiki/pages/x.md auto-moved and content intact" {
+    # v0.5-005 FR-030: legacy wiki/ at root is git-mv'd to .specforge/wiki/
     mkdir -p p && cd p && git init -q
     mkdir -p wiki/pages && echo "my notes" > wiki/pages/x.md
+    git add -A && git commit -q -m "add legacy wiki"
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
-    grep -q "my notes" wiki/pages/x.md
+    # legacy path gone, new path exists
+    [ ! -d "wiki" ]
+    [ -d ".specforge/wiki/pages" ]
+    [ -f ".specforge/wiki/pages/x.md" ]
+    grep -q "my notes" .specforge/wiki/pages/x.md
+    # git should track this as a rename, not delete+add
+    RENAME_COUNT=$(git status --porcelain | grep -c "^R" || true)
+    [ "$RENAME_COUNT" -ge 1 ]
 }
 
 # ---------- FR-011: file skip/backup/force ----------
+# v0.5-005: agents/ moved to .specforge/agents/. Tests updated accordingly.
 
 @test "FR11_T01_same_version_silent_skip: existing identical file silently kept" {
     mkdir -p p && cd p && git init -q
-    cp "$SPECFORGE_HOME/agents/Maestro.md" agents/Maestro.md 2>/dev/null || mkdir -p agents && cp "$SPECFORGE_HOME/agents/Maestro.md" agents/Maestro.md
-    HASH_BEFORE=$(sha256sum agents/Maestro.md | awk '{print $1}')
+    cp "$SPECFORGE_HOME/agents/Maestro.md" .specforge/agents/Maestro.md 2>/dev/null || mkdir -p .specforge/agents && cp "$SPECFORGE_HOME/agents/Maestro.md" .specforge/agents/Maestro.md
+    HASH_BEFORE=$(sha256sum .specforge/agents/Maestro.md | awk '{print $1}')
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
-    HASH_AFTER=$(sha256sum agents/Maestro.md | awk '{print $1}')
+    HASH_AFTER=$(sha256sum .specforge/agents/Maestro.md | awk '{print $1}')
     [ "$HASH_BEFORE" = "$HASH_AFTER" ]
 }
 
 @test "FR11_T02_modified_file_skipped_with_warn: user-modified file not overwritten" {
     mkdir -p p && cd p && git init -q
-    mkdir -p agents && echo "USER CUSTOMIZED" > agents/Maestro.md
+    mkdir -p .specforge/agents && echo "USER CUSTOMIZED" > .specforge/agents/Maestro.md
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
-    grep -q "USER CUSTOMIZED" agents/Maestro.md
+    grep -q "USER CUSTOMIZED" .specforge/agents/Maestro.md
 }
 
 @test "FR11_T03_backup_creates_bak: --backup makes .bak then skips" {
     mkdir -p p && cd p && git init -q
-    mkdir -p agents && echo "v1" > agents/Maestro.md
+    mkdir -p .specforge/agents && echo "v1" > .specforge/agents/Maestro.md
     run bash "$SPECFORGE_HOME/bin/specforge" init . --backup
     [ "$status" -eq 0 ]
-    [ -f "agents/Maestro.md.bak" ]
-    grep -q "v1" agents/Maestro.md.bak
-    grep -q "v1" agents/Maestro.md
+    [ -f ".specforge/agents/Maestro.md.bak" ]
+    grep -q "v1" .specforge/agents/Maestro.md.bak
+    grep -q "v1" .specforge/agents/Maestro.md
 }
 
 @test "FR11_T04_force_overwrites: --force replaces user content" {
     mkdir -p p && cd p && git init -q
-    mkdir -p agents && echo "USER VERSION" > agents/Maestro.md
+    mkdir -p .specforge/agents && echo "USER VERSION" > .specforge/agents/Maestro.md
     run bash "$SPECFORGE_HOME/bin/specforge" init . --force
     [ "$status" -eq 0 ]
     # Force means overwrite with SPECFORGE_HOME version
-    diff agents/Maestro.md "$SPECFORGE_HOME/agents/Maestro.md"
-    [ ! -f "agents/Maestro.md.bak" ]
+    diff .specforge/agents/Maestro.md "$SPECFORGE_HOME/agents/Maestro.md"
+    [ ! -f ".specforge/agents/Maestro.md.bak" ]
 }
 
 # ---------- FR-012: --dry-run ----------
@@ -131,14 +144,15 @@ teardown() {
     [ "$status" -eq 0 ]
     # No new files created by dry-run
     [ ! -d "agents" ] || [ -z "$(ls -A agents 2>/dev/null)" ]
+    [ ! -d ".specforge/agents" ] || [ -z "$(ls -A .specforge/agents 2>/dev/null)" ]
 }
 
 @test "FR12_T02_dry_run_emits_report: --dry-run prints same [+]/[=] lines" {
     mkdir -p p && cd p && git init -q
-    mkdir -p agents && echo USER > agents/Maestro.md
+    mkdir -p .specforge/agents && echo USER > .specforge/agents/Maestro.md
     run bash "$SPECFORGE_HOME/bin/specforge" init . --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" =~ \[=\]\ agents/Maestro\.md ]]
+    [[ "$output" =~ \[=\]\ \.specforge/agents/Maestro\.md ]]
 }
 
 # ---------- FR-013: tri-state report ----------
@@ -231,4 +245,109 @@ teardown() {
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -ne 0 ]
     [[ "$output" =~ "git init" ]]
+}
+
+# ---------- v0.5-005: legacy path auto-migration ----------
+
+@test "MIG01_legacy_wiki_gets_moved: root wiki/ → .specforge/wiki/" {
+    mkdir -p p && cd p && git init -q
+    mkdir -p wiki/decisions && echo "adr" > wiki/decisions/001-x.md
+    git add -A && git commit -q -m init
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
+    [ "$status" -eq 0 ]
+    [ ! -d "wiki" ]
+    [ -d ".specforge/wiki" ]
+    [ -d ".specforge/wiki/decisions" ]
+    [ -f ".specforge/wiki/decisions/001-x.md" ]
+    grep -q "adr" .specforge/wiki/decisions/001-x.md
+}
+
+@test "MIG02_legacy_raw_gets_moved: root raw/ → .specforge/raw/" {
+    mkdir -p p && cd p && git init -q
+    mkdir -p raw/sources && echo "session log" > raw/sources/abc.md
+    git add -A && git commit -q -m init
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
+    [ "$status" -eq 0 ]
+    [ ! -d "raw" ]
+    [ -d ".specforge/raw" ]
+    [ -d ".specforge/raw/sources" ]
+    [ -f ".specforge/raw/sources/abc.md" ]
+}
+
+@test "MIG03_untracked_legacy_uses_plain_mv: untracked wiki/ still gets moved" {
+    mkdir -p p && cd p && git init -q
+    mkdir -p wiki/pages && echo "x" > wiki/pages/x.md
+    # intentionally NOT git-adding wiki/ — plain mv path
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
+    [ "$status" -eq 0 ]
+    [ ! -d "wiki" ]
+    [ -f ".specforge/wiki/pages/x.md" ]
+}
+
+@test "MIG04_no_migrate_flag_keeps_legacy_in_place: --no-migrate does not move" {
+    mkdir -p p && cd p && git init -q
+    mkdir -p wiki/pages && echo "kept" > wiki/pages/x.md
+    git add -A && git commit -q -m init
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore --no-migrate
+    [ "$status" -eq 0 ]
+    # legacy path STILL exists with original content
+    [ -d "wiki" ]
+    [ -f "wiki/pages/x.md" ]
+    grep -q "kept" wiki/pages/x.md
+    # new path is empty (created by create-if-missing, no migration of legacy files)
+    [ -d ".specforge/wiki/pages" ]
+    [ -z "$(ls -A .specforge/wiki/pages/ 2>/dev/null)" ]
+    # report mentions skipped migration
+    [[ "$output" =~ "no-migrate" ]]
+}
+
+@test "MIG05_dry_run_does_not_move: --dry-run prints plan, working tree unchanged" {
+    mkdir -p p && cd p && git init -q
+    mkdir -p wiki/pages && echo "x" > wiki/pages/x.md
+    git add -A && git commit -q -m init
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore --dry-run
+    [ "$status" -eq 0 ]
+    # legacy still at original location
+    [ -d "wiki" ]
+    [ -f "wiki/pages/x.md" ]
+    # new path not created
+    [ ! -d ".specforge/wiki" ]
+    # report mentions migration plan
+    [[ "$output" =~ "wiki/" ]]
+    [[ "$output" =~ ".specforge/wiki" ]]
+}
+
+@test "MIG06_conflict_old_and_new_exist_errors: dies to prevent data loss" {
+    mkdir -p p && cd p && git init -q
+    # both legacy and new exist
+    mkdir -p wiki/pages
+    echo "old" > wiki/pages/x.md
+    mkdir -p .specforge/wiki/pages
+    echo "new" > .specforge/wiki/pages/y.md
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "wiki" ]]
+    [[ "$output" =~ ".specforge/wiki" ]]
+}
+
+@test "MIG07_idempotent_on_already_migrated: second run is a no-op for migration" {
+    mkdir -p p && cd p && git init -q
+    # first run: migrates
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
+    [ "$status" -eq 0 ]
+    [ ! -d "wiki" ]
+    # second run: nothing to migrate, must succeed
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore
+    [ "$status" -eq 0 ]
+    [ ! -d "wiki" ]
+    [ -d ".specforge/wiki" ]
+}
+
+@test "MIG08_json_report_includes_migrated: --json output has 'migrated' field" {
+    mkdir -p p && cd p && git init -q
+    mkdir -p wiki/pages && echo x > wiki/pages/x.md
+    git add -A && git commit -q -m init
+    run bash "$SPECFORGE_HOME/bin/specforge" init . --no-gitignore --json
+    [ "$status" -eq 0 ]
+    echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); assert 'migrated' in d; assert len(d['migrated']) >= 1"
 }
