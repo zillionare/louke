@@ -201,7 +201,25 @@ acceptance.md 中锚的格式固定为 `ac-{fr-id 小写}`，与 spec.md 中的 
 **Schema 来源**：`.github/ISSUE_TEMPLATE/feature.yml`（已 check in）定义了 3 个必填字段：
 - `需求 ID`：必须 `^FR-\d{3}$`
 - `Spec 链接`：必须 `^https://github.com/.../spec\.md#fr-\d{3}$`（fragment 小写）
-- `验收标准`：指向 acceptance.md 中该 FR 的 AC 块锚点（`#ac-fr-\d{3}$`，fragment 小写）
+- `验收标准`：v0.5-006 起支持三种形式（决策树见下）
+
+**`验收标准` 字段三选一** (v0.5-006):
+
+| FR 性质 | 字段值 | 前置条件 |
+|---|---|---|
+| 有专属 acceptance.md 章节 (AC-1/AC-2/...) | `acceptance.md#ac-fr-XXX` URL | acceptance.md 已有 `<a id="ac-fr-XXX">` 锚 |
+| AC 写在 spec 章节里 (如算法定义含公式) | `spec(-vol)?.md#fr-XXX` URL | spec.md 已有 `<a id="fr-XXX">` 锚 |
+| ground truth 覆盖 / 声明性 / 撮合 等无 AC 章节 | 字面值 `无` | acceptance.md 的 `## No Acceptance` 列表含此 FR |
+
+**决策流程** (创建 issue 前):
+1. 读 `acceptance.md`，确认是否有 `## FR-{XXX}` 节
+2. 没有 → 走 `无` 路径; **先**把 `FR-{XXX}` 加入 `acceptance.md` 的 `## No Acceptance` 列表, **再**创建 issue
+3. 有 → 走 `acceptance.md#ac-fr-XXX` 路径
+
+**`无` 模式注意事项**:
+- acceptance.md 末尾的 `## No Acceptance` 节是"该 FR 没有专属 AC"的唯一权威源
+- 加新 FR 到该列表时, 立即 commit, 避免 acceptance.md 与 issue 状态不一致
+- Lex 阶段一 阶段二 都会查这个列表, 缺则报错
 
 **先确定链接目标**（在创建 issue 之前执行一次）：
 
@@ -227,14 +245,17 @@ ${FR_ID}
 ${SPEC_URL}#${FR_LOWER}
 
 ### 验收标准
-${ACCEPTANCE_URL}#${AC_LOWER}
+${AC_VALUE}
 EOF
 )"
 ```
 
 其中：
 - `FR_LOWER` = `FR_ID` 转小写（如 `fr-001`），对应 spec.md 中 Step 4 插入的锚
-- `AC_LOWER` = `ac-${FR_LOWER}`（如 `ac-fr-001`），对应 acceptance.md 中 Step 4 插入的锚
+- `AC_VALUE` 按决策树三选一:
+  - `${ACCEPTANCE_URL}#ac-${FR_LOWER}` (默认)
+  - `${SPEC_URL}#${FR_LOWER}` (AC 在 spec)
+  - `无` (无 AC 章节)
 
 **创建规则**：
 - **一对一**：每个 `FR-{3位序号}` 对应一个 issue

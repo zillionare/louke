@@ -422,3 +422,256 @@ EOF
     [ "$status" -ne 0 ]
     [[ "$output" == *"L3"* ]]
 }
+
+# ---------- v0.5-006: L7 三模式 (无 / spec-fragment / acceptance URL) ----------
+
+# 公共 helper: 生成含 No Acceptance 列表的 acceptance.md
+# 接受 3 位数字 (如 "050"),输出 FR-050 (3 位零填充, 与 RE_FR_ID 一致)
+make_acceptance_with_no_acc() {
+    local path="$1"; shift
+    {
+        echo "# Demo acceptance"
+        for n in "$@"; do
+            echo
+            echo "<a id=\"ac-fr-${n}\"></a>"
+            echo
+            echo "## FR-${n}"
+            echo
+            echo "### AC-1"
+            echo "- 条件 1"
+        done
+        echo
+        echo "## No Acceptance"
+        echo
+        echo "以下 FR 无专属 acceptance (AC 在 test-plan 中描述):"
+        echo
+        for n in "$@"; do
+            echo "- FR-${n} (no AC, ground truth 覆盖)"
+        done
+    } > "$path"
+}
+
+@test "VERIFY-500: L7 形式 (c) — 验收标准=无 + FR 在 No Acceptance 列表中 → pass" {
+    # acceptance.md 含 FR-001 的 ac 锚 + No Acceptance 列表含 FR-050/060
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-050"></a>
+**FR-050**: 撮合 ground truth
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_with_no_acc "$ACC_FIX" "050"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-050] 撮合", "body": "### 需求 ID\nFR-050\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-050\n\n### 验收标准\n无\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[通过]"* ]]
+}
+
+@test "VERIFY-501: L7 形式 (c) — 验收标准=无 + FR 不在 No Acceptance 列表中 → fail" {
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    # No Acceptance 列表里只有 FR-050, 不含 FR-001
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_with_no_acc "$ACC_FIX" "050"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n无\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"L7"* ]]
+    [[ "$output" == *"No Acceptance"* ]]
+    [[ "$output" == *"FR-001"* ]]
+}
+
+@test "VERIFY-502: L7 形式 (c) — acceptance.md 缺 No Acceptance 节 → fail" {
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    # 走默认的 make_acceptance_fixture, 没有 No Acceptance 节
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_fixture "$ACC_FIX" "001"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n无\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"L7"* ]]
+    [[ "$output" == *"No Acceptance"* ]]
+}
+
+@test "VERIFY-503: L7 形式 (b) — spec-fragment URL + 锚点存在 + 上下文含 FR-XXX → pass" {
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-185"></a>
+
+### FR-185 加权均价经典方案 A
+
+公式 F-CB-1: ...
+EOF
+    # spec-fragment 不需要 acceptance.md 提供 ac-fr-185 锚
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    echo "# 无 acceptance" > "$ACC_FIX"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-185] 加权均价", "body": "### 需求 ID\nFR-185\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-185\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-185\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[通过]"* ]]
+}
+
+@test "VERIFY-504: L7 形式 (b) — spec-fragment URL + spec 锚点不存在 → fail" {
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    echo "# 无" > "$ACC_FIX"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-999] 不存在", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-999\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -ne 0 ]
+    # L5 在前面会先 fail (因为 spec_url 也引用了 fr-999, 锚点不存在)
+    [[ "$output" == *"L5"* || "$output" == *"L7"* ]]
+    [[ "$output" == *"fr-999"* ]]
+}
+
+@test "VERIFY-505: L7 形式 (b) — spec-fragment URL + 锚点上下文无 FR-XXX → fail" {
+    # 锚点存在但上下文不含 FR-XXX (锚点误复用)
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-001"></a>
+# 这是锚点 fr-001 但周围是别的东西
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    echo "# 无" > "$ACC_FIX"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -ne 0 ]
+    # L6 (来自 spec_url 检查) 也会 fail, 选其一
+    [[ "$output" == *"L6"* || "$output" == *"L7"* ]]
+    [[ "$output" == *"FR-001"* ]]
+}
+
+@test "VERIFY-506: L7 形式 (a) 旧 URL 形式仍正常 (向后兼容)" {
+    # 用现有 VERIFY-100 的同等 fixture, 确认 acceptance.md#ac-fr-XXX 形式仍 pass
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_fixture "$ACC_FIX" "001"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[通过]"* ]]
+}
+
+@test "VERIFY-507: L7 字段值是其它文本 (非三种合法形式) → fail 并提示三种" {
+    SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Min
+<a id="fr-001"></a>
+**FR-001**: x
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
+    make_acceptance_fixture "$ACC_FIX" "001"
+    FIXTURE="$BATS_TEST_TMPDIR/issue.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.specforge/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n随便写点啥\n", "state": "open"}
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"L7"* ]]
+    [[ "$output" == *"三种"* ]]  # 提示用户有三种合法形式
+}
+
+# ---------- v0.5-006: form 模板 regex 接受三种形式 ----------
+
+@test "FORM-010: 验收标准字段 regex 接受 无 / spec-fragment / acceptance-fragment" {
+    run python3 -c "
+import yaml, sys
+y = yaml.safe_load(open('$FORM'))
+for f in y['body']:
+    if f.get('id') == 'acceptance_criteria':
+        r = f['validations']['regex']
+        # 必须包含三种形式的特征
+        assert '无' in r, f'无 missing in regex: {r}'
+        assert 'spec(-\\\\w+)?\\\\.md' in r or 'spec(-\\w+)?\\.md' in r, f'spec-fragment form missing in {r}'
+        assert 'acceptance\\\\.md' in r or 'acceptance.md' in r, f'acceptance-fragment form missing in {r}'
+        # 字段 description 应该说明三种形式
+        desc = f['attributes']['description']
+        assert 'acceptance.md#ac-fr-XXX' in desc or 'ac-fr-XXX' in desc, f'description missing acceptance URL 示例'
+        assert 'spec' in desc and 'fr-XXX' in desc, f'description missing spec-fragment 说明'
+        assert '无' in desc, f'description missing \"无\" 模式说明'
+        sys.exit(0)
+sys.exit(1)
+"
+    [ "$status" -eq 0 ]
+}
