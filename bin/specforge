@@ -105,6 +105,8 @@ Commands (Agent-driven — AI 工具内调用,人跑只为 debug):
   verify-acceptance     验证 Sage 生成的 acceptance.md (Lex 阶段一)
                           Flags: --spec ID | --offline --spec-file F --acceptance-file F
                           (L1-L5: 文件存在/FR-NFR 对应/AC 编号/AC 内容/反向覆盖)
+  ci-scan               运行 check_acs + check_assertions 静态 CI 门禁
+                          Flags: --acceptance F | --spec ID --tests DIR [--json]
 
 环境变量:
   SPECFORGE_HOME          framework 安装目录 (默认 ~/.specforge)
@@ -520,6 +522,12 @@ cmd_verify_acceptance() {
     exec "$PY" "$SPECFORGE_HOME/tools/verify_acceptance.py" "${RESOLVED_ARGS[@]}"
 }
 
+cmd_ci_scan() {
+    local PY
+    PY="$(resolve_python)"
+    exec "$PY" "$SPECFORGE_HOME/tools/ci_scan.py" "$@"
+}
+
 cmd_doctor() {
     cmd_checkup "$@"
 }
@@ -627,6 +635,7 @@ case "${1:-help}" in
     verify-issue) shift; cmd_verify_issue "$@" ;;
     quote-check) shift; cmd_quote_check "$@" ;;
     verify-acceptance) shift; cmd_verify_acceptance "$@" ;;
+    ci-scan)     shift; cmd_ci_scan "$@" ;;
     doctor)      shift; cmd_doctor "$@" ;;
     board)       shift; cmd_board "$@" ;;
     models)      shift; cmd_models "$@" ;;
