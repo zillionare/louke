@@ -25,7 +25,7 @@ teardown() {
     mkdir -p target && cd target && git init -q
     run bash "$SPECFORGE_HOME/bin/specforge" init .
     [ "$status" -eq 0 ]
-    [ -d "agents" ]
+    [ -d ".specforge/agents" ]
 }
 
 @test "T02_init_relative_path_triggers_adopt: init <relpath> triggers adopt mode" {
@@ -55,5 +55,5 @@ teardown() {
     run bash "$SPECFORGE_HOME/bin/specforge" init newproj
     [ "$status" -eq 0 ]
     [ -d "newproj" ]
-    [ -d "newproj/agents" ]
+    [ -d "newproj/.specforge/agents" ]
 }

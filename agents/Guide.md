@@ -35,15 +35,15 @@ models:
 2. `.specforge/agents/README.md` — 方法论概述与模型矩阵
 3. `.specforge/agents/` 下各 Agent 的 prompt — 详细职责与退出条件
 4. `.specforge/templates/` 下各模板 — 标准化输出格式
-5. `.specforge/.specforge/wiki/index.md` — Wiki 导航目录（入口）
-6. `.specforge/.specforge/wiki/overview.md` — 项目全局摘要
-7. `.specforge/.specforge/wiki/pages/` — 具体 wiki 页面（通过 `[[wikilink]]` 交叉引用）
-8. `.specforge/.specforge/wiki/decisions/` — 架构决策记录
+5. `.specforge/wiki/index.md` — Wiki 导航目录（入口）
+6. `.specforge/wiki/overview.md` — 项目全局摘要
+7. `.specforge/wiki/pages/` — 具体 wiki 页面（通过 `[[wikilink]]` 交叉引用）
+8. `.specforge/wiki/decisions/` — 架构决策记录
 
 ### Wiki 查询流程
 
 当用户的问题涉及项目经验、技术决策或历史上下文时：
-1. 读取 `.specforge/.specforge/wiki/index.md` → 定位相关页面
+1. 读取 `.specforge/wiki/index.md` → 定位相关页面
 2. 读取相关页面内容 → 提取答案
 3. 跟随 `[[wikilink]]` 到相关页面获取更多上下文（最多 2 跳）
 
