@@ -83,8 +83,10 @@ Commands (User-driven — 人跑):
   init <name>             新建 <name>/ 子项目(拷贝 agents/templates 到 .specforge/)
   init <path>             接入既存项目 (adopt 模式),非破坏性合并
                           Flags: --dry-run --backup --force --no-gitignore
-                                 --no-migrate --with-issue-template --json
+                                 --no-migrate --board=<csv|none> --with-issue-template --json
   upgrade                 git pull --ff-only 到 \$SPECFORGE_HOME (拒绝非 main 分支)
+  board <ide|status>      生成 IDE agent 板 (vscode/opencode/status)
+  models <subcmd>         管理抽象 model alias / agent assignment
   version                 打印版本 + install 路径
   help                    显示本帮助
 
@@ -117,16 +119,16 @@ cmd_init() {
     if [ -z "$PROJECT_NAME" ]; then
         die "Usage: specforge init <project-name>"
     fi
+    shift || true
 
     # Adopt mode: path with /, . prefix, or ~ prefix and target exists.
     # Bare name (no separators and not .) → legacy create-new mode.
     if is_existing_path "$PROJECT_NAME"; then
-        shift  # drop the path positional
         cmd_init_adopt "$PROJECT_NAME" "$@"
         return
     fi
 
-    cmd_init_new "$PROJECT_NAME"
+    cmd_init_new "$PROJECT_NAME" "$@"
 }
 
 # is_existing_path: detect whether the argument represents a path
@@ -144,8 +146,62 @@ is_existing_path() {
     esac
 }
 
+run_board_tool() {
+    local PY
+    PY="$(resolve_python)"
+    "$PY" "$SPECFORGE_HOME/tools/specforge_board.py" "$@"
+}
+
+install_boards() {
+    local TARGET="$1" BOARD="$2" DRY_RUN="${3:-0}"
+    [ "$BOARD" = "none" ] && return 0
+    local boards="" AUTO=0
+    if [ "$BOARD" = "auto" ]; then
+        AUTO=1
+        [ -d "$TARGET/.vscode" ] && boards="${boards} vscode"
+        { [ -f "$HOME/.config/opencode/opencode.json" ] || [ -f "$HOME/.config/opencode/opencode.jsonc" ] || [ -d "$TARGET/.opencode" ]; } \
+            && boards="${boards} opencode"
+    else
+        boards=" ${BOARD//,/ }"
+    fi
+    [ -z "${boards// }" ] && return 0
+    local b
+    for b in $boards; do
+        if [ "$DRY_RUN" -eq 1 ]; then
+            (cd "$TARGET" && run_board_tool board "$b" --dry-run) || {
+                [ "$AUTO" -eq 1 ] && { note "board $b skipped"; continue; }
+                return 1
+            }
+        else
+            (cd "$TARGET" && run_board_tool board "$b") || {
+                [ "$AUTO" -eq 1 ] && { note "board $b skipped"; continue; }
+                return 1
+            }
+        fi
+    done
+}
+
+cmd_board() {
+    run_board_tool board "$@"
+}
+
+cmd_models() {
+    run_board_tool models "$@"
+}
+
 cmd_init_new() {
     local PROJECT_NAME="$1"
+    shift || true
+    local BOARD="auto"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --board=*) BOARD="${1#--board=}" ;;
+            --board) BOARD="$2"; shift ;;
+            -*) die "unknown flag: $1" ;;
+            *) die "unexpected argument for init new: $1" ;;
+        esac
+        shift
+    done
     if [ -d "$PROJECT_NAME" ]; then
         die "Directory '$PROJECT_NAME' already exists"
     fi
@@ -166,27 +222,8 @@ cmd_init_new() {
     cp "$SPECFORGE_HOME"/templates/*.md "$PROJECT_NAME/.specforge/templates/" 2>/dev/null || true
     cp "$SPECFORGE_HOME"/agents/ROSTER.md "$PROJECT_NAME/.specforge/agents/" 2>/dev/null || true
 
-    # FR-029: .github/agents/*.agent.md 软链 (VS Code custom agent 发现)
-    # 只有检测到 .vscode/ 目录 (说明用户使用 VS Code) 才创建, 不强制性.
-    if [ -d "$PROJECT_NAME/.vscode" ]; then
-        mkdir -p "$PROJECT_NAME/.github/agents"
-        local AGENT_DIR="$PROJECT_NAME/.specforge/agents"
-        for f in "$AGENT_DIR"/*.md; do
-            [ -f "$f" ] || continue
-            local agent_base
-            agent_base=$(basename "$f" .md)
-            # 相对路径: .github/agents/X.agent.md → ../../.specforge/agents/X.md
-            ln -snf "../../.specforge/agents/${agent_base}.md" \
-                "$PROJECT_NAME/.github/agents/${agent_base}.agent.md"
-        done
-        # .gitignore 追加 .github/agents/ (本地配置不入库)
-        local GITIGNORE="$PROJECT_NAME/.gitignore"
-        if [ ! -f "$GITIGNORE" ]; then
-            printf '.github/agents/\n' > "$GITIGNORE"
-        elif ! grep -qxF '.github/agents/' "$GITIGNORE" 2>/dev/null; then
-            printf '\n.github/agents/\n' >> "$GITIGNORE"
-        fi
-    fi
+    # Board generation (v0.5-007): IDE-specific agent discovery files.
+    install_boards "$PROJECT_NAME" "$BOARD" 0
 
     # 把 agents/ 与 templates/ 副本从版本控制中排除 (本地缓存, 由 specforge install 重建);
     # 但保留 .specforge/project/ 入库 — 那是项目的 spec / project-info 等产出物.
@@ -282,6 +319,7 @@ migrate_legacy_paths() {
 #   --json           emit machine-readable JSON (FR-013)
 cmd_init_adopt() {
     local BACKUP=0 FORCE=0 DRY_RUN=0 ISSUE_TEMPLATE=0 NO_GITIGNORE=0 NO_MIGRATE=0 JSON=0
+    local BOARD="auto"
     local TARGET=""
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -291,6 +329,8 @@ cmd_init_adopt() {
             --with-issue-template)  ISSUE_TEMPLATE=1 ;;
             --no-gitignore)         NO_GITIGNORE=1 ;;
             --no-migrate)           NO_MIGRATE=1 ;;
+            --board=*)              BOARD="${1#--board=}" ;;
+            --board)                BOARD="$2"; shift ;;
             --json)                 JSON=1 ;;
             -*)                     die "unknown flag: $1" ;;
             *)                      TARGET="$1" ;;
@@ -298,7 +338,7 @@ cmd_init_adopt() {
         shift
     done
 
-    [ -n "$TARGET" ] || die "Usage: specforge init <existing-path> [--dry-run] [--backup|--force] [--no-gitignore] [--no-migrate] [--with-issue-template] [--json]"
+    [ -n "$TARGET" ] || die "Usage: specforge init <existing-path> [--dry-run] [--backup|--force] [--no-gitignore] [--no-migrate] [--board=opencode,vscode|none] [--with-issue-template] [--json]"
 
     # FR-015: target must be a git repo
     [ -d "$TARGET/.git" ] || die "adopt target '$TARGET' is not a git repo; run 'git init' first"
@@ -353,27 +393,10 @@ cmd_init_adopt() {
         done
     done
 
-    # FR-029: .github/agents/*.agent.md 软链 (VS Code custom agent 发现)
-    # 只有检测到 .vscode/ 目录 (说明用户使用 VS Code) 才创建, 不强制性.
-    if [ -d ".vscode" ]; then
-        if [ "$DRY_RUN" -eq 0 ]; then
-            mkdir -p ".github/agents"
-            for f in ".specforge/agents"/*.md; do
-                [ -f "$f" ] || continue
-                local agent_base
-                agent_base=$(basename "$f" .md)
-                ln -snf "../../.specforge/agents/${agent_base}.md" \
-                    ".github/agents/${agent_base}.agent.md"
-            done
-        fi
-        # .gitignore 追加 .github/agents/
-        if [ "$NO_GITIGNORE" -eq 0 ]; then
-            if [ ! -f ".gitignore" ]; then
-                [ "$DRY_RUN" -eq 0 ] && printf ".github/agents/\n" > ".gitignore"
-            elif ! grep -qxF '.github/agents/' .gitignore 2>/dev/null; then
-                [ "$DRY_RUN" -eq 0 ] && printf "\n.github/agents/\n" >> ".gitignore"
-            fi
-        fi
+    # v0.5-007: board generation (after source agents are present). Dry-run skips because
+    # source agent files may not exist yet, and JSON output must remain machine-readable.
+    if [ "$DRY_RUN" -eq 0 ] && [ "$JSON" -eq 0 ]; then
+        SPECFORGE_BOARD_NO_GITIGNORE="$NO_GITIGNORE" install_boards "." "$BOARD" 0 >&2
     fi
 
     # FR-014: ignore agents/ + templates/ 副本 (本地缓存, 由 specforge install 重建);
@@ -605,6 +628,8 @@ case "${1:-help}" in
     quote-check) shift; cmd_quote_check "$@" ;;
     verify-acceptance) shift; cmd_verify_acceptance "$@" ;;
     doctor)      shift; cmd_doctor "$@" ;;
+    board)       shift; cmd_board "$@" ;;
+    models)      shift; cmd_models "$@" ;;
     upgrade)     shift; cmd_upgrade "$@" ;;
     version|-v|--version) cmd_version ;;
     help|-h|--help|"") cmd_help ;;
