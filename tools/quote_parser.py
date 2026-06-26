@@ -436,11 +436,14 @@ def parse_spec(spec_path: Path) -> ParseResult:
         result.depth_histogram[q.depth] = result.depth_histogram.get(q.depth, 0) + 1
 
     # 第四遍: 汇总 ready 判定
+    # v0.5-011 修复: is_ready 必须同时满足 "无 open quote" AND "无 ready blocker"
+    # 旧逻辑只看 ready_blockers, 但 open quote 也应让 gate 失败 (spec 004 设计意图)
     for u in result.units:
         ready, blockers = u.is_ready()
         if not ready:
             result.ready_blockers.append(f"{u.id}: " + "; ".join(blockers))
-    result.is_ready = len(result.ready_blockers) == 0
+    result.is_ready = (len(result.open_quotes) == 0 and
+                       len(result.ready_blockers) == 0)
     return result
 
 

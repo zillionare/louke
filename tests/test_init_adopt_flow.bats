@@ -249,7 +249,7 @@ teardown() {
 
 # ---------- v0.5-005: legacy path auto-migration ----------
 
-@test "MIG01_legacy_wiki_gets_moved: root wiki/ → .specforge/wiki/" {
+@test "MIG01_legacy_wiki_gets_moved: root_wiki_to_dot_specforge_wiki" {
     mkdir -p p && cd p && git init -q
     mkdir -p wiki/decisions && echo "adr" > wiki/decisions/001-x.md
     git add -A && git commit -q -m init
@@ -262,7 +262,7 @@ teardown() {
     grep -q "adr" .specforge/wiki/decisions/001-x.md
 }
 
-@test "MIG02_legacy_raw_gets_moved: root raw/ → .specforge/raw/" {
+@test "MIG02_legacy_raw_gets_moved: root_raw_to_dot_specforge_raw" {
     mkdir -p p && cd p && git init -q
     mkdir -p raw/sources && echo "session log" > raw/sources/abc.md
     git add -A && git commit -q -m init

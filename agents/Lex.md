@@ -241,7 +241,7 @@ Issue #44 [FR-003] xxx
 
 ## 退出条件
 
-- [ ] 所有 quote block 都 ✓ resolved (用 `quote_parser --check-ready` 验证，exit 0)
+- [ ] 所有 quote block 都 ✓ resolved (用 `python3 tools/quote_parser.py --check-ready` 验证，exit 0)
 - [ ] spec 中已含「已知约束与排除项」段
 - [ ] `acceptance.md` 与 `spec.md` 同步存在, FR/NFR 编号一一对应
 - [ ] 用户已明确确认 spec 锁定

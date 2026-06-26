@@ -20,7 +20,7 @@ teardown() {
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
+### FR-010 draw circle
 SPEC_EOF
 
     run python3 "$SPECFORGE_HOME/tools/verify_acceptance.py" --offline \
@@ -37,8 +37,8 @@ SPEC_EOF
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
-## FR-020 draw square
+### FR-010 draw circle
+### FR-020 draw square
 SPEC_EOF
     cat > "$TEST_DIR/acceptance.md" <<'ACC_EOF'
 # Demo
@@ -64,7 +64,7 @@ ACC_EOF
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
+### FR-010 draw circle
 SPEC_EOF
     cat > "$TEST_DIR/acceptance.md" <<'ACC_EOF'
 # Demo
@@ -92,7 +92,7 @@ ACC_EOF
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
+### FR-010 draw circle
 SPEC_EOF
     cat > "$TEST_DIR/acceptance.md" <<'ACC_EOF'
 # Demo
@@ -115,7 +115,7 @@ ACC_EOF
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
+### FR-010 draw circle
 SPEC_EOF
     cat > "$TEST_DIR/acceptance.md" <<'ACC_EOF'
 # Demo
@@ -143,7 +143,7 @@ ACC_EOF
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
+### FR-010 draw circle
 SPEC_EOF
     cat > "$TEST_DIR/acceptance.md" <<'ACC_EOF'
 # Demo
@@ -173,9 +173,9 @@ ACC_EOF
     cat > "$TEST_DIR/spec.md" <<'SPEC_EOF'
 # Demo
 
-## FR-010 draw circle
-## FR-020 draw square
-## NFR-010 performance
+### FR-010 draw circle
+### FR-020 draw square
+### NFR-010 performance
 SPEC_EOF
     cat > "$TEST_DIR/acceptance.md" <<'ACC_EOF'
 # Demo

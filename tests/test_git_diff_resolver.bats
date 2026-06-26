@@ -30,7 +30,7 @@ edit_spec() {
     echo "$new_content" > "$TEST_DIR/specs/test/spec.md"
 }
 
-@test "GD_T01_no_diff_exits_0: no changes → exit 0 with message" {
+@test "GD_T01_no_diff_exits_0: no_changes_exit_0_with_message" {
     make_repo_with_spec "# spec
 > **Sage:** a question [open]"
     run python3 "$SPECFORGE_HOME/tools/git_diff_quote_resolver.py" "$TEST_DIR/specs/test/spec.md" --base-ref HEAD
@@ -38,7 +38,7 @@ edit_spec() {
     [[ "$output" =~ "no changes detected" ]]
 }
 
-@test "GD_T02_changed_with_open_nearby: edit near open quote → recommendation" {
+@test "GD_T02_changed_with_open_nearby: edit_near_open_quote_recommendation" {
     make_repo_with_spec "# spec
 
 > **Sage:** a question [open]

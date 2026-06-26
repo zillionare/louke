@@ -69,7 +69,7 @@ teardown() {
     [[ "$output" =~ '"blocked_by": 1' ]]
 }
 
-@test "QP_T10_check_ready_exit_0: spec with 0 open → exit 0" {
+@test "QP_T10_check_ready_exit_0: spec_with_0_open_exit_0" {
     EMPTY_SPEC="$TEST_DIR/empty.md"
     cat > "$EMPTY_SPEC" <<'EOF'
 # empty spec
@@ -133,20 +133,23 @@ EOF
     cat > "$TEST_SPEC" <<'EOF'
 # test
 
+### FR-001 some requirement
+
 > **Sage:** a question without explicit status
 
 > **Aaron:** reply without status
 EOF
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" "$TEST_SPEC"
     [ "$status" -eq 0 ]
-    # Both should be detected as open (pending)
+    # Both should be detected as open (pending) and kept (not explanatory)
+    # because they belong to a unit
     [[ "$output" =~ "total quotes: 2" ]]
     [[ "$output" =~ "open: 2" ]]
     [[ "$output" =~ "resolved: 0" ]]
     [[ "$output" =~ "is_ready: False" ]]
 }
 
-@test "QP_T18_explicit_resolved_overrides: ✓ resolved still works with new convention" {
+@test "QP_T18_explicit_resolved_overrides: checkmark_resolved_still_works" {
     # Backward compat: explicit ✓ resolved still marks as resolved
     TEST_SPEC="$TEST_DIR/mixed-status.md"
     cat > "$TEST_SPEC" <<'EOF'
@@ -166,6 +169,8 @@ EOF
 @test "QP_T19_owner_role_detection: agent names get role=agent" {
     TEST_SPEC="$TEST_DIR/agent-quote.md"
     cat > "$TEST_SPEC" <<'EOF'
+### FR-001 test
+
 > **Sage:** my question
 EOF
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --format json "$TEST_SPEC"
@@ -176,6 +181,8 @@ EOF
 @test "QP_T20_owner_role_detection_user: non-agent names get role=user" {
     TEST_SPEC="$TEST_DIR/user-quote.md"
     cat > "$TEST_SPEC" <<'EOF'
+### FR-001 test
+
 > **Aaron:** my question
 EOF
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --format json "$TEST_SPEC"
@@ -194,7 +201,7 @@ EOF
     [[ "$output" =~ "no ownership violations" ]]
 }
 
-@test "QP_T22_check_violations_user_closed: user quote closed by anyone → violation" {
+@test "QP_T22_check_violations_user_closed: user_quote_closed_by_anyone_is_violation" {
     TEST_SPEC="$TEST_DIR/violation.md"
     cat > "$TEST_SPEC" <<'EOF'
 > **Aaron:** user note ✓ resolved

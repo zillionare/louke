@@ -105,7 +105,18 @@ git push -u origin releases/{version}
 - `releases/{version}` 是本版本所有上游产物的载体，后续 Sage/Finder 阶段在此基础上继续
 - 不要直接在 `main` 上 commit——Warden 会拒绝推进
 
-### Step 5: 验证 gh 写权限
+### Step 4a: 身份一致性检查
+
+在执行 issue/PR 权限冒烟之前，先用 `tools/check_identity.py` 校验当前 `gh` CLI 身份与 `git` 身份一致。specforge 的工作流混合使用 gh API 与 git push，若两通道账号不一致会出现"git push 成功但 gh issue create 403"这种隐性错位。
+
+```
+python3 tools/check_identity.py --repo {owner}/{repo}
+```
+
+- 退出码 0 → 身份一致，继续 Step 5
+- 退出码非 0 → 拒绝推进，按脚本提示让用户重登 `gh auth login` 或修正 `git config user.name/email`
+
+### Step 4b: 创建 Test Issue 与 Test PR 验证权限 (前称 Step 5)
 
 通过创建并立即关闭 Test Issue 和 Test PR，验证当前 gh 身份对目标 repo 有 issue/PR 写权限——这是 Scout 阶段必跑的安全门禁，避免后续 Sage/Forge 在创建正式 issue 时才暴露权限错误。
 
@@ -187,10 +198,11 @@ Spec ID: v{version}-{NNN}-{keyword}
 
 Repo: {已存在 / 新创建}
 Project: {已创建 / 已存在}
-gh 权限: {通过/失败}
+身份一致: {通过/失败}        ← check_identity.py 退出码
+gh 权限: {通过/失败}          ← Step 4b issue/PR 冒烟
 工作区: {目录路径}
 Agent 可用性: {数量} prompt 文件
-→ 结论: {通过/拒绝}
+→ 结论: {通过/拒绝}          ← 通过要求: 身份一致 + gh 权限通过
 ```
 
 ---

@@ -77,15 +77,33 @@ EOF
     git config user.email "test@test"
     git config user.name "test"
 
-    printf '> **Sage:** q1\n' > specs/test/spec.md
+    # v0.5-011: 加 unit header + yaml.resolved=✅ 让 quote 挂到 unit 上,
+    # 不被当 explanatory 丢弃, 且 unit 满足 FR is_ready 条件
+    cat > specs/test/spec.md <<'EOF'
+### FR-001 test
+
+| valid | testability | resolved |
+|-------|-------------|----------|
+| true  | auto        |          |
+
+> **Sage:** q1
+EOF
     git add . && git commit -q -m "v1"
 
-    # Not ready: 1 open
+    # Not ready: 1 open quote + yaml.resolved=空
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --check-ready "$TEST_DIR/specs/test/spec.md"
     [ "$status" -eq 1 ]
 
-    # Mark resolved
-    printf '> **Sage:** q1 ✓ resolved\n' > specs/test/spec.md
+    # Mark quote resolved + yaml.resolved=✅ → ready
+    cat > specs/test/spec.md <<'EOF'
+### FR-001 test
+
+| valid | testability | resolved |
+|-------|-------------|----------|
+| true  | auto        | ✅       |
+
+> **Sage:** q1 ✓ resolved
+EOF
 
     # Now ready
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --check-ready "$TEST_DIR/specs/test/spec.md"
@@ -129,8 +147,10 @@ EOF
 }
 
 # IT-005: spec 004 self-parse end-to-end
-@test "IT-005_spec_004_self_parse: spec 004 is_ready=True (Aaron's dogfood)" {
+# v0.5-011: spec 004 仍在迭代中, 12 个 open quote 未 ✓ resolved,
+# 故 is_ready=False (符合 spec 004 quote dialogue 流程预期 — spec 未锁定)
+@test "IT-005_spec_004_self_parse: spec 004 not ready yet (open quotes remain)" {
     SPEC004="$SPECFORGE_HOME/.specforge/project/specs/v0.4-004-quote-dialogue/spec.md"
     run python3 "$SPECFORGE_HOME/tools/quote_parser.py" --check-ready "$SPEC004"
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 1 ]
 }
