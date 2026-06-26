@@ -28,7 +28,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 
 # ---------- 身份一致性检查 ----------
 
-@test "SCOUT-ID-001: Scout Step 4 引用 check_identity.py" {
+@test "SCOUT-ID-001: scout_step4_references_check_identity_py" {
     run grep -qF "check_identity.py" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md 未在 Step 4 引用 check_identity.py"
@@ -36,13 +36,13 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     }
 }
 
-@test "SCOUT-ID-002: Scout 把身份检查放在 Issue 权限冒烟之前" {
+@test "SCOUT-ID-002: scout_id_check_before_issue_permission_smoke" {
     # Step 4a 应该是身份一致性,4b 才是 issue/PR 冒烟
     run grep -qE "4a.*身份一致性|身份一致性.*4a" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ]
 }
 
-@test "SCOUT-ID-003: Scout 退出条件含 '身份一致'" {
+@test "SCOUT-ID-003: scout_exit_criteria_includes_identity_consistent" {
     run grep -qF "身份一致" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md 退出条件未含身份一致"

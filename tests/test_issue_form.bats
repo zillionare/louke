@@ -29,38 +29,39 @@ make_acceptance_fixture() {
 
 # ---------- Issue Form 存在性和基本结构 ----------
 
-@test "FORM-001: feature.yml 存在" {
+@test "FORM-001: feature_yml_exists" {
     [ -f "$FORM" ]
 }
 
-@test "FORM-002: feature.yml 是合法 YAML" {
+@test "FORM-002: feature_yml_valid_yaml" {
     run python3 -c "import yaml; yaml.safe_load(open('$FORM'))"
     [ "$status" -eq 0 ]
 }
 
-@test "FORM-003: feature.yml 包含 name: Feature" {
+@test "FORM-003: feature_yml_contains_name_Feature" {
     run grep -q "^name: Feature" "$FORM"
     [ "$status" -eq 0 ]
 }
 
-@test "FORM-004: feature.yml 包含 labels: [Feature]" {
+@test "FORM-004: feature_yml_contains_labels_Feature" {
     run grep -qE "labels:.*Feature" "$FORM"
     [ "$status" -eq 0 ]
 }
 
-@test "FORM-005: feature.yml 包含 3 个必填字段 (需求 ID / Spec 链接 / 验收标准)" {
+@test "FORM-005: feature_yml_contains_3_required_fields" {
+    # 需求 ID / Spec 链接 / 验收标准
     for field in "需求 ID" "Spec 链接" "验收标准"; do
         run grep -q "label: $field" "$FORM"
         [ "$status" -eq 0 ] || { echo "Missing form field: $field" >&2; false; }
     done
 }
 
-@test "FORM-006: 需求 ID 字段的 regex 校验 ^FR-\\d{3}$" {
+@test "FORM-006: required_id_field_regex_FR_d3" {
     run grep -qE 'regex: .*\^FR-\\\\d\{3\}\$' "$FORM"
     [ "$status" -eq 0 ]
 }
 
-@test "FORM-007: Spec 链接字段的 regex 含 GitHub URL + spec(.md|-\w+)/?md + fr- 锚点" {
+@test "FORM-007: spec_url_field_regex_github_spec_md_fr_anchor" {
     # Spec 链接字段的 regex 中, 同时含 spec.md (含多分册 spec-{name}.md) 和 (fr|nfr)-
     run python3 -c "
 import yaml, sys
@@ -78,7 +79,7 @@ sys.exit(1)
     [ "$status" -eq 0 ]
 }
 
-@test "FORM-008: 验收标准字段是 input 配 acceptance.md#ac-fr- 锚点 URL" {
+@test "FORM-008: acceptance_field_input_with_acceptance_md_anchor" {
     # 验收标准字段必须是 input(不是 textarea), regex 含 acceptance.md + ac-(fr|nfr)-
     run python3 -c "
 import yaml, sys
@@ -98,41 +99,41 @@ sys.exit(1)
     [ "$status" -ne 0 ]
 }
 
-@test "FORM-009: 验收标准字段有 required: true" {
+@test "FORM-009: acceptance_field_required_true" {
     run grep -q "required: true" "$FORM"
     [ "$status" -eq 0 ]
 }
 
 # ---------- 验证器脚本存在性和语法 ----------
 
-@test "VERIFY-001: verify_issue_schema.py 存在" {
+@test "VERIFY-001: verify_issue_schema_py_exists" {
     [ -f "$SCRIPT" ]
 }
 
-@test "VERIFY-002: verify_issue_schema.py 是合法 Python 3" {
+@test "VERIFY-002: verify_issue_schema_py_valid_python_3" {
     run python3 -c "import ast; ast.parse(open('$SCRIPT').read())"
     [ "$status" -eq 0 ]
 }
 
-@test "VERIFY-003: 验证器支持 --offline 模式" {
+@test "VERIFY-003: validator_supports_offline_mode" {
     run python3 "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"--offline"* ]]
 }
 
-@test "VERIFY-004: 验证器支持 --spec 参数" {
+@test "VERIFY-004: validator_supports_spec_arg" {
     run python3 "$SCRIPT" --help
     [[ "$output" == *"--spec"* ]]
 }
 
-@test "VERIFY-005: 验证器支持 --acceptance-file 参数" {
+@test "VERIFY-005: validator_supports_acceptance_file_arg" {
     run python3 "$SCRIPT" --help
     [[ "$output" == *"--acceptance-file"* ]]
 }
 
 # ---------- 验证器离线模式: 正常路径 ----------
 
-@test "VERIFY-100: 离线模式 - 全部合规的 issue 通过" {
+@test "VERIFY-100: offline_all_compliant_issues_pass" {
     # 用一个最小 spec fixture(只含 FR-001),避免 L8 双向覆盖干扰
     SPEC_FIX="$BATS_TEST_TMPDIR/min_spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -170,7 +171,7 @@ setup_acc_with_001_005() {
     export ACC_FIX
 }
 
-@test "VERIFY-201: 标题格式错误被检出 (L1)" {
+@test "VERIFY-201: bad_title_detected_L1" {
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/bad_title.json"
     cat > "$FIXTURE" <<'EOF'
@@ -186,7 +187,7 @@ EOF
     [[ "$output" == *"L1"* ]]
 }
 
-@test "VERIFY-202: 缺 Spec 链接字段被检出 (L3)" {
+@test "VERIFY-202: missing_spec_url_detected_L3" {
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/missing_url.json"
     cat > "$FIXTURE" <<'EOF'
@@ -202,7 +203,7 @@ EOF
     [[ "$output" == *"L3"* ]]
 }
 
-@test "VERIFY-203: Spec 链接 fragment 大写被检出 (L3)" {
+@test "VERIFY-203: spec_url_fragment_uppercase_detected_L3" {
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/upper_fragment.json"
     cat > "$FIXTURE" <<'EOF'
@@ -218,7 +219,7 @@ EOF
     [[ "$output" == *"L3"* ]]
 }
 
-@test "VERIFY-204: 验收标准 URL 缺失被检出 (L7)" {
+@test "VERIFY-204: acceptance_url_missing_detected_L7" {
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/missing_ac.json"
     cat > "$FIXTURE" <<'EOF'
@@ -234,7 +235,7 @@ EOF
     [[ "$output" == *"L7"* ]]
 }
 
-@test "VERIFY-205: 验收标准 URL 用了老 AC-N: 文本被检出 (L7)" {
+@test "VERIFY-205: legacy_AC_N_text_detected_L7" {
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/old_ac_text.json"
     cat > "$FIXTURE" <<'EOF'
@@ -250,7 +251,7 @@ EOF
     [[ "$output" == *"L7"* ]]
 }
 
-@test "VERIFY-206: AC 锚点在 acceptance.md 中不存在被检出 (L7)" {
+@test "VERIFY-206: ac_anchor_missing_in_acceptance_md_L7" {
     # 验收标准 URL 引用了 ac-fr-999 但 acceptance.md 中没有该锚点
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/bad_ac_anchor.json"
@@ -268,7 +269,7 @@ EOF
     [[ "$output" == *"ac-fr-999"* ]]
 }
 
-@test "VERIFY-207: 锚点不存在被检出 (L5) - 引用 spec 中没有的 fr-999" {
+@test "VERIFY-207: fr_999_anchor_not_in_spec_L5" {
     # 用同一份真实 spec.md,但 issue 引用 fr-999(不存在)
     setup_acc_with_001_005
     # 准备一份 acceptance.md,含 ac-fr-999 但 L5 仍要失败
@@ -290,13 +291,13 @@ EOF
 
 # ---------- 验证器在 spec 实例上跑通 ----------
 
-@test "VERIFY-300: .specforge/project/specs/v0.1-001-specforge/spec.md 含 11 个 <a id> 锚点" {
+@test "VERIFY-300: v0_1_001_spec_md_contains_11_a_id_anchors" {
     run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/.specforge/project/specs/v0.1-001-specforge/spec.md"
     [ "$status" -eq 0 ]
     [ "$output" -eq 11 ]
 }
 
-@test "VERIFY-301: 离线模拟 spec 实例, 11 个好 issue 全部通过" {
+@test "VERIFY-301: offline_simulated_spec_11_good_issues_pass" {
     SPEC_FIX="$BATS_TEST_TMPDIR/acc_full.md"
     make_acceptance_fixture "$SPEC_FIX" 001 002 003 004 005 006 007 008 009 010 011
     FIXTURE="$BATS_TEST_TMPDIR/all_good.json"
@@ -323,7 +324,7 @@ print(json.dumps(issues, ensure_ascii=False))
 
 # ---------- 多分册 spec (issue #69 场景) ----------
 
-@test "VERIFY-400: 多分册 spec (spec-{vol}.md) 离线模式通过" {
+@test "VERIFY-400: multi_volume_spec_offline_pass" {
     # 模拟 millionaire 项目: spec_id=v0.2-001, 文件名 spec-strategy.md
     SPEC_FIX="$BATS_TEST_TMPDIR/multi_spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -352,7 +353,7 @@ EOF
     [[ "$output" == *"[通过]"* ]]
 }
 
-@test "VERIFY-401: 多分册 spec 文件名但无 vol_suffix 仍允许" {
+@test "VERIFY-401: multi_volume_filename_without_vol_suffix_allowed" {
     # spec.md (无 -vol) 走 /specs/{id}/ 路径 (spec 004+ 默认)
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -376,7 +377,7 @@ EOF
     [[ "$output" == *"[通过]"* ]]
 }
 
-@test "VERIFY-402: /specs/ 路径与裸 {id}/ 路径同时被允许" {
+@test "VERIFY-402: specs_path_and_bare_id_path_both_allowed" {
     # /specs/{id}/ (spec 004+) 与 /{id}/ (millionaire 等) 都要支持
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -400,7 +401,7 @@ EOF
     [[ "$output" == *"[通过]"* ]]
 }
 
-@test "VERIFY-403: L3 拒绝非 spec(.md|-\w+.md) 形式的文件名" {
+@test "VERIFY-403: L3_rejects_non_spec_md_filename" {
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # x
@@ -451,7 +452,7 @@ make_acceptance_with_no_acc() {
     } > "$path"
 }
 
-@test "VERIFY-500: L7 形式 (c) — 验收标准=无 + FR 在 No Acceptance 列表中 → pass" {
+@test "VERIFY-500: L7_form_c_none_in_no_acceptance_list_pass" {
     # acceptance.md 含 FR-001 的 ac 锚 + No Acceptance 列表含 FR-050/060
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -475,7 +476,7 @@ EOF
     [[ "$output" == *"[通过]"* ]]
 }
 
-@test "VERIFY-501: L7 形式 (c) — 验收标准=无 + FR 不在 No Acceptance 列表中 → fail" {
+@test "VERIFY-501: L7_form_c_none_not_in_no_acceptance_list_fail" {
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
@@ -501,7 +502,7 @@ EOF
     [[ "$output" == *"FR-001"* ]]
 }
 
-@test "VERIFY-502: L7 形式 (c) — acceptance.md 缺 No Acceptance 节 → fail" {
+@test "VERIFY-502: L7_form_c_no_acceptance_section_missing_fail" {
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
@@ -526,7 +527,7 @@ EOF
     [[ "$output" == *"No Acceptance"* ]]
 }
 
-@test "VERIFY-503: L7 形式 (b) — spec-fragment URL + 锚点存在 + 上下文含 FR-XXX → pass" {
+@test "VERIFY-503: L7_form_b_spec_fragment_anchor_with_FR_pass" {
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
@@ -553,7 +554,7 @@ EOF
     [[ "$output" == *"[通过]"* ]]
 }
 
-@test "VERIFY-504: L7 形式 (b) — spec-fragment URL + spec 锚点不存在 → fail" {
+@test "VERIFY-504: L7_form_b_spec_fragment_anchor_missing_fail" {
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
@@ -578,7 +579,7 @@ EOF
     [[ "$output" == *"fr-999"* ]]
 }
 
-@test "VERIFY-505: L7 形式 (b) — spec-fragment URL + 锚点上下文无 FR-XXX → fail" {
+@test "VERIFY-505: L7_form_b_spec_fragment_no_FR_in_context_fail" {
     # 锚点存在但上下文不含 FR-XXX (锚点误复用)
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -604,7 +605,7 @@ EOF
     [[ "$output" == *"FR-001"* ]]
 }
 
-@test "VERIFY-506: L7 形式 (a) 旧 URL 形式仍正常 (向后兼容)" {
+@test "VERIFY-506: L7_form_a_old_url_still_works_backcompat" {
     # 用现有 VERIFY-100 的同等 fixture, 确认 acceptance.md#ac-fr-XXX 形式仍 pass
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
@@ -628,7 +629,7 @@ EOF
     [[ "$output" == *"[通过]"* ]]
 }
 
-@test "VERIFY-507: L7 字段值是其它文本 (非三种合法形式) → fail 并提示三种" {
+@test "VERIFY-507: L7_field_other_text_not_three_valid_forms_fail" {
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
@@ -654,7 +655,7 @@ EOF
 
 # ---------- v0.5-006: form 模板 regex 接受三种形式 ----------
 
-@test "FORM-010: 验收标准字段 regex 接受 无 / spec-fragment / acceptance-fragment" {
+@test "FORM-010: acceptance_field_regex_accepts_three_forms" {
     run python3 -c "
 import yaml, sys
 y = yaml.safe_load(open('$FORM'))

@@ -6,56 +6,56 @@ SCRIPT="$REPO_ROOT/tools/check_identity.py"
 
 # ---------- 脚本存在性和语法 ----------
 
-@test "ID-001: check_identity.py 存在" {
+@test "ID-001: check_identity_py_exists" {
     [ -f "$SCRIPT" ]
 }
 
-@test "ID-002: check_identity.py 是合法 Python 3" {
+@test "ID-002: check_identity_py_valid_python_3" {
     run python3 -c "import ast; ast.parse(open('$SCRIPT').read())"
     [ "$status" -eq 0 ]
 }
 
-@test "ID-003: check_identity.py 支持 --offline 模式" {
+@test "ID-003: check_identity_py_offline_mode_supported" {
     run python3 "$SCRIPT" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *"--offline"* ]]
 }
 
-@test "ID-004: check_identity.py 支持 --repo 参数" {
+@test "ID-004: check_identity_py_repo_arg_supported" {
     run python3 "$SCRIPT" --help
     [[ "$output" == *"--repo"* ]]
 }
 
 # ---------- L1-L5 检查项都覆盖 ----------
 
-@test "ID-100: 脚本源码提及 L1 (gh 认证)" {
+@test "ID-100: source_mentions_L1_gh_auth" {
     run grep -q "L1" "$SCRIPT"
     [ "$status" -eq 0 ]
 }
 
-@test "ID-101: 脚本源码提及 L2 (viewerPermission)" {
+@test "ID-101: source_mentions_L2_viewerPermission" {
     run grep -q "L2" "$SCRIPT"
     [ "$status" -eq 0 ]
 }
 
-@test "ID-102: 脚本源码提及 L3 (git user.name/email)" {
+@test "ID-102: source_mentions_L3_git_user_name_email" {
     run grep -q "L3" "$SCRIPT"
     [ "$status" -eq 0 ]
 }
 
-@test "ID-103: 脚本源码提及 L4 (commit author email vs gh 邮箱)" {
+@test "ID-103: source_mentions_L4_commit_author_email_vs_gh" {
     run grep -q "L4" "$SCRIPT"
     [ "$status" -eq 0 ]
 }
 
-@test "ID-104: 脚本源码提及 L5 (remote owner vs gh user,advisory)" {
+@test "ID-104: source_mentions_L5_remote_owner_vs_gh_advisory" {
     run grep -q "L5" "$SCRIPT"
     [ "$status" -eq 0 ]
 }
 
 # ---------- 离线模式:好 case ----------
 
-@test "ID-200: 离线 - 单一身份 + WRITE 角色 → [通过], exit 0" {
+@test "ID-200: offline_single_identity_WRITE_role_pass_exit_0" {
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
         --gh-user zillionare \
@@ -72,7 +72,7 @@ SCRIPT="$REPO_ROOT/tools/check_identity.py"
 
 # ---------- 离线模式:坏 case ----------
 
-@test "ID-301: 离线 - 两个身份 (L4 失败) → [拒绝], exit 1" {
+@test "ID-301: offline_two_identities_L4_fail_reject_exit_1" {
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
         --gh-user quantclaws \
@@ -87,7 +87,7 @@ SCRIPT="$REPO_ROOT/tools/check_identity.py"
     [[ "$output" == *"L4"* ]]
 }
 
-@test "ID-302: 离线 - READ 角色 (L2 失败) → [拒绝], exit 1" {
+@test "ID-302: offline_READ_role_L2_fail_reject_exit_1" {
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
         --gh-user quantclaws \
@@ -102,7 +102,7 @@ SCRIPT="$REPO_ROOT/tools/check_identity.py"
     [[ "$output" == *"L2"* ]]
 }
 
-@test "ID-303: 离线 - gh 未认证 (L1 失败) → [拒绝], exit 1" {
+@test "ID-303: offline_gh_not_authenticated_L1_fail_reject_exit_1" {
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
         --gh-user "" \
@@ -116,7 +116,7 @@ SCRIPT="$REPO_ROOT/tools/check_identity.py"
     [[ "$output" == *"L1"* ]]
 }
 
-@test "ID-304: 离线 - git user.email 未设置 (L3 失败) → [拒绝], exit 1" {
+@test "ID-304: offline_git_user_email_unset_L3_fail_reject_exit_1" {
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
         --gh-user zillionare \
@@ -132,7 +132,7 @@ SCRIPT="$REPO_ROOT/tools/check_identity.py"
 
 # ---------- 离线模式:advisory (L5 不阻塞) ----------
 
-@test "ID-400: 离线 - remote owner 与 gh user 不同 → [通过+警告], exit 0" {
+@test "ID-400: offline_remote_owner_differs_from_gh_pass_with_warning_exit_0" {
     # 模拟"个人 token 操作 org repo"的合法场景
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
