@@ -10,7 +10,7 @@
 | Sage | Lex | spec.md / acceptance.md / GitHub issue 覆盖 | spec 锁定 + Sage Step 5 完成 |
 | **Archer 阶段一** | **Sage** | **test-plan.md** | **Archer 阶段一产出后** |
 | **Archer 阶段二** | **Judge** | **architecture.md + interfaces.md** | **Archer 阶段二产出后** |
-| Forge | Prism → Keeper | 代码改动（多视角 + 完成门禁） | 每次 push + 任务完成 |
+| Devon | Prism → Keeper | 代码改动（多视角 + 完成门禁） | 每次 push + 任务完成 |
 | Hunter | Shield | Bug 修复的回归守护 | fix 完成 |
 | Librarian | （无） | wiki 健康维护 | 自身 |
 

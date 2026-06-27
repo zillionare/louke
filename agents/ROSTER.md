@@ -15,7 +15,7 @@ Agent 的详细 prompt 见 `.specforge/agents/` 目录下同名 `.md` 文件。
 | Interview | **Sage** (贤者) | **Lex** (律者) | Sage 苏格拉底式追问产出 spec 并创建 issue / Lex 审核 spec + 验证补充 issue 并关联 Project |
 | Test Plan | **Probe** (探针) | **Judge** (裁判) | Probe 设计分层测试计划 / Judge 裁判测试方案可执行性 |
 | 执行规划 | **Archer** (架构) | **Cynic** (批评) | Archer 设计任务划分与测试关联 / Cynic 批评审核完整性 |
-| 任务执行 | **Forge** (锻造) | **Prism** (棱镜) → **Keeper** (守门) | Forge 按 R-G-R 循环锻造代码 / Prism 多角度 Code Review / Keeper 守住完成门禁 |
+| 任务执行 | **Devon** (锻造) | **Prism** (棱镜) → **Keeper** (守门) | Devon 按 R-G-R 循环锻造代码 / Prism 多角度 Code Review / Keeper 守住完成门禁 |
 | 验收 | **Herald** (传令) | **Arbiter** (终审) | Herald 汇总全量测试与覆盖 / Arbiter 终审裁决 |
 | Bug 修复 | **Hunter** (猎手) | **Shield** (盾牌) | Hunter TDD 猎杀 Bug / Shield 守护无回归 |
 | — | **Guide** (向导) | — | 回答方法论问题，降低上手成本 | — |
@@ -32,7 +32,7 @@ Test Plan ── Probe → Judge ───┤
                                 │
 执行规划 ── Archer → Cynic ───┤
                                 │
-任务执行 ── Forge → Prism → Keeper ─┤  ← Red-Green-Refactor 循环
+任务执行 ── Devon → Prism → Keeper ─┤  ← Red-Green-Refactor 循环
                                 │
 验收 ── Herald → Arbiter ─────┘
 
@@ -52,7 +52,7 @@ Bug 修复 ── Hunter → Shield (独立流程，同样 R-G-R)
 | Judge | 裁判 | 裁决测试方案是否可执行 |
 | Archer | 射手/架构师 | 设计执行路径 |
 | Cynic | 愤世嫉俗者 | 批评性审核 |
-| Forge | 锻造 | 从测试的烈火中锻造代码 |
+| Devon | 锻造 | 从测试的烈火中锻造代码 |
 | Prism | 棱镜 | 多角度审视代码质量 |
 | Keeper | 守护者 | 守住质量门禁 |
 | Herald | 传令官 | 传达验收结果 |

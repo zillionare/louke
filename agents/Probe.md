@@ -22,7 +22,7 @@ models:
 - 推荐 tests/ 布局（建议，不强制）
 
 你不是来：
-- 编写测试代码（Forge 写）
+- 编写测试代码（Devon 写）
 - 维护 UT/IT/E2E 明细表
 - 手写覆盖矩阵（`check_acs.py` 从测试代码反向生成）
 - 重新设计 AC（Sage/Lex 已处理）

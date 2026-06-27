@@ -97,7 +97,7 @@ python3 tools/check_identity.py --repo {owner}/{repo}
 
 ### Step 4b: 创建 Test Issue 与 Test PR 验证权限
 
-Scout 必跑的安全门禁——提前暴露 gh 写权限错误，避免 Sage/Forge 创建正式 issue 时才报错。
+Scout 必跑的安全门禁——提前暴露 gh 写权限错误，避免 Sage/Devon 创建正式 issue 时才报错。
 
 ```
 ISSUE_URL=$(gh issue create --repo {owner}/{repo} --title "Good First Issue: {repo}-{version}" --body "Scout 权限冒烟测试" 2>&1)

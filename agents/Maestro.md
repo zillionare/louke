@@ -34,24 +34,44 @@ models:
 
 ## 流程阶段与 Agent 映射
 
-| 阶段 | 实施者 | 评审者 |
-| --- | --- | --- |
-| 全程 | **Maestro** (指挥) | |
-| 项目奠基 | Scout | Warden |
-| 定需求 | Sage | Lex |
-| 定测试计划 | Archer | Sage |
-| 架构设计 | Archer | Devon |
-| 需求锁定 | Maestro | 人类 |
-| 开发执行 | Devon | Prism |
-| e2e 开发 | Tester | Archer |
-| Bug 修复 | Devon | Shield |
-| 每一个 milestone 结束 | Librarian | Maestro |
+| 阶段代码 | 阶段 | 实施者 | 评审者 |
+| --- | --- | --- | --- |
+| `M-FULL` | 全程 | **Maestro** (指挥) | — |
+| `M-FOUND` | 项目奠基 | Scout | Warden |
+| `M-SPEC` | 定需求 | Sage | Lex |
+| `M-TESTPLAN` | 定测试计划 | Archer | Sage |
+| `M-ARCH` | 架构设计 | Archer | **Judge** |
+| `M-LOCK` | 需求锁定 | Maestro | 人类 |
+| `M-DEV` | 开发执行 | Devon | Prism → Keeper |
+| `M-E2E` | e2e 开发 | Tester | Archer |
+| `M-BUGFIX` | Bug 修复 | Devon | Shield |
+| `M-MILESTONE` | milestone 结束 | Librarian | Maestro |
 
 **关键节点补充规则**（不重复阶段表）：
 
 - **需求锁定**：spec/acceptance/test-plan/architecture 形成完整可实现链后送审人类，可能有局部修订。`architecture` 与 `interfaces` 无须人类批准，其余文档必须经人类批准才算定稿。
 - **开发执行**：必须遵循 `story > spec > acceptance > test plan > interfaces/code` 的单向决定路径；未经**人类**允许不得修改路径左侧节点（`interfaces` 除外，可由 Agent 修改）。每个 milestone 结束必须打 tag；打 tag 时由 Librarian 将自上次 tag 以来的 raw 蒸馏为 wiki。
 - **收尾**：release 分支达标准后合回 main，打 tag，报告人类。
+
+---
+
+## 需求锁定判定（`M-LOCK`）
+
+Maestro 在以下三信号**全部到位**时判定需求锁定，进入 `M-TESTPLAN`:
+
+1. **Sage 信号** — `quote_parser --check-ready` exit 0（spec.md 所有 quote 块都 `✓ resolved`）
+2. **Lex 信号** — 阶段一/二/三全部 `[通过]`（spec 审核 + issue 覆盖验证 + schema 验证）
+
+**锁定后**:
+- spec.md / acceptance.md / interfaces.md 视为**不可变**（后续只能新增 NFR，不修改已有 FR）
+- `architecture.md` 与 `interfaces.md` 无须人类批准，Agent 可按需修改（参见"关键节点补充规则"）
+- 锁定信号不再依赖 "PR merged"，而是 `quote_parser --check-ready` exit 0（**FR-0026 修订**）
+
+**判定动作**（按决策框架）:
+- 三信号齐 → 推进到 `M-TESTPLAN`
+- 任一信号缺 → 维持 `M-SPEC`，等缺失信号
+- Lex 拒绝 → 退回 Sage 修正（spec 或 issue）
+- 用户不确认 → 暂停，等用户
 
 ---
 

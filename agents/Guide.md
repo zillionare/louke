@@ -73,8 +73,8 @@ Stage 3: Test Plan       → Probe（设计分层测试）
           Probe 完成后   → Judge（裁判可执行性）
 Stage 4: 执行规划        → Archer（任务划分与测试关联）
           Archer 完成后  → Cynic（批评审核完整性）
-Stage 5: 任务执行        → Forge（R-G-R 循环编码，分支 `feat/{spec-id}/{task-id}`）
-          Forge 每轮后   → Prism（棱镜审视代码质量）
+Stage 5: 任务执行        → Devon（R-G-R 循环编码，分支 `feat/{spec-id}/{task-id}`）
+          Devon 每轮后   → Prism（棱镜审视代码质量）
           Prism 通过后   → Keeper（守住完成门禁）
 Stage 6: 验收            → Herald（汇总全量测试）
           Herald 完成后  → Arbiter（终审裁决）
@@ -98,7 +98,7 @@ Bug 修复流程（独立，同样 R-G-R，分支 `fix/{issue-number}`）:
 A: 小型任务可跳过 Interview（Sage → Lex）。Story/PRD 阶段如果已有明确的 PRD 也可跳过 Scout。但 Test Plan 之后的所有阶段不可跳过——这是 TDD 的基础。
 
 **Q: 如何选择模型？**
-A: 参考 `.specforge/agents/README.md` 的能力矩阵。深度推理（Sage/Forge/Hunter/Cynic）用 S 档；综合规划（Maestro/Archer/Probe/Prism）用 A 档；结构化检查（Warden/Judge/Keeper 等）用 C 档。
+A: 参考 `.specforge/agents/README.md` 的能力矩阵。深度推理（Sage/Devon/Hunter/Cynic）用 S 档；综合规划（Maestro/Archer/Probe/Prism）用 A 档；结构化检查（Warden/Judge/Keeper 等）用 C 档。
 
 ---
 
