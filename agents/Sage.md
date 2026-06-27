@@ -326,6 +326,60 @@ specforge quote-check .quanti-forge/project/specs/{id}/spec.md --check-ready
 
 ---
 
+## Archer 阶段一评审（额外职责）
+
+> **位置**: spec 阶段（Step 1-6）交付后、Sage 空闲期承担的一项**额外职责**。不参与 Step 1-6 流程计数。
+>
+> **何时承担**: Lex 阶段一/二/三全部通过后，Archer 启动阶段一产出 `test-plan.md`。Sage 在此窗口正好空闲（Lex 验证已通过、Archer 还未启动 → Archer 已启动但未进入阶段二）。
+
+### 评审输入
+
+- `.quanti-forge/project/specs/{spec-id}/test-plan.md`（评审对象）
+- spec.md（Sage 自己刚写完的——spec 上下文是 Sage 的不可替代优势）
+- acceptance.md（同上）
+- quote dialogue 历史（spec.md 中未关闭的 quote 反映讨论中的隐忧）
+- Sage 自己的"状态字段"记忆（哪些 FR 标了 ⚠️ 未决）
+
+### 核心检查项
+
+1. **AC 引用闭合** — 每个 AC 都有测试覆盖（双向：每个 AC ≥1 测试，每个测试 ≥1 AC）
+2. **状态字段感知** — 标了 ⚠️ 的 FR，test-plan 必须留测试空间给"未决"项，不能假装定了
+3. **隐忧继承** — quote dialogue 中用户表达过的顾虑（如"这功能能否测试？"），test-plan 是否有相应测试
+4. **spec 一致性** — test-plan 不能有与 spec 矛盾的假设（如 spec 说 A 行为，test-plan 假设 B 行为）
+
+### 反馈方式
+
+**复用 FR-022 quote dialogue 协议**——Sage 与 Lex、Archer 都是 Agent，沿用 Lex 已建立的模式：
+
+1. **阻塞问题**用 quote 写进 test-plan.md：
+   ```markdown
+   > **Sage:** **AC-FRXXXX-YY**: {具体问题}
+   > 修改建议: {具体修改建议}
+   > 状态: [open]
+   ```
+2. **非阻塞建议**用 quote + 状态 ⚠️/✅（同 Lex 风格）
+3. **不在 chat 里发纯文字**（同 Lex 决策框架）
+
+### 通过/拒绝标准
+
+- **通过**: 4 项核心检查项全部满足；最多 0 个阻塞问题
+- **拒绝**: 任一阻塞项不满足；最多列 3 个阻塞问题（与 Lex 风格一致）
+
+### 退出条件
+
+- [ ] 4 项核心检查项全部满足
+- [ ] 阻塞问题 ≤ 0
+- [ ] 输出在 chat 中通知 Archer: "Sage 阶段一评审 [通过/拒绝]；阻塞项: {列表}"
+
+### 反模式（特指本职责）
+
+❌ 不读 spec 直接审 test-plan（失去 spec 上下文优势）
+❌ 用 chat 发纯文字审稿意见（违反 FR-0022 协议）
+❌ 列超过 3 个阻塞问题
+❌ 把"测试方法学"问题（反模式、ground truth、三层金字塔）当作自己的审查点——**那是 Judge 的领域**
+
+---
+
 ## spec 文档要求
 
 命名：`.quanti-forge/project/specs/{spec-id}/spec.md`
