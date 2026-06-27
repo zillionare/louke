@@ -40,14 +40,18 @@ models:
 | `M-FOUND` | 项目奠基 | Scout | Warden |
 | `M-SPEC` | 定需求 | Sage | Lex |
 | `M-TESTPLAN` | 定测试计划 | Archer | Sage |
-| `M-ARCH` | 架构设计 | Archer | **Judge** |
+| `M-ARCH` | 架构设计 | Archer | **Prism** |
 | `M-LOCK` | 需求锁定 | Maestro | 人类 |
 | `M-DEV` | 开发执行 | Devon | Prism → Keeper |
-| `M-E2E` | e2e 开发 | Tester | Archer |
-| `M-BUGFIX` | Bug 修复 | Devon | Shield |
+| `M-E2E` | e2e 开发 | Shield | Archer |
+| `M-BUGFIX` | Bug 修复 | Devon | Keeper |
+| `M-BUGFIX` | Bug 修复 | Devon | Keeper |
+| `M-SECURITY` | 安全审计 | **Judge** (S 级) | 用户 |
 | `M-MILESTONE` | milestone 结束 | Librarian | Maestro |
 
 **关键节点补充规则**（不重复阶段表）：
+
+- **`M-SECURITY` (安全审计) — 可选阶段**：用户可在 Scout Step 1 DoD 中关闭（内部项目）。若 DoD 不含 "安全审查" 项 → M-SECURITY 自动跳过（auto-pass）；若包含 → Judge 跑深度审计，详见 `agents/Judge.md` 与 `templates/security-checklist.md`。**位置**: M-MILESTONE 之前（所有开发完成、milestone 关闭前最后一道关卡）。**频率**: per-milestone 默认；高风险路径（auth/crypto/PII）可额外 per-PR 触发 quick scan。
 
 - **需求锁定**：spec/acceptance/test-plan/architecture 形成完整可实现链后送审人类，可能有局部修订。`architecture` 与 `interfaces` 无须人类批准，其余文档必须经人类批准才算定稿。
 - **开发执行**：必须遵循 `story > spec > acceptance > test plan > interfaces/code` 的单向决定路径；未经**人类**允许不得修改路径左侧节点（`interfaces` 除外，可由 Agent 修改）。每个 milestone 结束必须打 tag；打 tag 时由 Librarian 将自上次 tag 以来的 raw 蒸馏为 wiki。
@@ -57,7 +61,7 @@ models:
 
 ## 需求锁定判定（`M-LOCK`）
 
-Maestro 在以下三信号**全部到位**时判定需求锁定，进入 `M-TESTPLAN`:
+Maestro 在以下二信号**全部到位**时判定需求锁定，进入 `M-TESTPLAN`:
 
 1. **Sage 信号** — `quote_parser --check-ready` exit 0（spec.md 所有 quote 块都 `✓ resolved`）
 2. **Lex 信号** — 阶段一/二/三全部 `[通过]`（spec 审核 + issue 覆盖验证 + schema 验证）
@@ -68,10 +72,9 @@ Maestro 在以下三信号**全部到位**时判定需求锁定，进入 `M-TEST
 - 锁定信号不再依赖 "PR merged"，而是 `quote_parser --check-ready` exit 0（**FR-0026 修订**）
 
 **判定动作**（按决策框架）:
-- 三信号齐 → 推进到 `M-TESTPLAN`
+- 二信号齐 → 推进到 `M-TESTPLAN`
 - 任一信号缺 → 维持 `M-SPEC`，等缺失信号
 - Lex 拒绝 → 退回 Sage 修正（spec 或 issue）
-- 用户不确认 → 暂停，等用户
 
 ---
 

@@ -378,6 +378,8 @@ specforge quote-check .quanti-forge/project/specs/{id}/spec.md --check-ready
 ❌ 列超过 3 个阻塞问题
 ❌ 把"测试方法学"问题（反模式、ground truth、三层金字塔）当作自己的审查点——**那是 Judge 的领域**
 
+> **M-ARCH 评审职责说明**: 早期版本中 Sage 兼审 M-ARCH（arch + interfaces）。现已移交给 **Prism**——Prism 在 M-DEV 阶段会同时做"代码与 arch 是否一致"的批判性审视（这是其本职工作的延伸），而 Sage 提示词过长易出错。**Sage 只承担 M-TESTPLAN 评审。**
+
 ---
 
 ## spec 文档要求
