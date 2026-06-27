@@ -31,8 +31,9 @@ models:
 2. **版本号**（必填）— `v0.1`、`v1.0.0` 等
 3. **Repo 名称**（git 信息中无法获取时必填）— 如 `quanti-forge`
 4. **Spec 编号**（可选，用于追加需求）— `001`、`002`...
+5. **完成定义 (Definition of Done, DoD)**（必填）— 什么条件下本版本算完成？默认 `e2e 测试全通过 + 单元测试覆盖率 ≥95%`。用户可：调整覆盖率阈值；追加其他条件（性能基准、Lint 通过、文档完整、安全扫描等）。
 
-前三项缺一则停止。Spec 编号：用户提供则用；否则扫 `.quanti-forge/project/specs/{NNN}-*` 取最大+1，空则 `001`；记到 `project-info.md`。
+前三项缺一则停止。Spec 编号：用户提供则用；否则扫 `.quanti-forge/project/specs/{NNN}-*` 取最大+1，空则 `001`；记到 `project-info.md`。DoD：用户接受默认则用 `e2e 全通过, 单元测试覆盖率 ≥95%`；用户调整则按用户声明原样记录。
 
 **Spec-ID 格式**：`v{version}-{NNN}-{keyword}`，例 `v0.3-003-init-adopt-mode`。`version` 必须 `v` 前缀；`keyword` 从 story 提取（≤3 个词，`-` 连接）。下游 Agent 据此定位 `.quanti-forge/project/specs/{Spec-ID}/`。
 
@@ -123,6 +124,7 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 - **Spec ID**: v{version}-{NNN}-{keyword}
 - **Release Branch**: `releases/{version}`（代码 + `.quanti-forge/project/`；上游固定为 `main`）
 - **Smoke Test Issue**: #{编号}（Step 4b 权限冒烟用，已 closed）
+- **DoD**: {Step 1 收集的完成定义，默认 `e2e 全通过, 单元测试覆盖率 ≥95%`}
 - **Created**: {YYYY-MM-DD}
 ```
 
@@ -159,6 +161,7 @@ Repo: github.com/{owner}/{repo}
 Project: {repo}-{version}    
 Project ID: https://github.com/users/{owner}/projects/{id}
 Spec ID: v{version}-{NNN}-{keyword}
+DoD: {e2e 全通过, 单元测试覆盖率 ≥95%, ...}
 
 Repo: {已存在 / 新创建}    Project: {已创建 / 已存在}    owner 已加为 collaborator: {是/否}
 身份一致: {通过/失败}（check_identity.py）  gh 权限: {通过/失败}（Step 4b 冒烟）
