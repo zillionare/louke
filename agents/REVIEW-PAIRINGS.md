@@ -78,7 +78,7 @@
 **Prism**:
 - 范围：生产代码 + 单元测试 + e2e 测试
 - 维度（6 个）：可读性 / 设计模式 / DRY / 变更影响 / 测试代码反模式 / **安全 quick scan**（§6）
-- 批判性视角（继承自 Cynic）
+- 批判性视角（Prism 内置的 cynical 视角——质疑设计假设、寻找被掩盖的缺陷）
 
 **Keeper**:
 - 范围：per-commit gate（R-G-R + tests pass + lint + commit 格式）+ **回归判断**（合并 Shield 的判断部分）

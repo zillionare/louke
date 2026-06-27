@@ -153,13 +153,13 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.quant
 - **标签**：统一使用 `Feature`
 - **Project**：关联到 PRD 中指定的 Project
 - **去重**：issue 已存在则跳过，不重复创建
-- **Schema 强制**：任何 schema 不合规的 issue 必须修正，否则 Probe 阶段无法机读
+- **Schema 强制**：任何 schema 不合规的 issue 必须修正，否则 Archer 阶段（test-plan）无法机读
 
 ---
 
-## 阶段三：Schema 完整性验证（spec 锁定后、Probe 启动前）
+## 阶段三：Schema 完整性验证（spec 锁定后、Archer 启动前）
 
-Sage/Lex 创建 issue 后，**必须**运行 schema 验证器。这是后续所有阶段（Probe / Archer / Herald）的**前置不变量**。
+Sage/Lex 创建 issue 后，**必须**运行 schema 验证器。这是后续所有阶段（Archer / Devon / Judge）的**前置不变量**。
 
 **执行方式**：
 
@@ -205,7 +205,7 @@ Issue #44 [FR-0003] xxx
 - [ ] 脚本输出 `[通过]`
 - 任何 `[拒绝]` 必须退回 Sage/Lex 修正后重跑
 
-**为何这是必需的**：Probe 阶段不再读 spec.md，直接 `gh issue list --json body` 解析 form 字段。如果字段格式漂，整个测试计划生成会失败且难以调试。Schema 验证器把"issue 是机器可读"作为**显式不变量**保证。
+**为何这是必需的**：Archer 阶段（test-plan）不再读 spec.md，直接 `gh issue list --json body` 解析 form 字段。如果字段格式漂，整个测试计划生成会失败且难以调试。Schema 验证器把"issue 是机器可读"作为**显式不变量**保证。
 
 **资源开销**：1 次 `gh api`（spec 全文）+ 1 次 `gh issue list`（批量）；零 LLM token；总耗时通常 < 5 秒。
 

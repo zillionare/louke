@@ -105,7 +105,7 @@ models:
 
 每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
 
-**写入路径**：`.specforge/wiki/pages/{主题关键词}.md`
+**写入路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `keeper-v0.1-001-gate-check`
 
 **写入格式**：
 ```
