@@ -11,7 +11,7 @@ models:
 
 **目的**：回答一个问题——"项目的基础设施（repo、project、story）是否已全部就绪？"
 
-**是**：向用户收集 story/版本号/repo 名称；创建 GitHub repo（如不存在）；创建 GitHub Project（status board、default repo、README）；初始化本地工作区；验证 gh 权限；把其他 collaborator 加入 project。
+**是**：向用户收集 story/版本号/repo 名称；创建 GitHub repo（如不存在）；创建 GitHub Project（status board、default repo、README）；**确保人类 owner 拥有 project 访问权（agent 自己可能是 owner，也可能是 collaborator——两种情况都要保证 owner 能看到 project）**；初始化本地工作区；验证 gh 权限。
 
 **不是**：决定 story/prd 是否值得开发；替用户做需求决策。
 
@@ -48,18 +48,29 @@ gh repo create {repo} --private --description "{story 摘要}"
 
 ### Step 3: 创建 GitHub Project
 
-**始终在 agent (gh) 身份下创建 project**，再邀请 owner 为 collaborator——不切换 gh 身份，owner 也能看到 project。
+**始终在 agent (gh) 身份下创建 project**，随后**无条件**把人类 owner 设为 collaborator。无论 agent 本身是 owner 还是 collaborator，owner 都必须有 project 访问权——否则 agent 下线后 owner 无法继续管理。
 
 Project 名称：`{repo}-{version}`，例 `quanti-forge-v0.1`
 
+**两个变量**（贯穿整个 spec 体系）：
+- `PROJECT_URL` = `https://github.com/users/{owner}/projects/{id}` 完整 URL（写入 `project-info.md` 的 **Project ID** 字段，供下游 agent 引用）
+- `ID` = URL 路径末段数字（用于 `gh api` / `gh project item-add` 命令）
+
+例：URL = `https://github.com/users/zillionare/projects/5`，则 `ID = 5`。
+
 ```
 gh project create --title "{repo}-{version}" --owner {gh_user}
-quanti-forge invite-owner {owner}/{repo} --version {version}
+PROJECT_URL=$(...)                            # 捕获新 project 的 URL（创建输出里有）
+ID=$(echo "${PROJECT_URL}" | grep -oE '[0-9]+$')   # 从 URL 提取数字 ID
+gh api -X POST .../projects/${ID}/collaborators/{owner_login} -f role=READER
+# 或：quanti-forge invite-owner {owner}/{repo} --version {version}（TODO: 此命令待 qf 工具实现）
 ```
+
+**记录到 project-info.md**：把 `PROJECT_URL` 写入 `**Project ID**` 字段（见 Step 6 模板）。后续 agent 不再 list / 查询项目，直接读此 URL 关联 issue。
 
 **配置**：a. Status 字段（Backlog=pink, In Progress=red, Pending Verify=yellow, Done=green）；b. Default Repository = `{owner}/{repo}`；c. README 写入 Story/PRD（压缩到 200 字内）。CLI 不支持的步骤提示用户在 GitHub UI 手动配。
 
-**权限处理**：agent=owner → project 自然归属；agent=collaborator → `qf invite-owner` 调 GraphQL `updateProjectV2Collaborators` 把 owner 设为 READER（TODO: Aaron 问过能否给全部权限，待定）。checkup L6 会校验 agent 角色（OWNER 或 collaborator）。
+**权限处理**：agent=owner → project 自然归属，但仍需调 `add collaborator` 显式加 owner（因为 agent 身份可能与 owner 不同）；agent=collaborator → 同上，GraphQL `updateProjectV2Collaborators` API 把 owner 设为至少 READER。checkup L6 会校验 agent 角色（OWNER 或 collaborator）。
 
 
 ### Step 4: 创建 releases 分支
@@ -107,7 +118,8 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 
 - **Version**: {版本号}
 - **Repo**: github.com/{owner}/{repo}
-- **Project**: {repo}-{version} (#{编号})
+- **Project**: {repo}-{version}
+- **Project ID**: https://github.com/users/{owner}/projects/{id}
 - **Spec ID**: v{version}-{NNN}-{keyword}
 - **Release Branch**: `releases/{version}`（代码 + `.quanti-forge/project/`；上游固定为 `main`）
 - **Smoke Test Issue**: #{编号}（Step 4b 权限冒烟用，已 closed）
@@ -144,13 +156,14 @@ git push -u origin releases/{version}
 Story: {story摘要}
 版本: {版本号}    
 Repo: github.com/{owner}/{repo}    
-Project: {repo}-{version} (#{编号})
+Project: {repo}-{version}    
+Project ID: https://github.com/users/{owner}/projects/{id}
 Spec ID: v{version}-{NNN}-{keyword}
 
-Repo: {已存在 / 新创建}    Project: {已创建 / 已存在}
+Repo: {已存在 / 新创建}    Project: {已创建 / 已存在}    owner 已加为 collaborator: {是/否}
 身份一致: {通过/失败}（check_identity.py）  gh 权限: {通过/失败}（Step 4b 冒烟）
 工作区: {目录路径}    Agent 可用性: {数量} prompt 文件
-→ 结论: {通过/拒绝}（通过要求: 身份一致 + gh 权限通过）
+→ 结论: {通过/拒绝}（通过要求: 身份一致 + gh 权限通过 + owner 已加为 collaborator）
 ```
 
 ---
