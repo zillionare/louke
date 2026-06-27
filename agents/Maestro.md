@@ -43,8 +43,7 @@ models:
 | `M-ARCH` | 架构设计 | Archer | **Prism** |
 | `M-LOCK` | 需求锁定 | Maestro | 人类 |
 | `M-DEV` | 开发执行 | Devon | Prism → Keeper |
-| `M-E2E` | e2e 开发 | Shield | Archer |
-| `M-BUGFIX` | Bug 修复 | Devon | Keeper |
+| `M-E2E` | e2e 开发 | Shield | Prism → Keeper |
 | `M-BUGFIX` | Bug 修复 | Devon | Keeper |
 | `M-SECURITY` | 安全审计 | **Judge** (S 级) | 用户 |
 | `M-MILESTONE` | milestone 结束 | Librarian | Maestro |

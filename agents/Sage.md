@@ -349,7 +349,7 @@ specforge quote-check .quanti-forge/project/specs/{id}/spec.md --check-ready
 
 ### 反馈方式
 
-**复用 FR-022 quote dialogue 协议**——Sage 与 Lex、Archer 都是 Agent，沿用 Lex 已建立的模式：
+**复用 FR-0022 quote dialogue 协议**——Sage 与 Lex、Archer 都是 Agent，沿用 Lex 已建立的模式：
 
 1. **阻塞问题**用 quote 写进 test-plan.md：
    ```markdown
