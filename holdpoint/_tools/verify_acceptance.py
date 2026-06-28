@@ -28,7 +28,6 @@ verify_acceptance.py — 验证 Sage 生成的 acceptance.md 是否合格
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import subprocess
 import sys
@@ -325,8 +324,8 @@ def report(results: list[AccResult]) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="验证 acceptance.md 是否合格 (Lex 阶段一)")
-    p.add_argument("--spec", help="spec-id, 例如 v0.1-001-holdpoint")
-    p.add_argument("--repo", default="zillionare/holdpoint", help="owner/repo, 默认 zillionare/holdpoint")
+    p.add_argument("--spec", required=True, help="spec-id, 例如 v0.1-001-holdpoint")
+    p.add_argument("--repo", required=True, help="owner/repo, 如 my-org/my-project (运行 holdpoint 的项目, 不是 holdpoint 框架本身)")
     p.add_argument("--branch", default="main", help="spec 所在分支, 默认 main")
     p.add_argument("--offline", action="store_true", help="离线模式: 直接用 --spec-file/--acceptance-file")
     p.add_argument("--spec-file", help="离线模式: spec.md 路径")

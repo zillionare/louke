@@ -2,7 +2,7 @@
 # holdpoint installer — pip-based
 #
 # 用法:
-#   curl -sSL https://raw.githubusercontent.com/your-org/holdpoint/main/install.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/zillionare/holdpoint/main/install.sh | bash
 #   curl -sSL ... | bash -s -- v0.1.0         # 指定版本
 #   curl -sSL ... | bash -s -- --editable     # 开发模式（从 GitHub clone 后 pip install -e）
 #   ./install.sh [version]                    # 本地运行
@@ -17,7 +17,7 @@ for arg in "$@"; do
     esac
 done
 
-REPO_URL="https://github.com/your-org/holdpoint.git"
+REPO_URL="https://github.com/zillionare/holdpoint.git"
 VENV_DIR="${HOME}/.holdpoint/venv"
 BIN_DIR="${HOME}/.local/bin"
 
@@ -30,19 +30,25 @@ PY_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
 [ "$PY_MINOR" -ge 9 ] 2>/dev/null || die "Python 3.9+ required (found $(python3 -V 2>&1))"
 
 # ---------- 决定安装源 ----------
-if [ "$VERSION" = "latest" ]; then
-    PKG_SPEC="holdpoint"
-elif [ "$EDITABLE" -eq 1 ]; then
+if [ "$EDITABLE" -eq 1 ]; then
     # 走 git clone 模式
     HOLDPOINT_HOME="${HOME}/.holdpoint/src"
     if [ -d "$HOLDPOINT_HOME" ]; then
         note "updating existing checkout at $HOLDPOINT_HOME"
         git -C "$HOLDPOINT_HOME" pull --ff-only
     else
-        note "cloning holdpoint ($VERSION) into $HOLDPOINT_HOME"
-        git clone --depth 1 --branch "$VERSION" "$REPO_URL" "$HOLDPOINT_HOME"
+        # latest → 默认 branch (main), 不传 --branch
+        if [ "$VERSION" = "latest" ]; then
+            note "cloning holdpoint (default branch) into $HOLDPOINT_HOME"
+            git clone --depth 1 "$REPO_URL" "$HOLDPOINT_HOME"
+        else
+            note "cloning holdpoint ($VERSION) into $HOLDPOINT_HOME"
+            git clone --depth 1 --branch "$VERSION" "$REPO_URL" "$HOLDPOINT_HOME"
+        fi
     fi
     PKG_SPEC="$HOLDPOINT_HOME"
+elif [ "$VERSION" = "latest" ]; then
+    PKG_SPEC="holdpoint"
 else
     PKG_SPEC="holdpoint==$VERSION"
 fi
@@ -64,13 +70,29 @@ ln -sf "$VENV_DIR/bin/hp" "$BIN_DIR/hp"
 note "linked $BIN_DIR/hp -> $VENV_DIR/bin/hp"
 
 # ---------- PATH 持久化 ----------
-SHELL_RC=""
-if [ -f "${HOME}/.zshrc" ];  then SHELL_RC="${HOME}/.zshrc"; fi
-if [ -f "${HOME}/.bashrc" ]; then SHELL_RC="${HOME}/.bashrc"; fi
-if [ -n "$SHELL_RC" ] && ! grep -q "${BIN_DIR}" "$SHELL_RC" 2>/dev/null; then
-    echo "" >> "$SHELL_RC"
-    echo "# holdpoint CLI" >> "$SHELL_RC"
-    echo "export PATH=\"${BIN_DIR}:\$PATH\"" >> "$SHELL_RC"
+# 按 $SHELL 检测用户主 shell 的 rc 文件, 不按文件存在性盲选
+SHELL_NAME="$(basename "${SHELL:-bash}")"
+case "$SHELL_NAME" in
+    zsh)  SHELL_RC="${HOME}/.zshrc" ;;
+    bash)
+        # Linux bash 通常读 .bashrc; macOS bash 读 .bash_profile (login) 或 .bashrc (interactive non-login)
+        if [ -f "${HOME}/.bashrc" ]; then SHELL_RC="${HOME}/.bashrc"
+        elif [ -f "${HOME}/.bash_profile" ]; then SHELL_RC="${HOME}/.bash_profile"
+        else SHELL_RC="${HOME}/.bashrc"; fi
+        ;;
+    fish) SHELL_RC="${HOME}/.config/fish/config.fish" ;;
+    *)    SHELL_RC="${HOME}/.profile" ;;
+esac
+if [ -n "$SHELL_RC" ] && [ -w "$(dirname "$SHELL_RC")" ] && ! grep -q "${BIN_DIR}" "$SHELL_RC" 2>/dev/null; then
+    {
+        echo ""
+        echo "# holdpoint CLI"
+        if [ "$SHELL_NAME" = "fish" ]; then
+            echo "set -gx PATH ${BIN_DIR} \$PATH"
+        else
+            echo "export PATH=\"${BIN_DIR}:\$PATH\""
+        fi
+    } >> "$SHELL_RC"
     note "added ${BIN_DIR} to PATH in $SHELL_RC"
 fi
 

@@ -35,9 +35,7 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
 from __future__ import annotations
 
 import argparse
-import base64
 import json
-import os
 import re
 import subprocess
 import sys

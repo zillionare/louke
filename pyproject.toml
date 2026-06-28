@@ -33,9 +33,9 @@ classifiers = [
 hp = "holdpoint.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/holdpoint"
-Repository = "https://github.com/your-org/holdpoint"
-Issues = "https://github.com/your-org/holdpoint/issues"
+Homepage = "https://github.com/zillionare/holdpoint"
+Repository = "https://github.com/zillionare/holdpoint"
+Issues = "https://github.com/zillionare/holdpoint/issues"
 
 [tool.setuptools]
 packages = ["holdpoint", "holdpoint._tools"]

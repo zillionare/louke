@@ -31,7 +31,7 @@ Thumbs.db
 .mypy_cache/
 
 # Tool-installed (auto-generated)
-qf.egg-info/
+holdpoint.egg-info/
 .github/agents/*
 .opencode/agents/*
 

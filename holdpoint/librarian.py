@@ -4,7 +4,6 @@ Librarian 职责: raw → wiki 蒸馏、index 维护、lint 健康检查。
 """
 import argparse
 import re
-import subprocess
 import sys
 from pathlib import Path
 
