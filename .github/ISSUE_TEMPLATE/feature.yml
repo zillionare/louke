@@ -18,10 +18,10 @@ body:
     attributes:
       label: Spec 链接
       description: 完整 GitHub URL，fragment 必须小写（#fr-001，不是 #FR-001）。支持单文件 (spec.md) 与多分册 (spec-{name}.md)，目录可放 /specs/{id}/ 或 /{id}/。
-      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/spec.md#fr-001
+      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.holdpoint/project/specs/{spec-id}/spec.md#fr-001
     validations:
       required: true
-      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/(specs/)?[A-Za-z0-9._-]+/spec(-\\w+)?\\.md#(fr|nfr)-\\d{3}$"
+      regex: "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.holdpoint/project/(specs/)?[A-Za-z0-9._-]+/spec(-\\w+)?\\.md#(fr|nfr)-\\d{3}$"
 
   - type: input
     id: acceptance_criteria
@@ -29,11 +29,11 @@ body:
       label: 验收标准
       description: |
         指向 AC 来源, 三选一 (v0.5-006):
-        1. acceptance.md#ac-fr-XXX URL (默认, 有专属 AC 章节; Probe 拉取 AC-N 列表生成测试, Herald 逐条核验)
+        1. acceptance.md#ac-fr-XXX URL (默认, 有专属 AC 章节; Lex 拉取 AC-N 列表生成测试, Keeper 逐条核验)
         2. spec(-vol)?.md#fr-XXX URL (AC 在 spec 章节中描述, 例如算法定义 FR 含公式)
         3. 字面值 "无" (FR 是 ground truth 覆盖 / 声明性 / 撮合 等无 AC 章节类型; 同时需在 acceptance.md 的 ## No Acceptance 列表中包含此 FR)
-      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.specforge/project/specs/{spec-id}/acceptance.md#ac-fr-001
+      placeholder: https://github.com/{owner}/{repo}/blob/{branch}/.holdpoint/project/specs/{spec-id}/acceptance.md#ac-fr-001
     validations:
       required: true
       # 三种形式: "无" / spec-fragment / acceptance-fragment
-      regex: "^(无|https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.specforge/project/(specs/)?[A-Za-z0-9._-]+/(spec(-\\w+)?\\.md#(fr|nfr)-\\d{3}|acceptance\\.md#ac-(fr|nfr)-\\d{3}))$"
+      regex: "^(无|https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/blob/[A-Za-z0-9._/-]+/\\.holdpoint/project/(specs/)?[A-Za-z0-9._-]+/(spec(-\\w+)?\\.md#(fr|nfr)-\\d{3}|acceptance\\.md#ac-(fr|nfr)-\\d{3}))$"

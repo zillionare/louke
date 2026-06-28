@@ -23,7 +23,7 @@ env/
 Thumbs.db
 
 # Local raw memory (per project memory architecture)
-.specforge/raw/
+.holdpoint/raw/
 
 # Test/cache files
 .coverage
