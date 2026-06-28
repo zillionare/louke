@@ -33,16 +33,11 @@ def register(subparsers):
     p.add_argument('--message', required=True, help='commit message 主体')
     p.add_argument('--task-id', required=True, help='任务编号, 例 TASK-01')
 
-    p = sub.add_parser('branch-create', help='创建任务分支 (feat/{spec-id}/{task-id})')
-    p.add_argument('--spec-id', required=True)
-    p.add_argument('--task-id', required=True)
-
 
 def run(args):
     handlers = {
         'run-tests': cmd_run_tests,
         'commit-rgr': cmd_commit_rgr,
-        'branch-create': cmd_branch_create,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -86,25 +81,4 @@ def cmd_commit_rgr(args):
 
     rc, sha, _ = git('rev-parse', '--short', 'HEAD', cwd=cwd)
     print(f"✓ Committed: {sha}")
-    return 0
-
-
-def cmd_branch_create(args):
-    """创建任务分支 feat/{spec-id}/{task-id}."""
-    cwd = Path.cwd()
-    branch_name = f"feat/{args.spec_id}/{args.task_id}"
-
-    print(f"=== Branch Create ===")
-    print(f"Branch: {branch_name}")
-
-    rc, out, _ = git('checkout', '-b', branch_name, cwd=cwd)
-    if rc != 0:
-        print(f"git checkout failed: {out}", file=sys.stderr)
-        return 1
-
-    rc, _, _ = git('push', '-u', 'origin', branch_name, cwd=cwd)
-    if rc != 0:
-        print(f"git push failed (branch still created locally)", file=sys.stderr)
-
-    print(f"✓ Branch created: {branch_name}")
     return 0

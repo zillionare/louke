@@ -29,8 +29,8 @@ check_foundation.py — 验证 Scout 奠基阶段的工作是否完整
   F11 身份一致性:       gh 与 git 同身份 (委托 check_identity.py L1-L5)
 
 使用:
-  specforge foundation <owner/repo> --version <version> --spec-id <spec-id>
-  specforge foundation zillionare/specforge --version v0.1 --spec-id v0.1-001-specforge
+  hp warden foundation-check <owner/repo> --version <version> --spec-id <spec-id>
+  hp warden foundation-check zillionare/holdpoint --version v0.1 --spec-id v0.1-001-holdpoint
 
   可选 flags:
     --project-id NUMBER   GitHub Project 数字 ID (跳过自动查找)
@@ -148,8 +148,8 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
     r.error = (
         f"未找到 Project '{expected_title}' — 请先创建。"
         f"可创建在 {repo_owner} 或 {gh_user} 名下。"
-        f"如创建在 {gh_user} 名下,运行 'specforge invite-owner {repo} --version {version}' "
-        f"把 {repo_owner} 设为 project READER"
+        f"如创建在 {gh_user} 名下,在 GitHub UI 手动把 {repo_owner} 设为 project READER, "
+        f"或调 gh api updateProjectV2Collaborators API"
     )
     return r
 
@@ -287,16 +287,7 @@ def check_f8_dev_branch(version: str, upstream: str | None) -> CheckResult:
     r = CheckResult(code="F8", name="开发分支存在")
     branch = f"releases/{version}"
 
-    # 检查远程分支
-    out, ok = _gh("api", f"repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/git/refs/heads/{branch}")
-    if ok:
-        r.passed = True
-        r.message = f"远程分支 {branch} 存在"
-        if upstream:
-            r.message += f" (基于 {upstream})"
-        return r
-
-    # 备用: git ls-remote
+    # 用 git ls-remote 直接查 (不依赖 gh, 也避免 gh api 嵌套 shell 展开的坑)
     try:
         ls_out = subprocess.check_output(
             ["git", "ls-remote", "--heads", "origin", branch],
@@ -305,9 +296,13 @@ def check_f8_dev_branch(version: str, upstream: str | None) -> CheckResult:
         if ls_out:
             r.passed = True
             r.message = f"远程分支 {branch} 存在"
+            if upstream:
+                r.message += f" (基于 {upstream})"
             return r
-    except Exception:
-        pass
+    except Exception as e:
+        r.warning = True
+        r.message = f"无法列远程分支 (降为警告): {e}"
+        return r
 
     r.error = f"远程分支 {branch} 不存在 — 请先创建: git checkout -b {branch} && git push -u origin {branch}"
     return r
@@ -418,34 +413,49 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
 def check_f11_identity(repo: str) -> CheckResult:
     """F11: gh 与 git 身份一致性 (委托 check_identity.py)"""
     r = CheckResult(code="F11", name="身份一致性 (gh/git)")
+    # 故意分两层 except: ImportError/AttributeError 是 F11 自身集成 bug
+    # (e.g. check_identity 改签名后这里没跟上), 必须 surface 给用户,
+    # 不能静默降为 warning 后 hold point 失效。
     try:
-        # 调用同 framework 的 checkup 子命令 (零代码重复)
-        specforge_bin = Path(__file__).resolve().parent.parent / "bin" / "specforge"
-        if not specforge_bin.is_file():
-            specforge_bin = Path("/usr/local/bin/specforge")  # 安装后的位置
-
-        cmd = [str(specforge_bin), "checkup", repo]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode == 0:
-            r.passed = True
-            r.message = "checkup 通过"
-            return r
-        # checkup 退出 1 = 拒绝, 退出 2 = 警告 (取决于实现)
-        # 但 GH identity 漂移已非 blocker (agent 在自己名下创建 project 解决问题)
-        # → 降为 warning
-        output = (proc.stdout + proc.stderr).strip()
-        last_lines = "\n".join(output.splitlines()[-3:]) if output else "(无输出)"
-        r.warning = True
-        r.message = f"checkup 失败 (降为警告): {last_lines}"
+        from holdpoint._tools import check_identity
+    except ImportError as e:
+        r.error = f"F11 集成异常: 无法 import check_identity — {e}"
         return r
-    except FileNotFoundError:
-        r.warning = True
-        r.message = "specforge CLI 未找到, 跳过 F11 (非阻塞)"
+
+    try:
+        # collect_gh() returns (user, emails); collect_git() returns
+        # (name, email, last_author, remote). Build Identity with explicit
+        # kwargs (collect_repo_role needs the repo arg).
+        gh_user, gh_emails = check_identity.collect_gh()
+        git_name, git_email, last_author, remote_url = check_identity.collect_git()
+        repo_role = check_identity.collect_repo_role(repo)
+        ident = check_identity.Identity(
+            gh_user=gh_user, gh_emails=gh_emails,
+            git_name=git_name, git_email=git_email,
+            last_commit_author=last_author, remote_url=remote_url,
+            repo_role=repo_role,
+        )
+        check_identity.check(ident, repo)
+        rc = check_identity.report(ident, repo)
+    except (AttributeError, TypeError) as e:
+        # F11 自身集成 bug (签名不匹配, Identity 字段对不上等)
+        r.error = f"F11 集成异常: check_identity API 不匹配 — {e}"
         return r
     except Exception as e:
+        # 真正的外部异常 (gh/git 未安装, 网络问题) — 降为 warning
         r.warning = True
-        r.message = f"F11 异常 (降为警告): {e}"
+        r.message = f"身份检查异常 (降为警告): {e}"
         return r
+
+    if rc == 0:
+        r.passed = True
+        r.message = "身份一致"
+        return r
+    # identity check 失败 → 警告 (GH identity 漂移已非 blocker,
+    # agent 在自己名下创建 project 即可解决)
+    r.warning = True
+    r.message = f"身份检查失败 (退出码 {rc}, 降为警告 — 见上方 check_identity 输出)"
+    return r
 
 
 # ---------- 报告 ----------
@@ -488,7 +498,7 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("repo", help="owner/repo, 如 zillionare/specforge")
+    p.add_argument("repo", help="owner/repo, 如 zillionare/holdpoint")
     p.add_argument("--version", required=True, help="版本号, 如 v0.1")
     p.add_argument("--spec-id", dest="spec_id", help="Spec ID, 如 v0.3-001-adopt-mode")
     p.add_argument("--project-id", dest="project_id", type=int,

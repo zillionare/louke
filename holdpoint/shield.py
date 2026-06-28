@@ -42,9 +42,7 @@ def run(args):
 def cmd_run_e2e(args):
     """Run e2e tests."""
     cwd = Path.cwd()
-    e2e_path = 'tests/e2e/'
-    if args.spec:
-        e2e_path = f'tests/e2e/{args.spec}/'
+    e2e_path = '.holdpoint/project/specs/{}/tests/e2e/'.format(args.spec) if args.spec else '.holdpoint/project/specs/*/tests/e2e/'
 
     print(f"=== Run E2E ===")
     print(f"Path: {e2e_path}")
@@ -83,9 +81,14 @@ def cmd_commit_e2e(args):
 
 
 def cmd_scaffold(args):
-    """生成 e2e 测试骨架模板."""
+    """生成 e2e 测试骨架模板.
+
+    路径与 cmd_commit_e2e 对齐: .holdpoint/project/specs/{spec}/tests/e2e/
+    (e2e 测试属于 spec 范围, 不放顶层 tests/, 避免跨 spec 互相干扰)
+    """
     cwd = Path.cwd()
-    target_dir = cwd / 'tests/e2e'
+    spec_path = f".holdpoint/project/specs/{args.spec}/tests/e2e"
+    target_dir = cwd / spec_path
     target_dir.mkdir(parents=True, exist_ok=True)
     target_file = target_dir / f'test_{args.scenario}.py'
 

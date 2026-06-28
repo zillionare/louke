@@ -7,6 +7,7 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from ._common import git
@@ -37,6 +38,8 @@ def register(subparsers):
 
     p = sub.add_parser('advance', help='推进到下一阶段')
     p.add_argument('--stage', required=True, help='当前阶段代码, 例 M-DEV')
+    p.add_argument('--force', action='store_true',
+                   help='跳过退出条件自动检查 (手动确认场景)')
 
     p = sub.add_parser('regress', help='退回当前阶段')
     p.add_argument('--stage', required=True)
@@ -100,8 +103,15 @@ def cmd_advance(args):
         print(f"未知阶段: {args.stage}")
         return 1
 
+    # M-MILESTONE 是最后阶段: 从它 advance = milestone 收尾, 是 success
+    if args.stage == 'M-MILESTONE':
+        print(f"M-MILESTONE 是最终阶段; advance 视为 milestone 收尾。")
+        print(f"  请执行: hp librarian distill + lint → 关闭 milestone")
+        print(f"→ milestone 收尾指令已发出 (无后续阶段)")
+        return 0
+
     if idx + 1 >= len(STAGES):
-        print(f"已经是最后阶段")
+        print(f"未知状态: stage={args.stage} 在阶段表末尾之后")
         return 1
 
     next_code, next_name, next_impl, next_rev = STAGES[idx + 1]
@@ -111,11 +121,19 @@ def cmd_advance(args):
     print()
 
     # 退出条件检查
+    # 关键: hold point 机制要求未实现的自动检查 = 阻塞,
+    # 防止"用 [todo] 占位就 advance 成功"导致流程失效。
+    # --force 标志给手动确认场景 (人类已自行核对) 用。
     print(f"--- 退出条件检查 ({args.stage}) ---")
+    if args.force:
+        print(f"[--force] 跳过自动检查, 人类已确认")
+        print(f"\n→ 推进到 {next_code}")
+        return 0
+
     ok = True
 
     if args.stage == 'M-FOUND':
-        # project-info.md 存在 + Smoke Test Issue closed
+        # project-info.md 存在
         info = cwd / '.holdpoint/project/project-info.md'
         if info.exists():
             print(f"[ok] project-info.md 存在")
@@ -128,33 +146,50 @@ def cmd_advance(args):
         spec_root = Path(out.strip()) if rc == 0 else cwd
         specs = list((spec_root / '.holdpoint/project/specs').glob('*/spec.md'))
         if not specs:
-            print(f"[medium] 无 spec.md")
+            print(f"[high] 无 spec.md — M-SPEC 必交付")
+            ok = False
         else:
             for sp in specs:
                 print(f"  spec: {sp.parent.name}")
-                print(f"    [todo: 调 hp sage quote-check 验证]")
+                print(f"    [todo: 自动调 hp sage quote-check 验证 — 未实现]")
+                # 未实现的自动检查 = 阻塞 (符合 hold point 语义)
+                ok = False
+    elif args.stage == 'M-TESTPLAN':
+        # test-plan.md 存在 + Sage 评审通过
+        print(f"  [todo: 调 hp archer validate-test-plan + hp sage review 验证]")
+        ok = False
+    elif args.stage == 'M-ARCH':
+        # architecture.md + interfaces.md 存在 + Prism 评审通过
+        print(f"  [todo: 调 hp archer validate-arch + hp prism review-arch 验证]")
+        ok = False
+    elif args.stage == 'M-LOCK':
+        # 三信号齐: Sage + Lex + 用户确认
+        print(f"  [todo: 调 hp lex verify-acceptance + hp sage quote-check + 等待用户 IDE 确认]")
+        ok = False
     elif args.stage == 'M-DEV':
         # 测试通过 + lint 通过
-        print(f"  [todo: 调 hp keeper gate 验证]")
+        print(f"  [todo: 调 hp keeper gate --tests 验证]")
+        ok = False
     elif args.stage == 'M-E2E':
         # e2e 通过
         print(f"  [todo: 调 hp shield run-e2e 验证]")
+        ok = False
     elif args.stage == 'M-BUGFIX':
         # 回归通过
-        print(f"  [todo: 调 hp keeper regression 验证]")
+        print(f"  [todo: 调 hp keeper regression --tests 验证]")
+        ok = False
     elif args.stage == 'M-SECURITY':
         # security audit 通过 (or user disabled)
         print(f"  [todo: 调 hp judge security-audit 验证, 或检查 DoD 是否关闭]")
-    elif args.stage == 'M-MILESTONE':
-        # Librarian 蒸馏完成
-        print(f"  [todo: 调 hp librarian from-raw + lint 验证]")
+        ok = False
 
     if ok:
         print(f"\n→ 推进到 {next_code}")
         # TODO: 更新 project-info.md 记录当前阶段
         return 0
     else:
-        print(f"\n→ 拒绝推进 (退出条件不满足)")
+        print(f"\n→ 拒绝推进 (退出条件未自动验证)")
+        print(f"  提示: 人工核对后用 'hp maestro advance --stage {args.stage} --force' 强制推进")
         return 1
 
 
@@ -170,9 +205,10 @@ def cmd_regress(args):
     raw_dir = cwd / '.holdpoint/raw/'
     raw_dir.mkdir(parents=True, exist_ok=True)
 
-    ts_file = raw_dir / f"{__import__('datetime').datetime.now().strftime('%Y-%m-%d')}-regress.md"
+    ts = datetime.now().strftime('%Y-%m-%d')
+    ts_file = raw_dir / f"{ts}-regress.md"
     content = f"""---
-date: {__import__('datetime').datetime.now().strftime('%Y-%m-%d')}
+date: {ts}
 session: maestro-regress-{args.stage}
 agents: [Maestro]
 related_issues: []

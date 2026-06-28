@@ -35,19 +35,32 @@ def run(args):
 
 
 def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
-    """检查 commit message 格式 - R-G-R 模式 (red: / green: / refactor:)."""
+    """检查 commit message 格式 - R-G-R 模式 (test: red / feat: green / refactor:).
+
+    严格匹配 devon.py 的 RGR_PREFIX; 非 RGR 的提交 (e2e/docs/chore/fix)
+    用各自前缀。
+    """
     rc, out, _ = git('log', '--format=%H %s', commit_range, cwd=cwd)
     if rc != 0:
         return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
 
-    findings = []
-    valid_prefixes = ('test: red', 'feat: green', 'refactor:', 'fix: green',
-                      'e2e:', 'docs:', 'chore:', 'feat:', 'fix:')
+    # 与 devon.RGR_PREFIX + 非 RGR 提交前缀保持一一对应
+    # (旧版 'feat: green' / 'fix: green' 是冗余 — 'feat:'/'fix:' 已 startswith 匹配)
+    valid_prefixes = (
+        'test: red',     # Devon R-G-R 阶段 1
+        'feat: green',   # Devon R-G-R 阶段 2 (与 'feat:' 区分, 强制 R-G-R 规范)
+        'refactor:',     # Devon R-G-R 阶段 3
+        'e2e:',          # Shield 提交
+        'fix:',          # bug fix (注意: 'feat: green' 不会被 'feat:' 误匹配, 因为 'feat: green' startswith 'feat:' 也 OK,
+                         #  但反过来 'feat: something' 不会 startswith 'feat: green', 区分了 R-G-R)
+        'docs:',         # 文档
+        'chore:',        # 杂项
+    )
 
+    findings = []
     for line in out.strip().split('\n'):
         if not line.strip():
             continue
-        # line format: "sha subject"
         parts = line.split(' ', 1)
         if len(parts) != 2:
             continue
@@ -57,7 +70,10 @@ def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
                 'commit': sha[:8],
                 'subject': subject,
                 'severity': 'medium',
-                'description': f'commit 格式不规范 (建议以 {" / ".join(valid_prefixes[:4])} 开头)',
+                'description': (
+                    f'commit 格式不规范 (需以 {" / ".join(valid_prefixes)} 之一开头; '
+                    f'Red-Green 阶段必须严格用 "test: red" / "feat: green")'
+                ),
             })
     return findings
 
