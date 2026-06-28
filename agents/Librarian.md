@@ -53,11 +53,11 @@ models:
 - [[branch-naming-convention]] — 分支命名约定 (2026-05-31)
 
 ### 实体 (entity)
-- [[specforge]] — TDD-first 多 Agent 协作开发方法 (2026-05-23)
+- [[holdpoint]] — holdpoint 框架本体 (2026-05-23)
 
 ## 按日期
 - 2026-05-31: [[agent-merge-lex-clerk]], [[branch-naming-convention]]
-- 2026-05-23: [[specforge]]
+- 2026-05-23: [[holdpoint]]
 ```
 
 ### 2. 更新 overview.md
@@ -68,7 +68,7 @@ models:
 # 项目概览
 > 最后更新: YYYY-MM-DD
 
-specforge 是一套 TDD-first 多 Agent 协作开发方法。当前有 {N} 个 wiki 页面，
+holdpoint 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。当前有 {N} 个 wiki 页面，
 涵盖 {M} 个决策、{K} 条经验、{L} 个实体。最近的变更包括：...
 ```
 

@@ -1,6 +1,13 @@
+---
+name: review-pairings
+description: Agent 评审配对 — 实施者↔评审者映射与变更历史
+---
+
 # Agent Review Pairings
 
-本文档定义 specforge 中各 Agent 的评审配对关系。Maestro 阶段推进的"评审"步骤按此执行。
+本文档定义 holdpoint 中各 Agent 的评审配对关系。Maestro 阶段推进的"评审"步骤按此执行。
+
+> **holdpoint 是什么**：一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。
 
 ## 配对表
 

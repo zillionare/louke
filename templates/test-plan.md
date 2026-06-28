@@ -225,7 +225,7 @@ tests/
 ## 7. CI 门禁
 
 ```bash
-specforge ci-scan \
+hp archer ci-scan \
   --acceptance .holdpoint/project/specs/{SPEC-ID}/acceptance.md \
   --tests tests/
 ```

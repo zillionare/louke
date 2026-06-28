@@ -22,11 +22,6 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-01: Probe has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Probe.md"
-    [ "$status" -eq 0 ]
-}
-
 @test "UT-010-01: Judge has session save instructions" {
     run grep -q "会话保存" "$AGENTS_DIR/Judge.md"
     [ "$status" -eq 0 ]
@@ -37,13 +32,8 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-01: Cynic has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Cynic.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Forge has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Forge.md"
+@test "UT-010-01: Devon has session save instructions" {
+    run grep -q "会话保存" "$AGENTS_DIR/Devon.md"
     [ "$status" -eq 0 ]
 }
 
@@ -57,21 +47,6 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-01: Herald has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Herald.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Arbiter has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Arbiter.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Hunter has session save instructions" {
-    run grep -q "会话保存" "$AGENTS_DIR/Hunter.md"
-    [ "$status" -eq 0 ]
-}
-
 @test "UT-010-01: Shield has session save instructions" {
     run grep -q "会话保存" "$AGENTS_DIR/Shield.md"
     [ "$status" -eq 0 ]
@@ -82,12 +57,17 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-02: wiki page frontmatter fields are documented" {
-    run grep -qE "(type:|date:|title:)" "$AGENTS_DIR/Forge.md"
+@test "UT-010-01: Librarian has session save instructions" {
+    run grep -q "会话保存" "$AGENTS_DIR/Librarian.md"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-03: wiki page wikilink syntax is documented" {
-    run grep -qE "\[\[.*\]\]" "$AGENTS_DIR/Forge.md"
+@test "UT-010-02: session frontmatter fields are documented" {
+    run grep -qE "(status:|session:)" "$AGENTS_DIR/Devon.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "UT-010-03: raw path documented" {
+    run grep -q ".holdpoint/raw/" "$AGENTS_DIR/Devon.md"
     [ "$status" -eq 0 ]
 }

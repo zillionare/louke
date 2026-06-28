@@ -2,10 +2,10 @@
 
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 
-@test "WIKI-001: Librarian mentions .specforge/wiki/pages/ directory" {
-    run grep -qE "\.specforge/wiki/pages/" "$AGENTS_DIR/Librarian.md"
+@test "WIKI-001: Librarian mentions .holdpoint/wiki/pages/ directory" {
+    run grep -qE "\.holdpoint/wiki/pages/" "$AGENTS_DIR/Librarian.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Librarian.md does not mention .specforge/wiki/pages/"
+        echo "FAIL: Librarian.md does not mention .holdpoint/wiki/pages/"
         false
     }
 }
@@ -42,69 +42,46 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     }
 }
 
-@test "WIKI-006: All agents write to .specforge/wiki/pages/ not wiki/entries/" {
+@test "WIKI-006: No agent writes to obsolete wiki/entries/ path" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
-        # Skip Librarian and Guide, ROSTER, README
+        # Skip Librarian (owns wiki structure), ROSTER, REVIEW-PAIRINGS
         case "$filename" in
-            Librarian.md|Guide.md|ROSTER.md|README.md) continue ;;
+            Librarian.md|ROSTER.md|REVIEW-PAIRINGS.md) continue ;;
         esac
         if grep -q "wiki/entries/" "$file"; then
-            echo "FAIL: $filename still references wiki/entries/ instead of .specforge/wiki/pages/"
+            echo "FAIL: $filename still references wiki/entries/ instead of .holdpoint/wiki/pages/"
             return 1
         fi
     done
 }
 
-@test "WIKI-007: All agents with session save write to .specforge/wiki/pages/" {
+@test "WIKI-007: All agents with session save write to .holdpoint/raw/" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         case "$filename" in
-            Librarian.md|Guide.md|ROSTER.md|README.md) continue ;;
+            Librarian.md|ROSTER.md|REVIEW-PAIRINGS.md) continue ;;
         esac
-        if grep -q "会话保存规范" "$file"; then
-            grep -q "\.specforge/wiki/pages/" "$file" || {
-                echo "FAIL: $filename has session save but does not reference .specforge/wiki/pages/"
+        if grep -q "会话保存" "$file"; then
+            grep -q "\.holdpoint/raw/" "$file" || {
+                echo "FAIL: $filename has session save but does not reference .holdpoint/raw/"
                 return 1
             }
         fi
     done
 }
 
-@test "WIKI-008: All agents with session save use YAML frontmatter format" {
+@test "WIKI-008: All agents with session save use new frontmatter format (status: field)" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         case "$filename" in
-            Librarian.md|Guide.md|ROSTER.md|README.md) continue ;;
+            Librarian.md|ROSTER.md|REVIEW-PAIRINGS.md) continue ;;
         esac
-        if grep -q "会话保存规范" "$file"; then
-            grep -q "type:" "$file" || {
-                echo "FAIL: $filename session save does not include 'type:' frontmatter field"
+        if grep -q "会话保存" "$file"; then
+            grep -q "status:" "$file" || {
+                echo "FAIL: $filename session save does not include 'status:' frontmatter field"
                 return 1
             }
         fi
     done
-}
-
-@test "WIKI-009: All agents with session save use wikilink syntax" {
-    for file in "$AGENTS_DIR"/*.md; do
-        filename=$(basename "$file")
-        case "$filename" in
-            Librarian.md|Guide.md|ROSTER.md|README.md) continue ;;
-        esac
-        if grep -q "会话保存规范" "$file"; then
-            grep -qE "\[\[.*\]\]" "$file" || {
-                echo "FAIL: $filename session save does not mention [[wikilink]] syntax"
-                return 1
-            }
-        fi
-    done
-}
-
-@test "WIKI-010: Guide references .specforge/wiki/index.md for queries" {
-    run grep -qE "\.specforge/wiki/index\.md" "$AGENTS_DIR/Guide.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Guide.md does not reference .specforge/wiki/index.md for queries"
-        false
-    }
 }
