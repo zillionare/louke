@@ -3,23 +3,23 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qf"
+name = "hp"
 version = "0.1.0"
-description = "quanti-forge CLI - 工具统一入口（每 agent 一个子命令空间）"
+description = "holdpoint CLI - 工具统一入口（每 agent 一个子命令空间）"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "quanti-forge team" }
+    { name = "holdpoint team" }
 ]
 
-# No runtime dependencies - qf wraps existing Python tools
+# No runtime dependencies - hp wraps existing Python tools
 
 [project.scripts]
-qf = "qf.__main__:main"
+hp = "hp.__main__:main"
 
 [tool.setuptools]
-packages = ["qf"]
+packages = ["hp"]
 
 [tool.setuptools.package-data]
-qf = ["py.typed"]
+hp = ["py.typed"]

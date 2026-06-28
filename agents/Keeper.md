@@ -54,11 +54,11 @@ models:
 
 ## 评审流程
 
-1. **per-commit gate** → `qf keeper gate --commit-range HEAD~1..HEAD [--tests]`
+1. **per-commit gate** → `hp keeper gate --commit-range HEAD~1..HEAD [--tests]`
    - 检查 commit 格式（R-G-R 前缀）
    - 可选跑测试套件（`--tests`）
    - 输出 gate 通过/拒绝
-2. **per-bug-fix 回归** → `qf keeper regression --baseline main --current HEAD [--tests]`
+2. **per-bug-fix 回归** → `hp keeper regression --baseline main --current HEAD [--tests]`
    - 分析 bug fix 变更范围（≤5 文件为佳）
    - 检测依赖文件变更（package.json/Cargo.toml 等）
    - 可选跑测试套件对比

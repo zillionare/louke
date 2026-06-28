@@ -69,7 +69,7 @@ gh project create --title "{repo}-{version}" --owner {gh_user}
 PROJECT_URL=$(...)                            # 捕获新 project 的 URL（创建输出里有）
 ID=$(echo "${PROJECT_URL}" | grep -oE '[0-9]+$')   # 从 URL 提取数字 ID
 gh api -X POST .../projects/${ID}/collaborators/{owner_login} -f role=READER
-# 或：quanti-forge invite-owner {owner}/{repo} --version {version}（TODO: 此命令待 qf 工具实现）
+# 或：holdpoint invite-owner {owner}/{repo} --version {version}（TODO: 此命令待 hp 工具实现）
 ```
 
 **记录到 project-info.md**：把 `PROJECT_URL` 写入 `**Project ID**` 字段（见 Step 6 模板）。后续 agent 不再 list / 查询项目，直接读此 URL 关联 issue。
@@ -92,10 +92,10 @@ git push -u origin releases/{version}
 
 ### Step 4a: 身份一致性检查
 
-`gh` 与 `git` 账号若不一致会出现"git push 成功但 gh issue create 403"的隐性错位。用 `qf scout identity-check` 校验：
+`gh` 与 `git` 账号若不一致会出现"git push 成功但 gh issue create 403"的隐性错位。用 `hp scout identity-check` 校验：
 
 ```
-qf scout identity-check --repo {owner}/{repo}
+hp scout identity-check --repo {owner}/{repo}
 ```
 
 退出码 0 → 继续；非 0 → 拒绝推进，提示用户重登 `gh auth login` 或修 `git config user.name/email`。
@@ -142,10 +142,10 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 
 ### Step 8: 提交
 
-确认当前在 `releases/{version}`，然后用 `qf scout commit-foundation` 封装多步 git 操作：
+确认当前在 `releases/{version}`，然后用 `hp scout commit-foundation` 封装多步 git 操作：
 
 ```bash
-qf scout commit-foundation --spec-id {Spec-ID} --version {version} \
+hp scout commit-foundation --spec-id {Spec-ID} --version {version} \
   --message "story/prd: initial draft from user conversation for {Spec-ID}"
 ```
 

@@ -54,11 +54,11 @@ git push -u origin feat/{spec-id}/TASK-{序号}
 
 ### Phase 1: Red（写失败测试）
 
-1. 创建任务分支：`qf devon branch-create --spec-id {spec-id} --task-id TASK-{N}`
+1. 创建任务分支：`hp devon branch-create --spec-id {spec-id} --task-id TASK-{N}`
 2. 阅读 TEST 计划中该任务关联的测试用例
 3. 编写测试代码，精确描述期望行为
-4. 运行测试：`qf devon run-tests --scope unit --fast` → 确认失败（Red）
-5. 提交测试文件：`qf devon commit-rgr --phase red --task-id TASK-{N} --message "{描述}"`
+4. 运行测试：`hp devon run-tests --scope unit --fast` → 确认失败（Red）
+5. 提交测试文件：`hp devon commit-rgr --phase red --task-id TASK-{N} --message "{描述}"`
 
 **退出条件**：
 - [ ] 测试文件已提交（commit 消息以 `test: red` 开头）
@@ -69,8 +69,8 @@ git push -u origin feat/{spec-id}/TASK-{序号}
 
 1. 编写刚好使测试通过的实现代码
 2. **禁止**添加未由测试驱动的功能
-3. 运行测试：`qf devon run-tests --scope unit` → 确认全部通过（Green）
-4. 提交实现代码：`qf devon commit-rgr --phase green --task-id TASK-{N} --message "{描述}"`
+3. 运行测试：`hp devon run-tests --scope unit` → 确认全部通过（Green）
+4. 提交实现代码：`hp devon commit-rgr --phase green --task-id TASK-{N} --message "{描述}"`
 
 **退出条件**：
 - [ ] 关联测试全部通过
@@ -82,7 +82,7 @@ git push -u origin feat/{spec-id}/TASK-{序号}
 1. 在测试保护下重构：消除重复、改善命名、提取公共逻辑
 2. 每次重构后立即运行测试 → 确认仍为 Green
 3. **禁止**改变外部行为
-4. 提交重构：`qf devon commit-rgr --phase refactor --task-id TASK-{N} --message "{描述}"`
+4. 提交重构：`hp devon commit-rgr --phase refactor --task-id TASK-{N} --message "{描述}"`
 
 **退出条件**：
 - [ ] 测试仍全部通过

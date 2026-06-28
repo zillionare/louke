@@ -34,3 +34,7 @@ Thumbs.db
 qf.egg-info/
 .github/agents/*
 .opencode/agents/*
+
+# Session artifacts (per-agent / per-IDE state)
+.kilo/
+.sisyphus/

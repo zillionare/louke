@@ -54,7 +54,7 @@ models:
 
 - **需求锁定**：spec/acceptance/test-plan/architecture 形成完整可实现链后送审人类，可能有局部修订。`architecture` 与 `interfaces` 无须人类批准，其余文档必须经人类批准才算定稿。
 - **开发执行**：必须遵循 `story > spec > acceptance > test plan > interfaces/code` 的单向决定路径；未经**人类**允许不得修改路径左侧节点（`interfaces` 除外，可由 Agent 修改）。每个 milestone 结束必须打 tag；打 tag 时由 Librarian 将自上次 tag 以来的 raw 蒸馏为 wiki。
-- **收尾**：release 分支达标准后合回 main，打 tag，报告人类。`qf maestro advance --stage M-MILESTONE` 检查 Librarian 蒸馏完成。
+- **收尾**：release 分支达标准后合回 main，打 tag，报告人类。`hp maestro advance --stage M-MILESTONE` 检查 Librarian 蒸馏完成。
 
 ---
 

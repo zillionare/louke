@@ -43,7 +43,7 @@ models:
 
 ## 输入
 
-- `qf judge security-audit` 输出（pattern scan + 结构化报告）
+- `hp judge security-audit` 输出（pattern scan + 结构化报告）
 - `.quanti-forge/templates/security-checklist.md` — 审计基线（默认 + 项目扩展）
 - `.quanti-forge/project/specs/{SPEC-ID}/spec.md` — 理解预期行为
 - `.quanti-forge/project/specs/{SPEC-ID}/interfaces.md` — 理解外部可观测出口
@@ -54,7 +54,7 @@ models:
 ## 工作流程
 
 1. **建立基线** → 读 checklist + spec/interfaces + 上一报告
-2. **跑 pattern scan** → `qf judge security-audit --release releases/{version} --baseline main` 拿到自动 pattern scan 输出（critical/high/medium/low 分类）
+2. **跑 pattern scan** → `hp judge security-audit --release releases/{version} --baseline main` 拿到自动 pattern scan 输出（critical/high/medium/low 分类）
 3. **逐文件审计** → 在 pattern scan 基础上，按 checklist 类别（输入验证 / 认证 / 数据保护 / 错误处理 / 依赖 / 日志 / 业务逻辑）逐一审
 4. **语义层挖掘** → 不只查 checklist pattern，要思考：
    - 这段代码做什么？

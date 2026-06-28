@@ -64,7 +64,7 @@ models:
 3. **测试层级** — unit (隔离规则/算法) / integration (模块协作) / e2e (用户场景)
 4. **AC 追溯** — 每个测试 ≥1 AC，每个 AC ≥1 测试
 5. **数据策略** — 项目无数据依赖可省略；有则写明
-6. **CI 门禁** — `qf archer ci-scan --spec {SPEC-ID}` 校验 AC 引用 + 反模式
+6. **CI 门禁** — `hp archer ci-scan --spec {SPEC-ID}` 校验 AC 引用 + 反模式
 
 **模板**: 复制 `templates/test-plan.md` 填写。`templates/test-plan.md` 内已包含作伪模式清单与防护机制，本阶段无需重复。
 

@@ -96,7 +96,7 @@ story: 作为设计师，我想有一个画圆的工具
 第 4 条将使用以下命令：
 
 ```bash
-qf sage commit-spec --spec {spec-id} --message "spec: initial draft for {spec-id} with pending clarifications"
+hp sage commit-spec --spec {spec-id} --message "spec: initial draft for {spec-id} with pending clarifications"
 ```
 
 > **Step 2 必须同时生成两个文件**:
@@ -306,8 +306,8 @@ gh project item-add "${PROJECT_URL}" --url ${ISSUE_URL}
 issue 创建 + Project 关联完毕后, 通知 Lex 启动验证：
 
 ```bash
-# 用 qf sage quote-check 检 spec 是否锁定 (所有 open quote 都 ✓ resolved)
-qf sage quote-check --spec {id}
+# 用 hp sage quote-check 检 spec 是否锁定 (所有 open quote 都 ✓ resolved)
+hp sage quote-check --spec {id}
 # exit 0 → 通知 Lex 进入阶段二
 # exit 1 → 等 Sage 继续追问 (有 pending quote)
 ```

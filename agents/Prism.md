@@ -48,11 +48,11 @@ models:
 ## 工作流程
 
 1. **读取变更** → 获取本次 git diff（生产 + 测试）
-2. **跑完整 review** → `qf prism review --diff HEAD~1..HEAD`（包含 test-patterns + security-quick-scan + code-quality）
+2. **跑完整 review** → `hp prism review --diff HEAD~1..HEAD`（包含 test-patterns + security-quick-scan + code-quality）
 3. **生产代码审查** → 可读性、设计模式、DRY、变更影响（人工深读）
-4. **测试代码审查** → `qf prism test-patterns --tests tests/`（自动 8 类反模式 + AC 引用检测）
+4. **测试代码审查** → `hp prism test-patterns --tests tests/`（自动 8 类反模式 + AC 引用检测）
 5. **批判性审视** → 质疑设计假设，寻找"看起来 OK 但有暗病"的代码
-6. **安全 quick scan** → `qf prism security-quick-scan --diff HEAD~1..HEAD`（浅扫 pattern，深的归 Judge）
+6. **安全 quick scan** → `hp prism security-quick-scan --diff HEAD~1..HEAD`（浅扫 pattern，深的归 Judge）
 7. **变更影响分析** → 识别依赖关系和潜在影响面
 8. **做出决定** → 无阻塞项 = **通过**
 

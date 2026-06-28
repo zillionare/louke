@@ -50,8 +50,8 @@ AGENTS = {
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        prog='qf',
-        description='quanti-forge CLI - 工具统一入口（每 agent 一个子命令空间）',
+        prog='hp',
+        description='holdpoint CLI - 工具统一入口（每 agent 一个子命令空间）',
     )
     subparsers = parser.add_subparsers(
         dest='agent', required=True, metavar='<agent>'
@@ -72,7 +72,7 @@ def main(argv=None):
     try:
         return agent_module.run(args) or 0
     except Exception as e:
-        print(f"qf {args.agent} {getattr(args, 'command', '?')}: {e}", file=sys.stderr)
+        print(f"hp {args.agent} {getattr(args, 'command', '?')}: {e}", file=sys.stderr)
         return 1
 
 
