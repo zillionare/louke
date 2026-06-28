@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
-# 测试 tools/check_identity.py
+# 测试 louke/_tools/check_identity.py
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-SCRIPT="$REPO_ROOT/tools/check_identity.py"
+SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
 
 # ---------- 脚本存在性和语法 ----------
 

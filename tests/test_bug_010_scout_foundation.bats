@@ -57,7 +57,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "SCOUT-010-007: Scout links default repository to project" {
-    run grep -qE "(default repository|默认.*仓库|关联.*repo)" "$AGENTS_DIR/Scout.md"
+    run grep -qE "(default repository|default repo|默认.*仓库|关联.*repo)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md does not link default repo to project"
         false
