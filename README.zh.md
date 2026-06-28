@@ -1,6 +1,6 @@
 # holdpoint
 
-> **规格把关，Agent 担责。**
+> **规约设卡，工具锁轨，让智能体编码可靠、可信、可追溯**
 
 ![holdpoint pipeline](docs/hero.svg)
 
@@ -25,18 +25,18 @@
 
 ### 流水线
 
-| 阶段 | 实施者 | 评审者 | 说明 |
-|---|---|---|---|
-| M-FOUND | Scout | Warden | 项目奠基 + 权限门 |
-| M-SPEC | Sage | Lex | 规格 + acceptance.md |
-| M-TESTPLAN | Archer | Sage | 测试计划（Sage 有独有 spec 上下文）|
-| M-ARCH | Archer | Prism | 架构 + 接口 |
-| M-LOCK | Maestro | 用户 | 3 信号锁定 |
-| M-DEV | Devon | **Prism → Keeper ★** | 代码 + 单元测试 |
-| M-E2E | Shield | **Prism → Keeper ★** | e2e 测试（B 级）|
-| M-BUGFIX | Devon | **Keeper ★** | Bug 修复 |
-| M-SECURITY | Judge（S 级）| 用户 | 深度安全审计 |
-| M-MILESTONE | Librarian | Maestro | raw → wiki 蒸馏 |
+| 阶段        | 实施者        | 评审者               | 说明                                |
+| ----------- | ------------- | -------------------- | ----------------------------------- |
+| M-FOUND     | Scout         | Warden               | 项目奠基 + 权限门                   |
+| M-SPEC      | Sage          | Lex                  | 规格 + acceptance.md                |
+| M-TESTPLAN  | Archer        | Sage                 | 测试计划（Sage 有独有 spec 上下文） |
+| M-ARCH      | Archer        | Prism                | 架构 + 接口                         |
+| M-LOCK      | Maestro       | 用户                 | 3 信号锁定                          |
+| M-DEV       | Devon         | **Prism → Keeper ★** | 代码 + 单元测试                     |
+| M-E2E       | Shield        | **Prism → Keeper ★** | e2e 测试（B 级）                    |
+| M-BUGFIX    | Devon         | **Keeper ★**         | Bug 修复                            |
+| M-SECURITY  | Judge（S 级） | 用户                 | 深度安全审计                        |
+| M-MILESTONE | Librarian     | Maestro              | raw → wiki 蒸馏                     |
 
 ★ **HOLD POINT**——工具强制检查（`hp` CLI 返回 0/1；不通过就不前进）
 
@@ -159,13 +159,13 @@ Cursor：**Settings → Rules → Add file → `agents/Sage.md`**
 
 ### 对比
 
-| 框架 | spec 角色 | review 模式 | agent handoff | hold point 强制 |
-|---|---|---|---|---|
-| **spec-kit**（GitHub）| 驱动代码（单 agent）| 无 | N/A | 无 |
-| **superpowers**（obra，240k★）| 触发 skills | subagent review | TDD + subagent | TDD（test）|
-| **oh-my-openagent**（code-yeongyu，64k★）| 指导 agent | team of agents | parallel | skills + hooks |
-| **antigravity-awesome-skills**（1,693+ skills）| (skill 库) | 无 | N/A | 无 |
-| **holdpoint** | **让 Agent 担责** | **不同 agent per stage** | **10 阶段转换** | **`hp` CLI 工具强制** |
+| 框架                                            | spec 角色            | review 模式              | agent handoff   | hold point 强制       |
+| ----------------------------------------------- | -------------------- | ------------------------ | --------------- | --------------------- |
+| **spec-kit**（GitHub）                          | 驱动代码（单 agent） | 无                       | N/A             | 无                    |
+| **superpowers**（obra，240k★）                  | 触发 skills          | subagent review          | TDD + subagent  | TDD（test）           |
+| **oh-my-openagent**（code-yeongyu，64k★）       | 指导 agent           | team of agents           | parallel        | skills + hooks        |
+| **antigravity-awesome-skills**（1,693+ skills） | (skill 库)           | 无                       | N/A             | 无                    |
+| **holdpoint**                                   | **让 Agent 担责**    | **不同 agent per stage** | **10 阶段转换** | **`hp` CLI 工具强制** |
 
 独特主张：**spec 通过 hold point 让 agent 担责，不只是给 agent 看**。
 
