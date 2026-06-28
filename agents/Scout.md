@@ -92,10 +92,10 @@ git push -u origin releases/{version}
 
 ### Step 4a: 身份一致性检查
 
-`gh` 与 `git` 账号若不一致会出现"git push 成功但 gh issue create 403"的隐性错位。先用 `tools/check_identity.py` 校验：
+`gh` 与 `git` 账号若不一致会出现"git push 成功但 gh issue create 403"的隐性错位。用 `qf scout identity-check` 校验：
 
 ```
-python3 tools/check_identity.py --repo {owner}/{repo}
+qf scout identity-check --repo {owner}/{repo}
 ```
 
 退出码 0 → 继续；非 0 → 拒绝推进，提示用户重登 `gh auth login` 或修 `git config user.name/email`。
@@ -142,14 +142,11 @@ gh pr close <PR_NUMBER> --comment "Scout 权限验证完成" --delete-branch=fal
 
 ### Step 8: 提交
 
-确认当前在 `releases/{version}`，再 add/commit/push：
+确认当前在 `releases/{version}`，然后用 `qf scout commit-foundation` 封装多步 git 操作：
 
 ```bash
-git status
-git add .quanti-forge/project/specs/{Spec-ID}/*.md
-git add .quanti-forge/project/project-info.md
-git commit -m "story/prd: initial draft from user conversation for {Spec-ID}"
-git push -u origin releases/{version}
+qf scout commit-foundation --spec-id {Spec-ID} --version {version} \
+  --message "story/prd: initial draft from user conversation for {Spec-ID}"
 ```
 
 不在 `releases/{version}` 则 `git checkout releases/{version}` 后再操作，不要 `git commit --amend` 到 main。

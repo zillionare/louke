@@ -96,10 +96,7 @@ story: 作为设计师，我想有一个画圆的工具
 第 4 条将使用以下命令：
 
 ```bash
-git add .quanti-forge/project/specs/{spec-id}/spec.md
-git add .quanti-forge/project/specs/{spec-id}/acceptance.md
-git commit -m "spec: initial draft for {spec-id} with pending clarifications"
-git push
+qf sage commit-spec --spec {spec-id} --message "spec: initial draft for {spec-id} with pending clarifications"
 ```
 
 > **Step 2 必须同时生成两个文件**:
@@ -309,13 +306,10 @@ gh project item-add "${PROJECT_URL}" --url ${ISSUE_URL}
 issue 创建 + Project 关联完毕后, 通知 Lex 启动验证：
 
 ```bash
-# 用 tools/quote_parser.py 检 spec 是否锁定 (所有 open quote 都 ✓ resolved)
-python3 tools/quote_parser.py .quanti-forge/project/specs/{id}/spec.md --check-ready
+# 用 qf sage quote-check 检 spec 是否锁定 (所有 open quote 都 ✓ resolved)
+qf sage quote-check --spec {id}
 # exit 0 → 通知 Lex 进入阶段二
 # exit 1 → 等 Sage 继续追问 (有 pending quote)
-
-# 也可用 specforge quote-check 包装命令 (背后调 tools/quote_parser.py)
-specforge quote-check .quanti-forge/project/specs/{id}/spec.md --check-ready
 ```
 
 > **Lex 阶段二启动**: spec.md 已锁定 (所有 pending quote 都 ✓ resolved, FR/NFR 锚点已加), {M} 个 issue 已由 Sage Step 5 创建, {P} 个 issue 已关联到 Project {PROJECT}, 请验证 issue 覆盖完整性 + schema 合规性 + Project 关联完整性。
