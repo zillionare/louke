@@ -1,12 +1,34 @@
-# IDE / agent tooling — environment-local, not project content
-.kilo/
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
 
-# OS / editor cruft
-.DS_Store
-*.swp
-*.swo
-.idea/
+# Distribution / packaging
+*.egg-info/
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDE
 .vscode/
-.github/agents/
-.sisyphus/run-continuation/ses_13a197986ffe81doKgGRUxej5z.json
-.opencode/agents/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local raw memory (per project memory architecture)
+.specforge/raw/
+
+# Test/cache files
+.coverage
+.pytest_cache/
+.mypy_cache/
+
+# Tool-installed (auto-generated)
+qf.egg-info/
