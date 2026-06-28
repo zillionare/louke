@@ -46,9 +46,7 @@ models:
 ## 工作流程
 
 1. **读 test-plan §6 + interfaces.md** → 明确 e2e 场景与可观测出口
-2. **确定技术栈**：
-   - Web/API e2e → Playwright (浏览器) 或 testclient (后端 HTTP)
-   - 数据验证 e2e → 直接读 DB
+2. **生成骨架**（可选）：`qf shield scaffold --type playwright|testclient|db --scenario user_login_flow --ac-id AC-FR0001-01`
 3. **编写 e2e 脚本** → `tests/e2e/<场景>.py` 或 `tests/e2e/<场景>.spec.ts`
 4. **每个测试函数**：
    ```python
@@ -58,13 +56,8 @@ models:
        # 2. 执行（API 调用/浏览器操作）
        # 3. 断言（按 interfaces.md 出口断言——API 响应字段/DB 记录/UI 元素）
    ```
-5. **运行本地验证** → 至少手动跑一次确认脚本可执行
-6. **提交**：
-   ```bash
-   git add tests/e2e/
-   git commit -m "e2e: cover {SPEC-ID} per test-plan §6 (AC-FRXXXX-YY)"
-   git push
-   ```
+5. **本地验证** → `qf shield run-e2e --spec {SPEC-ID} --browser chromium` 至少跑一次确认脚本可执行
+6. **提交**：`qf shield commit-e2e --spec {SPEC-ID} --message "cover {SPEC-ID} per test-plan §6 (AC-FRXXXX-YY)"`
 
 ---
 

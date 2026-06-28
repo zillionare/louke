@@ -43,7 +43,7 @@ models:
 
 ## 输入
 
-- `git diff <last-tag-or-main>..releases/{version}` — 本 milestone 全部代码变更
+- `qf judge security-audit` 输出（pattern scan + 结构化报告）
 - `.quanti-forge/templates/security-checklist.md` — 审计基线（默认 + 项目扩展）
 - `.quanti-forge/project/specs/{SPEC-ID}/spec.md` — 理解预期行为
 - `.quanti-forge/project/specs/{SPEC-ID}/interfaces.md` — 理解外部可观测出口
@@ -54,8 +54,8 @@ models:
 ## 工作流程
 
 1. **建立基线** → 读 checklist + spec/interfaces + 上一报告
-2. **全量 diff** → 获取本 milestone 所有代码变更（按文件 / 模块组织）
-3. **逐文件审计** → 按 checklist 类别（输入验证 / 认证 / 数据保护 / 错误处理 / 依赖 / 日志 / 业务逻辑）
+2. **跑 pattern scan** → `qf judge security-audit --release releases/{version} --baseline main` 拿到自动 pattern scan 输出（critical/high/medium/low 分类）
+3. **逐文件审计** → 在 pattern scan 基础上，按 checklist 类别（输入验证 / 认证 / 数据保护 / 错误处理 / 依赖 / 日志 / 业务逻辑）逐一审
 4. **语义层挖掘** → 不只查 checklist pattern，要思考：
    - 这段代码做什么？
    - 攻击者会怎么利用？
@@ -67,7 +67,7 @@ models:
    - 状态机转换合法性？
    - 时序竞争？
    - idempotency？
-6. **严重度评估** → critical / high / medium / low
+6. **严重度评估** → critical / high / medium / low（在 pattern scan 基础上调整）
 7. **出报告** → 列出所有发现，给出修复建议
 8. **判定** → 任一 critical/high → 拒绝；否则通过
 

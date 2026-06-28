@@ -54,11 +54,15 @@ models:
 
 ## 评审流程
 
-1. **检查 git log** → 确认 R-G-R 提交顺序
-2. **运行关联测试** → 确认全部 Green
-3. **运行 lint + typecheck** → 确认 0 错误
-4. **检查 commit message** → 确认包含测试用例编号
-5. **做出决定** → 4 条全部 ✅ = **通过**
+1. **per-commit gate** → `qf keeper gate --commit-range HEAD~1..HEAD [--tests]`
+   - 检查 commit 格式（R-G-R 前缀）
+   - 可选跑测试套件（`--tests`）
+   - 输出 gate 通过/拒绝
+2. **per-bug-fix 回归** → `qf keeper regression --baseline main --current HEAD [--tests]`
+   - 分析 bug fix 变更范围（≤5 文件为佳）
+   - 检测依赖文件变更（package.json/Cargo.toml 等）
+   - 可选跑测试套件对比
+3. **做出决定** → 4 条门禁全部 ✅ = **通过**
 
 ---
 
