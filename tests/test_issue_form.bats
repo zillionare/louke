@@ -149,7 +149,7 @@ EOF
   {
     "number": 42,
     "title": "[FR-001] 用户登录",
-    "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/acceptance.md#ac-fr-001\n",
+    "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/acceptance.md#ac-fr-001\n",
     "state": "open"
   }
 ]
@@ -176,11 +176,11 @@ setup_acc_with_001_005() {
     FIXTURE="$BATS_TEST_TMPDIR/bad_title.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "FR-1 用户登录 (无方括号)", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 1, "title": "FR-1 用户登录 (无方括号)", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -192,11 +192,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/missing_url.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 2, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 2, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -208,11 +208,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/upper_fragment.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 3, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/spec.md#FR-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 3, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/spec.md#FR-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -224,11 +224,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/missing_ac.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 4, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/spec.md#fr-001\n", "state": "open"}
+  {"number": 4, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/spec.md#fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -240,11 +240,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/old_ac_text.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 5, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nAC-1: x\nAC-2: y\n", "state": "open"}
+  {"number": 5, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nAC-1: x\nAC-2: y\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -257,11 +257,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/bad_ac_anchor.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 6, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/001-test/acceptance.md#ac-fr-999\n", "state": "open"}
+  {"number": 6, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/001-test/acceptance.md#ac-fr-999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -278,11 +278,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/bad_anchor.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 6, "title": "[FR-999] x", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.1-001-holdpoint/acceptance.md#ac-fr-999\n", "state": "open"}
+  {"number": 6, "title": "[FR-999] x", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FULL" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -292,7 +292,7 @@ EOF
 # ---------- 验证器在 spec 实例上跑通 ----------
 
 @test "VERIFY-300: v0_1_001_spec_md_contains_11_a_id_anchors" {
-    run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md"
+    run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md"
     [ "$status" -eq 0 ]
     [ "$output" -eq 11 ]
 }
@@ -308,13 +308,13 @@ for i in range(1, 12):
     issues.append({
         'number': 100 + i,
         'title': f'[FR-{i:03d}] test',
-        'body': f'### 需求 ID\nFR-{i:03d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md#fr-{i:03d}\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.1-001-holdpoint/acceptance.md#ac-fr-{i:03d}\n',
+        'body': f'### 需求 ID\nFR-{i:03d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-{i:03d}\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-{i:03d}\n',
         'state': 'open',
     })
 print(json.dumps(issues, ensure_ascii=False))
 " > "$FIXTURE"
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.holdpoint/project/specs/v0.1-001-holdpoint/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$SPEC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
@@ -340,7 +340,7 @@ EOF
   {
     "number": 7,
     "title": "[FR-010] 策略一",
-    "body": "### 需求 ID\nFR-010\n\n### Spec 链接\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.holdpoint/project/v0.2-001-strategy-framework/spec-strategy.md#fr-010\n\n### 验收标准\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.holdpoint/project/v0.2-001-strategy-framework/acceptance.md#ac-fr-010\n",
+    "body": "### 需求 ID\nFR-010\n\n### Spec 链接\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.louke/project/v0.2-001-strategy-framework/spec-strategy.md#fr-010\n\n### 验收标准\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.louke/project/v0.2-001-strategy-framework/acceptance.md#ac-fr-010\n",
     "state": "open"
   }
 ]
@@ -366,7 +366,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.holdpoint/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -390,7 +390,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.holdpoint/project/v0.2-001/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.holdpoint/project/v0.2-001/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.louke/project/v0.2-001/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.louke/project/v0.2-001/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -413,7 +413,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/bad_filename.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.holdpoint/project/specs/v0.4-004/requirements.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.holdpoint/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/requirements.md#fr-001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -465,7 +465,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-050] 撮合", "body": "### 需求 ID\nFR-050\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-050\n\n### 验收标准\n无\n", "state": "open"}
+  {"number": 1, "title": "[FR-050] 撮合", "body": "### 需求 ID\nFR-050\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-050\n\n### 验收标准\n无\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -489,7 +489,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n无\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n无\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -515,7 +515,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n无\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n无\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -543,7 +543,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-185] 加权均价", "body": "### 需求 ID\nFR-185\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-185\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-185\n", "state": "open"}
+  {"number": 1, "title": "[FR-185] 加权均价", "body": "### 需求 ID\nFR-185\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-185\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-185\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -566,7 +566,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-999] 不存在", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-999\n", "state": "open"}
+  {"number": 1, "title": "[FR-999] 不存在", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -592,7 +592,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -618,7 +618,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -641,7 +641,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.holdpoint/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n随便写点啥\n", "state": "open"}
+  {"number": 1, "title": "[FR-001] x", "body": "### 需求 ID\nFR-001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-001\n\n### 验收标准\n随便写点啥\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \

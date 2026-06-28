@@ -2,10 +2,10 @@
 
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 
-@test "WIKI-001: Librarian mentions .holdpoint/wiki/pages/ directory" {
-    run grep -qE "\.holdpoint/wiki/pages/" "$AGENTS_DIR/Librarian.md"
+@test "WIKI-001: Librarian mentions .louke/wiki/pages/ directory" {
+    run grep -qE "\.louke/wiki/pages/" "$AGENTS_DIR/Librarian.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Librarian.md does not mention .holdpoint/wiki/pages/"
+        echo "FAIL: Librarian.md does not mention .louke/wiki/pages/"
         false
     }
 }
@@ -50,21 +50,21 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
             Librarian.md|ROSTER.md|REVIEW-PAIRINGS.md) continue ;;
         esac
         if grep -q "wiki/entries/" "$file"; then
-            echo "FAIL: $filename still references wiki/entries/ instead of .holdpoint/wiki/pages/"
+            echo "FAIL: $filename still references wiki/entries/ instead of .louke/wiki/pages/"
             return 1
         fi
     done
 }
 
-@test "WIKI-007: All agents with session save write to .holdpoint/raw/" {
+@test "WIKI-007: All agents with session save write to .louke/raw/" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         case "$filename" in
             Librarian.md|ROSTER.md|REVIEW-PAIRINGS.md) continue ;;
         esac
         if grep -q "会话保存" "$file"; then
-            grep -q "\.holdpoint/raw/" "$file" || {
-                echo "FAIL: $filename has session save but does not reference .holdpoint/raw/"
+            grep -q "\.louke/raw/" "$file" || {
+                echo "FAIL: $filename has session save but does not reference .louke/raw/"
                 return 1
             }
         fi

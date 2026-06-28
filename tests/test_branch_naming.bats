@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 #
 # v0.5-011: 部分 BRANCH-* 测试因 spec/{spec-id} 约定退役而删除.
-# 当前 holdpoint 分支约定 (见 Maestro.md 分支约定段):
+# 当前 louke 分支约定 (见 Maestro.md 分支约定段):
 #   - 活跃分支唯一: releases/{version} (Devon 不创建任务级分支)
 #   - 历史 release 可存在, 人类决定何时删
 #   - Bug 修复: fix/{issue-number} → 合 main + 合当前 release

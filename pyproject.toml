@@ -3,16 +3,16 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "holdpoint"
-version = "0.1.0"
-description = "holdpoint - 规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法"
+name = "louke"
+version = "0.3.0"
+description = "Lòukè - 超越氛围写意，乃是工笔造物 (beyond vibes, into craft)"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "holdpoint team" }
+    { name = "louke team" }
 ]
-keywords = ["spec-driven", "tdd", "multi-agent", "development-workflow", "agent-framework"]
+keywords = ["spec-driven", "tdd", "multi-agent", "craft", "hold-point", "agent-framework"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -27,18 +27,18 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
-# No runtime dependencies - holdpoint wraps stdlib-only tools
+# No runtime dependencies - louke wraps stdlib-only tools
 
 [project.scripts]
-hp = "holdpoint.__main__:main"
+lk = "louke.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/zillionare/holdpoint"
-Repository = "https://github.com/zillionare/holdpoint"
-Issues = "https://github.com/zillionare/holdpoint/issues"
+Homepage = "https://github.com/zillionare/louke"
+Repository = "https://github.com/zillionare/louke"
+Issues = "https://github.com/zillionare/louke/issues"
 
 [tool.setuptools]
-packages = ["holdpoint", "holdpoint._tools"]
+packages = ["louke", "louke._tools"]
 
 [tool.setuptools.package-data]
-holdpoint = ["py.typed", "agents/*.md", "templates/*.md"]
+louke = ["py.typed", "agents/*.md", "templates/*.md"]

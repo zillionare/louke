@@ -23,7 +23,10 @@ env/
 Thumbs.db
 
 # Local raw memory (per project memory architecture)
-.holdpoint/raw/
+# 仅 ignore runtime agent 会话记录; .louke/wiki/ 和 .louke/project/
+# (wiki + 历史 spec) 仍 tracked, 因为这是 louke 框架自己的开发历史,
+# 对应 README 里 "Status" / "Wiki" 章节内容。
+.louke/raw/
 
 # Test/cache files
 .coverage
@@ -31,9 +34,9 @@ Thumbs.db
 .mypy_cache/
 
 # Tool-installed (auto-generated)
-holdpoint.egg-info/
+louke.egg-info/
 .github/agents/*
-.opencode/agents/*
+.opencode/
 
 # Session artifacts (per-agent / per-IDE state)
 .kilo/

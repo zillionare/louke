@@ -62,6 +62,6 @@ setup() {
     TEMPLATE="$REPO_ROOT/templates/test-plan.md"
     grep -q "测试策略" "$TEMPLATE"
     grep -q "AC 追溯约定" "$TEMPLATE"
-    grep -q "hp archer ci-scan" "$TEMPLATE"
+    grep -q "lk archer ci-scan" "$TEMPLATE"
     ! grep -q "覆盖矩阵" "$TEMPLATE" || grep -q "不在 test-plan 表格" "$TEMPLATE"
 }

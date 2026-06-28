@@ -68,6 +68,6 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "UT-010-03: raw path documented" {
-    run grep -q ".holdpoint/raw/" "$AGENTS_DIR/Devon.md"
+    run grep -q ".louke/raw/" "$AGENTS_DIR/Devon.md"
     [ "$status" -eq 0 ]
 }
