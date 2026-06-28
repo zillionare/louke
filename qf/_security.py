@@ -92,9 +92,16 @@ SECURITY_PATTERNS = [
 SCANNABLE_EXTS = {'.py', '.js', '.ts', '.go', '.rs', '.java', '.rb',
                   '.yml', '.yaml', '.env', '.json', '.sh', '.toml'}
 
+# Scanner 自身: regex 定义匹配自身, 跳过避免 false positive
+SELF_SCAN_EXCLUDE = {'qf/_security.py', 'qf/_tests.py'}
+
 
 def scan_file(filepath: Path):
     """扫描单个文件的 security patterns, 返回 findings list."""
+    fp_str = str(filepath)
+    if any(s in fp_str for s in SELF_SCAN_EXCLUDE):
+        return []
+
     findings = []
     try:
         content = filepath.read_text(encoding='utf-8', errors='replace')

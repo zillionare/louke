@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qf"
+version = "0.1.0"
+description = "quanti-forge CLI - 工具统一入口（每 agent 一个子命令空间）"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "quanti-forge team" }
+]
+
+# No runtime dependencies - qf wraps existing Python tools
+
+[project.scripts]
+qf = "qf.__main__:main"
+
+[tool.setuptools]
+packages = ["qf"]
+
+[tool.setuptools.package-data]
+qf = ["py.typed"]
