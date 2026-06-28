@@ -6,7 +6,7 @@
 
 [🇺🇸 English](README.md) · [🇨🇳 中文](README.zh.md)
 
-一种规格驱动的方法论，每个阶段转换都是机器强制的 hold point。需求以 AC-FRXXXX-YY 粒度在 spec → code → test 间跟踪。
+**holdpoint 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。** 每个阶段转换都是机器强制的 hold point。需求以 AC-FRXXXX-YY 粒度在 spec → code → test 间跟踪。
 
 ---
 

@@ -101,6 +101,20 @@ main
 
 **Bug 修复**：拉 `fix/{issue-number}` → 合回 main → **同时合到当前活跃 release**（防漂移）；`fix/...` 分支去留人类决定。
 
+---
+
+## 并发约束（硬性）
+
+**任何形式的功能开发并发都被禁止**，无论以何种形式出现。Maestro 是唯一的并发仲裁者：
+
+1. **多分支** — `releases/{version}` 是唯一活跃开发分支；Devon 不创建 `feat/...` 或任务级分支；不允许在 `releases/{version}` 之外进行功能开发
+2. **多写者** — 同一时间 `releases/{version}` 上只允许一个写者 Agent 在工作；Prism/Keeper 若需写修复，必须经 Maestro 调度，Devon 当前任务 R-G-R 三阶段全部 push 后才接手
+3. **一写者多读者** — Devon 写入期间，其他 Agent 在该分支上**只读审视**（Prism 评审、Archer 回看）需在当前任务 R-G-R 三阶段全部 push 后才能开始；不允许读者在写者任务进行中产生 commit / push
+
+**任务隔离方式**：commit 而非分支。任务间以 git history + commit 消息中的 `TASK-{N}` 字段区分；reviewer 看到的是线性 commit 链。
+
+**违反处理**：发现并行活动（git log 出现交错 commit、CI 上并发 PR 指向 `releases/{version}` 等）→ Maestro 立即暂停，决策保留哪一方的人类语义。
+
 
 ---
 

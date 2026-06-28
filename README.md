@@ -6,7 +6,7 @@
 
 [🇨🇳 中文](README.zh.md) · [🇺🇸 English](README.md)
 
-A spec-driven methodology where every stage transition is a machine-enforced hold point. Requirements are tracked at AC-FRXXXX-YY granularity across spec → code → test.
+**holdpoint is a multi-agent collaborative development methodology built on spec-first, test-driven, and tool-aligned agent behavior.** Every stage transition is a machine-enforced hold point. Requirements are tracked at AC-FRXXXX-YY granularity across spec → code → test.
 
 ---
 
