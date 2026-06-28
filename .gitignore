@@ -32,3 +32,5 @@ Thumbs.db
 
 # Tool-installed (auto-generated)
 qf.egg-info/
+.github/agents/*
+.opencode/agents/*
