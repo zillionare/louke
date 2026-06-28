@@ -1,0 +1,45 @@
+<svg viewBox="0 0 820 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <!-- Background -->
+  <rect width="820" height="300" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="410" y="50" font-size="42" font-weight="700" fill="#0969da" text-anchor="middle">holdpoint</text>
+  <text x="410" y="80" font-size="14" fill="#57606a" text-anchor="middle">Gated specs hold agents accountable.</text>
+
+  <!-- Row 1: setup + design + lock -->
+  <g transform="translate(50, 130)">
+    <g><rect width="100" height="36" rx="4" fill="#f6f8fa" stroke="#d0d7de"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">FOUND</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Scout</text></g>
+    <g transform="translate(140, 0)"><rect width="100" height="36" rx="4" fill="#f6f8fa" stroke="#d0d7de"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">SPEC</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Sage</text></g>
+    <g transform="translate(280, 0)"><rect width="100" height="36" rx="4" fill="#f6f8fa" stroke="#d0d7de"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">TESTPLAN</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Archer</text></g>
+    <g transform="translate(420, 0)"><rect width="100" height="36" rx="4" fill="#f6f8fa" stroke="#d0d7de"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">ARCH</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Archer</text></g>
+    <g transform="translate(560, 0)"><rect width="100" height="36" rx="4" fill="#ddf4ff" stroke="#0969da" stroke-width="2"/><text x="50" y="16" font-size="12" font-weight="700" fill="#0969da" text-anchor="middle">LOCK</text><text x="50" y="29" font-size="9" fill="#0969da" text-anchor="middle">Maestro</text></g>
+
+    <!-- hold point stars -->
+    <text x="120" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+    <text x="260" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+    <text x="400" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+    <text x="540" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+  </g>
+
+  <!-- "spec locked" arrow from LOCK down to DEV -->
+  <line x1="610" y1="180" x2="610" y2="210" stroke="#57606a" stroke-width="1.5"/>
+  <text x="610" y="200" font-size="10" fill="#57606a" text-anchor="middle">spec locked</text>
+
+  <!-- Row 2: build + verify + close -->
+  <g transform="translate(50, 220)">
+    <g><rect width="100" height="36" rx="4" fill="#fff8c5" stroke="#bf8700" stroke-width="1.5"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">DEV</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Devon</text></g>
+    <g transform="translate(140, 0)"><rect width="100" height="36" rx="4" fill="#fff8c5" stroke="#bf8700" stroke-width="1.5"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">E2E</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Shield</text></g>
+    <g transform="translate(280, 0)"><rect width="100" height="36" rx="4" fill="#fff8c5" stroke="#bf8700" stroke-width="1.5"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">BUGFIX</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Devon</text></g>
+    <g transform="translate(420, 0)"><rect width="100" height="36" rx="4" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">SECURITY</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Judge (S)</text></g>
+    <g transform="translate(560, 0)"><rect width="100" height="36" rx="4" fill="#f6f8fa" stroke="#d0d7de"/><text x="50" y="16" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">MILESTONE</text><text x="50" y="29" font-size="9" fill="#57606a" text-anchor="middle">Librarian</text></g>
+
+    <!-- hold point stars -->
+    <text x="120" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+    <text x="260" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+    <text x="400" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+    <text x="540" y="20" font-size="14" fill="#f0883e" text-anchor="middle">★</text>
+  </g>
+
+  <!-- Legend -->
+  <text x="410" y="290" font-size="10" fill="#57606a" text-anchor="middle">★ = tool-enforced hold point (hp CLI returns 0/1)</text>
+</svg>
