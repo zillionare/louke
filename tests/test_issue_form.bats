@@ -180,7 +180,7 @@ setup_acc_with_001_005() {
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -196,7 +196,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -212,7 +212,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -228,7 +228,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -244,7 +244,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -261,7 +261,7 @@ EOF
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -278,11 +278,11 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/bad_anchor.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 6, "title": "[FR-999] x", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-specwright/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-specwright/acceptance.md#ac-fr-999\n", "state": "open"}
+  {"number": 6, "title": "[FR-999] x", "body": "### 需求 ID\nFR-999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$ACC_FULL" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
@@ -292,10 +292,10 @@ EOF
 # ---------- 验证器在 spec 实例上跑通 ----------
 
 @test "VERIFY-300: v0_1_001_spec_md_contains_5_a_id_anchors" {
-    # v0.6+ 修订: 实际 spec (v0.1-001-specwright) 现含 5 个 FR 锚点 (FR-001..FR-005)
+    # v0.6+ 修订: 实际 spec (v0.1-001-louke) 现含 5 个 FR 锚点 (FR-001..FR-005)
     # 原测试假定 11 个但 spec 已在 v0.5+ 阶段多次重写, 锚点数量变化是预期的。
     # 锚点本身的存在性是核心契约 (而不是具体数字), 数字作为 sanity check 保留。
-    run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md"
+    run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md"
     [ "$status" -eq 0 ]
     [ "$output" -eq 5 ]
 }
@@ -311,13 +311,13 @@ for i in range(1, 6):
     issues.append({
         'number': 100 + i,
         'title': f'[FR-{i:03d}] test',
-        'body': f'### 需求 ID\nFR-{i:03d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-specwright/spec.md#fr-{i:03d}\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-specwright/acceptance.md#ac-fr-{i:03d}\n',
+        'body': f'### 需求 ID\nFR-{i:03d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-{i:03d}\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-{i:03d}\n',
         'state': 'open',
     })
 print(json.dumps(issues, ensure_ascii=False))
 " > "$FIXTURE"
     run python3 "$SCRIPT" --offline \
-        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-specwright/spec.md" \
+        --spec-file "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md" \
         --acceptance-file "$SPEC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]

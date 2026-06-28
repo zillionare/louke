@@ -25,9 +25,9 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
   L8 双向覆盖:    spec 中每个 FR 都有 issue;issue 中每个 FR 都在 spec
 
 使用:
-  python tools/verify_issue_schema.py --spec v0.1-001-louke
-  python tools/verify_issue_schema.py --spec v0.1-001-louke --repo owner/repo
-  python tools/verify_issue_schema.py --offline \\
+  python louke/_tools/verify_issue_schema.py --spec v0.1-001-louke
+  python louke/_tools/verify_issue_schema.py --spec v0.1-001-louke --repo owner/repo
+  python louke/_tools/verify_issue_schema.py --offline \\
       --spec-file .louke/project/specs/v0.1-001-louke/spec.md \\
       --issues-json /tmp/issues.json
 """

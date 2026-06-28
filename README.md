@@ -55,7 +55,7 @@ You now have:
 - `lk` CLI (32 commands across 12 agents)
 - `agents/` — 14 prompt files, one per role
 - `templates/` — 4 doc templates (spec, acceptance, test-plan, security-checklist)
-- `tools/` — Python scripts wrapped by `lk`
+- `louke/_tools/` — Python scripts wrapped by `lk`
 
 ### Use in Your Project
 
@@ -172,7 +172,7 @@ The unique claim: **gated specs hold agents accountable via hold points, not jus
 ### Architecture (Light)
 
 ```
-  agents/*.md              templates/*.md                lk/                  tools/*.py
+  agents/*.md              templates/*.md                louke/                louke/_tools/*.py
   (12 prompts)            (spec, acceptance,           (32 commands,         (Python scripts,
                          test-plan, security-          12 agents)           wrapped by lk)
                          checklist)

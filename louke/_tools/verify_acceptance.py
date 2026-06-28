@@ -19,8 +19,8 @@ verify_acceptance.py — 验证 Sage 生成的 acceptance.md 是否合格
                       (防 acceptance 多出 spec 没有的"幽灵 FR")
 
 使用:
-  python tools/verify_acceptance.py --spec v0.1-001-louke
-  python tools/verify_acceptance.py --offline \\
+  python louke/_tools/verify_acceptance.py --spec v0.1-001-louke
+  python louke/_tools/verify_acceptance.py --offline \\
       --spec-file .louke/project/specs/v0.1-001-louke/spec.md \\
       --acceptance-file .louke/project/specs/v0.1-001-louke/acceptance.md
 """

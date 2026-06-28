@@ -13,7 +13,7 @@ not a mutator — Sage should still review the recommendations before
 actually changing the spec.md status markers.
 
 Usage:
-    python3 tools/git_diff_quote_resolver.py <spec-path>
+    python3 louke/_tools/git_diff_quote_resolver.py <spec-path>
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def main() -> int:
     try:
         from quote_parser import parse_spec
     except ImportError:
-        print("quote_parser.py not found in tools/", file=sys.stderr)
+        print("quote_parser.py not found in louke/_tools/", file=sys.stderr)
         return 1
     result = parse_spec(args.spec_path)
     open_lines = [q.line_number for q in result.open_quotes]

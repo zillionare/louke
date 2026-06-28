@@ -134,7 +134,7 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.louke
 
 ### Issue Schema 契约
 
-每个 Feature issue **必须**满足（由 `.github/ISSUE_TEMPLATE/feature.yml` + `tools/verify_issue_schema.py` 双重约束）：
+每个 Feature issue **必须**满足（由 `.github/ISSUE_TEMPLATE/feature.yml` + `louke/_tools/verify_issue_schema.py` 双重约束）：
 
 - **标题**：`[FR-XXXX] {需求标题}`（正则 `^\[FR-\d{4}\]`)
 - **标签**：`Feature`

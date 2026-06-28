@@ -6,11 +6,19 @@
 
 [🇺🇸 English](README.md) · [🇨🇳 中文](README.zh.md)
 
-**louke 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。** 每个阶段转换都是机器强制的 hold point。需求以 AC-FRXXXX-YY 粒度在 spec → code → test 间跟踪。
+**louke 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。** 每个阶段转换都经过了工具强制的检查。需求以 AC-FRXXXX-YY 粒度在 spec → code → test 间跟踪。
 
 ---
 
 ### 为什么是 louke？
+
+你不可能凭借一句话式的氛围编程就造出一个企业级的软件。
+
+一个真正可用的软件，它可能包含成百上千个子项需求，数以万计的执行路径和边界检查条件。所有这些，不可能让一个本质上还是随机概率的语言模型，通过几句话来锁定它们的行为。
+
+我们必须依赖具体、详尽的规范、验收标准和测试计划。人类必须参与、指导这些文档的生成，通过工具将它们拆解成为数以百（千）计的、可跟踪的子项目，让 Agent 的代码与这些子项目一一对应，才有可能构造成一个可回退、可追踪、可信的软件生产过程。
+
+这就是镂刻的价值。超越氛围编程，把智能体编程变成精密制造。
 
 当多个 AI Agent 在同一个项目上协作时：
 
@@ -55,7 +63,7 @@ lk --help
 - `lk` CLI（12 agent × 32 命令）
 - `agents/` — 14 个 agent prompt 文件
 - `templates/` — 4 个文档模板（spec, acceptance, test-plan, security-checklist）
-- `tools/` — Python 脚本，被 `lk` 包装
+- `louke/_tools/` — Python 脚本，被 `lk` 包装
 
 ### 在项目中使用
 
@@ -165,14 +173,14 @@ Cursor：**Settings → Rules → Add file → `agents/Sage.md`**
 | **superpowers**（obra，240k★）                  | 触发 skills          | subagent review          | TDD + subagent  | TDD（test）           |
 | **oh-my-openagent**（code-yeongyu，64k★）       | 指导 agent           | team of agents           | parallel        | skills + hooks        |
 | **antigravity-awesome-skills**（1,693+ skills） | (skill 库)           | 无                       | N/A             | 无                    |
-| **louke**                                   | **让 Agent 担责**    | **不同 agent per stage** | **10 阶段转换** | **`lk` CLI 工具强制** |
+| **louke**                                       | **让 Agent 担责**    | **不同 agent per stage** | **10 阶段转换** | **`lk` CLI 工具强制** |
 
 独特主张：**spec 通过 hold point 让 agent 担责，不只是给 agent 看**。
 
 ### 架构（简）
 
 ```
-  agents/*.md              templates/*.md                lk/                  tools/*.py
+  agents/*.md              templates/*.md                louke/                louke/_tools/*.py
   (12 prompts)            (spec, acceptance,           (32 commands,         (Python scripts,
                          test-plan, security-          12 agents)           wrapped by lk)
                          checklist)

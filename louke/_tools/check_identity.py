@@ -21,8 +21,8 @@ check_identity.py — 检测 gh CLI 身份 vs git 身份的一致性
 L4/L5 是关键 — 它们就是"两个身份"的检测器。
 
 使用:
-  python tools/check_identity.py --repo OWNER/REPO
-  python tools/check_identity.py --repo OWNER/REPO --offline \\
+  python louke/_tools/check_identity.py --repo OWNER/REPO
+  python louke/_tools/check_identity.py --repo OWNER/REPO --offline \\
       --gh-user aaronyang --gh-emails "aaron@x.com aaron@y.com" \\
       --git-name aaron --git-email aaron@x.com \\
       --repo-role WRITE --last-commit-author "aaron <aaron@x.com>" \\

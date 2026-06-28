@@ -22,7 +22,7 @@ def register(subparsers):
     p.add_argument('--spec', required=True)
     p.add_argument('--repo', required=True)
 
-    # quote-check: 复用 Sage 的 quote-check (同 tools/quote_parser.py)
+    # quote-check: 复用 Sage 的 quote-check (同 louke/_tools/quote_parser.py)
     p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 quote 都 ✓ resolved')
     p.add_argument('--spec', required=True)
 
