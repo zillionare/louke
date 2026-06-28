@@ -60,10 +60,11 @@ models:
 
 ## 需求锁定判定（`M-LOCK`）
 
-Maestro 在以下二信号**全部到位**时判定需求锁定，进入 `M-TESTPLAN`:
+Maestro 在以下三信号**全部到位**时判定需求锁定，进入 `M-TESTPLAN`:
 
 1. **Sage 信号** — `quote_parser --check-ready` exit 0（spec.md 所有 quote 块都 `✓ resolved`）
 2. **Lex 信号** — 阶段一/二/三全部 `[通过]`（spec 审核 + issue 覆盖验证 + schema 验证）
+3. **用户信号** — 人类 IDE 内显式确认 spec 锁定（M-LOCK 阶段的人类节点）
 
 **锁定后**:
 - spec.md / acceptance.md / interfaces.md 视为**不可变**（后续只能新增 NFR，不修改已有 FR）
@@ -71,7 +72,7 @@ Maestro 在以下二信号**全部到位**时判定需求锁定，进入 `M-TEST
 - 锁定信号不再依赖 "PR merged"，而是 `quote_parser --check-ready` exit 0（**FR-0026 修订**）
 
 **判定动作**（按决策框架）:
-- 二信号齐 → 推进到 `M-TESTPLAN`
+- 三信号齐 → 推进到 `M-TESTPLAN`
 - 任一信号缺 → 维持 `M-SPEC`，等缺失信号
 - Lex 拒绝 → 退回 Sage 修正（spec 或 issue）
 

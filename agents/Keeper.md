@@ -1,6 +1,6 @@
 ---
 name: keeper
-description: 版本控制 — 管理 spec 版本锁定与交付质量
+description: 质量门禁 — 验证 R-G-R / 测试通过 / lint / commit 格式
 mode: all
 models:
   - deepseek-v4-pro
@@ -107,26 +107,31 @@ models:
 
 ## 会话保存规范
 
-每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
+每次对话结束时，将本次对话的关键信息写入 raw 记录（不写 wiki — wiki 由 Librarian 蒸馏）。
 
 **写入路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `keeper-v0.1-001-gate-check`
 
-**写入格式**：
-```
+**写入格式**（必带 frontmatter）：
+```markdown
 ---
-type: decision | experience | entity
-title: {简短标题}
-date: YYYY-MM-DD
-agents: [{本 Agent 名}, {其他参与 Agent}]
-sources: [{来源文件或会话}]
-related: [[{相关 wiki 页面}]]
+date: 2026-06-27
+session: keeper-v0.1-001-gate-check
+agents: [Keeper, Devon]
+spec: v0.1-001-holdpoint
+related_issues: [#142, #143]
+status: resolved | superseded | open     # 必填
+supersedes: []
 ---
 
-## {正文}
-
-{关键结论、决策、经验，使用 [[wikilink]] 交叉引用其他 wiki 页面}
-{每条结论标注来源：`来源: {文件名或会话标识}`}
+## 议题 {在协调/决定什么}
+## 决定 {结论，命令/文件/规范形式}
+## 试过但放弃 {被推翻方案及理由——wiki 蒸馏关键输入}
+## 开放问题 {留给下轮}
 ```
+
+**约束**：`status` 必填（未填视为 `open`，Librarian 拒绝蒸馏）；`supersedes` 引用时，被引用条目应在 frontmatter 加 `superseded-by` 双向追溯。
+
+**时机**：返回结果前，不阻塞流程。
 
 **type 选择规则**：
 - 做出了影响项目方向的决策 → `decision`

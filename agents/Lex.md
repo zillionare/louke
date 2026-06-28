@@ -242,7 +242,7 @@ Issue #44 [FR-0003] xxx
 
 在 GitHub comment 中引用 commit 时，始终使用 `owner/repo@sha` 格式，禁止使用裸短 sha：
 
-- ✅ `zillionare/quanti-forge@1c02bd2`
+- ✅ `zillionare/holdpoint@1c02bd2`
 - ❌ `1c02bd2` — 禁止
 
 ---
