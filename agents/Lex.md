@@ -19,7 +19,7 @@ models:
 
 ## 分支约定
 
-spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.quanti-forge/project/specs/{spec-id}/{spec,acceptance}.md`。
+spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.holdpoint/project/specs/{spec-id}/{spec,acceptance}.md`。
 
 ---
 
@@ -27,8 +27,8 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.quant
 
 ### 输入验证
 
-- 命名符合 `.quanti-forge/project/specs/{spec-id}/spec.md` 格式
-- 对应 PRD 存在 (`.quanti-forge/project/specs/{spec-id}/{story|prd}.md`)
+- 命名符合 `.holdpoint/project/specs/{spec-id}/spec.md` 格式
+- 对应 PRD 存在 (`.holdpoint/project/specs/{spec-id}/{story|prd}.md`)
 - `acceptance.md` 与 spec.md 同步存在 (Sage 负责生成)
 - **先跑结构化校验** → `hp lex verify-acceptance --spec {spec-id}`（L1 文件存在 / L2 FR-NFR 节对应 / L3 AC 编号连续 / L4 AC 内容非空 / L5 反向覆盖）。任何 L 失败 → 立刻退回 Sage；全过 → 进入语义审核
 - 当前 checkout 分支与 spec.md 所在分支一致
@@ -174,7 +174,7 @@ hp lex verify-issue --spec {spec-id}
 | L1   | 标题格式      | `[FR-1] xxx` 缺少零填充                                                                                                  |
 | L2   | 需求 ID 字段  | 字段缺失、格式错误、与标题不一致                                                                                         |
 | L3   | Spec 链接字段 | 相对路径、fragment 大写 `#FR-0001`、缺锚点                                                                               |
-| L4   | spec 可达性   | `gh api` 拉取 .quanti-forge/project/specs/{id}/spec.md 失败（路径错）                                                    |
+| L4   | spec 可达性   | `gh api` 拉取 .holdpoint/project/specs/{id}/spec.md 失败（路径错）                                                    |
 | L5   | 锚点存在性    | spec.md 中找不到 `#fr-XXXX`（FR 被删/重命名）                                                                            |
 | L6   | 锚点内容      | 锚点上下文无 `FR-XXXX` 字样（被错误复用）                                                                                |
 | L7   | AC 锚点       | 验收标准字段不是 acceptance.md 完整 URL / fragment 错 / acceptance.md 中找不到 `#ac-fr-XXXX` 锚 / 锚点上下文无 `FR-XXXX` |
@@ -251,7 +251,7 @@ Issue #44 [FR-0003] xxx
 
 raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。本 Agent 的 raw **不进入 git**，仅本地维护。
 
-**路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `lex-v0.1-001-stage1-spec-audit`
+**路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `lex-v0.1-001-stage1-spec-audit`
 
 **格式**（必带 frontmatter）：
 

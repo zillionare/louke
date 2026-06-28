@@ -41,8 +41,8 @@ models:
 
 ## 输入
 
-- story / spec（`.quanti-forge/project/specs/{SPEC-ID}/spec.md`）
-- acceptance.md（`.quanti-forge/project/specs/{SPEC-ID}/acceptance.md`）
+- story / spec（`.holdpoint/project/specs/{SPEC-ID}/spec.md`）
+- acceptance.md（`.holdpoint/project/specs/{SPEC-ID}/acceptance.md`）
 - GitHub issue 列表（已由 Sage 创建）
 - `templates/test-plan.md`（全局模板）
 
@@ -50,7 +50,7 @@ models:
 
 ## 阶段一: Test Plan
 
-**输出**: `.quanti-forge/project/specs/{SPEC-ID}/test-plan.md`
+**输出**: `.holdpoint/project/specs/{SPEC-ID}/test-plan.md`
 
 **阶段一专项原则**:
 - 测试只验外部可观测行为
@@ -73,8 +73,8 @@ models:
 ## 阶段二: 架构设计 + interfaces
 
 **输出**:
-- `.quanti-forge/project/specs/{SPEC-ID}/architecture.md` — 模块/依赖/trade-off
-- `.quanti-forge/project/specs/{SPEC-ID}/interfaces.md` — 开发-测试契约
+- `.holdpoint/project/specs/{SPEC-ID}/architecture.md` — 模块/依赖/trade-off
+- `.holdpoint/project/specs/{SPEC-ID}/interfaces.md` — 开发-测试契约
 
 ### architecture.md 内容
 
@@ -129,7 +129,7 @@ models:
 
 raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。本 Agent 的 raw **不进入 git**，仅本地维护。
 
-**路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `archer-v0.1-001-test-plan`
+**路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `archer-v0.1-001-test-plan`
 
 **格式**（必带 frontmatter）：
 

@@ -22,7 +22,7 @@
 ### Archer 阶段一 → Sage（test-plan 评审）
 
 **Sage 的额外职责**（spec 阶段交付后空闲期承担）:
-- 评审范围：`.quanti-forge/project/specs/{spec-id}/test-plan.md`
+- 评审范围：`.holdpoint/project/specs/{spec-id}/test-plan.md`
 - 核心检查项（详见 `agents/Sage.md` 的"Archer 阶段一评审"段）:
   - **AC 引用闭合**（每个 AC ≥1 测试，每个测试 ≥1 AC）
   - **状态字段感知**（标了 ⚠️ 的 FR 必须有测试空间）
@@ -34,7 +34,7 @@
 ### Archer 阶段二 → Prism（architecture + interfaces 评审）
 
 **Prism 的额外职责**（test-plan 通过后承担）:
-- 评审范围：`.quanti-forge/project/specs/{spec-id}/architecture.md` + `interfaces.md`
+- 评审范围：`.holdpoint/project/specs/{spec-id}/architecture.md` + `interfaces.md`
 - 核心检查项（详见 `agents/Prism.md` 的"职责边界"段）:
   - **架构与 spec 一致性**（质疑模块边界、依赖关系、关键 trade-off 是否与 spec 对齐）
   - **interfaces 闭合 test-plan**（interfaces 定义的每个外部出口在 test-plan 中有对应测试）

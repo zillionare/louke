@@ -25,7 +25,7 @@ models:
 - 审查设计模式（是否合理使用、是否存在过度设计或设计不足）
 - 审查 DRY 原则（是否存在重复代码可提取）
 - 审查变更影响范围（本次修改可能影响哪些其他模块）
-- **审查测试代码反模式**（8 类，详见 `.quanti-forge/templates/test-plan.md` §1.3）—— 防止"测试通过但无意义"
+- **审查测试代码反模式**（8 类，详见 `.holdpoint/templates/test-plan.md` §1.3）—— 防止"测试通过但无意义"
 - **批判性视角**：质疑设计假设、寻找被掩盖的缺陷、对"看起来正确"的代码保持怀疑
 
 你不是来：
@@ -40,8 +40,8 @@ models:
 - Devon 提交的代码变更（git diff，含**生产代码 + 测试代码**）
 - 关联的 spec 需求 ID 和测试用例编号
 - 项目代码结构概览
-- `.quanti-forge/templates/test-plan.md` §1.3（测试反模式清单，作为 Prism 审查测试代码的基线）
-- `.quanti-forge/project/specs/{SPEC-ID}/architecture.md` + `interfaces.md`（M-ARCH 评审；如存在）
+- `.holdpoint/templates/test-plan.md` §1.3（测试反模式清单，作为 Prism 审查测试代码的基线）
+- `.holdpoint/project/specs/{SPEC-ID}/architecture.md` + `interfaces.md`（M-ARCH 评审；如存在）
 
 ---
 
@@ -112,7 +112,7 @@ models:
 
 **判定**: 抓到浅层 pattern → 标注为 "**安全 quick scan hit — Judge 必看**"，纳入交付报告。Prism 不给严重度，不强制修改（避免越权——深度审计归 Judge）。
 
-**基线**: `.quanti-forge/templates/security-checklist.md`（参考"输入验证 / 认证 / 数据保护 / 错误处理 / 依赖 / 日志" 章节）。
+**基线**: `.holdpoint/templates/security-checklist.md`（参考"输入验证 / 认证 / 数据保护 / 错误处理 / 依赖 / 日志" 章节）。
 
 ---
 
@@ -205,7 +205,7 @@ models:
 
 raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。本 Agent 的 raw **不进入 git**，仅本地维护。
 
-**路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `prism-v0.1-001-code-test-review`
+**路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `prism-v0.1-001-code-test-review`
 
 **格式**（必带 frontmatter）：
 

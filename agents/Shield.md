@@ -34,11 +34,11 @@ models:
 
 ## 输入
 
-- `.quanti-forge/project/specs/{SPEC-ID}/test-plan.md`（Archer 产出）
+- `.holdpoint/project/specs/{SPEC-ID}/test-plan.md`（Archer 产出）
   - §1.1 黑盒声明：可观测出口
   - §6 外部依赖分层测试：L1/L2/L3 适用场景
-- `.quanti-forge/project/specs/{SPEC-ID}/spec.md`（理解 e2e 覆盖的需求）
-- `.quanti-forge/project/specs/{SPEC-ID}/interfaces.md`（e2e 断言依据——按 DB/API 出口断言）
+- `.holdpoint/project/specs/{SPEC-ID}/spec.md`（理解 e2e 覆盖的需求）
+- `.holdpoint/project/specs/{SPEC-ID}/interfaces.md`（e2e 断言依据——按 DB/API 出口断言）
 - `tests/e2e/` 目录已存在（按 test-plan §2.1 推荐布局）
 
 ---
@@ -133,7 +133,7 @@ def test_order_persisted():
 
 raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。本 Agent 的 raw **不进入 git**，仅本地维护。
 
-**路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `tester-v0.1-001-e2e-coverage`
+**路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `tester-v0.1-001-e2e-coverage`
 
 **格式**（必带 frontmatter）：
 

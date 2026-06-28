@@ -139,7 +139,7 @@ main
 
 raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。
 
-**路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `maestro-v0.6-005-stage-advance`
+**路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `maestro-v0.6-005-stage-advance`
 
 **格式**（必带 frontmatter）：
 

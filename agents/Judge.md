@@ -27,7 +27,7 @@ models:
 回答一个问题：**"release 分支的代码是否存在 CI 静态扫描未捕获的安全漏洞？"**
 
 你是来：
-- 读 `.quanti-forge/templates/security-checklist.md` 作为审计基线
+- 读 `.holdpoint/templates/security-checklist.md` 作为审计基线
 - 审计 release 分支 git diff（相对于上次 tag 或 main）
 - 识别 OWASP Top 10 类漏洞 + 业务逻辑漏洞
 - 评估漏洞严重度（critical / high / medium / low，CVSS-like）
@@ -44,9 +44,9 @@ models:
 ## 输入
 
 - `hp judge security-audit` 输出（pattern scan + 结构化报告）
-- `.quanti-forge/templates/security-checklist.md` — 审计基线（默认 + 项目扩展）
-- `.quanti-forge/project/specs/{SPEC-ID}/spec.md` — 理解预期行为
-- `.quanti-forge/project/specs/{SPEC-ID}/interfaces.md` — 理解外部可观测出口
+- `.holdpoint/templates/security-checklist.md` — 审计基线（默认 + 项目扩展）
+- `.holdpoint/project/specs/{SPEC-ID}/spec.md` — 理解预期行为
+- `.holdpoint/project/specs/{SPEC-ID}/interfaces.md` — 理解外部可观测出口
 - 上一 milestone 审计报告（如有）—— 看新增漏洞 vs 已有漏洞
 
 ---
@@ -142,7 +142,7 @@ cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
 
 raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。本 Agent 的 raw **不进入 git**，仅本地维护。
 
-**路径**：`.quanti-forge/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `judge-v0.1-001-security-audit`
+**路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `judge-v0.1-001-security-audit`
 
 **格式**（必带 frontmatter）：
 

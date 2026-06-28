@@ -2,8 +2,8 @@
 
 - **Spec ID**: {SPEC-ID}
 - **创建日期**: {YYYY-MM-DD}
-- **关联 acceptance**: `.quanti-forge/project/specs/{SPEC-ID}/acceptance.md`
-- **关联 interfaces**: `.quanti-forge/project/specs/{SPEC-ID}/interfaces.md`（断言依据——见 §6.5）
+- **关联 acceptance**: `.holdpoint/project/specs/{SPEC-ID}/acceptance.md`
+- **关联 interfaces**: `.holdpoint/project/specs/{SPEC-ID}/interfaces.md`（断言依据——见 §6.5）
 
 ## 1. 立场与边界
 
@@ -226,7 +226,7 @@ tests/
 
 ```bash
 specforge ci-scan \
-  --acceptance .quanti-forge/project/specs/{SPEC-ID}/acceptance.md \
+  --acceptance .holdpoint/project/specs/{SPEC-ID}/acceptance.md \
   --tests tests/
 ```
 
