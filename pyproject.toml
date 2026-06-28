@@ -1,25 +1,44 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hp"
+name = "holdpoint"
 version = "0.1.0"
-description = "holdpoint CLI - 工具统一入口（每 agent 一个子命令空间）"
+description = "holdpoint - 规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
     { name = "holdpoint team" }
 ]
+keywords = ["spec-driven", "tdd", "multi-agent", "development-workflow", "agent-framework"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance",
+]
 
-# No runtime dependencies - hp wraps existing Python tools
+# No runtime dependencies - holdpoint wraps stdlib-only tools
 
 [project.scripts]
-hp = "hp.__main__:main"
+hp = "holdpoint.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/holdpoint"
+Repository = "https://github.com/your-org/holdpoint"
+Issues = "https://github.com/your-org/holdpoint/issues"
 
 [tool.setuptools]
-packages = ["hp"]
+packages = ["holdpoint", "holdpoint._tools"]
 
 [tool.setuptools.package-data]
-hp = ["py.typed"]
+holdpoint = ["py.typed", "agents/*.md", "templates/*.md"]

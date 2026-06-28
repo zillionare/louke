@@ -1,50 +1,87 @@
 #!/usr/bin/env bash
-# specforge installer
-# 用法: curl -sSL https://raw.githubusercontent.com/zillionare/specforge/main/install.sh | bash
-# 或:   ./install.sh [version]   (version 默认 main)
+# holdpoint installer — pip-based
+#
+# 用法:
+#   curl -sSL https://raw.githubusercontent.com/your-org/holdpoint/main/install.sh | bash
+#   curl -sSL ... | bash -s -- v0.1.0         # 指定版本
+#   curl -sSL ... | bash -s -- --editable     # 开发模式（从 GitHub clone 后 pip install -e）
+#   ./install.sh [version]                    # 本地运行
 
 set -euo pipefail
 
-SPECFORGE_HOME="${HOME}/.specforge"
-REPO_URL="https://github.com/zillionare/specforge.git"
-VERSION="${1:-main}"
+VERSION="${1:-latest}"
+EDITABLE=0
+for arg in "$@"; do
+    case "$arg" in
+        --editable|-e) EDITABLE=1 ;;
+    esac
+done
+
+REPO_URL="https://github.com/your-org/holdpoint.git"
+VENV_DIR="${HOME}/.holdpoint/venv"
 BIN_DIR="${HOME}/.local/bin"
 
-note() { echo "specforge: $*" >&2; }
+note() { echo "holdpoint: $*" >&2; }
+die()  { note "error: $*"; exit 1; }
 
-if [ -d "$SPECFORGE_HOME" ]; then
-    note "specforge is already installed at $SPECFORGE_HOME"
-    note "to reinstall, run:"
-    note "  rm -rf $SPECFORGE_HOME && curl -sSL https://raw.githubusercontent.com/zillionare/specforge/main/install.sh | bash"
-    note "to upgrade in place, run:"
-    note "  $BIN_DIR/specforge upgrade"
-    exit 1
+# ---------- 前置检查 ----------
+command -v python3 >/dev/null 2>&1 || die "python3 not found. install Python 3.9+ first."
+PY_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
+[ "$PY_MINOR" -ge 9 ] 2>/dev/null || die "Python 3.9+ required (found $(python3 -V 2>&1))"
+
+# ---------- 决定安装源 ----------
+if [ "$VERSION" = "latest" ]; then
+    PKG_SPEC="holdpoint"
+elif [ "$EDITABLE" -eq 1 ]; then
+    # 走 git clone 模式
+    HOLDPOINT_HOME="${HOME}/.holdpoint/src"
+    if [ -d "$HOLDPOINT_HOME" ]; then
+        note "updating existing checkout at $HOLDPOINT_HOME"
+        git -C "$HOLDPOINT_HOME" pull --ff-only
+    else
+        note "cloning holdpoint ($VERSION) into $HOLDPOINT_HOME"
+        git clone --depth 1 --branch "$VERSION" "$REPO_URL" "$HOLDPOINT_HOME"
+    fi
+    PKG_SPEC="$HOLDPOINT_HOME"
+else
+    PKG_SPEC="holdpoint==$VERSION"
 fi
 
-note "installing specforge ($VERSION) into $SPECFORGE_HOME ..."
-git clone --depth 1 --branch "$VERSION" "$REPO_URL" "$SPECFORGE_HOME"
+# ---------- 创建 venv ----------
+if [ ! -d "$VENV_DIR" ]; then
+    note "creating venv at $VENV_DIR"
+    python3 -m venv "$VENV_DIR"
+fi
 
-# 把 repo 自带的 bin/specforge 软链接/复制到用户 PATH
-# 注意:不能用 --depth 1 的 repo 做开发,只是 install 用途。
+# ---------- 升级 pip + 安装 holdpoint ----------
+note "installing $PKG_SPEC into $VENV_DIR"
+"$VENV_DIR/bin/pip" install --quiet --upgrade pip
+"$VENV_DIR/bin/pip" install --quiet --upgrade "$PKG_SPEC"
+
+# ---------- 链接 hp 到 ~/.local/bin ----------
 mkdir -p "$BIN_DIR"
-cp "$SPECFORGE_HOME/bin/specforge" "$BIN_DIR/specforge"
-chmod +x "$BIN_DIR/specforge"
+ln -sf "$VENV_DIR/bin/hp" "$BIN_DIR/hp"
+note "linked $BIN_DIR/hp -> $VENV_DIR/bin/hp"
 
-# PATH 持久化
+# ---------- PATH 持久化 ----------
 SHELL_RC=""
-if [ -f "${HOME}/.zshrc" ]; then SHELL_RC="${HOME}/.zshrc"; fi
+if [ -f "${HOME}/.zshrc" ];  then SHELL_RC="${HOME}/.zshrc"; fi
 if [ -f "${HOME}/.bashrc" ]; then SHELL_RC="${HOME}/.bashrc"; fi
 if [ -n "$SHELL_RC" ] && ! grep -q "${BIN_DIR}" "$SHELL_RC" 2>/dev/null; then
+    echo "" >> "$SHELL_RC"
+    echo "# holdpoint CLI" >> "$SHELL_RC"
     echo "export PATH=\"${BIN_DIR}:\$PATH\"" >> "$SHELL_RC"
     note "added ${BIN_DIR} to PATH in $SHELL_RC"
 fi
 
-INSTALLED_VERSION="$(cat "$SPECFORGE_HOME/VERSION" 2>/dev/null || echo "?")"
-note "specforge $INSTALLED_VERSION installed at $SPECFORGE_HOME"
+# ---------- 验证 ----------
+INSTALLED_VERSION="$("$VENV_DIR/bin/hp" --version 2>/dev/null || echo '?')"
+note "holdpoint ${INSTALLED_VERSION} installed at $VENV_DIR"
 note ""
 note "next steps:"
-note "  1. restart your shell, or:  export PATH=\"${BIN_DIR}:\$PATH\""
-note "  2. verify install:           specforge version"
-note "  3. check identity:           specforge checkup OWNER/REPO"
-note "  4. create your first project: specforge init my-project"
-note "  5. read the manual:          cat $SPECFORGE_HOME/agents/README.md"
+note "  1. restart your shell, or:    export PATH=\"${BIN_DIR}:\$PATH\""
+note "  2. verify install:             hp --help"
+note "  3. check identity:             hp scout identity-check --repo OWNER/REPO"
+note "  4. read the manual:            hp --help <agent>"
+note ""
+note "uninstall:  rm -rf $VENV_DIR $BIN_DIR/hp"
