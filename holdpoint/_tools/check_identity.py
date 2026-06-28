@@ -26,7 +26,7 @@ L4/L5 是关键 — 它们就是"两个身份"的检测器。
       --gh-user aaronyang --gh-emails "aaron@x.com aaron@y.com" \\
       --git-name aaron --git-email aaron@x.com \\
       --repo-role WRITE --last-commit-author "aaron <aaron@x.com>" \\
-      --remote-url "git@github.com:zillionare/specforge.git"
+      --remote-url "git@github.com:zillionare/holdpoint.git"
 """
 
 from __future__ import annotations
@@ -211,8 +211,8 @@ def check(ident: Identity, repo: str) -> Identity:
                 # Agent 身份 = collaborator (有 WRITE)
                 ident.warnings.append(
                     f"L6 协作模式: agent {ident.gh_user} 是 {remote_owner} 的 collaborator — "
-                    f"Project 将创建在 {ident.gh_user} 名下,完成后用 'specforge invite-owner' "
-                    f"把 {remote_owner} 设为 Project READER"
+                    f"Project 将创建在 {ident.gh_user} 名下,完成后用 gh api "
+                    f"updateProjectV2Collaborators 把 {remote_owner} 设为 Project READER"
                 )
             # L2 失败的情况已经在前面记录到 failures,这里不再重复
 
@@ -263,7 +263,7 @@ def report(ident: Identity, repo: str) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--repo", required=True, help="OWNER/REPO,如 zillionare/specforge")
+    p.add_argument("--repo", required=True, help="OWNER/REPO,如 zillionare/holdpoint")
     p.add_argument("--offline", action="store_true", help="离线模式 (给 bats 用)")
     p.add_argument("--gh-user", help="离线: gh login")
     p.add_argument("--gh-emails", help="离线: 空格分隔的 gh 邮箱列表")

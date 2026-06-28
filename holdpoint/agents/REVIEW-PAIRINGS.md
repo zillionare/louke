@@ -18,11 +18,13 @@ description: Agent 评审配对 — 实施者↔评审者映射与变更历史
 | **Archer 阶段一** | **Sage** | **test-plan.md** | **Archer 阶段一产出后** |
 | **Archer 阶段二** | **Prism** | **architecture.md + interfaces.md** | **Archer 阶段二产出后** |
 | Devon | Prism → Keeper | 代码改动（多视角 + 完成门禁） | 每次 push + 任务完成 |
-| Shield | Keeper | Bug 修复的回归守护（合并到 Keeper gate） | fix 完成 |
+| Shield | Prism → Keeper | e2e 测试（多视角 + 完成门禁） | 每次 push + 任务完成 |
+| Devon | Keeper | Bug 修复的回归守护（合并到 Keeper gate） | fix 完成 |
+| Maestro | 用户 | 需求锁定（3 信号齐 → 用户 IDE 确认） | Sage + Lex 都通过后 |
 | Judge (S 级) | 用户 | 安全审计 | per-milestone（DoD 中可关闭） |
-| Librarian | （无） | wiki 健康维护 | 自身 |
+| Librarian | Maestro | raw → wiki 蒸馏 + 阶段推进 | per-milestone |
 
-注: Sage 只承担 M-TESTPLAN 评审（spec 上下文不可替代）。M-ARCH 评审由 Prism 承担（质疑代码与 spec/arch 的一致性，是其本职的延伸）。
+注: Sage 只承担 M-TESTPLAN 评审（spec 上下文不可替代）。M-ARCH 评审由 Prism 承担（质疑代码与 spec/arch 的一致性，是其本职的延伸）。M-E2E 评审与 M-DEV 一致：Prism 多视角审视 + Keeper gate（Shield 是 B 级，e2e 评审结构与 Devon 一致）。
 
 ## 详细配对
 

@@ -50,7 +50,7 @@ models:
 
 ### Phase 1: Red（写失败测试）
 
-1. 确认当前在唯一活跃分支 `releases/{version}`（`hp devon check-branch --version {version}`）
+1. 确认当前在唯一活跃分支 `releases/{version}`（`git rev-parse --abbrev-ref HEAD`）
 2. 阅读 TEST 计划中该任务关联的测试用例
 3. 编写测试代码，精确描述期望行为
 4. 运行测试：`hp devon run-tests --scope unit --fast` → 确认失败（Red）
@@ -140,7 +140,7 @@ models:
 
 ## 会话保存规范
 
-每次对话结束时，将本次对话的关键信息写入 Wiki 页面。
+每次对话结束时，将本次对话的关键信息写入 raw 记录（不写 wiki — wiki 由 Librarian 蒸馏）。
 
 **写入路径**：`.holdpoint/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `devon-v0.1-001-task-impl`
 
