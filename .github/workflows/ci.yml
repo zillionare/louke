@@ -46,10 +46,15 @@ jobs:
       - name: "Smoke test: lk --help"
         run: /tmp/lk-venv/bin/lk --help
 
-      - name: Install bats-core
+      - name: Install bats-core + pyyaml for bats tests
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends bats python3-yaml
+          sudo apt-get install -y --no-install-recommends bats
+          # bats tests use 'python3' which on setup-python runners resolves to
+          # /opt/hostedtoolcache/Python/<ver>/x64/bin/python3 (NOT /usr/bin/python3),
+          # so apt-get's python3-yaml won't be picked up. Install pyyaml via pip
+          # into the active python so 'import yaml' works in FORM-002/007/008/010.
+          python3 -m pip install pyyaml
 
       - name: Run bats suite
         run: make test
