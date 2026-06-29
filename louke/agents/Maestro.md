@@ -48,14 +48,6 @@ models:
 | `M-SECURITY` | 安全审计 | **Judge** (S 级) | 人类 | 深度安全审计（per-milestone；DoD 可关闭） |
 | `M-MILESTONE` | milestone 结束 | **Librarian** (图书管理员) | **Maestro** | Librarian 蒸馏 raw → wiki / Maestro 推进下一 milestone |
 
-注：
-- M-TESTPLAN 评审由 Sage 兼（spec 上下文不可替代；不增加 agent）
-- M-ARCH 评审由 Prism 兼（本职延伸——已在 M-DEV 做"代码与 arch 一致"审视）
-- M-BUGFIX 实施者由 Devon 兼（bug fix 复用 R-G-R）
-- M-E2E 实施者用 B 级 agent（Shield）—— e2e 方法固定，省成本
-- Shield 的"回归守护"职责已并入 Keeper gate（per-commit + per-bug-fix）
-- Herald/Arbiter/Cynic/Guide/Hunter/Probe 角色已整合到现有 agent（详见 `agents/REVIEW-PAIRINGS.md` 变更历史）
-
 **关键节点补充规则**（不重复阶段表）：
 
 - **`M-SECURITY` (安全审计) — 可选阶段**：用户可在 Scout Step 1 DoD 中关闭（内部项目）。若 DoD 不含 "安全审查" 项 → M-SECURITY 自动跳过（auto-pass）；若包含 → Judge 跑深度审计，详见 `agents/Judge.md` 与 `templates/security-checklist.md`。**位置**: M-MILESTONE 之前（所有开发完成、milestone 关闭前最后一道关卡）。**频率**: per-milestone 默认；高风险路径（auth/crypto/PII）可额外 per-PR 触发 quick scan。
@@ -186,22 +178,3 @@ supersedes: [raw/2026-06-26/...]        # 覆盖的旧条目
 **约束**：`status` 必填（未填视为 `open`，Librarian 拒绝蒸馏）；`supersedes` 引用时，被引用条目应在 frontmatter 加 `superseded-by` 双向追溯。
 
 **时机**：返回结果前，不阻塞流程。
-
----
-
-## 命名由来
-
-| Agent | 含义 | 职责联想 |
-|-------|------|---------|
-| Maestro | 指挥家 | 协调整支乐队 |
-| Scout | 勘探者 | 探路、确认前置条件 |
-| Warden | 看守人 | 守门、确认退出条件 |
-| Sage | 贤者 | 苏格拉底式追问 |
-| Lex | 律法 | 审核法律级精确性 + 组织 issue |
-| Archer | 射手/架构师 | 设计执行路径（test-plan + architecture） |
-| Devon | 锻造者 | 从测试的烈火中锻造代码（R-G-R） |
-| Prism | 棱镜 | 多角度审视代码质量（含测试 + 安全 quick scan） |
-| Judge | 裁判 | S 级深度安全审计 |
-| Shield | e2e 编写 | 写端到端测试脚本（B 级） |
-| Keeper | 守护者 | 守住质量门禁（gate + 回归判断） |
-| Librarian | 图书管理员 | 整合 Wiki，维护项目记忆 |

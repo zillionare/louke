@@ -42,6 +42,25 @@ When multiple AI agents work on the same project, things go wrong:
 
 **Principle: implementer ≠ reviewer. Always.**
 
+### Naming
+
+The 12 agents are named for what they do, not for decoration:
+
+| Agent | Meaning | Job image |
+|-------|---------|-----------|
+| **Maestro** | Conductor | coordinates the whole ensemble |
+| **Scout** | Pathfinder | scouts the terrain, verifies preconditions |
+| **Warden** | Gatekeeper | guards the door, confirms exit conditions |
+| **Sage** | The wise | asks Socratic questions |
+| **Lex** | The law | enforces spec-level precision + organizes issues |
+| **Archer** | Marksman / architect | designs the execution path (test-plan + architecture) |
+| **Devon** | Smith | forges code from the fire of tests (R-G-R) |
+| **Prism** | Prism | refracts code through multiple angles (test anti-patterns + security quick scan) |
+| **Judge** | Arbiter | S-grade deep security audit |
+| **Shield** | Shield / e2e writer | writes end-to-end scripts (B-grade) |
+| **Keeper** | Warden of gates | enforces quality gates (commit format + tests + lint + regression) |
+| **Librarian** | Librarian | distills Wiki, preserves project memory |
+
 ### Install
 
 ```bash
@@ -75,7 +94,7 @@ rm -rf ~/.louke/venv ~/.local/bin/lk
 
 You now have:
 - `lk` CLI (32 commands across 12 agents)
-- `agents/` — 12 agent prompt files + 1 `REVIEW-PAIRINGS.md` reference doc
+- `agents/` — 12 agent prompt files
 - `templates/` — 4 doc templates (spec, acceptance, test-plan, security-checklist)
 - `louke/_tools/` — Python scripts wrapped by `lk`
 

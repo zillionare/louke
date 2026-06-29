@@ -20,11 +20,10 @@ DESCRIPTIONS = {
     "Judge": "S 级安全审计 — 深度审查敏感信息泄露风险",
     "Warden": "审核人 — 检查 foundation 是否达标并同意推进",
     "Librarian": "知识库 — 管理 wiki、决策记录和项目记忆",
-    "REVIEW-PAIRINGS": "Agent 评审配对 — 实施者↔评审者映射与变更历史",
 }
 
 for md_file in sorted(AGENTS_DIR.glob("*.md")):
-    name = md_file.stem  # e.g. "Sage", "REVIEW-PAIRINGS"
+    name = md_file.stem  # e.g. "Sage", "Maestro"
     text = md_file.read_text(encoding="utf-8")
 
     # Skip if already has frontmatter

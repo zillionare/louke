@@ -45,9 +45,9 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 @test "WIKI-006: No agent writes to obsolete wiki/entries/ path" {
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
-        # Skip Librarian (owns wiki structure) and REVIEW-PAIRINGS (reference doc, not agent prompt)
+        # Skip Librarian (owns wiki structure). No other reference docs in agents/.
         case "$filename" in
-            Librarian.md|REVIEW-PAIRINGS.md) continue ;;
+            Librarian.md) continue ;;
         esac
         if grep -q "wiki/entries/" "$file"; then
             echo "FAIL: $filename still references wiki/entries/ instead of .louke/wiki/pages/"
@@ -60,7 +60,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         case "$filename" in
-            Librarian.md|REVIEW-PAIRINGS.md) continue ;;
+            Librarian.md) continue ;;
         esac
         if grep -q "会话保存" "$file"; then
             grep -q "\.louke/raw/" "$file" || {
@@ -75,7 +75,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     for file in "$AGENTS_DIR"/*.md; do
         filename=$(basename "$file")
         case "$filename" in
-            Librarian.md|REVIEW-PAIRINGS.md) continue ;;
+            Librarian.md) continue ;;
         esac
         if grep -q "会话保存" "$file"; then
             grep -q "status:" "$file" || {
