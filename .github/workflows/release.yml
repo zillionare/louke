@@ -38,6 +38,24 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $VERSION"
 
+      - name: Verify tag is on main branch
+        # Rule: only main can release. We enforce by requiring the tagged commit
+        # to be reachable from origin/main. If a feature branch accidentally
+        # gets tagged and pushed, this fails fast before any artifacts are built.
+        run: |
+          git fetch --no-tags origin main
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "OK: $GITHUB_REF_NAME (commit $GITHUB_SHA) is reachable from origin/main"
+          else
+            echo "::error::tag $GITHUB_REF_NAME (commit $GITHUB_SHA) is not on main"
+            echo "Policy: only main can release. Cut the tag from main, or move it:"
+            echo "  git fetch origin main"
+            echo "  git tag -fa \$GITHUB_REF_NAME origin/main"
+            echo "  git push origin :refs/tags/\$GITHUB_REF_NAME"
+            echo "  git push origin v*  # tag is now on origin/main's tip"
+            exit 1
+          fi
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
