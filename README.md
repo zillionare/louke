@@ -1,34 +1,61 @@
 # louke
 
-> **beyond vibes, into craft.**
+> **beyond vibes, into Louke(craft).**
 
 ![louke pipeline](docs/hero.svg)
 
 [🇨🇳 中文](README.zh.md) · [🇺🇸 English](README.md)
 
-**louke is a multi-agent collaborative development methodology built on spec-first, test-driven, and tool-aligned agent behavior.** Every stage transition is a machine-enforced hold point. Requirements are tracked at AC-FRXXXX-YY granularity across spec → code → test.
+**louke is a multi-agent collaborative development methodology built on spec-first, test-driven, and tool-aligned agent behavior.** Every stage transition is a tool-enforced check.
 
 ---
 
 ### Why louke?
 
-When multiple AI agents work on the same project, things go wrong:
+You can't build a real software with one-sentence vibecoding.
 
-- Two agents edit the same file → merge conflict
-- An agent makes an assumption → silent bug
-- A test passes but doesn't actually verify → false confidence
-- One agent finishes its work but the next can't start because the handoff isn't defined
+A real software has hundreds to thousands of sub-requirements, tens of thousands of execution paths and boundary checks.
 
-**The failure mode isn't agents being bad at coding. It's the absence of explicit, tool-enforced handoffs between them.**
+Real work takes concrete, detailed specs, acceptance criteria, and test plans. Humans must participate in and guide the production of these documents; tools must break them into traceable sub-items so agent code maps one-to-one to those items. Only then can we build a retractable, traceable, trustworthy software production process.
 
-`louke` defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI that makes every transition a real check — not a soft "agent reviews agent". The name is the mechanism: at every **point**, work is **held** until a different agent verifies it.
+That's the value of louke. Beyond vibecoding — agent programming becomes precision manufacturing, executing every detail you specified perfectly.
+
+When vibecoding:
+
+- You haven't figured out what software you want, yet expect the agent to know
+- Words are always suggestive and leave too much room for imagination, but software must be precise
+- You have many Stories, but neither AI nor you has formed a complete blueprint
+
+Even spec-kit / superpowers / oh-my-openagent don't turn spec into a "programming contract". For spec to be a contract, three things must hold simultaneously — and louke is the only one that achieves them:
+
+- **Sub-requirements are orthogonal** — non-conflicting and non-overlapping, already pruned by Occam's razor
+- **Right-sized granularity** — you can't expect an agent to read a 10,000-word document and still grasp every small detail, unless you break them into items that fit cleanly into a PR
+- **Traceable** — every thread from requirement to code to test must be bidirectionally traceable: forward to find the source, backward to find the landing. Any requirement that can't be matched to its code and tests is a blank check hanging on the wall
+
+And the deepest gap between louke and other frameworks: louke turns this into **Infrastructure-as-Checkpoint** — the traceable loop is not in the AI's self-discipline, but in the forced execution of external CLIs at commit-time. `exit 0/1` is an OS process return value; you can't bypass it. The engineering world only recognizes this one language.
+
+### What louke provides
+
+louke turns the contract's three principles into 5 observable things. Each maps to an `lk` command or a traceable artifact — not just prompts, but tools:
+
+- **spec → GitHub issue, commits must reference issue** — Lex converts each FR into an issue; Devon's commit message enforces `#NNN` format. Requirement to code, one-way trace, never lost
+
+- **test ↔ AC-FRXXXX-YY auto-association, CI static validation closes both directions** — every test docstring must carry an `AC-FRXXXX-YY` ID. `lk archer ci-scan` validates at commit-time: every AC must be referenced by a test, every test must reference an AC. If the loop doesn't close, merge is blocked
+
+- **Anti-pattern CI gate + identity consistency check** — `lk keeper gate` statically scans 8 anti-patterns (`assert True` / `try/except: pass` / no-issue skip / mock-framework core / ...). `lk scout identity-check` locks gh/git identity consistency before workflow start. Violations block
+
+- **Project wiki auto-distillation** — based on LLM compounding engineering, `.louke/raw/` (each agent's session records) → `.louke/wiki/` (structured knowledge). Facts, decisions, current state at a glance, lint-checkable
+
+- **Socratic requirement interrogation** — Sage asks multiple rounds of questions around a vague story until it produces traceable `spec.md` + `acceptance.md`
+
+`louke` defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI — so every transition is a real check, not the soft "agents review each other". Each agent has its own dedicated toolbox; at every hold point, work is gated for verification.
 
 ### The Pipeline
 
 | Stage | Implementer | Reviewer | Notes |
 |---|---|---|---|
 | M-FOUND | Scout | Warden | Project setup + permission gate |
-| M-SPEC | Sage | Lex | Spec + acceptance.md |
+| M-SPEC | Sage | Lex | spec + FR → issue, Lex reviews + 100% verifies |
 | M-TESTPLAN | Archer | Sage | Test plan (Sage has unique spec context) |
 | M-ARCH | Archer | Prism | Architecture + interfaces |
 | M-LOCK | Maestro | User | 3-signal lock (Sage quote-parser + Lex 3 stages + User confirm) |
@@ -38,7 +65,7 @@ When multiple AI agents work on the same project, things go wrong:
 | M-SECURITY | Judge (S-level) | User | Deep security audit |
 | M-MILESTONE | Librarian | Maestro | raw → wiki distillation |
 
-★ **HOLD POINT** — tool-enforced check (`lk` CLI returns 0/1; pipeline doesn't advance until it passes)
+★ **HOLD POINT** — tool-enforced check (`lk` CLI returns 0/1; pipeline doesn't advance until it passes). `★` only marks the PROD gate that blocks merge at commit-time; stage-transition hold points aren't separately marked.
 
 **Principle: implementer ≠ reviewer. Always.**
 
@@ -57,7 +84,7 @@ The 12 agents are named for what they do, not for decoration:
 | **Devon** | Smith | forges code from the fire of tests (R-G-R) |
 | **Prism** | Prism | refracts code through multiple angles (test anti-patterns + security quick scan) |
 | **Judge** | Arbiter | S-grade deep security audit |
-| **Shield** | Shield / e2e writer | writes end-to-end scripts (B-grade) |
+| **Shield** | Shield | writes end-to-end scripts (B-grade) |
 | **Keeper** | Warden of gates | enforces quality gates (commit format + tests + lint + regression) |
 | **Librarian** | Librarian | distills Wiki, preserves project memory |
 
@@ -93,25 +120,16 @@ rm -rf ~/.louke/venv ~/.local/bin/lk
 ```
 
 You now have:
-- `lk` CLI (32 commands across 12 agents)
-- `agents/` — 12 agent prompt files
+- `lk` CLI (32 commands, 12 agents)
 - `templates/` — 4 doc templates (spec, acceptance, test-plan, security-checklist)
 - `louke/_tools/` — Python scripts wrapped by `lk`
 
 ### Use in Your Project
 
-Copy the framework into your project:
+Initialize via `lk scout foundation`:
 
 ```bash
-cd your-project
-cp -r /path/to/louke/agents ./
-cp -r /path/to/louke/templates ./
-```
-
-Or initialize via the CLI:
-
-```bash
-lk scout foundation --repo owner/repo --version v0.1 --spec-id v0.1-001-init
+lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-init
 # → creates .louke/project/project-info.md
 # → creates .louke/project/specs/v0.1-001-init/story.md
 # → opens editor for you to fill in story (interactive)
@@ -171,7 +189,7 @@ In a typical session with one of the above AI assistants:
 3. lk sage commit-spec --spec ...  # Commit spec + acceptance
 4. lk lex verify-acceptance       # [HOLD POINT] Different agent, tool-enforced
 5. "You are Archer. Write test-plan + arch + interfaces."
-6. lk archer ci-scan              # AC 引用 + 反模式 扫描
+6. lk archer ci-scan              # AC reference + anti-pattern scan
 7. "You are Devon. Implement in R-G-R."
 8. lk devon commit-rgr --phase red/green/refactor
 9. lk keeper gate                 # [HOLD POINT] Tool-enforced commit format
@@ -198,25 +216,22 @@ Say you want to build user auth:
 
 Each transition is a different agent. Each hold point is tool-enforced. Each handoff is explicit.
 
-### Comparison
+### How louke compares
 
-| Framework | Spec role | Review model | Agent handoff | Hold point enforcement |
+| Framework | Is spec a contract? | Who reviews | Enforcement layer | spec → code → test loop |
 |---|---|---|---|---|
-| **spec-kit** (GitHub) | Drives code (single agent) | None | N/A | None |
-| **superpowers** (obra, 240k★) | Triggers skills | Subagent reviews | TDD + subagent | TDD (test) |
-| **oh-my-openagent** (code-yeongyu, 64k★) | Guides agent | Team of agents | Parallel | Skills + hooks |
-| **antigravity-awesome-skills** (1,693+ skills) | (skill library) | None | N/A | None |
-| **louke** | **Holds agents accountable** | **Different agent per stage** | **10 stage transitions** | **`lk` CLI tool-enforced** |
-
-The unique claim: **gated specs hold agents accountable via hold points, not just inform them**.
+| **spec-kit** (GitHub) | spec.md is the source, but no MECE / granularity / traceability constraints | No review | None | Manual + social |
+| **superpowers** (obra, 240k★) | plan.md is plain text, no AC numbering, no commit-time validation | subagent review (same model reviewing itself) | prompt-level self-discipline | TDD indirect guarantee (no ID binding between test and spec) |
+| **oh-my-openagent** (code-yeongyu, 64k★) | agents digest spec themselves | team of agents (same LLM, different prompts) | hooks / middleware | task self-defined, no FR ↔ test binding |
+| **louke** | FR-XXX / AC-XXX-N + `lk archer ci-scan` | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint) | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end |
 
 ### Architecture (Light)
 
 ```
   agents/*.md              templates/*.md                louke/                louke/_tools/*.py
   (12 prompts)            (spec, acceptance,           (32 commands,         (Python scripts,
-                         test-plan, security-          12 agents)           wrapped by lk)
-                         checklist)
+                          test-plan, security-          12 agents)           wrapped by lk)
+                          checklist)
        │                       │                            │                      │
        └───────────┬───────────┴────────────┬───────────────┘                      │
                    │                        │                                      │
@@ -232,10 +247,12 @@ The unique claim: **gated specs hold agents accountable via hold points, not jus
     .louke/wiki/   →   distilled knowledge, maintained by Librarian
 ```
 
-- **12 agents** = implementer + reviewer per stage, all distinct
-- **`lk` CLI** = tool-enforced hold points (return 0/1)
-- **Two-tier memory** = `raw/` (what happened) + `wiki/` (what we know)
-- **Traceability** = every test docstring must reference `AC-FRXXXX-YY`; CI scans for it
+Four things louke doesn't compromise on:
+
+- **12 Agents** = implementer ≠ reviewer; cross-stage context is disjoint
+- **`lk` CLI** = OS-process-level contract; `exit 0/1` is unbypassable
+- **Two-tier memory** = `raw/` (episodic) + `wiki/` (distilled), maintained by Librarian
+- **Promise** = spec → code → test three-segment bidirectional reachability; breakage at any node can be traced to its source
 
 ### License
 
