@@ -45,15 +45,37 @@ When multiple AI agents work on the same project, things go wrong:
 ### Install
 
 ```bash
-git clone https://github.com/your-org/louke
+# Standard pip-based install (recommended): auto-creates venv, sets PATH, links lk to ~/.local/bin
+curl -sSL https://raw.githubusercontent.com/zillionare/louke/main/install.sh | bash
+
+# Or pin a version
+curl -sSL https://raw.githubusercontent.com/zillionare/louke/main/install.sh | bash -s -- v0.3.0
+
+# Or dev mode (clone + editable install)
+git clone https://github.com/zillionare/louke
 cd louke
-pip install -e .
+./install.sh --editable
+
+# Verify
 lk --help
+```
+
+`install.sh` does 4 things:
+
+1. Creates an isolated venv at `~/.louke/venv/` (no system-Python pollution)
+2. `pip install louke` into that venv
+3. `~/.local/bin/lk` → symlink to venv's `lk`, and appends PATH to your shell rc
+4. Verifies the install + prints uninstall instructions
+
+Uninstall:
+
+```bash
+rm -rf ~/.louke/venv ~/.local/bin/lk
 ```
 
 You now have:
 - `lk` CLI (32 commands across 12 agents)
-- `agents/` — 14 prompt files, one per role
+- `agents/` — 12 agent prompt files + 1 `REVIEW-PAIRINGS.md` reference doc
 - `templates/` — 4 doc templates (spec, acceptance, test-plan, security-checklist)
 - `louke/_tools/` — Python scripts wrapped by `lk`
 

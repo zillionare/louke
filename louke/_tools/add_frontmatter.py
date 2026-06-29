@@ -20,11 +20,11 @@ DESCRIPTIONS = {
     "Judge": "S 级安全审计 — 深度审查敏感信息泄露风险",
     "Warden": "审核人 — 检查 foundation 是否达标并同意推进",
     "Librarian": "知识库 — 管理 wiki、决策记录和项目记忆",
+    "REVIEW-PAIRINGS": "Agent 评审配对 — 实施者↔评审者映射与变更历史",
 }
-ROSTER = "ROSTER.md"
 
 for md_file in sorted(AGENTS_DIR.glob("*.md")):
-    name = md_file.stem  # e.g. "Sage", "ROSTER"
+    name = md_file.stem  # e.g. "Sage", "REVIEW-PAIRINGS"
     text = md_file.read_text(encoding="utf-8")
 
     # Skip if already has frontmatter
@@ -32,10 +32,7 @@ for md_file in sorted(AGENTS_DIR.glob("*.md")):
         print(f"  ⏭️  {md_file.name} (已有 frontmatter)")
         continue
 
-    if name == "ROSTER":
-        desc = "Agent 花名册与阶段映射"
-    else:
-        desc = DESCRIPTIONS.get(name, name)
+    desc = DESCRIPTIONS.get(name, name)
 
     frontmatter = f"---\nname: {name.lower()}\ndescription: {desc}\n---\n\n"
     md_file.write_text(frontmatter + text, encoding="utf-8")

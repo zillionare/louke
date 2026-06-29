@@ -32,7 +32,19 @@
 - **颗粒度合适** —— 你不可能要求 Agent 能读完上万字的文档，并且还能把握住其中每一个小小的细节。除非你把它们拆成一项项可以完美装进一个 PR 的任务里。
 - **可追踪** —— 每个需求绑定到 GitHub issue，每项验收绑定一个测试函数，每次提交绑定一个 issue 编号。
 
-而 louke 跟其它框架之间，横亘着一条最深的鸿沟：louke 把所有这些做成了"基础设施即检查点"（Infrastructure-as-Checkpoint） -- 可追踪的闭环不在 AI 的自律里，而在外部 CLI 在 commit-time 的强制执行里。exit 0/1 是 OS 进程返回值，绕不过。工程世界只认这一种语言。
+而 louke 跟其它框架之间，横亘着一条最深的鸿沟：louke 把所有这些做成了"基础设施即检查点"（Infrastructure-as-Checkpoint）——可追踪的闭环不在 AI 的自律里，而在外部 CLI 在 commit-time 的强制执行里。exit 0/1 是 OS 进程返回值，绕不过。工程世界只认这一种语言。
+
+### louke 提供什么
+
+louke 把上面的哲学落到 7 件具体可观测的事上。每件都有一条 lk 命令或可追溯的产物对应——不只是 prompt，而是工具：
+
+- **项目 wiki 自动蒸馏** —— 基于 LLM compounding engineering 理念，`.louke/raw/`（每 Agent 的会话记录）→ `.louke/wiki/`（结构化知识）。事实、决定、现状一目了然且可 lint
+- **苏格拉底式需求询问** —— Sage 多轮追问模糊的 story，直到磨出可追踪的 `spec.md` + `acceptance.md`
+- **spec → GitHub issue** —— Lex 把每个 FR 自动转成一个 issue，阶段二、三验证 100% 覆盖
+- **commit 必带 issue 引用** —— Devon 的 commit message 强制 `#NNN` 格式，代码改动可回溯到需求
+- **test ↔ AC-FRXXXX-YY 自动关联** —— 每个测试 docstring 必带 `AC-FRXXXX-YY` 编号，`lk archer ci-scan` 在 commit-time 静态校验双向闭合（每条 AC 必被测试引用，每个测试必引用 AC）
+- **反模式 CI 门禁** —— `lk keeper gate` 静态扫 `assert True` / `try/except: pass` / 无 issue skip / mock 框架核心 等 8 类反模式，违规阻塞 merge
+- **身份一致性门禁** —— `lk scout identity-check` 在每次流程启动前检查 gh/git 身份（防止 "git push 用 A 账号、gh API 用 B 账号" 的静默失败）
 
 `louke` 定义了 12 个专业 Agent、10 阶段流水线、一个 `lk` CLI——让每次转换都是真正的检查，不是"agent 互相 review"那种软约束。每个 Agent 都有自己专属的工具箱，在每个 holdpoint 上，工作被卡点验证。
 
@@ -58,15 +70,37 @@
 ### 安装
 
 ```bash
-git clone https://github.com/your-org/louke
+# 标准 pip-based 安装（推荐）：自动建 venv、配 PATH、链接 lk 到 ~/.local/bin
+curl -sSL https://raw.githubusercontent.com/zillionare/louke/main/install.sh | bash
+
+# 或指定版本
+curl -sSL https://raw.githubusercontent.com/zillionare/louke/main/install.sh | bash -s -- v0.3.0
+
+# 开发模式（clone 后 editable 安装）
+git clone https://github.com/zillionare/louke
 cd louke
-pip install -e .
+./install.sh --editable
+
+# 验证
 lk --help
+```
+
+`install.sh` 会做 4 件事：
+
+1. 在 `~/.louke/venv/` 建独立 venv（不污染系统 Python）
+2. `pip install louke` 装到 venv
+3. `~/.local/bin/lk` → venv 内 `lk` 的符号链接，并 append PATH 到 shell rc
+4. 验证 + 打印卸载指引
+
+卸载：
+
+```bash
+rm -rf ~/.louke/venv ~/.local/bin/lk
 ```
 
 你会得到：
 - `lk` CLI（12 agent × 32 命令）
-- `agents/` — 14 个 agent prompt 文件
+- `agents/` — 12 个 agent prompt 文件 + 1 个 `REVIEW-PAIRINGS.md` 参考文档
 - `templates/` — 4 个文档模板（spec, acceptance, test-plan, security-checklist）
 - `louke/_tools/` — Python 脚本，被 `lk` 包装
 
