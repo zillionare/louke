@@ -43,7 +43,7 @@ jobs:
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall --no-deps dist/louke-*.whl
 
-      - name: Smoke test: lk --help
+      - name: "Smoke test: lk --help"
         run: /tmp/lk-venv/bin/lk --help
 
       - name: Install bats-core
