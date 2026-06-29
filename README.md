@@ -1,8 +1,6 @@
-# louke
+# LouKe - beyond vibes, into Louke(craft)
 
-> **beyond vibes, into Louke(craft).**
-
-![louke pipeline](docs/hero.svg)
+![louke pipeline](docs/hero.png)
 
 [🇨🇳 中文](README.zh.md) · [🇺🇸 English](README.md)
 
@@ -52,18 +50,18 @@ louke turns the contract's three principles into 5 observable things. Each maps 
 
 ### The Pipeline
 
-| Stage | Implementer | Reviewer | Notes |
-|---|---|---|---|
-| M-FOUND | Scout | Warden | Project setup + permission gate |
-| M-SPEC | Sage | Lex | spec + FR → issue, Lex reviews + 100% verifies |
-| M-TESTPLAN | Archer | Sage | Test plan (Sage has unique spec context) |
-| M-ARCH | Archer | Prism | Architecture + interfaces |
-| M-LOCK | Maestro | User | 3-signal lock (Sage quote-parser + Lex 3 stages + User confirm) |
-| M-DEV | Devon | **Prism → Keeper ★** | Code + unit tests |
-| M-E2E | Shield | **Prism → Keeper ★** | e2e tests (B-level) |
-| M-BUGFIX | Devon | **Keeper ★** | Bug fixes |
-| M-SECURITY | Judge (S-level) | User | Deep security audit |
-| M-MILESTONE | Librarian | Maestro | raw → wiki distillation |
+| Stage       | Implementer     | Reviewer             | Notes                                                           |
+| ----------- | --------------- | -------------------- | --------------------------------------------------------------- |
+| M-FOUND     | Scout           | Warden               | Project setup + permission gate                                 |
+| M-SPEC      | Sage            | Lex                  | spec + FR → issue, Lex reviews + 100% verifies                  |
+| M-TESTPLAN  | Archer          | Sage                 | Test plan (Sage has unique spec context)                        |
+| M-ARCH      | Archer          | Prism                | Architecture + interfaces                                       |
+| M-LOCK      | Maestro         | User                 | 3-signal lock (Sage quote-parser + Lex 3 stages + User confirm) |
+| M-DEV       | Devon           | **Prism → Keeper ★** | Code + unit tests                                               |
+| M-E2E       | Shield          | **Prism → Keeper ★** | e2e tests (B-level)                                             |
+| M-BUGFIX    | Devon           | **Keeper ★**         | Bug fixes                                                       |
+| M-SECURITY  | Judge (S-level) | User                 | Deep security audit                                             |
+| M-MILESTONE | Librarian       | Maestro              | raw → wiki distillation                                         |
 
 ★ **HOLD POINT** — tool-enforced check (`lk` CLI returns 0/1; pipeline doesn't advance until it passes). `★` only marks the PROD gate that blocks merge at commit-time; stage-transition hold points aren't separately marked.
 
@@ -73,20 +71,20 @@ louke turns the contract's three principles into 5 observable things. Each maps 
 
 The 12 agents are named for what they do, not for decoration:
 
-| Agent | Meaning | Job image |
-|-------|---------|-----------|
-| **Maestro** | Conductor | coordinates the whole ensemble |
-| **Scout** | Pathfinder | scouts the terrain, verifies preconditions |
-| **Warden** | Gatekeeper | guards the door, confirms exit conditions |
-| **Sage** | The wise | asks Socratic questions |
-| **Lex** | The law | enforces spec-level precision + organizes issues |
-| **Archer** | Marksman / architect | designs the execution path (test-plan + architecture) |
-| **Devon** | Smith | forges code from the fire of tests (R-G-R) |
-| **Prism** | Prism | refracts code through multiple angles (test anti-patterns + security quick scan) |
-| **Judge** | Arbiter | S-grade deep security audit |
-| **Shield** | Shield | writes end-to-end scripts (B-grade) |
-| **Keeper** | Warden of gates | enforces quality gates (commit format + tests + lint + regression) |
-| **Librarian** | Librarian | distills Wiki, preserves project memory |
+| Agent         | Meaning              | Job image                                                                        |
+| ------------- | -------------------- | -------------------------------------------------------------------------------- |
+| **Maestro**   | Conductor            | coordinates the whole ensemble                                                   |
+| **Scout**     | Pathfinder           | scouts the terrain, verifies preconditions                                       |
+| **Warden**    | Gatekeeper           | guards the door, confirms exit conditions                                        |
+| **Sage**      | The wise             | asks Socratic questions                                                          |
+| **Lex**       | The law              | enforces spec-level precision + organizes issues                                 |
+| **Archer**    | Marksman / architect | designs the execution path (test-plan + architecture)                            |
+| **Devon**     | Smith                | forges code from the fire of tests (R-G-R)                                       |
+| **Prism**     | Prism                | refracts code through multiple angles (test anti-patterns + security quick scan) |
+| **Judge**     | Arbiter              | S-grade deep security audit                                                      |
+| **Shield**    | Shield               | writes end-to-end scripts (B-grade)                                              |
+| **Keeper**    | Warden of gates      | enforces quality gates (commit format + tests + lint + regression)               |
+| **Librarian** | Librarian            | distills Wiki, preserves project memory                                          |
 
 ### Install
 
@@ -220,12 +218,12 @@ Each transition is a different agent. Each hold point is tool-enforced. Each han
 
 ### How louke compares
 
-| Framework | Is spec a contract? | Who reviews | Enforcement layer | spec → code → test loop |
-|---|---|---|---|---|
-| **spec-kit** (GitHub) | spec.md is the source, but no MECE / granularity / traceability constraints | No review | None | Manual + social |
-| **superpowers** (obra, 240k★) | plan.md is plain text, no AC numbering, no commit-time validation | subagent review (same model reviewing itself) | prompt-level self-discipline | TDD indirect guarantee (no ID binding between test and spec) |
-| **oh-my-openagent** (code-yeongyu, 64k★) | agents digest spec themselves | team of agents (same LLM, different prompts) | hooks / middleware | task self-defined, no FR ↔ test binding |
-| **louke** | FR-XXX / AC-XXX-N + `lk archer ci-scan` | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint) | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end |
+| Framework                                | Is spec a contract?                                                         | Who reviews                                                                  | Enforcement layer                           | spec → code → test loop                                      |
+| ---------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------ |
+| **spec-kit** (GitHub)                    | spec.md is the source, but no MECE / granularity / traceability constraints | No review                                                                    | None                                        | Manual + social                                              |
+| **superpowers** (obra, 240k★)            | plan.md is plain text, no AC numbering, no commit-time validation           | subagent review (same model reviewing itself)                                | prompt-level self-discipline                | TDD indirect guarantee (no ID binding between test and spec) |
+| **oh-my-openagent** (code-yeongyu, 64k★) | agents digest spec themselves                                               | team of agents (same LLM, different prompts)                                 | hooks / middleware                          | task self-defined, no FR ↔ test binding                      |
+| **louke**                                | FR-XXX / AC-XXX-N + `lk archer ci-scan`                                     | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint) | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end                   |
 
 ### Architecture (Light)
 
