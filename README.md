@@ -90,6 +90,8 @@ The 12 agents are named for what they do, not for decoration:
 
 ### Install
 
+> **Platform support**: macOS and Linux only. Windows users: please use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/) or Docker. The installer self-checks `uname -s` and exits with a clear error on unsupported platforms.
+
 ```bash
 # Standard pip-based install (recommended): auto-creates venv, sets PATH, links lk to ~/.local/bin
 curl -sSL https://raw.githubusercontent.com/zillionare/louke/main/install.sh | bash

@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. v0.3.0). Leave blank to use the triggering tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Build + publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ -n "${{ github.ref_name }}" ] && [[ "${{ github.ref_name }}" == v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            echo "::error::could not determine version (tag=${{ github.ref_name }}, input=${{ github.event.inputs.version }})"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Override package version (tag-driven)
+        # override the literal "0.3.0" in pyproject.toml with the tag, so wheel
+        # name matches the tag — important for downstream TestPyPI checks.
+        run: |
+          sed -i.bak -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"\$/version = \"${VERSION#v}\"/" pyproject.toml
+          grep '^version' pyproject.toml
+
+      - name: Sync package data + build wheel/sdist
+        run: make build
+
+      - name: Restore pyproject.toml
+        # remove the .bak we made above; pyproject is tracked
+        run: mv pyproject.toml.bak pyproject.toml || true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # skip-existing: don't error if same version already on PyPI;
+          # remove this line if you want strict uniqueness
+          skip-existing: true
+          packages-dir: dist/
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: louke ${{ steps.version.outputs.version }}
+          body_path: .github/RELEASE_NOTES_${{ steps.version.outputs.version }}.md
+          fail_on_unmatched_files: false
+          files: |
+            dist/louke-*.whl
+            dist/louke-*.tar.gz

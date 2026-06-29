@@ -9,11 +9,32 @@
 
 set -euo pipefail
 
-VERSION="${1:-latest}"
+# ---------- 平台支持 ----------
+# 当前 installer 仅在 macOS / Linux 上跑过.
+# Windows 用户请走 WSL2 或 Docker,或在 https://github.com/zillionare/louke/issues 报告.
+case "$(uname -s 2>/dev/null || echo unknown)" in
+    Darwin|Linux) ;;
+    MINGW*|MSYS*|CYGWIN*) {
+        echo "louke installer does not support native Windows." >&2
+        echo "Use WSL2 (https://docs.microsoft.com/en-us/windows/wsl/) or Docker." >&2
+        exit 1
+    } ;;
+    *) echo "louke: unrecognized platform $(uname -s); continuing best-effort" >&2 ;;
+esac
+
+# ---------- 解析参数: 第一个非 flag 即 VERSION, --editable / -e 是 flag ----------
 EDITABLE=0
+VERSION="latest"
 for arg in "$@"; do
     case "$arg" in
         --editable|-e) EDITABLE=1 ;;
+        -h|--help)
+            echo "usage: $0 [--editable|-e] [version]" >&2
+            exit 0
+            ;;
+        --) shift; break ;;
+        -*) echo "louke: unknown flag: $arg" >&2; exit 1 ;;
+        *)  VERSION="$arg" ;;
     esac
 done
 
