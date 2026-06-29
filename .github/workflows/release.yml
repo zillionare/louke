@@ -53,15 +53,17 @@ jobs:
         # Override the literal "0.3.0" in pyproject.toml with the tag version
         # so the wheel filename matches the tag. Use Python (not sed) for
         # cross-platform reliability (BSD vs GNU sed differ on -E behavior).
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          NEW_VERSION="${VERSION#v}"
           python3 -c "
-          import re, pathlib
+          import os, re, pathlib
+          new_version = os.environ['VERSION'].lstrip('v')
           p = pathlib.Path('pyproject.toml')
           text = p.read_text()
-          new = re.sub(r'^version = .*$', f'version = \"$NEW_VERSION\"', text, count=1, flags=re.MULTILINE)
+          new = re.sub(r'^version = .*$', f'version = \"{new_version}\"', text, count=1, flags=re.MULTILINE)
           p.write_text(new)
-          print('updated version to:', '$NEW_VERSION')
+          print('updated version to:', new_version)
           for line in new.splitlines():
               if line.startswith('version'):
                   print(line)
