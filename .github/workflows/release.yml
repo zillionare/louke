@@ -49,19 +49,33 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build
 
-      - name: Override package version (tag-driven)
-        # override the literal "0.3.0" in pyproject.toml with the tag, so wheel
-        # name matches the tag — important for downstream TestPyPI checks.
+      - name: Sync package version with tag (PEP 440)
+        # Override the literal "0.3.0" in pyproject.toml with the tag version
+        # so the wheel filename matches the tag. Use Python (not sed) for
+        # cross-platform reliability (BSD vs GNU sed differ on -E behavior).
         run: |
-          sed -i.bak -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"\$/version = \"${VERSION#v}\"/" pyproject.toml
-          grep '^version' pyproject.toml
+          NEW_VERSION="${VERSION#v}"
+          python3 -c "
+          import re, pathlib
+          p = pathlib.Path('pyproject.toml')
+          text = p.read_text()
+          new = re.sub(r'^version = .*$', f'version = \"$NEW_VERSION\"', text, count=1, flags=re.MULTILINE)
+          p.write_text(new)
+          print('updated version to:', '$NEW_VERSION')
+          for line in new.splitlines():
+              if line.startswith('version'):
+                  print(line)
+          "
+
+      - name: Save original pyproject.toml for restore
+        run: cp pyproject.toml pyproject.toml.original
 
       - name: Sync package data + build wheel/sdist
         run: make build
 
-      - name: Restore pyproject.toml
-        # remove the .bak we made above; pyproject is tracked
-        run: mv pyproject.toml.bak pyproject.toml || true
+      - name: Restore original pyproject.toml
+        if: always()
+        run: mv -f pyproject.toml.original pyproject.toml
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
