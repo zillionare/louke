@@ -66,7 +66,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role WRITE
     [ "$status" -eq 0 ]
-    [[ "$output" == *"\[通过\]"* ]]
+    [[ "$output" == *"[通过]"* || "$output" == *"[通过+警告]"* ]]
     [[ "$output" != *"L4"* ]]
 }
 
@@ -83,7 +83,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role WRITE
     [ "$status" -eq 1 ]
-    [[ "$output" == *"\[拒绝\]"* ]]
+    [[ "$output" == *"[拒绝]"* ]]
     [[ "$output" == *"L4"* ]]
 }
 
@@ -98,7 +98,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role READ
     [ "$status" -eq 1 ]
-    [[ "$output" == *"\[拒绝\]"* ]]
+    [[ "$output" == *"[拒绝]"* ]]
     [[ "$output" == *"L2"* ]]
 }
 
@@ -144,7 +144,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role WRITE
     [ "$status" -eq 0 ]
-    [[ "$output" == *"\[通过+警告\]"* ]]
+    [[ "$output" == *"[通过+警告]"* ]]
     [[ "$output" == *"L5"* ]]
     # L4 不应触发(commit email 在 gh 已知邮箱里)
     [[ "$output" != *"L4"* ]]

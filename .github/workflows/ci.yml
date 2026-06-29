@@ -47,7 +47,9 @@ jobs:
         run: /tmp/lk-venv/bin/lk --help
 
       - name: Install bats-core
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bats
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bats python3-yaml
 
       - name: Run bats suite
         run: make test
