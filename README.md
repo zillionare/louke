@@ -78,43 +78,24 @@ louke turns the contract's three principles into 5 observable things. Each maps 
 
 **Principle: implementer ≠ reviewer. Always.**
 
-### Naming
-
-The 12 agents are named for what they do, not for decoration:
-
-| Agent         | Meaning              | Job image                                                                        |
-| ------------- | -------------------- | -------------------------------------------------------------------------------- |
-| **Maestro**   | Conductor            | coordinates the whole ensemble                                                   |
-| **Scout**     | Pathfinder           | scouts the terrain, verifies preconditions                                       |
-| **Warden**    | Gatekeeper           | guards the door, confirms exit conditions                                        |
-| **Sage**      | The wise             | asks Socratic questions                                                          |
-| **Lex**       | The law              | enforces spec-level precision + organizes issues                                 |
-| **Archer**    | Marksman / architect | designs the execution path (test-plan + architecture)                            |
-| **Devon**     | Smith                | forges code from the fire of tests (R-G-R)                                       |
-| **Prism**     | Prism                | refracts code through multiple angles (test anti-patterns + security quick scan) |
-| **Judge**     | Arbiter              | S-grade deep security audit                                                      |
-| **Shield**    | Shield               | writes end-to-end scripts (B-grade)                                              |
-| **Keeper**    | Warden of gates      | enforces quality gates (commit format + tests + lint + regression)               |
-| **Librarian** | Librarian            | distills Wiki, preserves project memory                                          |
-
-### Agent capabilities & model tiers
+### The 12 agents
 
 Default primary model per agent (and in-tier fallback). Override via `~/.louke/models.json` (user) or `.louke/models.json` (project); see `lk models list` / `lk models doctor` for current bindings and `lk models bind <abstract> <full>` to override.
 
-| Agent         | Tier | Open-source       | Closed-source (reference)               |
-| ------------- | :--: | ----------------- | ---------------------------------------- |
-| **Maestro**   |  S   | `minimax-m3`      | `gpt-5.6`, `fable`                      |
-| **Sage**      |  S   | `glm-5.2`         | `gpt-5.6`, `fable`                      |
-| **Judge**     |  S   | `minimax-m3`      | `gpt-5.6`, `fable`                      |
-| **Archer**    |  S   | `glm-5.2`         | `gpt-5.6`, `fable`                      |
-| **Devon**     |  A   | `kimi-2.7-code`   | `opus-4.8`, `gpt-5.5`                   |
-| **Prism**     |  A   | `deepseek-v4-pro` | `opus-4.8`, `gpt-5.5`                   |
-| **Shield**    |  A   | `kimi-2.6`        | `opus-4.8`, `gpt-5.5`                   |
-| **Lex**       |  B   | `deepseek-v4-flash` | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
-| **Warden**    |  B   | `glm-5`           | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
-| **Keeper**    |  B   | `minimax-2.7`     | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
-| **Scout**     |  B   | `glm-5`           | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
-| **Librarian** |  B   | `minimax-2.7`     | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| Agent         | What it does                                          | Tier | Open-source       | Closed-source (reference)               |
+| ------------- | ----------------------------------------------------- | :--: | ----------------- | ---------------------------------------- |
+| **Maestro**   | Conductor — coordinates the whole pipeline            |  S   | `minimax-m3`      | `gpt-5.6`, `fable`                      |
+| **Sage**      | The wise — Socratic questions for requirements         |  S   | `glm-5.2`         | `gpt-5.6`, `fable`                      |
+| **Judge**     | Arbiter — S-grade deep security audit                  |  S   | `minimax-m3`      | `gpt-5.6`, `fable`                      |
+| **Archer**    | Marksman — designs test-plan + architecture            |  S   | `glm-5.2`         | `gpt-5.6`, `fable`                      |
+| **Devon**     | Smith — forges code through R-G-R discipline            |  A   | `kimi-2.7-code`   | `opus-4.8`, `gpt-5.5`                   |
+| **Prism**     | Prism — refracts code through anti-pattern + security scan |  A   | `deepseek-v4-pro` | `opus-4.8`, `gpt-5.5`                   |
+| **Shield**    | Shield — writes end-to-end test scripts                 |  A   | `kimi-2.6`        | `opus-4.8`, `gpt-5.5`                   |
+| **Lex**       | The law — spec-level structural validation             |  B   | `deepseek-v4-flash` | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Warden**    | Gatekeeper — guards the door, confirms exit conditions |  B   | `glm-5`           | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Keeper**    | Warden of gates — enforces quality gates              |  B   | `minimax-2.7`     | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Scout**     | Pathfinder — scouts terrain, verifies preconditions    |  B   | `glm-5`           | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Librarian** | Librarian — distills Wiki, preserves project memory     |  B   | `minimax-2.7`     | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
 
 ### Install
 
@@ -191,28 +172,33 @@ If you ever need to switch manually inside OpenCode: press `<leader>a` (or `/age
 
 ### A Working Session
 
-In a typical session with OpenCode:
+In a typical session with OpenCode, after `lk init` has set `default_agent: maestro`:
 
-```
-1. lk scout foundation            # Initialize project, verify permissions
-2. "You are Sage. Interview me about user auth."   # AI plays Sage role
-3. lk sage commit-spec --spec ...  # Commit spec + acceptance
-4. lk lex verify-acceptance       # [HOLD POINT] Different agent, tool-enforced
-5. "You are Archer. Write test-plan + arch + interfaces."
-6. lk archer ci-scan              # AC reference + anti-pattern scan
-7. "You are Devon. Implement in R-G-R."
-8. lk devon commit-rgr --phase red/green/refactor
-9. lk keeper gate                 # [HOLD POINT] Tool-enforced commit format
-10. lk judge security-audit       # [HOLD POINT] S-level security review
-11. lk librarian from-raw         # Distill session → wiki
-12. lk maestro status             # Check progress
-```
+1. **Switch to Maestro** (skip if it's already the default): press `<leader>a` and pick **Maestro**.
+2. **Tell Maestro what you want**, in plain language. Example:
+   > "We need to add user authentication — username + password, plus Google login."
+3. **Maestro routes the pipeline automatically**. You stay in the same Maestro chat the whole time — you never manually switch agents. Subagents come and go as helpers; Maestro is the persistent voice.
+4. **Subagent questions come back through Maestro**. When Sage asks Socratic questions, or Judge surfaces a security finding, you see them in your Maestro chat and reply there.
 
-Each `★` HOLD POINT returns 0 (pass) or 1 (fail). The pipeline doesn't advance until it passes.
+What Maestro does behind the curtain:
+
+| Step | What happens | Your role |
+| --- | --- | --- |
+| 1. M-FOUND | Maestro dispatches **Scout** → `lk scout foundation` | (you watch) |
+| 2. M-SPEC | Maestro dispatches **Sage** (interview you) | **answer Sage's questions in the chat** |
+| 3. M-TESTPLAN + M-ARCH | Maestro dispatches **Archer** | (silent) |
+| 4. M-DEV | Maestro dispatches **Devon** (R-G-R coding) | (silent) |
+| 5. M-E2E | Maestro dispatches **Shield** (e2e scripts) | (silent) |
+| 6. M-SECURITY | Maestro dispatches **Judge** | **review the S-level report** |
+| 7. M-MILESTONE | Maestro dispatches **Librarian** (wiki) | (silent) |
+
+`★` hold points (`lk keeper gate`, `lk judge security-audit`, `lk maestro advance --stage M-*`) are tool-enforced and return 0 (pass) or 1 (fail). Maestro does not advance the pipeline until they pass.
+
+You check progress anytime: `lk maestro status`.
 
 ### How It Works: One Spec, End to End
 
-Say you want to build user auth:
+Same example ("add user authentication") as a 9-stage pipeline. Each stage is owned by one agent; transitions are explicit; handoffs are tool-mediated.
 
 1. **M-FOUND** (Scout) — `lk scout foundation` creates the repo, GitHub Project, and a Test Issue to verify permissions.
 2. **M-SPEC** (Sage → Lex) — Sage interviews you Socratically (MFA? session timeout? rate limiting?). Lex finds 3 issues. Sage fixes, marks spec locked when **3 signals align**: `lk sage quote-check` exit 0, Lex 3 stages pass, user confirms in IDE.
