@@ -452,16 +452,22 @@ $ lk maestro advance --stage M-TESTPLAN
 | **A**（中） | `kimi-2.6`, `kimi-2.7`, `deepseek-v4-pro` | 性价比主力 |
 | **B**（轻） | `deepseek-v4-flash`, `glm-5` | 简单任务、低成本 |
 
-**档位 → agent 映射**（v0.6-008 落地）：
+**档位 → agent 映射**（v0.6-008 落地，**按任务复杂度分级**）：
 
-| 档 | agent | primary | fallback |
-| --- | --- | --- | --- |
-| S | Maestro | `glm-5.2` | `minimax-m3` |
-| S | Sage | `minimax-m3` | `glm-5.2` |
-| S | Lex | `glm-5.2` | `minimax-m3` |
-| A | Warden, Archer, Devon, Prism, Keeper, Shield, Judge | round-robin 在 {`kimi-2.6`, `kimi-2.7`, `deepseek-v4-pro`} | 同档另一模型 |
-| B | Scout | `deepseek-v4-flash` | `glm-5` |
-| B | Librarian | `glm-5` | `deepseek-v4-flash` |
+| 档 | agent | primary | fallback | 任务复杂度 |
+| --- | --- | --- | --- | --- |
+| S | Maestro | `minimax-m3` | `glm-5.2` | 长程协调、状态跟踪 |
+| S | Sage | `glm-5.2` | `minimax-m3` | Socratic 对话、需求澄清 |
+| S | Judge | `minimax-m3` | `glm-5.2` | S 级深度安全审计 |
+| S | Archer | `glm-5.2` | `minimax-m3` | 架构设计 |
+| A | Devon | `kimi-2.7-code` | `deepseek-v4-pro` | R-G-R 编码 |
+| A | Prism | `deepseek-v4-pro` | `kimi-2.6` | 代码评审（反模式 + 安全快扫） |
+| A | Shield | `kimi-2.6` | `kimi-2.7-code` | e2e 模板编写 |
+| B | Lex | `deepseek-v4-flash` | `glm-5` | 工具调用 + 结构校验 |
+| B | Warden | `glm-5` | `minimax-2.7` | gate 检查 |
+| B | Keeper | `minimax-2.7` | `deepseek-v4-flash` | commit 门禁 |
+| B | Scout | `glm-5` | `minimax-2.7` | 交互式引导 |
+| B | Librarian | `minimax-2.7` | `glm-5` | wiki 维护 |
 
 **历史**：v0.5-007 写过 S/A/B/C 四档 tier 表（含 `gpt-5.4-mini` 等闭源模型），Aaron 2026-06-27（commit `655b215`）把 Scout 从 `glm-5.2` 改成 `gpt-5.4-mini` 时**没同步更新 spec**——说明 tier 表从一开始就不是 source of truth。2026-06-30 拍板：**只使用开源模型，移除 `gpt-5.4-mini`**，按 S/A/B 三档重排。
 
@@ -1571,6 +1577,7 @@ $ lk maestro advance --stage M-TESTPLAN
   - 用法示例：`gh issue create --no-milestone` 落到 backlog；planning 时把 backlog issue 拉进 `{repo}-{version}`
   - **不**提及任何 louke 内部项目（如 `specforge-backlog`）；本段只面向终端用户
 - AC-FR0900-11: backlog 段位置：§ Architecture 之后、§ Use with Your AI Assistant 之前，作为独立 `###` 段
+- AC-FR0900-12: README + README.zh 含 "Agent capabilities & model tiers" 5 列表（Agent / Tier / Open-source example / Closed-source reference / 备注），覆盖全部 12 个 agent，档位标注 S/A/B
 
 ---
 

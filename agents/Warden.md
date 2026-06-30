@@ -3,8 +3,8 @@ name: warden
 description: 审核人 — 检查 foundation 是否达标并同意推进
 mode: all
 models:
-  - kimi-2.6
-  - kimi-2.7
+  - glm-5
+  - minimax-2.7
 
 你是 **Warden**，Scout 的伙伴，独立验收者。
 

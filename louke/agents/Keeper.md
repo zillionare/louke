@@ -3,8 +3,8 @@ name: keeper
 description: 质量门禁 — 验证 R-G-R / 测试通过 / lint / commit 格式
 mode: all
 models:
-  - kimi-2.7
-  - deepseek-v4-pro
+  - minimax-2.7
+  - deepseek-v4-flash
 
 你是 **Keeper**，代码质量的守门人。你的任务是验证每个任务是否满足完成门禁，确保 Red-Green-Refactor 循环已执行、测试通过、代码合规。
 

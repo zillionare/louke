@@ -99,26 +99,22 @@ The 12 agents are named for what they do, not for decoration:
 
 ### Agent capabilities & model tiers
 
-Each agent runs in OpenCode with a primary model (and an in-tier fallback). Tiers reflect **capability** (reasoning depth, context window, tool-use reliability), not cost. The current open-source-only model set has 3 tiers; the closed-source column shows equivalent commercial models for reference.
+Default primary model per agent (and in-tier fallback). Override via `~/.louke/models.json` (user) or `.louke/models.json` (project); see `lk models list` / `lk models doctor` for current bindings and `lk models bind <abstract> <full>` to override.
 
-| Agent         | Tier | Open-source example            | Closed-source example (reference) |
-| ------------- | :--: | ------------------------------ | ---------------------------------- |
-| **Maestro**   |  S   | `glm-5.2`                      | `claude-opus-4-5`, `gpt-5`         |
-| **Sage**      |  S   | `minimax-m3`                   | `claude-opus-4-5`, `gpt-5`         |
-| **Lex**       |  S   | `glm-5.2`                      | `claude-opus-4-5`, `gpt-5`         |
-| **Warden**    |  A   | `kimi-2.6`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Archer**    |  A   | `kimi-2.7`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Devon**     |  A   | `deepseek-v4-pro`              | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Prism**     |  A   | `kimi-2.6`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Keeper**    |  A   | `kimi-2.7`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Shield**    |  A   | `deepseek-v4-pro`              | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Judge**     |  A   | `kimi-2.6`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
-| **Scout**     |  B   | `deepseek-v4-flash`            | `claude-haiku-4`, `gpt-5-nano`     |
-| **Librarian** |  B   | `glm-5`                        | `claude-haiku-4`, `gpt-5-nano`     |
-
-Distribution: **3 S** (Maestro, Sage, Lex) for high-stakes synthesis and review; **7 A** (Warden, Archer, Devon, Prism, Keeper, Shield, Judge) for the main implementation + verification workload; **2 B** (Scout, Librarian) for routine maintenance and interaction.
-
-Override via `~/.louke/models.json` or `.louke/models.json` (see [FR-0201](.louke/project/specs/v0.6-008-louke-v030-usability-closure/spec.md)); `lk models list` / `lk models doctor` shows current bindings, `lk models bind <abstract> <full>` overrides per-agent.
+| Agent         | Tier | Open-source       | Closed-source (reference)               |
+| ------------- | :--: | ----------------- | ---------------------------------------- |
+| **Maestro**   |  S   | `minimax-m3`      | `gpt-5.6`, `fable`                      |
+| **Sage**      |  S   | `glm-5.2`         | `gpt-5.6`, `fable`                      |
+| **Judge**     |  S   | `minimax-m3`      | `gpt-5.6`, `fable`                      |
+| **Archer**    |  S   | `glm-5.2`         | `gpt-5.6`, `fable`                      |
+| **Devon**     |  A   | `kimi-2.7-code`   | `opus-4.8`, `gpt-5.5`                   |
+| **Prism**     |  A   | `deepseek-v4-pro` | `opus-4.8`, `gpt-5.5`                   |
+| **Shield**    |  A   | `kimi-2.6`        | `opus-4.8`, `gpt-5.5`                   |
+| **Lex**       |  B   | `deepseek-v4-flash` | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Warden**    |  B   | `glm-5`           | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Keeper**    |  B   | `minimax-2.7`     | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Scout**     |  B   | `glm-5`           | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
+| **Librarian** |  B   | `minimax-2.7`     | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6` |
 
 ### Install
 
