@@ -5,7 +5,10 @@ lk 提供工具支持: diff + pattern scan + 结构化报告。
 S 级 Judge 在 lk 输出基础上做语义层深度分析（理解攻击向量、信任边界）。
 """
 import argparse
+import json
+import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from ._common import get_diff_files, print_findings, has_blocking_severity
@@ -16,11 +19,13 @@ def register(subparsers):
     parser = subparsers.add_parser('judge', help='安全审计 (Judge, S 级)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('security-audit', help='per-milestone 深度安全审计 (含 pattern scan + 报告框架)')
+    p = sub.add_parser('security-audit', help='per-milestone 深度安全审计 (FR-0610 两阶段)')
     p.add_argument('--release', required=True, help='release 分支, 例 releases/v0.1')
     p.add_argument('--baseline', default='main', help='基线 (默认 main)')
     p.add_argument('--checklist', default='.louke/templates/security-checklist.md',
                    help='审计基线 (默认 security-checklist.md)')
+    p.add_argument('--use-llm', action='store_true', help='阶段二: agent 语义审查（需配置模型）')
+    p.add_argument('--model', default='', help='覆盖默认 review model (LOUKE_OPENCODE_REVIEW_MODEL)')
 
     p = sub.add_parser('quick-scan', help='浅层安全 quick scan (per-PR 用)')
     p.add_argument('--diff', default='HEAD', help='要扫描的 ref/branch/commit')
@@ -65,30 +70,62 @@ def cmd_security_audit(args):
             continue
         all_findings.extend(scan_file(fp))
 
-    print_findings(all_findings, header='Security Pattern Findings (Auto)')
+    print_findings(all_findings, header='Security Pattern Findings (Stage 1)')
 
     # Summary
     by_sev = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
     for f in all_findings:
         by_sev[f['severity']] = by_sev.get(f['severity'], 0) + 1
 
-    print(f"\n=== Pattern Scan Summary ===")
+    print(f"\n=== Stage 1 Pattern Scan Summary ===")
     print(f"Critical: {by_sev['critical']}")
     print(f"High:     {by_sev['high']}")
     print(f"Medium:   {by_sev['medium']}")
     print(f"Low:      {by_sev['low']}")
-    print()
-    print(f"Note: This is AUTOMATED pattern scan only.")
-    print(f"      S-level Judge (you) must do SEMANTIC analysis:")
-    print(f"      - Business logic vulnerabilities (atomicity, race conditions)")
-    print(f"      - Implicit trust chains")
-    print(f"      - Attack vector reasoning")
-    print(f"      See {args.checklist} for full audit baseline.")
 
-    if has_blocking_severity(all_findings):
-        print("\n→ 判定: 拒绝 (存在 critical/high pattern hits)")
+    blockers = [f for f in all_findings if f['severity'] in ('critical', 'high')]
+    warnings = [f for f in all_findings if f['severity'] in ('medium', 'low')]
+    verdict = 'fail' if blockers else ('pass' if not warnings else 'needs-human-review')
+
+    report = {
+        'audit_id': f'{args.release}-{datetime.now().isoformat(timespec="seconds")}',
+        'stage1_findings': all_findings,
+        'stage2_findings': None,
+        'blockers': [{'file': f.get('file'), 'line': f.get('line'), 'description': f.get('description')} for f in blockers],
+        'warnings': [{'file': f.get('file'), 'line': f.get('line'), 'description': f.get('description')} for f in warnings],
+        'verdict': verdict,
+    }
+
+    if args.use_llm:
+        model = args.model or os.environ.get('LOUKE_OPENCODE_REVIEW_MODEL', '')
+        if not model:
+            raw_dir = Path('.louke/raw')
+            raw_dir.mkdir(parents=True, exist_ok=True)
+            report_path = raw_dir / f'security-audit-{datetime.now().strftime("%Y%m%d")}.json'
+            report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+            print(f'warn: --use-llm but no model configured (set LOUKE_OPENCODE_REVIEW_MODEL)', file=sys.stderr)
+            print(f'      stage 2 skipped; report written: {report_path}', file=sys.stderr)
+            print(f'→ 判定: {verdict} (stage 2 skipped)')
+            return 0 if verdict != 'fail' else 1
+        # Stage 2 placeholder: model invocation deferred to integration w/ OpenCode agent.
+        print(f'Stage 2: model={model} (placeholder; integrate with OpenCode review agent)')
+        report['stage2_findings'] = [{'note': f'would invoke {model} for semantic review'}]
+        verdict = 'needs-human-review'
+
+    # Persist machine-readable report
+    raw_dir = Path('.louke/raw')
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    report_path = raw_dir / f'security-audit-{datetime.now().strftime("%Y%m%d-%H%M%S")}.json'
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(f'report written: {report_path}')
+
+    if verdict == 'fail':
+        print(f"→ 判定: 拒绝 (存在 critical/high pattern)")
         return 1
-    print("\n→ 判定: pattern scan 通过 (S 级 Judge 应再做语义层分析)")
+    if verdict == 'needs-human-review':
+        print(f"→ 判定: needs-human-review (medium/low 未阻塞，需 S 级 Judge 复审)")
+        return 2
+    print(f"→ 判定: 通过 (stage 1 无 blocking findings)")
     return 0
 
 

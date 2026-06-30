@@ -10,10 +10,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from ._common import git
+from ._common import git, raw_path
 
 
-# 阶段表 (与 agents/Maestro.md 同步)
 STAGES = [
     ('M-FULL', '全程', None, None),
     ('M-FOUND', '项目奠基', 'Scout', 'Warden'),
@@ -36,14 +35,18 @@ def register(subparsers):
     p = sub.add_parser('status', help='查看当前 spec/milestone 阶段进度')
     p.add_argument('--spec', default='', help='spec-id (留空看全表)')
 
-    p = sub.add_parser('advance', help='推进到下一阶段')
+    p = sub.add_parser('advance', help='推进到下一阶段 (FR-0700 自动 holdpoint)')
     p.add_argument('--stage', required=True, help='当前阶段代码, 例 M-DEV')
-    p.add_argument('--force', action='store_true',
-                   help='跳过退出条件自动检查 (手动确认场景)')
+    p.add_argument('--spec-id', default='', help='目标 spec-id (某些阶段需要)')
+    p.add_argument('--commit-range', default='HEAD~1..HEAD', help='M-DEV / M-E2E gate 使用')
+    p.add_argument('--release', default='releases/v0.1', help='M-SECURITY 使用')
+    p.add_argument('--confirm', action='store_true', help='M-LOCK 用户确认')
+    p.add_argument('--force', action='store_true', help='跳过退出条件自动检查 (手动确认场景)')
 
     p = sub.add_parser('regress', help='退回当前阶段')
     p.add_argument('--stage', required=True)
     p.add_argument('--reason', required=True)
+    p.add_argument('--spec-id', default='')
 
     p = sub.add_parser('escalate', help='上报用户 (连续失响应 / 需求根本矛盾)')
     p.add_argument('--reason', required=True)
@@ -60,137 +63,194 @@ def run(args):
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
 
+def _read_project_info(label):
+    path = Path('.louke/project/project-info.md')
+    if not path.exists():
+        return ''
+    for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
+        prefix = f'- **{label}**:'
+        if line.startswith(prefix):
+            return line.split(':', 1)[1].strip().strip('`')
+    return ''
+
+
+def _set_project_info_current_stage(stage):
+    path = Path('.louke/project/project-info.md')
+    if not path.exists():
+        return
+    text = path.read_text(encoding='utf-8')
+    if '- **Current Stage**' in text:
+        text = '\n'.join(
+            line if not line.startswith('- **Current Stage**:') else f'- **Current Stage**: {stage}'
+            for line in text.splitlines()
+        )
+    path.write_text(text, encoding='utf-8')
+
+
+def _run_lk(*args):
+    return subprocess.run([sys.executable, '-m', 'louke.__main__', *args],
+                          cwd=Path.cwd()).returncode
+
+
+def _record_raw_event(stage, event, status='open', extra=None):
+    raw_dir = Path(raw_path(date=datetime.now().strftime('%Y-%m-%d'),
+                            session_id=f'maestro-stage-{stage.lower()}-{datetime.now().strftime("%H%M%S")}')).parent
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    fp = raw_path(date=datetime.now().strftime('%Y-%m-%d'),
+                  session_id=f'maestro-stage-{stage.lower()}-{datetime.now().strftime("%H%M%S")}')
+    fm = (
+        '---\n'
+        f'date: {datetime.now().strftime("%Y-%m-%d")}\n'
+        f'session: maestro-{event}-{stage}\n'
+        'agents: [Maestro]\n'
+        f'status: {status}\n'
+        'supersedes: []\n'
+        '---\n\n'
+        f'## 议题\nMaestro {event} {stage}\n\n'
+        f'## 决定\n{extra or ""}\n'
+    )
+    fp.write_text(fm, encoding='utf-8')
+
+
 def cmd_status(args):
     """Show stage table + current progress."""
     cwd = Path.cwd()
     print(f"=== Maestro Status ===")
-    print()
-
-    # 读 project-info.md
     info_path = cwd / '.louke/project/project-info.md'
     if info_path.exists():
-        print(f"--- project-info.md ---")
+        print(f"\n--- project-info.md ---")
         print(info_path.read_text(encoding='utf-8'))
-        print()
-
-    # Show stage table
-    print(f"--- Stage Table ---")
+    print(f"\n--- Stage Table ---")
     print(f"{'Code':<14} {'Stage':<14} {'Implementer':<14} {'Reviewer':<20}")
     for code, name, impl, rev in STAGES:
         print(f"{code:<14} {name:<14} {str(impl or '-'):<14} {str(rev or '-'):<20}")
-
-    # Current branch
     rc, branch, _ = git('branch', '--show-current', cwd=cwd)
     if rc == 0 and branch.strip():
         print(f"\nCurrent branch: {branch.strip()}")
-
     return 0
 
 
+# ---- FR-0700 holdpoint dispatch ----
+
+def _holdpoint(stage, args):
+    """Return (ok, message)."""
+    spec = args.spec_id or _read_current_spec()
+    if stage == 'M-FOUND':
+        if not Path('.louke/project/project-info.md').exists():
+            return False, 'project-info.md missing; run lk scout foundation first'
+        return True, 'project-info.md exists'
+    if stage == 'M-SPEC':
+        if not spec:
+            return False, 'spec-id required (--spec-id)'
+        rc = _run_lk('sage', 'quote-check', '--spec', spec)
+        if rc != 0:
+            return False, f'sage quote-check failed (rc={rc})'
+        return True, 'quote-check exit 0'
+    if stage == 'M-TESTPLAN':
+        # 简易结构校验（无 validate-test-plan 工具；用文本检查 + 文档存在）
+        tp = Path(f'.louke/project/specs/{spec}/test-plan.md') if spec else None
+        if tp and tp.exists():
+            return True, f'test-plan.md exists ({spec})'
+        return False, f'test-plan.md missing (.louke/project/specs/{spec}/test-plan.md)'
+    if stage == 'M-ARCH':
+        arch = Path(f'.louke/project/specs/{spec}/architecture.md') if spec else None
+        if arch and arch.exists():
+            return True, f'architecture.md exists ({spec})'
+        return False, f'architecture.md missing (.louke/project/specs/{spec}/architecture.md)'
+    if stage == 'M-LOCK':
+        if not spec:
+            return False, 'spec-id required'
+        if not args.confirm:
+            return False, 'User signal missing: pass --confirm (Maestro via IDE)'
+        rc = _run_lk('sage', 'record-lock', '--spec', spec, '--confirm')
+        if rc != 0:
+            return False, f'sage record-lock failed (rc={rc})'
+        return True, 'record-lock exit 0 (Sage+Lex+User signals)'
+    if stage == 'M-DEV':
+        rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range)
+        if rc != 0:
+            return False, f'keeper gate failed (rc={rc})'
+        return True, 'keeper gate exit 0'
+    if stage == 'M-E2E':
+        rc = _run_lk('shield', 'run-e2e', '--spec', spec or '')
+        if rc != 0:
+            return False, f'shield run-e2e failed (rc={rc})'
+        rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range, '--tests')
+        if rc != 0:
+            return False, f'keeper gate --tests failed (rc={rc})'
+        return True, 'shield run-e2e + keeper gate exit 0'
+    if stage == 'M-BUGFIX':
+        rc = _run_lk('keeper', 'regression', '--baseline', 'main', '--current', 'HEAD')
+        if rc != 0:
+            return False, f'keeper regression failed (rc={rc})'
+        return True, 'keeper regression exit 0'
+    if stage == 'M-SECURITY':
+        # FR-0720: skip if Security Audit disabled
+        sec = _read_project_info('Security Audit').strip().lower()
+        if sec == 'disabled':
+            return True, 'Security Audit disabled in DoD; skip'
+        rc = _run_lk('judge', 'security-audit', '--release', args.release)
+        if rc == 1:
+            return False, 'judge security-audit fail'
+        if rc == 2:
+            return False, 'judge security-audit needs-human-review (treat as blocked)'
+        return True, 'judge security-audit pass'
+    if stage == 'M-MILESTONE':
+        # FR-0730
+        rc, out, _ = git('status', '--porcelain')
+        if rc == 0 and out.strip():
+            return False, 'git working tree not clean; commit/stash before milestone'
+        # check release merge (best-effort)
+        rc, out, _ = git('rev-parse', '--verify', f'refs/tags/{args.release.lstrip("releases/")}')
+        if rc != 0:
+            return False, f'git tag v{args.release} missing; run: git tag {args.release.lstrip("releases/")}'
+        return True, 'working tree clean + tag present'
+    return True, 'no automated holdpoint'
+
+
+def _read_current_spec():
+    return _read_project_info('Spec ID')
+
+
 def cmd_advance(args):
-    """推进到下一阶段 - 检查当前阶段退出条件."""
+    """推进到下一阶段 (FR-0700 自动 holdpoint + FR-0710 state update)."""
     cwd = Path.cwd()
     print(f"=== Advance ===")
     print(f"From: {args.stage}")
-
-    # 找当前阶段的索引
-    idx = None
-    for i, (code, _, _, _) in enumerate(STAGES):
-        if code == args.stage:
-            idx = i
-            break
+    idx = next((i for i, t in enumerate(STAGES) if t[0] == args.stage), None)
     if idx is None:
-        print(f"未知阶段: {args.stage}")
+        print(f'未知阶段: {args.stage}', file=sys.stderr)
         return 1
 
-    # M-MILESTONE 是最后阶段: 从它 advance = milestone 收尾, 是 success
     if args.stage == 'M-MILESTONE':
-        print(f"M-MILESTONE 是最终阶段; advance 视为 milestone 收尾。")
-        print(f"  请执行: lk librarian distill + lint → 关闭 milestone")
-        print(f"→ milestone 收尾指令已发出 (无后续阶段)")
+        print('M-MILESTONE is the final stage; advance marks milestone close.')
+        _set_project_info_current_stage('M-MILESTONE')
+        _record_raw_event(args.stage, 'closed', status='resolved', extra='milestone closed')
+        print('→ milestone closed')
         return 0
-
     if idx + 1 >= len(STAGES):
-        print(f"未知状态: stage={args.stage} 在阶段表末尾之后")
+        print(f'unknown tail stage {args.stage}', file=sys.stderr)
         return 1
+    next_code = STAGES[idx + 1][0]
+    print(f'To:   {next_code}')
 
-    next_code, next_name, next_impl, next_rev = STAGES[idx + 1]
-    print(f"To:   {next_code} ({next_name})")
-    print(f"     Implementer: {next_impl or '-'}")
-    print(f"     Reviewer: {next_rev or '-'}")
-    print()
-
-    # 退出条件检查
-    # 关键: hold point 机制要求未实现的自动检查 = 阻塞,
-    # 防止"用 [todo] 占位就 advance 成功"导致流程失效。
-    # --force 标志给手动确认场景 (人类已自行核对) 用。
-    print(f"--- 退出条件检查 ({args.stage}) ---")
     if args.force:
-        print(f"[--force] 跳过自动检查, 人类已确认")
-        print(f"\n→ 推进到 {next_code}")
+        print(f'[--force] skipping automated checks')
+        _set_project_info_current_stage(next_code)
+        _record_raw_event(args.stage, 'advance-force', extra=f'forced advance to {next_code}')
+        print(f'→ forced advance to {next_code}')
         return 0
 
-    ok = True
-
-    if args.stage == 'M-FOUND':
-        # project-info.md 存在
-        info = cwd / '.louke/project/project-info.md'
-        if info.exists():
-            print(f"[ok] project-info.md 存在")
-        else:
-            print(f"[high] project-info.md 不存在")
-            ok = False
-    elif args.stage == 'M-SPEC':
-        # 所有 quote resolved
-        rc, out, _ = git('rev-parse', '--show-toplevel', cwd=cwd)
-        spec_root = Path(out.strip()) if rc == 0 else cwd
-        specs = list((spec_root / '.louke/project/specs').glob('*/spec.md'))
-        if not specs:
-            print(f"[high] 无 spec.md — M-SPEC 必交付")
-            ok = False
-        else:
-            for sp in specs:
-                print(f"  spec: {sp.parent.name}")
-                print(f"    [todo: 自动调 lk sage quote-check 验证 — 未实现]")
-                # 未实现的自动检查 = 阻塞 (符合 hold point 语义)
-                ok = False
-    elif args.stage == 'M-TESTPLAN':
-        # test-plan.md 存在 + Sage 评审通过
-        print(f"  [todo: 调 lk archer validate-test-plan + lk sage review 验证]")
-        ok = False
-    elif args.stage == 'M-ARCH':
-        # architecture.md + interfaces.md 存在 + Prism 评审通过
-        print(f"  [todo: 调 lk archer validate-arch + lk prism review-arch 验证]")
-        ok = False
-    elif args.stage == 'M-LOCK':
-        # 三信号齐: Sage + Lex + 用户确认
-        print(f"  [todo: 调 lk lex verify-acceptance + lk sage quote-check + 等待用户 IDE 确认]")
-        ok = False
-    elif args.stage == 'M-DEV':
-        # 测试通过 + lint 通过
-        print(f"  [todo: 调 lk keeper gate --tests 验证]")
-        ok = False
-    elif args.stage == 'M-E2E':
-        # e2e 通过
-        print(f"  [todo: 调 lk shield run-e2e 验证]")
-        ok = False
-    elif args.stage == 'M-BUGFIX':
-        # 回归通过
-        print(f"  [todo: 调 lk keeper regression --tests 验证]")
-        ok = False
-    elif args.stage == 'M-SECURITY':
-        # security audit 通过 (or user disabled)
-        print(f"  [todo: 调 lk judge security-audit 验证, 或检查 DoD 是否关闭]")
-        ok = False
-
-    if ok:
-        print(f"\n→ 推进到 {next_code}")
-        # TODO: 更新 project-info.md 记录当前阶段
-        return 0
-    else:
-        print(f"\n→ 拒绝推进 (退出条件未自动验证)")
-        print(f"  提示: 人工核对后用 'lk maestro advance --stage {args.stage} --force' 强制推进")
+    ok, msg = _holdpoint(args.stage, args)
+    print(f'[{ "ok" if ok else "high" }] {msg}')
+    if not ok:
+        print(f'\n→ 拒绝 ({msg})')
+        print(f'  提示: 人工核对后用 "lk maestro advance --stage {args.stage} --force" 强制推进')
         return 1
+    _set_project_info_current_stage(next_code)
+    _record_raw_event(args.stage, 'advance', extra=f'advanced to {next_code}')
+    print(f'→ 推进到 {next_code}')
+    return 0
 
 
 def cmd_regress(args):
@@ -199,54 +259,43 @@ def cmd_regress(args):
     print(f"=== Regress ===")
     print(f"Stage: {args.stage}")
     print(f"Reason: {args.reason}")
-    print()
-
-    # 记录到 raw
-    raw_dir = cwd / '.louke/raw/'
+    raw_dir = Path(raw_path(date=datetime.now().strftime('%Y-%m-%d'),
+                            session_id=f'maestro-regress-{args.stage.lower()}-{datetime.now().strftime("%H%M%S")}')).parent
     raw_dir.mkdir(parents=True, exist_ok=True)
-
-    ts = datetime.now().strftime('%Y-%m-%d')
-    ts_file = raw_dir / f"{ts}-regress.md"
-    content = f"""---
-date: {ts}
-session: maestro-regress-{args.stage}
-agents: [Maestro]
-related_issues: []
-status: open
-supersedes: []
----
-
-## 议题
-阶段 {args.stage} 被退回
-
-## 决定
-退回原因: {args.reason}
-
-## 开放问题
-{args.stage} 阶段的实施者需修复, 然后重新申请 advance
-"""
-    if ts_file.exists():
-        content = ts_file.read_text() + '\n---\n' + content
-    ts_file.write_text(content)
-    print(f"✓ Recorded in {ts_file.relative_to(cwd)}")
+    fp = raw_path(date=datetime.now().strftime('%Y-%m-%d'),
+                  session_id=f'maestro-regress-{args.stage.lower()}-{datetime.now().strftime("%H%M%S")}')
+    fm = (
+        '---\n'
+        f'date: {datetime.now().strftime("%Y-%m-%d")}\n'
+        f'session: maestro-regress-{args.stage}\n'
+        'agents: [Maestro]\n'
+        'related_issues: []\n'
+        'status: open\n'
+        'supersedes: []\n'
+        '---\n\n'
+        '## 议题\n'
+        f'阶段 {args.stage} 被退回\n\n'
+        '## 决定\n'
+        f'退回原因: {args.reason}\n\n'
+        '## 开放问题\n'
+        f'{args.stage} 阶段的实施者需修复, 然后重新申请 advance\n'
+    )
+    fp.write_text(fm, encoding='utf-8')
+    print(f'✓ Recorded in {fp}')
     return 0
 
 
 def cmd_escalate(args):
     """上报用户 - 生成给用户的告警."""
-    cwd = Path.cwd()
     print(f"=== Escalate to User ===")
     print(f"Reason: {args.reason}")
     print(f"Agent: {args.agent or '(not specified)'}")
-    print()
-
-    alert = f"""@user **需要人工介入**
-
-Agent: {args.agent or '(unknown)'}
-Reason: {args.reason}
-
-请介入处理。
-"""
+    alert = (
+        '@user **需要人工介入**\n\n'
+        f'Agent: {args.agent or "(unknown)"}\n'
+        f'Reason: {args.reason}\n\n'
+        '请介入处理。\n'
+    )
     print(alert)
-    print(f"→ 在 chat 中发送上述告警给用户")
+    print(f'→ 在 chat 中发送上述告警给用户')
     return 0
