@@ -14,7 +14,11 @@ def register(subparsers):
 
     # ci-scan: AC 引用 + 反模式校验
     p = sub.add_parser('ci-scan', help='CI 扫描（AC 引用闭合 + 反模式）')
-    p.add_argument('--spec', required=True)
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument('--spec')
+    g.add_argument('--acceptance')
+    p.add_argument('--tests', default='tests/')
+    p.add_argument('--json', action='store_true')
 
     # check-acs: AC 覆盖率检查
     p = sub.add_parser('check-acs', help='AC 引用闭合检查')
@@ -37,10 +41,15 @@ def run(args):
 
 def cmd_ci_scan(args):
     """调用 louke._tools.ci_scan."""
+    cmd = [sys.executable, '-m', 'louke._tools.ci_scan', '--tests', args.tests]
+    if args.acceptance:
+        cmd.extend(['--acceptance', args.acceptance])
+    else:
+        cmd.extend(['--acceptance', f".louke/project/specs/{args.spec}/acceptance.md"])
+    if args.json:
+        cmd.append('--json')
     result = subprocess.run(
-        [sys.executable, '-m', 'louke._tools.ci_scan',
-         '--acceptance', f".louke/project/specs/{args.spec}/acceptance.md",
-         '--tests', 'tests/'],
+        cmd,
         cwd=Path.cwd(),
     )
     return result.returncode

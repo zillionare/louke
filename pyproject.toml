@@ -41,4 +41,10 @@ Issues = "https://github.com/zillionare/louke/issues"
 packages = ["louke", "louke._tools"]
 
 [tool.setuptools.package-data]
-louke = ["py.typed", "agents/*.md", "templates/*.md"]
+louke = [
+    "py.typed",
+    "agents/*.md",
+    "templates/*.md",
+    ".github/ISSUE_TEMPLATE/*.yml",
+    ".github/workflows/*.yml",
+]

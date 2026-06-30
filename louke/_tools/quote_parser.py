@@ -55,8 +55,8 @@ RE_QUOTE_LINE = re.compile(
     r"\s*$"
 )
 
-# 单元标题: ### US-010 / ### FR-001 / ### NFR-010 / 等 (3 位零填充)
-RE_UNIT_HEADING = re.compile(r"^###\s+(US|FR|NFR)-(\d{3})\b")
+# 单元标题: ### US-0010 / ### FR-0001 / ### NFR-0010 / 等 (4 位零填充)
+RE_UNIT_HEADING = re.compile(r"^###\s+(US|FR|NFR)-(\d{4})\b")
 # 顶节标题: ## 功能需求 / ## 用户故事 / ## 非功能需求 / ## 排除项 等
 RE_TOP_HEADING = re.compile(r"^##\s+\S")
 

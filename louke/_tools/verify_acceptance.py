@@ -39,11 +39,11 @@ from typing import Any
 
 # spec.md 中的 FR/NFR 节: ### FR-010 {title} 或 ### NFR-020 {title}
 # (FR 用三级标题, 二级留给"功能需求/非功能需求"等语义分组节)
-RE_FR_SECTION = re.compile(r"^###\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
+RE_FR_SECTION = re.compile(r"^###\s+(FR|NFR)-(\d{4})\b", re.MULTILINE)
 
 # acceptance.md 中的 FR/NFR 节: ## FR-010 {title}
 # (acceptance.md 没有语义分组, FR 直接二级)
-RE_ACC_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{3})\b", re.MULTILINE)
+RE_ACC_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{4})\b", re.MULTILINE)
 
 # acceptance.md 中的 AC 节: ### AC-1 或 ### AC-2
 RE_AC_SECTION = re.compile(r"^###\s+AC-(\d+)\s*$", re.MULTILINE)
@@ -79,11 +79,29 @@ class SpecFRSpec:
 
 # ---------- 工具函数 ----------
 
-def gh_api_read(path: str) -> str | None:
-    """用 gh api 读取文件。返回 None 表示失败。"""
+def _project_info_value(label: str) -> str:
+    path = Path('.louke/project/project-info.md')
+    if not path.exists():
+        return ''
+    for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
+        prefix = f'- **{label}**:'
+        if line.startswith(prefix):
+            return line.split(':', 1)[1].strip().strip('`')
+    return ''
+
+
+def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
+    """用 gh api 读取文件。返回 None 表示失败 (FR-0540 release branch + repo path fix)."""
+    repo = repo or _project_info_value('Repo').replace('github.com/', '')
+    pi_branch = _project_info_value('Release Branch')
+    if not branch:
+        branch = pi_branch or 'main'
+        if not pi_branch:
+            print(f'warn: project-info.md missing Release Branch; fallback to main', file=sys.stderr)
+    endpoint = f"repos/{repo}/contents/{path}?ref={branch}" if repo else f"contents/{path}?ref={branch}"
     try:
         out = subprocess.check_output(
-            ["gh", "api", f"contents/{path}?ref=main"],
+            ["gh", "api", endpoint],
             stderr=subprocess.STDOUT,
         )
         import base64
@@ -95,14 +113,14 @@ def gh_api_read(path: str) -> str | None:
         return None
 
 
-def fetch_spec_text(spec_id: str) -> str | None:
-    """读 main 分支上的 .louke/project/specs/{spec_id}/spec.md"""
-    return gh_api_read(f".louke/project/specs/{spec_id}/spec.md")
+def fetch_spec_text(spec_id: str, repo: str = '', branch: str = '') -> str | None:
+    """读 .louke/project/specs/{spec_id}/spec.md"""
+    return gh_api_read(f".louke/project/specs/{spec_id}/spec.md", repo=repo, branch=branch)
 
 
-def fetch_acceptance_text(spec_id: str) -> str | None:
-    """读 main 分支上的 .louke/project/specs/{spec_id}/acceptance.md"""
-    return gh_api_read(f".louke/project/specs/{spec_id}/acceptance.md")
+def fetch_acceptance_text(spec_id: str, repo: str = '', branch: str = '') -> str | None:
+    """读 .louke/project/specs/{spec_id}/acceptance.md"""
+    return gh_api_read(f".louke/project/specs/{spec_id}/acceptance.md", repo=repo, branch=branch)
 
 
 def parse_fr_sections(text: str) -> list[SpecFRSpec]:
@@ -325,8 +343,8 @@ def report(results: list[AccResult]) -> int:
 def main() -> int:
     p = argparse.ArgumentParser(description="验证 acceptance.md 是否合格 (Lex 阶段一)")
     p.add_argument("--spec", required=True, help="spec-id, 例如 v0.1-001-louke")
-    p.add_argument("--repo", required=True, help="owner/repo, 如 my-org/my-project (运行 louke 的项目, 不是 louke 框架本身)")
-    p.add_argument("--branch", default="main", help="spec 所在分支, 默认 main")
+    p.add_argument("--repo", default='', help="owner/repo, 如 my-org/my-project (运行 louke 的项目, 不是 louke 框架本身)")
+    p.add_argument("--branch", default="", help="spec 所在分支, 默认读取 project-info Release Branch")
     p.add_argument("--offline", action="store_true", help="离线模式: 直接用 --spec-file/--acceptance-file")
     p.add_argument("--spec-file", help="离线模式: spec.md 路径")
     p.add_argument("--acceptance-file", help="离线模式: acceptance.md 路径")
@@ -351,10 +369,11 @@ def main() -> int:
         if not args.spec:
             print("非离线模式必须 --spec SPEC_ID", file=sys.stderr)
             return 1
-        spec_text = fetch_spec_text(args.spec)
-        acceptance_text = fetch_acceptance_text(args.spec)
+        spec_text = fetch_spec_text(args.spec, repo=args.repo, branch=args.branch)
+        acceptance_text = fetch_acceptance_text(args.spec, repo=args.repo, branch=args.branch)
         if spec_text is None:
-            print(f"无法读取 main 分支上的 .louke/project/specs/{args.spec}/spec.md", file=sys.stderr)
+            branch = args.branch or _project_info_value('Release Branch') or 'main'
+            print(f"无法读取 {branch} 分支上的 .louke/project/specs/{args.spec}/spec.md", file=sys.stderr)
             return 1
         if acceptance_text is None:
             # 不报错, 走 L1 检查

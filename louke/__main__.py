@@ -17,6 +17,7 @@ Examples:
 import argparse
 import sys
 
+from . import __version__
 from . import (
     scout,
     sage,
@@ -30,7 +31,11 @@ from . import (
     shield,
     librarian,
     maestro,
+    init as init_cmd,
+    board,
+    models,
 )
+
 
 AGENTS = {
     'scout': scout,
@@ -45,6 +50,9 @@ AGENTS = {
     'shield': shield,
     'librarian': librarian,
     'maestro': maestro,
+    'init': init_cmd,
+    'board': board,
+    'models': models,
 }
 
 
@@ -53,6 +61,7 @@ def build_parser():
         prog='lk',
         description='louke CLI - 工具统一入口（每 agent 一个子命令空间）',
     )
+    parser.add_argument('--version', '-v', action='version', version=f'lk {__version__}')
     subparsers = parser.add_subparsers(
         dest='agent', required=True, metavar='<agent>'
     )

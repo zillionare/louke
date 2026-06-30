@@ -8,6 +8,17 @@
 
 ---
 
+### Supported environments
+
+| Dimension | Supported | Notes |
+| --- | --- | --- |
+| **OS** | macOS, Linux | **No native Windows.** Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/) or Docker. `install.sh` self-checks `uname -s` and exits with a clear error otherwise. |
+| **IDE / Agent host** | **OpenCode only** (currently) | Claude Code, Cursor, Continue, Copilot, Kilo are **not supported** in this release. The agent prompts are plain Markdown so other hosts *can* read them, but `default_agent` wiring, plugin install paths, and hold-point UX are validated against OpenCode only. |
+
+If you need another host, open an issue — do not assume parity.
+
+---
+
 ### Why louke?
 
 You can't build a real software with one-sentence vibecoding.
@@ -144,7 +155,7 @@ lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-
 
 ### Use with Your AI Assistant
 
-`agents/*.md` are written as natural-language agent prompts. Any coding agent that reads instructions can use them.
+> **Currently only OpenCode is supported as the agent host.** See *Supported environments* above. The instructions below assume OpenCode.
 
 #### OpenCode
 
@@ -154,34 +165,13 @@ Add the framework as a plugin in `~/.config/opencode/opencode.json`:
 {"plugin": ["louke"]}
 ```
 
-#### Claude Code
+After install, the default primary agent is set to **Maestro**, so any new session routes through the pipeline orchestrator rather than dropping you straight into a specialist. (Maestro will then dispatch to Scout / Sage / Lex / Archer / Devon / Keeper / Judge / Librarian as the workflow demands.)
 
-Place `agents/` under `.claude/agents/` and reference each role via `--agent`:
-
-```bash
-claude --agent agents/Sage.md "interview me about user auth"
-```
-
-#### VSCode (Cursor / Continue / Copilot)
-
-Add the agent prompts to your rules:
-
-```json
-// .continue/config.json
-{
-  "rules": [
-    "agents/Maestro.md",
-    "agents/Sage.md",
-    "agents/Archer.md"
-  ]
-}
-```
-
-In Cursor: **Settings → Rules → Add file → `agents/Sage.md`**
+If you ever need to switch manually inside OpenCode: press `<leader>a` (or `/agents`) and pick Maestro from the list.
 
 ### A Working Session
 
-In a typical session with one of the above AI assistants:
+In a typical session with OpenCode:
 
 ```
 1. lk scout foundation            # Initialize project, verify permissions
@@ -233,14 +223,14 @@ Each transition is a different agent. Each hold point is tool-enforced. Each han
                           test-plan, security-          12 agents)           wrapped by lk)
                           checklist)
        │                       │                            │                      │
-       └───────────┬───────────┴────────────┬───────────────┘                      │
-                   │                        │                                      │
-                   ↓                        ↓                                      ↓
-            AI assistant              Tool-enforced                            wrapped by lk
-         (OpenCode, Cursor,           hold points
-          Claude Code,                 (lk keeper gate,
-          Continue, etc.)               lk judge
-                                      security-audit)
+└───────────┬───────────┴────────────┬───────────────┘                      │
+                    │                        │                                      │
+                    ↓                        ↓                                      ↓
+             AI assistant              Tool-enforced                            wrapped by lk
+          (OpenCode — only          hold points
+           host currently             (lk keeper gate,
+           supported)                  lk judge
+                                       security-audit)
 
   Two-tier memory:
     .louke/raw/    →   episodic, per-agent session records

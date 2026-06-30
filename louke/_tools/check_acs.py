@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-RE_AC_ANCHOR = re.compile(r'<a\s+id="ac-((?:fr|nfr)-\d{3})"></a>', re.I)
-RE_FR_HEADING = re.compile(r"^##\s+((?:FR|NFR)-\d{3})\b", re.I)
+RE_AC_ANCHOR = re.compile(r'<a\s+id="ac-((?:fr|nfr)-\d{4})"></a>', re.I)
+RE_FR_HEADING = re.compile(r"^##\s+((?:FR|NFR)-\d{4})\b", re.I)
 RE_AC_HEADING = re.compile(r"^###\s+AC-(\d+)\b", re.I)
 RE_AC_COLON = re.compile(r"^AC-(\d+)\s*:", re.I)
-RE_AC_REF = re.compile(r"\bAC-((?:FR|NFR)\d{3})-(\d{2})\b", re.I)
+RE_AC_REF = re.compile(r"\bAC-((?:FR|NFR)\d{4})-(\d{2})\b", re.I)
 TEST_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".sh", ".bats", ".java", ".kt", ".rb", ".php", ".c", ".cc", ".cpp", ".h", ".hpp"}
 
 

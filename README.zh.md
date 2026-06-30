@@ -144,44 +144,29 @@ lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-
 
 ### 与你的 AI 助手配合
 
-`agents/*.md` 是自然语言 agent prompt。任何能读指令的 coding agent 都能用。
+
+---
+
+### 支持的环境
+
+| 维度                 | 支持范围                | 说明                                                                                                                                                                                               |
+| -------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **操作系统**         | macOS / Linux           | **不支持原生 Windows。** 请用 [WSL2](https://learn.microsoft.com/zh-cn/windows/wsl/) 或 Docker。`install.sh` 自带 `uname -s` 检查，不支持时会清晰报错并退出。                                      |
+| **IDE / Agent 宿主** | **仅 OpenCode**（当前） | Claude Code、Cursor、Continue、Copilot、Kilo 在本版本**均不支持**。agent prompt 是纯 Markdown，理论上其它宿主能读，但 `default_agent` 接线、插件安装路径、hold-point UX 都只针对 OpenCode 验证过。 |
+
+如需支持其它宿主，请开 issue —— 不要默认假设行为一致。
 
 #### OpenCode
 
-在 `~/.config/opencode/opencode.json` 加 plugin：
 
-```json
-{"plugin": ["louke"]}
-```
 
-#### Claude Code
+安装后，默认 primary agent 会被设为 **Maestro**，所以任何新会话都先经过流水线指挥，再由它按需分派给 Scout / Sage / Lex / Archer / Devon / Keeper / Judge / Librarian，而不是直接落到某个专家 agent。
 
-把 `agents/` 放到 `.claude/agents/`，通过 `--agent` 引用：
-
-```bash
-claude --agent agents/Sage.md "跟我聊用户认证"
-```
-
-#### VSCode（Cursor / Continue / Copilot）
-
-把 agent prompt 加到 rules：
-
-```json
-// .continue/config.json
-{
-  "rules": [
-    "agents/Maestro.md",
-    "agents/Sage.md",
-    "agents/Archer.md"
-  ]
-}
-```
-
-Cursor：**Settings → Rules → Add file → `agents/Sage.md`**
+如需在 OpenCode 内手动切换：按 `<leader>a`（或 `/agents`），从列表里选 Maestro。
 
 ### 一个工作流
 
-用上面任一 AI 助手，典型会话：
+用 OpenCode 跑，典型会话：
 
 ```
 1. lk scout foundation            # 初始化项目，验证权限
@@ -233,14 +218,14 @@ Cursor：**Settings → Rules → Add file → `agents/Sage.md`**
                          test-plan, security-          12 agents)           wrapped by lk)
                          checklist)
        │                       │                            │                      │
-       └───────────┬───────────┴────────────┬───────────────┘                      │
-                   │                        │                                      │
-                   ↓                        ↓                                      ↓
-            AI 助手                    工具强制                              被 lk 包装
-         (OpenCode, Cursor,           hold points
-          Claude Code,                 (lk keeper gate,
-          Continue 等)                   lk judge
-                                      security-audit)
+└───────────┬───────────┴────────────┬───────────────┘                      │
+                    │                        │                                      │
+                    ↓                        ↓                                      ↓
+             AI 助手                    工具强制                              被 lk 包装
+          (OpenCode ——               hold points
+           当前唯一                   (lk keeper gate,
+           支持的宿主)                   lk judge
+                                       security-audit)
 
   两层记忆:
     .louke/raw/    →   事件级, per-agent 会话记录

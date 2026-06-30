@@ -223,9 +223,10 @@ def check_f5_agents() -> CheckResult:
     return r
 
 
-# project-info.md 必须字段 (与 Scout Step 6 输出对齐)
+# project-info.md 必须字段 (与 Scout Step 6 输出对齐 / FR-0800)
 REQUIRED_PROJECT_INFO_FIELDS = [
-    "Version", "Repo", "Project", "Spec ID", "Release Branch",
+    "Version", "Repo", "Project", "Project ID", "Spec ID", "Release Branch",
+    "Smoke Test Issue", "Smoke Test PR", "DoD", "Security Audit", "Current Stage", "Created",
 ]
 
 RE_SPEC_ID = re.compile(r"^v[\w.]+-\d{3}-[\w-]+$")

@@ -25,6 +25,7 @@ def register(subparsers):
     p.add_argument('--message', required=True)
 
     p = sub.add_parser('scaffold', help='生成 e2e 测试骨架 (Playwright/testclient/DB 三种模板)')
+    p.add_argument('--spec', required=True)
     p.add_argument('--type', required=True, choices=['playwright', 'testclient', 'db'])
     p.add_argument('--scenario', required=True, help='场景名, 例 user_login_flow')
     p.add_argument('--ac-id', required=True, help='AC-FRXXXX-YY 引用')
@@ -39,21 +40,49 @@ def run(args):
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
 
+def _load_pyproject_e2e_config():
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore
+        except ImportError:
+            return None
+    path = Path.cwd() / 'pyproject.toml'
+    if not path.exists():
+        return None
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
+    cfg = data.get('tool', {}).get('louke', {}).get('test', {}).get('e2e') or {}
+    if not cfg:
+        return None
+    return {
+        'command': cfg.get('command', 'python3'),
+        'args': list(cfg.get('args', [])),
+        'path': cfg.get('path', 'tests/e2e/'),
+    }
+
+
+def _default_e2e_config(spec):
+    return {
+        'command': 'python3',
+        'args': ['-m', 'pytest', '-q', '--tb=short', '--browser={browser}'],
+        'path': f'.louke/project/specs/{spec}/tests/e2e/' if spec else 'tests/e2e/',
+    }
+
+
 def cmd_run_e2e(args):
-    """Run e2e tests."""
+    """FR-0630: project config [tool.louke.test.e2e] or fallback playwright pytest."""
     cwd = Path.cwd()
-    e2e_path = '.louke/project/specs/{}/tests/e2e/'.format(args.spec) if args.spec else '.louke/project/specs/*/tests/e2e/'
+    cfg = _load_pyproject_e2e_config() or _default_e2e_config(args.spec)
+    cmd = [cfg['command'], *cfg['args'], cfg['path']]
+    cmd = [c.replace('{browser}', args.browser) for c in cmd]
 
     print(f"=== Run E2E ===")
-    print(f"Path: {e2e_path}")
+    print(f"Path: {cfg['path']}")
     print(f"Browser: {args.browser}")
-
-    # Playwright 默认调用
-    result = subprocess.run(
-        ['python3', '-m', 'pytest', e2e_path, '-q', '--tb=short',
-         '--browser', args.browser],
-        cwd=cwd,
-    )
+    print(f"Command: {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=cwd)
     return result.returncode
 
 

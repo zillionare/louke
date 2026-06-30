@@ -6,17 +6,17 @@
 
 ## 功能需求
 
-<a id="fr-001"></a>
-**FR-001**: louke 框架定义 12 个专业 agent
+<a id="fr-0001"></a>
+**FR-0001**: louke 框架定义 12 个专业 agent
 
-<a id="fr-002"></a>
-**FR-002**: 阶段表 (M-FOUND/M-SPEC/M-TESTPLAN/M-ARCH/M-LOCK/M-DEV/M-E2E/M-BUGFIX/M-SECURITY/M-MILESTONE)
+<a id="fr-0002"></a>
+**FR-0002**: 阶段表 (M-FOUND/M-SPEC/M-TESTPLAN/M-ARCH/M-LOCK/M-DEV/M-E2E/M-BUGFIX/M-SECURITY/M-MILESTONE)
 
-<a id="fr-003"></a>
-**FR-003**: 每阶段实施者 ≠ 评审者（构建/验收分离）
+<a id="fr-0003"></a>
+**FR-0003**: 每阶段实施者 ≠ 评审者（构建/验收分离）
 
-<a id="fr-004"></a>
-**FR-004**: `lk` CLI 提供工具强制的 hold point
+<a id="fr-0004"></a>
+**FR-0004**: `lk` CLI 提供工具强制的 hold point
 
-<a id="fr-005"></a>
-**FR-005**: spec/acceptance/test-plan 通过 quote dialogue + Lex 审核锁定
+<a id="fr-0005"></a>
+**FR-0005**: spec/acceptance/test-plan 通过 quote dialogue + Lex 审核锁定

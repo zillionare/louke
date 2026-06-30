@@ -11,16 +11,16 @@ verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
 - 离线可测: 支持 --offline + fixture 文件,bats 可直接喂样例
 
 检查项(L1-L8):
-  L1 标题格式:    ^\[FR-\d{3}\]
-  L2 需求 ID 字段: 存在且匹配 ^FR-\d{3}$
-  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec(-\w+)?\.md#(fr|nfr)-\d{3}$
+  L1 标题格式:    ^\[FR-\d{4}\]
+  L2 需求 ID 字段: 存在且匹配 ^FR-\d{4}$
+  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec(-\w+)?\.md#(fr|nfr)-\d{4}$
                   (支持单文件 spec.md 与多分册 spec-{name}.md)
   L4 spec 可达:    gh api 可拉取 spec 原文 (尝试 /specs/{id}/ 和 /{id}/ 两种布局)
-  L5 锚点存在:    spec 中存在 <a id="fr-XXX"></a>
-  L6 锚点内容:    锚点上下文包含 "FR-XXX" 字样(防锚点误复用)
+  L5 锚点存在:    spec 中存在 <a id="fr-XXXX"></a>
+  L6 锚点内容:    锚点上下文包含 "FR-XXXX" 字样(防锚点误复用)
   L7 AC 锚点:      验收标准字段支持三种形式 (v0.5-006):
-                  a) acceptance.md#ac-fr-XXX URL (默认, 向后兼容)
-                  b) spec(-vol)?.md#fr-XXX URL (AC 在 spec 章节中, 走 L4-L6)
+                  a) acceptance.md#ac-fr-XXXXX URL (默认, 向后兼容)
+                  b) spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中, 走 L4-L6)
                   c) 字面值 "无" + acceptance.md ## No Acceptance 列表包含此 FR
   L8 双向覆盖:    spec 中每个 FR 都有 issue;issue 中每个 FR 都在 spec
 
@@ -45,8 +45,8 @@ from typing import Any
 
 # ---------- 正则定义(单一真相源) ----------
 
-RE_FR_ID = re.compile(r"^(FR|NFR)-\d{3}$")
-RE_FR_IN_TITLE = re.compile(r"^\[(FR|NFR)-(\d{3})\]")
+RE_FR_ID = re.compile(r"^(FR|NFR)-\d{4}$")
+RE_FR_IN_TITLE = re.compile(r"^\[(FR|NFR)-(\d{4})\]")
 # spec 文件路径: 支持单文件 (spec.md) 和多分册 (spec-{name}.md)
 # 目录: /specs/{id}/ (spec 004 默认) 或 /{id}/ (部分项目, 如 millionaire)
 RE_SPEC_URL = re.compile(
@@ -54,7 +54,7 @@ RE_SPEC_URL = re.compile(
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
     r"(?P<branch>[A-Za-z0-9._/-]+)"
     r"/\.louke/project/(?:specs/)?(?P<spec_id>[A-Za-z0-9._-]+)/spec(?P<vol_suffix>-\w+)?\.md"
-    r"#(?P<fragment>(?:fr|nfr)-\d{3})$"
+    r"#(?P<fragment>(?:fr|nfr)-\d{4})$"
 )
 # acceptance.md 不带 vol_suffix: 一个 spec-id 一份 acceptance.md
 RE_AC_URL = re.compile(
@@ -62,15 +62,15 @@ RE_AC_URL = re.compile(
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
     r"(?P<branch>[A-Za-z0-9._/-]+)"
     r"/\.louke/project/(?:specs/)?(?P<spec_id>[A-Za-z0-9._-]+)/acceptance\.md"
-    r"#(?P<fragment>ac-(?:fr|nfr)-\d{3})$"
+    r"#(?P<fragment>ac-(?:fr|nfr)-\d{4})$"
 )
-RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{3})"></a>')
-RE_AC_ANCHOR = re.compile(r'<a\s+id="(ac-(?:fr|nfr)-\d{3})"></a>')
+RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{4})"></a>')
+RE_AC_ANCHOR = re.compile(r'<a\s+id="(ac-(?:fr|nfr)-\d{4})"></a>')
 RE_AC_LINE = re.compile(r"^AC-\d+:\s*\S+")
 RE_AC_FULL = re.compile(r"^AC-(\d+):\s*(.+)$")
 # v0.5-006: 字面值 "无" 走 No Acceptance 列表 (acceptance.md 的 ## No Acceptance 节)
 RE_NO_AC_HEADER = re.compile(r"^##\s+No\s+Acceptance\s*$")
-RE_NO_AC_ITEM = re.compile(r"^\s*-\s+((?:FR|NFR)-\d{3})\b")
+RE_NO_AC_ITEM = re.compile(r"^\s*-\s+((?:FR|NFR)-\d{4})\b")
 
 # issue form 渲染后字段标题(必须与 .github/ISSUE_TEMPLATE/feature.yml 一致)
 FIELD_FR_ID = "需求 ID"
@@ -107,13 +107,13 @@ def parse_issue_form(body: str) -> dict[str, str]:
 
     GitHub 把 form 字段渲染为:
         ### 需求 ID
-        FR-001
+        FR-0001
 
         ### Spec 链接
-        https://.../spec.md#fr-001
+        https://.../spec.md#fr-0001
 
         ### 验收标准
-        https://.../acceptance.md#ac-fr-001
+        https://.../acceptance.md#ac-fr-0001
     """
     fields: dict[str, str] = {}
     current: str | None = None
@@ -147,7 +147,7 @@ def check_issue(
     m = RE_FR_IN_TITLE.match(ic.title)
     if not m:
         ic.failures.append(
-            f"L1 标题必须以 [FR-XXX] 或 [NFR-XXX] 开头,当前: {ic.title!r}"
+            f"L1 标题必须以 [FR-XXXX] 或 [NFR-XXXXX] 开头,当前: {ic.title!r}"
         )
     else:
         ic.fr_id = m.group(1) + "-" + m.group(2)
@@ -179,7 +179,7 @@ def check_issue(
         if not m:
             ic.failures.append(
                 f"L3 字段 '{FIELD_SPEC_URL}' 格式错误,期望完整 GitHub URL "
-                f"+ #fr-XXX (小写) 或 #nfr-XXX (小写),实际: {raw_url!r}"
+                f"+ #fr-XXXX (小写) 或 #nfr-XXXX (小写),实际: {raw_url!r}"
             )
         else:
             ic.spec_url = raw_url
@@ -222,7 +222,7 @@ def check_issue(
                         f"已声明的 FR 锚点: {sorted(set(anchors))}"
                     )
                 else:
-                    # L6: 锚点上下文(锚点行 + 后续 5 行)必须包含 "FR-XXX"
+                    # L6: 锚点上下文(锚点行 + 后续 5 行)必须包含 "FR-XXXX"
                     lines = spec_text.splitlines()
                     for i, line in enumerate(lines):
                         if f'<a id="{m.group("fragment")}">' in line:
@@ -235,8 +235,8 @@ def check_issue(
                             break
 
     # L7: AC 验收标准字段 — 支持三种形式 (v0.5-006):
-    #   a) acceptance.md#ac-fr-XXX URL (默认, 向后兼容)
-    #   b) spec(-vol)?.md#fr-XXX URL (AC 在 spec 章节中)
+    #   a) acceptance.md#ac-fr-XXXXX URL (默认, 向后兼容)
+    #   b) spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中)
     #   c) 字面值 "无" (FR 在 acceptance.md ## No Acceptance 列表中)
     raw_ac = fields.get(FIELD_AC, "").strip()
     if not raw_ac:
@@ -253,8 +253,8 @@ def check_issue(
     else:
         ic.failures.append(
             f"L7 字段 '{FIELD_AC}' 格式错误,期望以下三种之一:\n"
-            f"  1) acceptance.md#ac-fr-XXX URL (默认, 有专属 AC 章节)\n"
-            f"  2) spec(-vol)?.md#fr-XXX URL (AC 在 spec 章节中)\n"
+            f"  1) acceptance.md#ac-fr-XXXXX URL (默认, 有专属 AC 章节)\n"
+            f"  2) spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中)\n"
             f"  3) 字面值 '无' (FR 在 acceptance.md ## No Acceptance 列表)\n"
             f"实际: {raw_ac!r}"
         )
@@ -271,12 +271,12 @@ def check_acceptance_url(
     raw_fr: str,
     spec_cache: dict[str, str],
 ) -> None:
-    """L7 形式 (a): acceptance.md#ac-fr-XXX URL (默认, 向后兼容)"""
+    """L7 形式 (a): acceptance.md#ac-fr-XXXXX URL (默认, 向后兼容)"""
     m = RE_AC_URL.match(raw_ac)
     if not m:
         ic.failures.append(
             f"L7 字段 '{FIELD_AC}' 格式错误,期望完整 GitHub URL "
-            f"+ #ac-fr-XXX 或 #ac-nfr-XXX (小写),实际: {raw_ac!r}"
+            f"+ #ac-fr-XXXXX 或 #ac-nfr-XXXX (小写),实际: {raw_ac!r}"
         )
         return
     ic.ac_url = raw_ac
@@ -321,7 +321,7 @@ def check_acceptance_url(
         )
         return
 
-    # 锚点上下文(锚点行 + 后续 8 行)必须包含 "FR-XXX" 字样
+    # 锚点上下文(锚点行 + 后续 8 行)必须包含 "FR-XXXX" 字样
     lines = acc_text.splitlines()
     for i, line in enumerate(lines):
         if f'<a id="{m.group("fragment")}">' in line:
@@ -340,7 +340,7 @@ def check_spec_fragment_ac(
     raw_fr: str,
     spec_cache: dict[str, str],
 ) -> None:
-    """L7 形式 (b): spec(-vol)?.md#fr-XXX URL (AC 在 spec 章节中)
+    """L7 形式 (b): spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中)
 
     复用 L3-L6 已有的 spec 文本缓存: L3 已经在 spec_cache 里存了同一份 spec
     (可能不同 vol_suffix, 但相同 spec_id 通常指向同一份); 这里再走一遍 L5+L6 校验.
@@ -439,7 +439,7 @@ def check_no_acceptance(
             ic.failures.append(
                 f"L7 字段 '无' 但 acceptance.md 的 '## No Acceptance' 列表中找不到 {raw_fr!r}; "
                 f"已列入 No Acceptance 列表的 FR: {listed}。"
-                f"请把 {raw_fr!r} 加入该列表, 或改用 acceptance.md#ac-fr-XXX URL"
+                f"请把 {raw_fr!r} 加入该列表, 或改用 acceptance.md#ac-fr-XXXXX URL"
             )
 
     # 记录解析结果
@@ -450,7 +450,7 @@ def check_no_acceptance(
 def parse_no_acceptance_list(acc_text: str) -> set[str]:
     """从 acceptance.md 抽取 '## No Acceptance' 节的 FR 列表.
 
-    节内每行形如 '- FR-XXX' 或 '- FR-XXX (说明文字)'; 取首 token 作为 fr_id.
+    节内每行形如 '- FR-XXXX' 或 '- FR-XXXX (说明文字)'; 取首 token 作为 fr_id.
     """
     frs: set[str] = set()
     in_section = False

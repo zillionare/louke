@@ -26,7 +26,7 @@ setup() {
 
 @test "CI_TOOLS_T04_check_acs_baseline: missing can be downgraded" {
     BASE="$BATS_TEST_TMPDIR/base.txt"
-    printf 'AC-FR001-02\nAC-NFR010-01\n' > "$BASE"
+    printf 'AC-FR0001-02\nAC-NFR0010-01\n' > "$BASE"
     run python3 "$REPO_ROOT/louke/_tools/check_acs.py" --acceptance "$FIX/acceptance.md" --tests "$FIX/tests_bad" --legacy-baseline "$BASE"
     [ "$status" -ne 0 ]
     [[ "$output" =~ "unknown" ]]

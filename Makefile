@@ -11,6 +11,11 @@ sync-data:
 	@echo "== syncing templates/ -> louke/templates/"
 	@rm -rf louke/templates
 	@cp -r templates louke/templates
+	@echo "== syncing .github resources -> louke/.github/"
+	@rm -rf louke/.github
+	@mkdir -p louke/.github
+	@cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
+	@if [ -d .github/workflows ]; then cp -r .github/workflows louke/.github/workflows; fi
 	@echo "✓ synced: $$(ls louke/agents | wc -l) agents, $$(ls louke/templates | wc -l) templates"
 
 # 构建 wheel + sdist

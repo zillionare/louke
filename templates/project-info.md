@@ -1,10 +1,15 @@
 # Project Info
 
-- **Story**: {用户提供的一句话需求描述}
 - **Version**: {版本号，如 v0.1}
 - **Repo**: github.com/{owner}/{repo}
-- **Project**: {repo}-{version} (#{GitHub Project 编号})
-- **Spec ID**: v{version}-{NNN}-{keyword}（如 v0.1-001-louke）
-- **Test Issue**: #{编号} (closed)
-- **Test PR**: #{编号} (closed)
+- **Project**: {repo}-{version}
+- **Project ID**: https://github.com/users/{owner}/projects/{id}
+- **Spec ID**: v{version}-{NNN}-{keyword}
+- **Release Branch**: `releases/{version}`
+- **Smoke Test Issue**: #{编号} (closed)
+- **Smoke Test PR**: #{编号} (closed)
+- **DoD**: {完成定义}
+- **Security Audit**: {enabled / disabled}
+- **Current Stage**: {M-FOUND | M-SPEC | M-TESTPLAN | M-ARCH | M-LOCK | M-DEV | M-E2E | M-BUGFIX | M-SECURITY | M-MILESTONE}
+- **Backlog Project**: https://github.com/users/{owner}/projects/{backlog_id}
 - **Created**: {YYYY-MM-DD}

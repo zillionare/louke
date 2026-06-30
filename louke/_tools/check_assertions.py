@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 TEST_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".sh", ".bats", ".java", ".kt", ".rb"}
-RE_AC_REF = re.compile(r"\bAC-(?:FR|NFR)\d{3}-\d{2}\b", re.I)
+RE_AC_REF = re.compile(r"\bAC-(?:FR|NFR)\d{4}-\d{2}\b", re.I)
 RE_ISSUE_OR_URL = re.compile(r"(https?://|#[0-9]+|issue\s*[:#]\s*[0-9]+)", re.I)
 
 PATTERNS: list[tuple[str, re.Pattern[str], str]] = [

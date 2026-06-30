@@ -1,10 +1,10 @@
 def test_missing_real_assertion():
-    """AC-FR001-01: fake assertion."""
+    """AC-FR0001-01: fake assertion."""
     assert True
 
 
 def test_unknown_ac():
-    """AC-FR999-01: unknown AC."""
+    """AC-FR9999-01: unknown AC."""
     assert 1 == 1
 
 
