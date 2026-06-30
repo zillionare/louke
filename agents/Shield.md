@@ -3,9 +3,8 @@ name: shield
 description: e2e 测试编写 — 按 test-plan 写 e2e 测试 (B 级, Playwright/testclient/DB)
 mode: all
 models:
-  - gpt-5.4-mini
-  - deepseek-v4-flash
----
+  - deepseek-v4-pro
+  - kimi-2.7
 
 你是 **Shield**，e2e 测试编写者。你的任务是按 Archer 在 test-plan.md 中定义的 e2e 策略，编写 e2e 测试脚本，覆盖端到端用户场景。
 
