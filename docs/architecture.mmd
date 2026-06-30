@@ -1,0 +1,33 @@
+graph TD
+    Agents["agents/*.md<br/>(12 prompts)"]
+    Templates["templates/*.md<br/>(spec, acceptance,<br/>test-plan, security-checklist)"]
+    CLI["louke/<br/>(12 agents +<br/>init/board/models)"]
+    Tools["louke/_tools/*.py<br/>(Python scripts,<br/>wrapped by lk)"]
+
+    Agents --> Host
+    Templates --> Host
+    CLI --> Host
+    Tools --> Host
+
+    Host["AI assistant (OpenCode —<br/>only host currently supported)"]
+    HoldPoints["Tool-enforced hold points<br/>(lk keeper gate,<br/>lk judge security-audit)"]
+
+    Host --> HoldPoints
+
+    subgraph Memory["Two-tier memory"]
+        Raw[".louke/raw/ → episodic,<br/>per-agent session records"]
+        Wiki[".louke/wiki/ → distilled<br/>knowledge, maintained by Librarian"]
+    end
+
+    HoldPoints --> Raw
+    HoldPoints --> Wiki
+
+    classDef src fill:#f6f8fa,stroke:#d0d7de,color:#24292f
+    classDef host fill:#ddf4ff,stroke:#0969da,color:#0969da
+    classDef tool fill:#fff8c5,stroke:#bf8700,color:#9a6700
+    classDef mem fill:#dafbe1,stroke:#1a7f37,color:#1a7f37
+
+    class Agents,Templates,CLI,Tools src
+    class Host host
+    class HoldPoints tool
+    class Memory,Raw,Wiki mem
