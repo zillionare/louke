@@ -29,12 +29,22 @@ def register(subparsers):
     p.add_argument('--spec', required=True)
     p.add_argument('--message', required=True)
 
+    # validate-test-plan: FR-0700 M-TESTPLAN holdpoint (structure check)
+    p = sub.add_parser('validate-test-plan', help='校验 test-plan.md 结构 (M-TESTPLAN holdpoint)')
+    p.add_argument('--spec', required=True)
+
+    # validate-arch: FR-0700 M-ARCH holdpoint (structure check)
+    p = sub.add_parser('validate-arch', help='校验 architecture.md 结构 (M-ARCH holdpoint)')
+    p.add_argument('--spec', required=True)
+
 
 def run(args):
     handlers = {
         'ci-scan': cmd_ci_scan,
         'check-acs': cmd_check_acs,
         'commit-design': cmd_commit_design,
+        'validate-test-plan': cmd_validate_test_plan,
+        'validate-arch': cmd_validate_arch,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -79,4 +89,46 @@ def cmd_commit_design(args):
         if result.returncode != 0:
             print(f"failed: {' '.join(cmd)}", file=sys.stderr)
             return result.returncode
+    return 0
+
+
+def cmd_validate_test_plan(args):
+    """FR-0700 M-TESTPLAN holdpoint: 校验 test-plan.md 结构."""
+    tp = Path(f".louke/project/specs/{args.spec}/test-plan.md")
+    if not tp.exists():
+        print(f'test-plan.md not found: {tp}', file=sys.stderr)
+        return 1
+    text = tp.read_text(encoding='utf-8')
+    failures = []
+    if '## 1. 立场与边界' not in text and '## 测试策略' not in text:
+        failures.append('missing test strategy section (## 1. 立场与边界 or ## 测试策略)')
+    for layer in ('unit', 'integration', 'e2e'):
+        if layer not in text.lower():
+            failures.append(f'missing test layer: {layer}')
+            break
+    if failures:
+        for f in failures:
+            print(f'[fail] {f}', file=sys.stderr)
+        return 1
+    print('test-plan OK')
+    return 0
+
+
+def cmd_validate_arch(args):
+    """FR-0700 M-ARCH holdpoint: 校验 architecture.md 结构."""
+    arch = Path(f".louke/project/specs/{args.spec}/architecture.md")
+    if not arch.exists():
+        print(f'architecture.md not found: {arch}', file=sys.stderr)
+        return 1
+    text = arch.read_text(encoding='utf-8')
+    failures = []
+    if '## 模块划分' not in text and '## Module' not in text.lower():
+        failures.append('missing module breakdown section (## 模块划分 or ## Modules)')
+    if 'FR-' not in text:
+        failures.append('missing FR reference table')
+    if failures:
+        for f in failures:
+            print(f'[fail] {f}', file=sys.stderr)
+        return 1
+    print('architecture OK')
     return 0

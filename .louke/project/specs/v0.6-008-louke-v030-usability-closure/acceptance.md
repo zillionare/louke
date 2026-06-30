@@ -1023,6 +1023,10 @@
 
 - backlog 段位置：§ Architecture 之后、§ Use with Your AI Assistant 之前，作为独立 `###` 段
 
+### AC-12
+
+- README + README.zh 含 "Agent capabilities & model tiers" 表，5 列（Agent / Tier / Open-source example / Closed-source reference / 备注），覆盖全部 12 个 agent，档位标注 S/A/B
+
 - ---
 
 ## NFR-0100 测试矩阵（GLM §15 端到端可用性测试）

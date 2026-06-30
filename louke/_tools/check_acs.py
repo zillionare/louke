@@ -10,6 +10,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# FR/AC schema: 4-digit IDs per louke/schema.py (FR_DIGITS=4)
+# Note: each _tools/*.py has slightly different capture-group needs (some capture
+# FR|NFR prefix, some don't), so we keep the \d{4} literal here rather than
+# f-string from schema.FR_DIGITS — the literal is self-documenting and grep-friendly.
 RE_AC_ANCHOR = re.compile(r'<a\s+id="ac-((?:fr|nfr)-\d{4})"></a>', re.I)
 RE_FR_HEADING = re.compile(r"^##\s+((?:FR|NFR)-\d{4})\b", re.I)
 RE_AC_HEADING = re.compile(r"^###\s+AC-(\d+)\b", re.I)

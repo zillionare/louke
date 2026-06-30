@@ -147,16 +147,21 @@ def _holdpoint(stage, args):
             return False, f'sage quote-check failed (rc={rc})'
         return True, 'quote-check exit 0'
     if stage == 'M-TESTPLAN':
-        # 简易结构校验（无 validate-test-plan 工具；用文本检查 + 文档存在）
-        tp = Path(f'.louke/project/specs/{spec}/test-plan.md') if spec else None
-        if tp and tp.exists():
-            return True, f'test-plan.md exists ({spec})'
-        return False, f'test-plan.md missing (.louke/project/specs/{spec}/test-plan.md)'
+        # FR-0700: lk archer validate-test-plan
+        if not spec:
+            return False, 'spec-id required (--spec-id)'
+        rc = _run_lk('archer', 'validate-test-plan', '--spec', spec)
+        if rc != 0:
+            return False, f'archer validate-test-plan failed (rc={rc})'
+        return True, f'test-plan validated ({spec})'
     if stage == 'M-ARCH':
-        arch = Path(f'.louke/project/specs/{spec}/architecture.md') if spec else None
-        if arch and arch.exists():
-            return True, f'architecture.md exists ({spec})'
-        return False, f'architecture.md missing (.louke/project/specs/{spec}/architecture.md)'
+        # FR-0700: lk archer validate-arch
+        if not spec:
+            return False, 'spec-id required (--spec-id)'
+        rc = _run_lk('archer', 'validate-arch', '--spec', spec)
+        if rc != 0:
+            return False, f'archer validate-arch failed (rc={rc})'
+        return True, f'architecture validated ({spec})'
     if stage == 'M-LOCK':
         if not spec:
             return False, 'spec-id required'
