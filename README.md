@@ -97,6 +97,29 @@ The 12 agents are named for what they do, not for decoration:
 | **Keeper**    | Warden of gates      | enforces quality gates (commit format + tests + lint + regression)               |
 | **Librarian** | Librarian            | distills Wiki, preserves project memory                                          |
 
+### Agent capabilities & model tiers
+
+Each agent runs in OpenCode with a primary model (and an in-tier fallback). Tiers reflect **capability** (reasoning depth, context window, tool-use reliability), not cost. The current open-source-only model set has 3 tiers; the closed-source column shows equivalent commercial models for reference.
+
+| Agent         | Tier | Open-source example            | Closed-source example (reference) |
+| ------------- | :--: | ------------------------------ | ---------------------------------- |
+| **Maestro**   |  S   | `glm-5.2`                      | `claude-opus-4-5`, `gpt-5`         |
+| **Sage**      |  S   | `minimax-m3`                   | `claude-opus-4-5`, `gpt-5`         |
+| **Lex**       |  S   | `glm-5.2`                      | `claude-opus-4-5`, `gpt-5`         |
+| **Warden**    |  A   | `kimi-2.6`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Archer**    |  A   | `kimi-2.7`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Devon**     |  A   | `deepseek-v4-pro`              | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Prism**     |  A   | `kimi-2.6`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Keeper**    |  A   | `kimi-2.7`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Shield**    |  A   | `deepseek-v4-pro`              | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Judge**     |  A   | `kimi-2.6`                     | `claude-sonnet-4-5`, `gpt-5-mini`  |
+| **Scout**     |  B   | `deepseek-v4-flash`            | `claude-haiku-4`, `gpt-5-nano`     |
+| **Librarian** |  B   | `glm-5`                        | `claude-haiku-4`, `gpt-5-nano`     |
+
+Distribution: **3 S** (Maestro, Sage, Lex) for high-stakes synthesis and review; **7 A** (Warden, Archer, Devon, Prism, Keeper, Shield, Judge) for the main implementation + verification workload; **2 B** (Scout, Librarian) for routine maintenance and interaction.
+
+Override via `~/.louke/models.json` or `.louke/models.json` (see [FR-0201](.louke/project/specs/v0.6-008-louke-v030-usability-closure/spec.md)); `lk models list` / `lk models doctor` shows current bindings, `lk models bind <abstract> <full>` overrides per-agent.
+
 ### Install
 
 > **Platform support**: macOS and Linux only. Windows users: please use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/) or Docker. The installer self-checks `uname -s` and exits with a clear error on unsupported platforms.
