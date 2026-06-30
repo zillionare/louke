@@ -52,9 +52,10 @@ RE_AC_SECTION = re.compile(r"^###\s+AC-(\d+)\s*$", re.MULTILINE)
 RE_BULLET = re.compile(r"^[\s]*[-*]\s+(.+)$")
 
 # 严禁作为 AC 内容的占位符(应被替换为真实条件)
+# Note: {repo}, {version}, {id}, {date}, {browser} 等单层花括号是合法的命令模板引用,
+# 不是占位符。只有 {{...}} (Jinja 风格) 才视为未替换的占位符。
 PLACEHOLDER_PATTERNS = [
-    re.compile(r"\{\{.*?\}\}"),  # {{ 变量 }}
-    re.compile(r"\{[a-z_]+\}"),   # {placeholder}
+    re.compile(r"\{\{.*?\}\}"),  # {{ 变量 }} — Jinja 风格未替换占位符
 ]
 
 

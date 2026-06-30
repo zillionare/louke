@@ -154,27 +154,32 @@ rm -rf ~/.louke/venv ~/.local/bin/lk
 ```
 
 You now have:
-- `lk` CLI (32 commands, 12 agents)
-- `templates/` — 4 doc templates (spec, acceptance, test-plan, security-checklist)
+- `lk` CLI — see `lk --help` for the full command list (12 agents + top-level `init` / `board` / `models`)
+- `templates/` — doc templates (spec, acceptance, test-plan, security-checklist, project-info, etc.)
 - `louke/_tools/` — Python scripts wrapped by `lk`
 
 ### Use in Your Project
 
-Initialize via `lk scout foundation`:
+Initialize via `lk init`:
 
 ```bash
-lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-init
-# → creates .louke/project/project-info.md
-# → creates .louke/project/specs/v0.1-001-init/story.md
-# → opens editor for you to fill in story (interactive)
+# New project (creates <name>/ dir with .louke/ skeleton + OpenCode agents + issue template + CI workflow)
+lk init my-project
+
+# Adopt existing git repo (non-destructive, adds .louke/ alongside your code)
+cd ~/work/my-existing-repo
+lk init .
 ```
 
-`lk scout foundation` walks you through:
-1. Step 1 — Collect story/version/repo/DoD (interactive)
-2. Step 2 — Create repo + project + permissions
-3. Step 3 — Verify gh + git identity
-4. Step 4 — Run `lk warden foundation-check` (F1-F11 automated checks)
-5. Step 5 — Commit + push
+`lk init` walks you through:
+1. Copy agents/templates to `.louke/`
+2. Generate `.opencode/agents/*.md` (with resolved `model:` per agent)
+3. Write `default_agent: maestro` to `opencode.json`
+4. Install `.github/ISSUE_TEMPLATE/feature.yml` (4-digit FR schema)
+5. Install `.github/workflows/louke-ci.yml` (AC traceability gate)
+6. Resolve abstract model names → `provider/model` via `lk models doctor --fix-auto`
+
+For the M-FOUND foundation step (creating GitHub repo/Project/smoke issue), run `lk scout foundation` after `lk init`.
 
 ### Use with Your AI Assistant
 
@@ -182,13 +187,9 @@ lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-
 
 #### OpenCode
 
-Add the framework as a plugin in `~/.config/opencode/opencode.json`:
+`lk init` automatically generates `.opencode/agents/*.md` (12 agent files with `model:` frontmatter) and writes `default_agent: maestro` to your project's `opencode.json`. No manual plugin configuration needed.
 
-```json
-{"plugin": ["louke"]}
-```
-
-After install, the default primary agent is set to **Maestro**, so any new session routes through the pipeline orchestrator rather than dropping you straight into a specialist. (Maestro will then dispatch to Scout / Sage / Lex / Archer / Devon / Keeper / Judge / Librarian as the workflow demands.)
+After install, the default primary agent is **Maestro**, so any new session routes through the pipeline orchestrator. (Maestro will then dispatch to Scout / Sage / Lex / Archer / Devon / Keeper / Judge / Librarian as the workflow demands.)
 
 If you ever need to switch manually inside OpenCode: press `<leader>a` (or `/agents`) and pick Maestro from the list.
 
@@ -236,14 +237,14 @@ Each transition is a different agent. Each hold point is tool-enforced. Each han
 | **spec-kit** (GitHub)                    | spec.md is the source, but no MECE / granularity / traceability constraints | No review                                                                    | None                                        | Manual + social                                              |
 | **superpowers** (obra, 240k★)            | plan.md is plain text, no AC numbering, no commit-time validation           | subagent review (same model reviewing itself)                                | prompt-level self-discipline                | TDD indirect guarantee (no ID binding between test and spec) |
 | **oh-my-openagent** (code-yeongyu, 64k★) | agents digest spec themselves                                               | team of agents (same LLM, different prompts)                                 | hooks / middleware                          | task self-defined, no FR ↔ test binding                      |
-| **louke**                                | FR-XXX / AC-XXX-N + `lk archer ci-scan`                                     | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint) | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end                   |
+| **louke**                                | FR-XXXX / AC-FRXXXX-YY + `lk archer ci-scan`                                     | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint) | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end                   |
 
 ### Architecture (Light)
 
 ```
   agents/*.md              templates/*.md                louke/                louke/_tools/*.py
-  (12 prompts)            (spec, acceptance,           (32 commands,         (Python scripts,
-                          test-plan, security-          12 agents)           wrapped by lk)
+  (12 prompts)            (spec, acceptance,           (12 agents +          (Python scripts,
+                          test-plan, security-          init/board/models)   wrapped by lk)
                           checklist)
        │                       │                            │                      │
 └───────────┬───────────┴────────────┬───────────────┘                      │
@@ -266,6 +267,20 @@ Four things louke doesn't compromise on:
 - **`lk` CLI** = OS-process-level contract; `exit 0/1` is unbypassable
 - **Two-tier memory** = `raw/` (episodic) + `wiki/` (distilled), maintained by Librarian
 - **Promise** = spec → code → test three-segment bidirectional reachability; breakage at any node can be traced to its source
+
+### Backlog project
+
+`lk scout foundation` creates two GitHub Projects per repo:
+
+- **`{repo}-{version}`** — per-release, tracks the current milestone's issues
+- **`{repo}-backlog`** — per-repo (permanent), holds unscheduled user stories / feature ideas
+
+When you create an issue with `gh issue create --no-milestone`, it naturally lands in the backlog. During planning, pull backlog issues into `{repo}-{version}` via `gh project item-add`.
+
+Future enhancements (not in v0.6-008 scope):
+
+- **[#78](https://github.com/zillionare/louke/issues/78)**: `.louke/project` as a standalone private GitHub repo (via git submodule) to separate spec/wiki from public code
+- **[#79](https://github.com/zillionare/louke/issues/79)**: `louke serve` web UI for browsing/editing wiki/spec/acceptance
 
 ### License
 

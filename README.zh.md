@@ -143,45 +143,40 @@ rm -rf ~/.louke/venv ~/.local/bin/lk
 ```
 
 你会得到：
-- `lk` CLI（12 个 agent × 32 命令）
-- `templates/` — 4 个文档模板（spec, acceptance, test-plan, security-checklist）
+- `lk` CLI — 运行 `lk --help` 查看全部命令（12 个 agent + 顶层 `init` / `board` / `models`）
+- `templates/` — 文档模板（spec, acceptance, test-plan, security-checklist, project-info 等）
 - `louke/_tools/` — Python 脚本，被 `lk` 包装
 
 ### 在项目中使用
 
-通过 `lk scout foundation` 初始化：
+通过 `lk init` 初始化：
 
 ```bash
-lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-init
-# → 创建 .louke/project/project-info.md
-# → 创建 .louke/project/specs/v0.1-001-init/story.md
-# → 打开编辑器让你填写 story（交互式）
+# 新项目（创建 <name>/ 目录，含 .louke/ 骨架 + OpenCode agents + issue template + CI workflow）
+lk init my-project
+
+# 接入既有 git 仓库（非破坏式，在现有代码旁添加 .louke/）
+cd ~/work/my-existing-repo
+lk init .
 ```
 
-`lk scout foundation` 引导你完成：
-1. Step 1 — 收集 story/版本号/repo 名/DoD（交互式）
-2. Step 2 — 创建 repo + project + 权限
-3. Step 3 — 验证 gh + git 账号一致
-4. Step 4 — 跑 `lk warden foundation-check`（F1-F11 自动检查）
-5. Step 5 — 提交 + push
+`lk init` 引导你完成：
+1. 复制 agents/templates 到 `.louke/`
+2. 生成 `.opencode/agents/*.md`（每个 agent 含解析后的 `model:` 字段）
+3. 写 `default_agent: maestro` 到 `opencode.json`
+4. 安装 `.github/ISSUE_TEMPLATE/feature.yml`（4 位 FR schema）
+5. 安装 `.github/workflows/louke-ci.yml`（AC 引用闭合门禁）
+6. 解析抽象模型名 → `provider/model`（`lk models doctor --fix-auto`）
+
+M-FOUND 奠基步骤（创建 GitHub repo/Project/smoke issue）在 `lk init` 之后运行 `lk scout foundation`。
 
 ### 与你的 AI 助手配合
 
-
----
-
-### 支持的环境
-
-| 维度                 | 支持范围                | 说明                                                                                                                                                                                               |
-| -------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **操作系统**         | macOS / Linux           | **不支持原生 Windows。** 请用 [WSL2](https://learn.microsoft.com/zh-cn/windows/wsl/) 或 Docker。`install.sh` 自带 `uname -s` 检查，不支持时会清晰报错并退出。                                      |
-| **IDE / Agent 宿主** | **仅 OpenCode**（当前） | Claude Code、Cursor、Continue、Copilot、Kilo 在本版本**均不支持**。agent prompt 是纯 Markdown，理论上其它宿主能读，但 `default_agent` 接线、插件安装路径、hold-point UX 都只针对 OpenCode 验证过。 |
-
-如需支持其它宿主，请开 issue —— 不要默认假设行为一致。
+> **当前只支持 OpenCode 作为 agent 宿主。** 见上方 *支持的环境*。下面所有指令默认基于 OpenCode。
 
 #### OpenCode
 
-
+`lk init` 自动生成 `.opencode/agents/*.md`（12 个 agent 文件，含 `model:` frontmatter）并写 `default_agent: maestro` 到项目级 `opencode.json`。无需手动配置插件。
 
 安装后，默认 primary agent 会被设为 **Maestro**，所以任何新会话都先经过流水线指挥，再由它按需分派给 Scout / Sage / Lex / Archer / Devon / Keeper / Judge / Librarian，而不是直接落到某个专家 agent。
 
@@ -231,15 +226,15 @@ lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-
 | **spec-kit**（GitHub）                    | spec.md 是源头，但无 MECE / 粒度 / 可追踪约束   | 无 review                                              | 无                                 | 手工 + 社交                            |
 | **superpowers**（obra，240k★）            | plan.md 是文本，无 AC 编号，无 commit-time 校验 | subagent review（同 model 自检）                       | prompt 级自律                      | TDD 间接保证（test ↔ spec 无 ID 绑定） |
 | **oh-my-openagent**（code-yeongyu，64k★） | agent 自消化 spec                               | team of agents（同 LLM 不同 prompt）                   | hooks / middleware                 | task 自定，无 FR ↔ test 绑定           |
-| **louke**                                 | FR-XXX / AC-XXX-N + `lk archer ci-scan`         | 12 个不同 persona（实施者 ≠ 评审者，跨阶段语境不重叠） | `lk` CLI exit 0/1（OS 进程返回值） | FR ↔ issue ↔ commit ↔ AC ↔ test 全链路 |
+| **louke**                                 | FR-XXXX / AC-FRXXXX-YY + `lk archer ci-scan`         | 12 个不同 persona（实施者 ≠ 评审者，跨阶段语境不重叠） | `lk` CLI exit 0/1（OS 进程返回值） | FR ↔ issue ↔ commit ↔ AC ↔ test 全链路 |
 
 ### 架构（简）
 
 ```
   agents/*.md              templates/*.md                louke/                louke/_tools/*.py
-  (12 prompts)            (spec, acceptance,           (32 commands,         (Python scripts,
-                         test-plan, security-          12 agents)           wrapped by lk)
-                         checklist)
+  (12 prompts)            (spec, acceptance,           (12 agents +          (Python scripts,
+                          test-plan, security-          init/board/models)   wrapped by lk)
+                          checklist)
        │                       │                            │                      │
 └───────────┬───────────┴────────────┬───────────────┘                      │
                     │                        │                                      │
@@ -259,6 +254,20 @@ lk scout foundation --repo YOUR_ORG/YOUR_REPO --version v0.1 --spec-id v0.1-001-
 - **`lk` CLI** = OS 进程级合同，`exit 0/1` 不可绕过
 - **两层记忆** = `raw/`（事件级）+ `wiki/`（蒸馏级），由 Librarian 维护
 - **承诺** = spec → code → test 三段双向可达，任一节点断裂都查得到源头
+
+### Backlog project
+
+`lk scout foundation` 会为每个 repo 创建两个 GitHub Project：
+
+- **`{repo}-{version}`** — per-release，跟踪当前 milestone 的 issue
+- **`{repo}-backlog`** — per-repo（永久），存放未排期的用户故事 / feature idea
+
+用 `gh issue create --no-milestone` 创建的 issue 自然归入 backlog；planning 时用 `gh project item-add` 把 backlog issue 拉进 `{repo}-{version}`。
+
+未来增强（不在 v0.6-008 范围）：
+
+- **[#78](https://github.com/zillionare/louke/issues/78)**：`.louke/project` 作为独立私有 GitHub repo（通过 git submodule 引入），分离 spec/wiki 与公开代码
+- **[#79](https://github.com/zillionare/louke/issues/79)**：`louke serve` web 服务，渲染 + 可选在线编辑 wiki / spec / acceptance / test-plan
 
 ### 许可证
 
