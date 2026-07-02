@@ -13,8 +13,8 @@ from ._common import git_root
 SCHEMA = 'louke://models-config'
 
 
-def register(subparsers):
-    parser = subparsers.add_parser('models', help='管理抽象模型名绑定')
+def register(parser):
+    """Register models subcommands on the given parser."""
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
     sub.add_parser('list', help='列出模型解析结果')
     p = sub.add_parser('doctor', help='检查模型解析')

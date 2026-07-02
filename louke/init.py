@@ -14,8 +14,12 @@ from ._common import git, git_root, package_root, ensure_gitignore_line
 AGENT_COUNT = 12
 
 
-def register(subparsers):
-    parser = subparsers.add_parser('init', help='初始化/接入 louke 项目骨架')
+def register(parser):
+    """Register init arguments on the given parser."""
+    _add_arguments(parser)
+
+
+def _add_arguments(parser):
     parser.add_argument('target', help='新项目名或既存项目路径')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--backup', action='store_true')

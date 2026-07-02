@@ -17,7 +17,7 @@ setup() {
 @test "SAGE-CREATE-ISSUES: project-info missing -> exit 1 with actionable msg" {
     mkdir -p .louke/project/specs/v0.6-008-test
     printf '<a id="fr-0001"></a>\n### FR-0001 demo\n' > .louke/project/specs/v0.6-008-test/spec.md
-    run $PY sage create-issues --spec v0.6-008-test
+    run $PY agent sage create-issues --spec v0.6-008-test
     [ "$status" -ne 0 ]
     [[ "$output" == *"Repo field missing"* ]]
 }
@@ -41,7 +41,7 @@ setup() {
 - **Backlog Project**: https://github.com/users/foo/projects/2
 - **Created**: 2026-06-30
 EOF
-    run $PY sage create-issues --spec v0.6-008-test
+    run $PY agent sage create-issues --spec v0.6-008-test
     [ "$status" -ne 0 ]
     [[ "$output" == *"Release Branch field missing"* ]]
 }
@@ -54,19 +54,19 @@ EOF
 - **Release Branch**: `releases/v0.6`
 - **Project ID**: https://github.com/users/foo/projects/1
 EOF
-    run $PY sage create-issues --spec v0.6-008-test
+    run $PY agent sage create-issues --spec v0.6-008-test
     [ "$status" -eq 0 ]
     [[ "$output" == *"0 created, 0 skipped"* ]]
 }
 
 @test "SAGE-RECORD-LOCK: missing --confirm -> User signal error" {
-    run $PY sage record-lock --spec v0.6-008-test
+    run $PY agent sage record-lock --spec v0.6-008-test
     [ "$status" -ne 0 ]
     [[ "$output" == *"User signal"* ]]
 }
 
 @test "LEX-VERIFY-PROJECT: project-info missing -> exit 1 with actionable msg" {
-    run $PY lex verify-project --spec v0.6-008-test
+    run $PY agent lex verify-project --spec v0.6-008-test
     [ "$status" -ne 0 ]
     [[ "$output" == *"Project URL missing"* ]] || [[ "$output" == *"scout foundation"* ]]
 }

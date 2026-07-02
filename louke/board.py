@@ -13,8 +13,8 @@ from .models import resolve_model
 SKIP = {'README.md', 'ROSTER.md'}
 
 
-def register(subparsers):
-    parser = subparsers.add_parser('board', help='生成 IDE agent board')
+def register(parser):
+    """Register board subcommands on the given parser."""
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
     p = sub.add_parser('opencode', help='生成 OpenCode agents')
     p.add_argument('--dry-run', action='store_true')
