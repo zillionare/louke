@@ -10,4 +10,4 @@
 4. 子命令内部可用 subprocess 调底层工具 (louke/_tools/*.py)，或实现新逻辑
 5. 退出码遵循 Unix 惯例: 0 = 成功, 非 0 = 失败
 """
-__version__ = "0.3.0"
+__version__ = "0.5.8"
