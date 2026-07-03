@@ -7,6 +7,41 @@ def package_root() -> Path:
     return Path(__file__).resolve().parent
 
 
+def levenshtein(s1: str, s2: str) -> int:
+    """Levenshtein edit distance: minimum number of single-character edits
+    (insertions, deletions, substitutions) to transform s1 into s2.
+
+    Iterative two-row DP, O(len(s1) * len(s2)) time, O(min(len(s1), len(s2))) space.
+    """
+    if len(s1) < len(s2):
+        s1, s2 = s2, s1
+    if not s2:
+        return len(s1)
+    prev = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1, 1):
+        curr = [i]
+        for j, c2 in enumerate(s2, 1):
+            ins = prev[j] + 1
+            dele = curr[j - 1] + 1
+            sub = prev[j - 1] + (c1 != c2)
+            curr.append(min(ins, dele, sub))
+        prev = curr
+    return prev[-1]
+
+
+def similarity(s1: str, s2: str) -> float:
+    """Normalized similarity in [0, 1] based on Levenshtein distance.
+
+    similarity = 1 - distance / max(len(s1), len(s2))
+    Identical strings → 1.0; one is empty → 0.0.
+    """
+    if not s1 and not s2:
+        return 1.0
+    if not s1 or not s2:
+        return 0.0
+    return 1.0 - levenshtein(s1, s2) / max(len(s1), len(s2))
+
+
 def raw_path(date: str = None, session_id: str = '') -> Path:
     """FR-0810 unified raw session path: .louke/raw/{yy-mm-dd}/{session_id}.md."""
     from datetime import datetime

@@ -10,7 +10,7 @@
 4. 子命令内部可用 subprocess 调底层工具 (louke/_tools/*.py)，或实现新逻辑
 5. 退出码遵循 Unix 惯例: 0 = 成功, 非 0 = 失败
 """
-__version__ = "0.6.2"
+__version__ = "0.6.3"
 
 # v0.6-009 NFR-0040: 最低 OpenCode 版本 (Qwen A-8.4 校准)
 # permission 对象格式 (替代 deprecated tools 字段) 引入于 OpenCode v1.1.1

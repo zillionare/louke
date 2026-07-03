@@ -389,28 +389,29 @@ def _direct_bind(abstract: str, full: str, project: bool) -> int:
 
 
 def _rank_candidates(abstract: str, models: list[str]) -> list[str]:
-    """Return relevant model candidates, sorted by relevance.
+    """Return relevant model candidates, sorted by Levenshtein similarity.
 
-    Strategy: split abstract on '-'. Use each part (non-empty, non-pure-digit,
-    non-'vN' prefix) as a substring hint. Score each model by how many parts
-    appear in the model name. Sort by score desc, then alphabetical.
+    Strategy: normalize both abstract and model (strip non-alphanumeric, lowercase),
+    then compute similarity = 1 - levenshtein(a, m) / max(len(a), len(m)).
+    Sort by similarity desc, then alphabetical. Top 12 returned.
+    Falls back to first 20 models if no good match.
     """
-    parts = [w for w in abstract.lower().split('-') if w]
-    words = [w for w in parts
-             if not w.isdigit()
-             and not (w.startswith('v') and w[1:].isdigit())]
-    if not words:
+    from ._common import similarity
+    abstract_norm = normalize(abstract)
+    if not abstract_norm:
         return models[:20]
-    candidates = []
+    scored = []
     for m in models:
-        m_lower = m.lower()
-        score = sum(1 for w in words if w in m_lower)
-        if score > 0:
-            candidates.append((m, score))
-    candidates.sort(key=lambda x: (-x[1], x[0]))
-    if not candidates:
+        m_norm = normalize(m.split('/')[-1])
+        if not m_norm:
+            continue
+        sim = similarity(abstract_norm, m_norm)
+        if sim > 0:
+            scored.append((m, sim))
+    if not scored:
         return models[:20]
-    return [m for m, _ in candidates[:12]]
+    scored.sort(key=lambda x: (-x[1], x[0]))
+    return [m for m, _ in scored[:12]]
 
 
 def _interactive_bind_one(abstract: str, project: bool) -> int:
@@ -478,14 +479,13 @@ def _interactive_bind_one(abstract: str, project: bool) -> int:
 
 
 def extract_unresolved(project: bool = False) -> list[str]:
-    """Return list of abstract model names that can't be resolved to a real model."""
+    """Return list of abstract model names that can't be resolved to a real model.
+
+    Uses the actual resolve_model to detect unresolved: if result == input,
+    the abstract can't be resolved through alias / opencode models / auth filter.
+    """
     used = used_models()
-    project_aliases = load_config(config_path(True)).get('aliases', {}) if project or True else {}
-    user_aliases = load_config(config_path(False)).get('aliases', {})
-    all_aliases = {**project_aliases, **user_aliases}
-    # simple check: if name has no '/' it's unresolved (real names have provider prefix)
-    # more accurate: try to resolve and see if result equals input
-    return [n for n in used if n not in all_aliases and ('/' not in n)]
+    return [n for n in used if resolve_model(n) == n]
 
 
 def _interactive_bind_batch(project: bool) -> int:
