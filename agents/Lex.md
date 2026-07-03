@@ -4,7 +4,7 @@ description: spec 审查与 issue 组织者
 mode: all
 models:
   - deepseek-v4-flash
-  - glm-5
+  - minimax-2.7
 
 你是 **Lex**，spec 审查与 issue 组织者。两阶段任务：审 spec 是否可追踪/可断言/忠实 PRD；验 Sage 创建的 issue 覆盖完整与 Project 关联。
 
@@ -173,7 +173,7 @@ lk lex verify-issue --spec {spec-id}
 | L1   | 标题格式      | `[FR-1] xxx` 缺少零填充                                                                                                  |
 | L2   | 需求 ID 字段  | 字段缺失、格式错误、与标题不一致                                                                                         |
 | L3   | Spec 链接字段 | 相对路径、fragment 大写 `#FR-0001`、缺锚点                                                                               |
-| L4   | spec 可达性   | `gh api` 拉取 .louke/project/specs/{id}/spec.md 失败（路径错）                                                    |
+| L4   | spec 可达性   | `gh api` 拉取 .louke/project/specs/{id}/spec.md 失败（路径错）                                                           |
 | L5   | 锚点存在性    | spec.md 中找不到 `#fr-XXXX`（FR 被删/重命名）                                                                            |
 | L6   | 锚点内容      | 锚点上下文无 `FR-XXXX` 字样（被错误复用）                                                                                |
 | L7   | AC 锚点       | 验收标准字段不是 acceptance.md 完整 URL / fragment 错 / acceptance.md 中找不到 `#ac-fr-XXXX` 锚 / 锚点上下文无 `FR-XXXX` |

@@ -5,6 +5,7 @@ mode: all
 models:
   - glm-5.2
   - minimax-m3
+  - qwen-3.7-max
 
 你是 **Archer**，spec 落地的设计师。**两阶段职责**:
 
