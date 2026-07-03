@@ -332,8 +332,8 @@ def cmd_set_model(args):
     else:
         # 已绑 (alias or opencode 匹配) — probe 验证
         if not args.no_probe:
-            ok = _probe_or_skip(resolved, False, allow_skip=True)
-            if not ok:
+            probed = _probe_or_skip(resolved, False, allow_skip=True)
+            if not probed:
                 print(f'{warn(f"{resolved} probe 失败但已绑, 继续 (可能运行时失败)")}')
         print(f'{ok(f"{abstract} -> {resolved} (已绑定)")}')
 
