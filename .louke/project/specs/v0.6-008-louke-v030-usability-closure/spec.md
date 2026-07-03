@@ -339,6 +339,8 @@ $ lk maestro advance --stage M-TESTPLAN
 | -------- | ------ | ---------- |
 | ✅        | ✅      | ✅          |
 
+> ⚠️ **SUPERSEDED by v0.6-009 FR-0060.2** (2026-07-03): 本 FR 隐含的"`/agents` 列表看到全部 12 个 agent"行为在 v0.6-009 之后被修订 —— TUI 顶层 `<Leader>a` 列表**只**显示 Maestro (mode: primary), 其余 11 个 agent 改 `mode: subagent`, 只能通过 Maestro 的 `task` 工具调用。详见 v0.6-009 spec §0.2 受影响下游段落。
+
 **立场**：README 已声明 "OpenCode only (currently)"；**不再实现** `lk board vscode`（与 v0.5-007 NFR-010 历史兼容放 P1，未来按需开新 FR）。`lk board vscode` 调用应 exit 1。
 
 **实现要点**：

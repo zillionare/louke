@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from ._common import git_root
@@ -12,12 +13,25 @@ from .models import resolve_model
 
 SKIP = {'README.md', 'ROSTER.md'}
 
+# v0.6-009 FR-0030: 透传白名单 (除 description / mode / model 已单独处理).
+# 来源: OpenCode 官方 frontmatter 字段 + permission.
+PASSTHROUGH_KEYS = {
+    'permission',   # v0.6-009 FR-0010/0060/0070 落地
+    'hidden',       # OpenCode 支持
+    'color',        # OpenCode 支持
+    'temperature',  # OpenCode 支持
+    'top_p',        # OpenCode 支持
+    'steps',        # OpenCode 支持
+    'disable',      # OpenCode 支持
+}
+
 
 def register(parser):
     """Register board subcommands on the given parser."""
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
     p = sub.add_parser('opencode', help='生成 OpenCode agents')
     p.add_argument('--dry-run', action='store_true')
+    p.add_argument('--quiet', action='store_true')
     p = sub.add_parser('status', help='查看 board 状态')
     p.add_argument('--root', default='')
     p = sub.add_parser('vscode', help='VS Code board 当前不支持')
@@ -30,23 +44,73 @@ def run(args):
 
 
 def parse_frontmatter(text: str) -> tuple[dict, str]:
+    """Parse YAML-like frontmatter into a dict.
+
+    louke agent 风格: `---\\nkey: value\\n\\nbody...` (无 closing `---`,
+    以首个空行结尾). body 中的 `---` (markdown 水平线) 不影响 frontmatter 识别.
+
+    嵌套结构支持:
+    - `key: value` (字符串)
+    - `key:` + 缩进的 `  - item` (列表, 用于 `models:`)
+    - `key:` + 缩进的 `  subkey: value` (字典, 用于 `permission:`)
+    """
     if not text.startswith('---\n'):
         return {}, text
-    end = text.find('\n---\n', 4)
-    if end == -1:
-        return {}, text
-    raw = text[4:end].splitlines()
-    body = text[end + 5:]
-    data = {}
-    key = None
-    for line in raw:
-        if line.startswith('  - ') and key:
-            data.setdefault(key, []).append(line[4:].strip())
-        elif ':' in line:
-            k, v = line.split(':', 1)
-            key = k.strip()
-            v = v.strip()
-            data[key] = [] if not v else v
+    # louke agent 风格: 第一个空行就是 frontmatter 结束
+    # (不能依赖 `\n---\n` 因为 body 可能含 markdown 水平线)
+    lines = text[4:].splitlines()
+    end_idx = 0
+    while end_idx < len(lines) and lines[end_idx].strip():
+        end_idx += 1
+    raw = lines[:end_idx]
+    body = '\n'.join(lines[end_idx:]).lstrip('\n')
+
+    data: dict = {}
+    i = 0
+    while i < len(raw):
+        line = raw[i]
+        if not line.strip():
+            i += 1
+            continue
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        if indent != 0:
+            i += 1
+            continue
+        if ':' not in stripped:
+            i += 1
+            continue
+        key, value = stripped.split(':', 1)
+        key = key.strip()
+        value = value.strip()
+        if value:
+            data[key] = value
+            i += 1
+            continue
+        # Container: collect children
+        children: dict = {}
+        child_list: list = []
+        j = i + 1
+        while j < len(raw):
+            child_line = raw[j]
+            if not child_line.strip():
+                j += 1
+                continue
+            child_stripped = child_line.lstrip()
+            child_indent = len(child_line) - len(child_stripped)
+            if child_indent <= indent:
+                break
+            if child_stripped.startswith('- '):
+                child_list.append(child_stripped[2:].strip())
+            elif ':' in child_stripped:
+                ck, cv = child_stripped.split(':', 1)
+                children[ck.strip()] = cv.strip()
+            j += 1
+        if children:
+            data[key] = children
+        if child_list:
+            data[key] = child_list
+        i = j
     return data, body
 
 
@@ -58,9 +122,36 @@ def agent_source(root: Path) -> Path:
     return package_root() / 'agents'
 
 
+def _render_passthrough_block(fm: dict, exclude: set[str]) -> str:
+    """Render passthrough keys as YAML lines.
+
+    `exclude` 应该包含 `description` / `mode` / `model` (已单独处理).
+    返回的字符串以换行结尾, 如 'hidden: true\ncolor: blue\n'.
+    """
+    lines = []
+    for key in PASSTHROUGH_KEYS:
+        if key in exclude:
+            continue
+        if key not in fm:
+            continue
+        value = fm[key]
+        if isinstance(value, dict):
+            lines.append(f'{key}:')
+            for k, v in value.items():
+                lines.append(f'  {k}: {v}')
+        elif isinstance(value, list):
+            lines.append(f'{key}:')
+            for item in value:
+                lines.append(f'  - {item}')
+        else:
+            lines.append(f'{key}: {value}')
+    return '\n'.join(lines) + ('\n' if lines else '')
+
+
 def cmd_opencode(args):
     root = getattr(args, 'root', None) or git_root() or Path.cwd()
     quiet = getattr(args, 'quiet', False)
+    dry_run = getattr(args, 'dry_run', False)
     root = Path(root)
     src = agent_source(root)
     dest_dir = root / '.opencode/agents'
@@ -77,16 +168,31 @@ def cmd_opencode(args):
         if isinstance(models, str):
             models = [models]
         model = resolve_model(models[0], root=root) if models else ''
-        out = f'---\ndescription: {description}\nmode: {mode}\nmodel: {model}\n---\n{body}'
+
+        # v0.6-009 FR-0030: 渲染透传字段
+        passthrough = _render_passthrough_block(fm, exclude={'description', 'mode', 'model'})
+
+        # v0.6-009 FR-0030 AC-5: dry-run 警告未白名单字段
+        unknown_keys = set(fm.keys()) - {'name', 'description', 'mode', 'model', 'models'} - PASSTHROUGH_KEYS
+        if unknown_keys and dry_run:
+            for k in sorted(unknown_keys):
+                print(f'[!] dropped unknown frontmatter key {k!r} from {fp.name}')
+
+        head = f'---\ndescription: {description}\nmode: {mode}\nmodel: {model}\n'
+        if passthrough:
+            out = head + passthrough + '---\n' + body
+        else:
+            out = head + '---\n' + body
+
         dest = dest_dir / f'{name}.md'
         generated.append(dest)
-        if args.dry_run:
+        if dry_run:
             if not quiet:
                 print(f'[+] {dest}')
         else:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(out, encoding='utf-8')
-    if not args.dry_run and not quiet:
+    if not dry_run and not quiet:
         print(f'generated {len(generated)} OpenCode agents')
     return 0
 

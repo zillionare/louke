@@ -11,3 +11,7 @@
 5. 退出码遵循 Unix 惯例: 0 = 成功, 非 0 = 失败
 """
 __version__ = "0.5.8"
+
+# v0.6-009 NFR-0040: 最低 OpenCode 版本 (Qwen A-8.4 校准)
+# permission 对象格式 (替代 deprecated tools 字段) 引入于 OpenCode v1.1.1
+MIN_OPENCODE_VERSION = "1.1.1"

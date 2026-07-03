@@ -89,6 +89,36 @@ Lòukè defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI — 
 
 Each agent has a default primary model (with an in-tier fallback). Override via `~/.louke/models.json` (user-level) or `.louke/models.json` (project-level); use `lk models list` / `lk models doctor` to check current bindings, `lk models bind <abstract> <full>` to override.
 
+### 6.1 Agent Permissions (v0.6-009)
+
+5 agents have explicit `permission:` blocks (YAML object, 11-13 keys) constraining their tool access. The other 7 use OpenCode defaults.
+
+| Agent | Mode | `question` | `edit` | Notes |
+|---|---|---|---|---|
+| **Maestro** | `primary` | ❌ | ✅ | Conductor; `task: allow` to dispatch subagents; `external_directory: ask`; 13 keys |
+| **Warden** | `subagent` | ❌ | ❌ | Read-only auditor; 11 keys |
+| **Judge** | `subagent` | ✅ | ❌ | Read-only security auditor; 11 keys; can ask user clarifying questions |
+| **Archer** | `subagent` | ✅ | ✅ | Writes spec artifacts; 11 keys; path restriction via prompt |
+| **Librarian** | `subagent` | ❌ | ✅ | Writes wiki; 11 keys; path restriction via prompt |
+| **Sage** | `subagent` | ✅ | (default) | Interactive spec clarification |
+| **Scout** | `subagent` | ✅ | (default) | Interactive project foundation |
+| Lex / Devon / Shield / Keeper / Prism / Warden / Librarian | `subagent` | ❌ | (default) | Non-interactive; conservative defaults |
+
+> Run `lk agent lint` to verify all agent frontmatter conforms.
+
+### 6.2 Layered Orchestration (v0.6-009)
+
+**Maestro is the only `mode: primary` agent.** The other 11 agents are `mode: subagent` — they do not appear in OpenCode's `<Leader>a` list and cannot be selected as primary. Maestro orchestrates them via the `task` tool.
+
+- Users see **only** Maestro in `<Leader>a`
+- Maestro dispatches work to subagents in isolated child sessions
+- Subagent `question` calls bubble to the **main window** (verified 2026-07-03)
+- Users never need to press `<Leader>a` to switch primary agents
+- After a subagent completes, focus auto-returns to Maestro
+- For viewing a subagent's context, press `<Leader>+Down` to enter / `<Leader>+Up` to return
+
+### 6.3 The 12 Agents (reference)
+
 | Agent          | Role                                             | Tier    | Open-source example  | Closed-source example (reference)           |
 | -------------- | ------------------------------------------------ | :-----: | -------------------- | ------------------------------------------- |
 | **Maestro**    | Conductor — orchestrates the pipeline            | A       | `minimax-m3`         | `gpt-5.6`, `fable`                         |
