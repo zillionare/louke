@@ -156,8 +156,13 @@ def cmd_opencode(args):
     src = agent_source(root)
     dest_dir = root / '.opencode/agents'
 
+    from ._color import (
+        cyan, dim, yellow, green as g, red as r, bold, ok, fail, warn, info,
+        Spinner,
+    )
+
     if not quiet:
-        print(f'[1/5] 读取 source agents: {src}', flush=True)
+        print(f'{cyan("[1/5]")} 读取 source agents: {src}', flush=True)
 
     # 1. 收集 source agents
     source_files = []
@@ -184,42 +189,44 @@ def cmd_opencode(args):
                 abstract_models.add(m)
 
     if not quiet:
-        print(f'[2/5] 查询 opencode models + 解析 provider/model bind', flush=True)
-    # 2a. 读 ~/.louke/models.json alias (不打印)
+        print(f'{cyan("[2/5]")} 查询 opencode models + 解析 provider/model bind', flush=True)
     if not quiet:
         alias_user = (Path.home() / '.louke/models.json')
         alias_proj = root / '.louke/models.json'
         print(f'      用户级 alias: {alias_user}', flush=True)
         print(f'      项目级 alias: {alias_proj}', flush=True)
-    # 2b. opencode models (subprocess, 可能慢)
+    # opencode models (subprocess, 可能慢) — spinner
+    available: list[str] = []
     if abstract_models:
         if not quiet:
-            print(f'      调用 opencode models (N={len(abstract_models)} abstract names)...', flush=True)
-        try:
-            available = opencode_models()
-            if not quiet:
-                print(f'      opencode models 返回 {len(available)} 个 model', flush=True)
-        except Exception as e:
-            if not quiet:
-                print(f'      [warn] opencode models 失败: {e}', flush=True)
-            available = []
-    else:
-        available = []
-    # 2c. auth providers (auth.json) + model costs
+            print(f'      调用 opencode models (N={len(abstract_models)} abstract names)...',
+                  flush=True)
+        with Spinner('查询 opencode models'):
+            try:
+                available = opencode_models()
+            except Exception as e:
+                if not quiet:
+                    print(f'      {warn(f"opencode models 失败: {e}")}', flush=True)
+        if not quiet:
+            print(f'      opencode models 返回 {len(available)} 个 model', flush=True)
+    # auth providers + model costs
     if not quiet:
-        print(f'[3/5] 读取 auth providers + cost index', flush=True)
-    auth = auth_providers()
+        print(f'{cyan("[3/5]")} 读取 auth providers + cost index', flush=True)
+    with Spinner('读取 auth.json + cost index'):
+        auth = auth_providers()
+        costs = model_costs()
     if not quiet:
-        print(f'      auth providers: {len(auth)} 个 ({sorted(auth)[:3]}{"..." if len(auth) > 3 else ""})', flush=True)
-    costs = model_costs()
-    if not quiet:
+        sample = sorted(auth)[:3]
+        more = '...' if len(auth) > 3 else ''
+        print(f'      auth providers: {len(auth)} 个 ({sample}{more})', flush=True)
         free_count = sum(1 for v in costs.values() if v == (0, 0))
         print(f'      model costs: {len(costs)} 个, 其中 free {free_count} 个', flush=True)
 
     # 4. 解析每个 source 的 model, 写文件
     if not quiet:
-        print(f'[4/5] 解析 model bind + 写入 .opencode/agents/', flush=True)
+        print(f'{cyan("[4/5]")} 解析 model bind + 写入 .opencode/agents/', flush=True)
     generated = []
+    unbound_abstracts: list[tuple[str, str]] = []  # (agent_name, abstract)
     for fp, fm, body in parsed:
         name = str(fm.get('name') or fp.stem).lower()
         description = fm.get('description') or fp.stem
@@ -228,13 +235,16 @@ def cmd_opencode(args):
         if isinstance(models, str):
             models = [models]
         model = resolve_model(models[0], root=root, models=available) if models else ''
+        # 探测 unbound: 名字没 '/' (即仍是 abstract) + 没 alias
+        if model and '/' not in model and not quiet:
+            unbound_abstracts.append((name, model))
         passthrough = _render_passthrough_block(fm, exclude={'description', 'mode', 'model'})
 
-        # dry-run 警告未白名单字段
         unknown_keys = set(fm.keys()) - {'name', 'description', 'mode', 'model', 'models'} - PASSTHROUGH_KEYS
         if unknown_keys and dry_run:
             for k in sorted(unknown_keys):
-                print(f'[!] dropped unknown frontmatter key {k!r} from {fp.name}')
+                print(f'{warn(f"dropped unknown frontmatter key {k!r} from {fp.name}")}',
+                      flush=True)
 
         head = f'---\ndescription: {description}\nmode: {mode}\nmodel: {model}\n'
         if passthrough:
@@ -246,15 +256,30 @@ def cmd_opencode(args):
         generated.append(dest)
         if dry_run:
             if not quiet:
-                print(f'      [+] {name:<12} {mode:<10} -> {model}', flush=True)
+                marker = cyan('+')
+                print(f'      {marker} {name:<12} {mode:<10} {dim("->")} {model}',
+                      flush=True)
         else:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(out, encoding='utf-8')
             if not quiet:
-                print(f'      [✓] {name:<12} {mode:<10} -> {model}', flush=True)
+                marker = g('✓')
+                print(f'      {marker} {name:<12} {mode:<10} {dim("->")} {model}',
+                      flush=True)
 
     if not dry_run and not quiet:
-        print(f'[5/5] 完成: 生成 {len(generated)} 个 OpenCode agent -> {dest_dir}', flush=True)
+        print(f'{cyan("[5/5]")} 完成: 生成 {len(generated)} 个 OpenCode agent -> {dest_dir}',
+              flush=True)
+    # unbound 提示
+    if unbound_abstracts and not quiet:
+        print(f'\n{warn(f"{len(unbound_abstracts)} 个 abstract 未绑定 (output model 没 provider 前缀, OpenCode 用不起来):")}')
+        for n, a in unbound_abstracts:
+            print(f'  {dim("-")} {n}: {a}')
+        print(f'\n{info("修复:")} {cyan("lk models bind <abstract> <provider>/<model>")} '
+              f'或 {cyan("lk models bind <abstract>")} (交互式)')
+        # 建议交互式
+        if available:
+            print(f'      交互式会列出 {len(available)} 个 opencode model 供选择')
     return 0
 
 

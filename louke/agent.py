@@ -207,11 +207,13 @@ def cmd_lint(args):
                   f'{MIN_OPENCODE_VERSION}', flush=True)
 
     if errors:
-        print(f'[FAIL] {len(errors)} errors:', flush=True)
+        from ._color import fail, red
+        print(f'{fail(f"{len(errors)} errors:")}', flush=True)
         for e in errors:
-            print(f'  - {e}', flush=True)
+            print(f'  {red("-")} {e}', flush=True)
         return 1
-    print(f'[ok] {len(agents_fm)} agents pass lint '
-          f'({sum(1 for n in agents_fm if n in PERMISSION_REQUIRED)} with permission)',
+    from ._color import ok, cyan, dim
+    print(f'{ok()} {len(agents_fm)} agents pass lint '
+          f'{dim("(")}{cyan(str(sum(1 for n in agents_fm if n in PERMISSION_REQUIRED)))}{dim(" with permission)")}',
           flush=True)
     return 0

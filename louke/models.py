@@ -25,10 +25,12 @@ def register(parser):
     p.add_argument('--probe', action='store_true',
                    help='对 ✓ 候选调 opencode run 做最小请求验证 (慢、耗 token)')
     p.add_argument('--quiet', action='store_true', help='不打印每步进度')
-    p = sub.add_parser('bind', help='绑定抽象名')
-    p.add_argument('abstract')
-    p.add_argument('full')
+    p = sub.add_parser('bind', help='绑定抽象名 (无 <full> 时进入交互式)')
+    p.add_argument('abstract', nargs='?', help='抽象模型名 (省略 + --all-unresolved 则批量)')
+    p.add_argument('full', nargs='?', help='完整 model id (provider/model)')
     p.add_argument('--project', action='store_true')
+    p.add_argument('--all-unresolved', action='store_true',
+                   help='逐个交互式绑定所有 unresolved abstract')
     p = sub.add_parser('unbind', help='解绑抽象名')
     p.add_argument('abstract')
     p.add_argument('--project', action='store_true')
@@ -289,55 +291,64 @@ def _classify(name: str, models: list[str], auth: set[str] | None,
 
 
 def cmd_list(args):
+    from ._color import cyan, dim, yellow
     for name in used_models():
         resolved = resolve_model(name)
-        print(f'{name}\t{resolved if resolved != name else "-"}')
+        if resolved == name:
+            print(f'{name}\t{dim("-")}')
+        else:
+            print(f'{name}\t{cyan(resolved)}')
     return 0
 
 
 def cmd_doctor(args):
+    from ._color import (
+        cyan, dim, yellow, green as g, red as r, bold,
+        ok, fail, warn, info, Spinner,
+    )
     quiet = getattr(args, 'quiet', False)
     used = used_models()
     if not quiet:
-        print(f'[1/4] 扫描 source agents: 发现 {len(used)} 个 abstract model',
+        print(f'{cyan("[1/4]")} 扫描 source agents: 发现 {len(used)} 个 abstract model',
               flush=True)
         print(f'      样例: {", ".join(used[:3])}{"..." if len(used) > 3 else ""}',
               flush=True)
     if not quiet:
-        print(f'[2/4] 查询 opencode models (subprocess)...', flush=True)
-    models = opencode_models()
+        print(f'{cyan("[2/4]")} 查询 opencode models (subprocess)...', flush=True)
+    with Spinner('查询 opencode models'):
+        models = opencode_models()
     if not quiet:
         print(f'      返回 {len(models)} 个 model', flush=True)
-        print(f'[3/4] 读取 auth.json + model costs', flush=True)
-    auth = auth_providers() if models else None
+        print(f'{cyan("[3/4]")} 读取 auth.json + model costs', flush=True)
+    with Spinner('读取 auth.json + model costs'):
+        auth = auth_providers() if models else None
+        costs = model_costs() if models else {}
     if not quiet:
         if auth:
             print(f'      auth providers ({len(auth)}): {sorted(auth)}', flush=True)
         else:
-            print(f'      auth providers: (none / auth.json missing)',
+            print(f'      auth providers: {dim("(none / auth.json missing)")}',
                   flush=True)
-    costs = model_costs() if models else {}
-    if not quiet:
         free = sum(1 for v in costs.values() if v == (0, 0))
         print(f'      model costs: {len(costs)} 个, 其中 free {free} 个',
               flush=True)
-        print(f'[4/4] 三层验证 (alias → strong/weak match → auth filter)',
+        print(f'{cyan("[4/4]")} 三层验证 {dim("(alias → strong/weak match → auth filter)")}',
               flush=True)
     ok = True
     fixes: dict[str, str] = {}
     for name in used_models():
         status, resolved, note = _classify(name, models, auth, costs)
         if status == 'alias':
-            print(f'✓ {name} -> {resolved} (alias)')
+            print(f'{ok()} {name} -> {resolved} {dim("(alias)")}')
             continue
         if status == 'ok':
-            tag = f' ({note})' if note else ''
-            line = f'✓ {name} -> {resolved}{tag}'
+            tag = f' {dim("(" + note + ")")}' if note else ''
+            line = f'{ok()} {name} -> {resolved}{tag}'
             if args.probe:
                 if probe_model(resolved):
-                    line += ' (probed ok)'
+                    line += f' {g("(probed ok)")}'
                 else:
-                    line += ' (probe failed)'
+                    line += f' {r("(probe failed)")}'
                     ok = False
             print(line)
             fixes[name] = resolved
@@ -360,10 +371,135 @@ def cmd_doctor(args):
 
 
 def cmd_bind(args):
-    path = config_path(args.project)
+    if args.all_unresolved or args.abstract is None:
+        return _interactive_bind_batch(args.project)
+    if args.full is None:
+        return _interactive_bind_one(args.abstract, args.project)
+    return _direct_bind(args.abstract, args.full, args.project)
+
+
+def _direct_bind(abstract: str, full: str, project: bool) -> int:
+    path = config_path(project)
     data = load_config(path)
-    data['aliases'][args.abstract] = args.full
+    data['aliases'][abstract] = full
     save_config(path, data)
+    from ._color import ok
+    print(f'{ok()} {abstract} -> {full} (写入 {path})')
+    return 0
+
+
+def _rank_candidates(abstract: str, models: list[str]) -> list[str]:
+    """Return relevant model candidates, sorted by relevance.
+
+    Strategy: split abstract on '-'. Use each part (non-empty, non-pure-digit,
+    non-'vN' prefix) as a substring hint. Score each model by how many parts
+    appear in the model name. Sort by score desc, then alphabetical.
+    """
+    parts = [w for w in abstract.lower().split('-') if w]
+    words = [w for w in parts
+             if not w.isdigit()
+             and not (w.startswith('v') and w[1:].isdigit())]
+    if not words:
+        return models[:20]
+    candidates = []
+    for m in models:
+        m_lower = m.lower()
+        score = sum(1 for w in words if w in m_lower)
+        if score > 0:
+            candidates.append((m, score))
+    candidates.sort(key=lambda x: (-x[1], x[0]))
+    if not candidates:
+        return models[:20]
+    return [m for m, _ in candidates[:12]]
+
+
+def _interactive_bind_one(abstract: str, project: bool) -> int:
+    """交互式绑定一个 abstract: 列出候选 -> 用户选/输入 -> 写入."""
+    from ._color import info, warn, ok, dim, red, cyan
+    from .models import auth_providers
+
+    print(f'\n{info()} {cyan(abstract)} {warn("未找到匹配")} ({len(extract_unresolved(project))} 个 unresolved 之一)')
+
+    # 1. 尝试 opencode models
+    candidates: list[str] = []
+    opencode_ok = False
+    try:
+        from ._color import Spinner
+        with Spinner(f'查询 opencode models'):
+            candidates = opencode_models()
+        opencode_ok = bool(candidates)
+    except Exception:
+        pass
+
+    if opencode_ok:
+        relevant = _rank_candidates(abstract, candidates)
+        print(f'  {dim("opencode models:")} {len(candidates)} 个, 与 {cyan(abstract)} 相关 {len(relevant)} 个:')
+        for i, m in enumerate(relevant, 1):
+            print(f'  {dim(str(i).rjust(2))}. {m}')
+    else:
+        # 2. 回退: 列出 auth providers (从 auth.json 读)
+        auth = auth_providers()
+        print(f'  {dim("(opencode CLI 未安装, 只能列 auth providers; 用 0 自定义完整 model)")}')
+        for i, p in enumerate(sorted(auth), 1):
+            print(f'  {dim(str(i).rjust(2))}. {p}/<model>')
+    print(f'  {dim(" 0")}. 自定义 provider/model')
+    print(f'  {dim(" q")}. 跳过')
+
+    while True:
+        try:
+            choice = input(f'\n  {cyan("→")} 选择 [1-{len(candidates) if opencode_ok else len(auth) if not opencode_ok else "N"}/0/q]: ').strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print(f'\n  {warn("中断, 未绑定")}')
+            return 1
+
+        if choice in ('q', 'quit'):
+            print(f'  {dim("跳过")} {abstract}')
+            return 0
+        if choice == '0':
+            try:
+                custom = input(f'  {cyan("→")} provider/model (例: kimi-for-coding/kimi-latest): ').strip()
+            except (EOFError, KeyboardInterrupt):
+                print(f'  {warn("中断")}')
+                return 1
+            if not custom:
+                continue
+            if opencode_ok and custom not in candidates:
+                # warn but accept
+                confirm = input(f'  {warn(custom)} 不在 opencode models 里. 仍要绑定? [y/N]: ').strip().lower()
+                if confirm != 'y':
+                    continue
+            return _direct_bind(abstract, custom, project)
+        if choice.isdigit():
+            idx = int(choice) - 1
+            pool = relevant if opencode_ok else sorted(auth)
+            if 0 <= idx < len(pool):
+                return _direct_bind(abstract, pool[idx], project)
+        print(f'  {red("无效选择")}, 重试')
+
+
+def extract_unresolved(project: bool = False) -> list[str]:
+    """Return list of abstract model names that can't be resolved to a real model."""
+    used = used_models()
+    project_aliases = load_config(config_path(True)).get('aliases', {}) if project or True else {}
+    user_aliases = load_config(config_path(False)).get('aliases', {})
+    all_aliases = {**project_aliases, **user_aliases}
+    # simple check: if name has no '/' it's unresolved (real names have provider prefix)
+    # more accurate: try to resolve and see if result equals input
+    return [n for n in used if n not in all_aliases and ('/' not in n)]
+
+
+def _interactive_bind_batch(project: bool) -> int:
+    """Batch interactive: 逐个绑定所有 unresolved."""
+    from ._color import info, warn, dim, cyan
+    unresolved = extract_unresolved(project)
+    if not unresolved:
+        print(f'{info()} 没有 unresolved abstract, 无需绑定')
+        return 0
+    print(f'{info()} 发现 {cyan(str(len(unresolved)))} 个 unresolved abstract: {", ".join(unresolved)}\n')
+    for i, name in enumerate(unresolved, 1):
+        print(f'{dim(f"[{i}/{len(unresolved)}]")} ', end='')
+        if _interactive_bind_one(name, project) != 0:
+            return 1
     return 0
 
 
