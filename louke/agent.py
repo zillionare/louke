@@ -93,6 +93,13 @@ def register(parser):
     p.add_argument('--root', help='项目根目录 (默认: 当前 git 仓库)')
     p.add_argument('--dry-run', action='store_true', help='只打印会做什么, 不实际改')
 
+    # v0.6-007: lk agent list-models
+    p = sub.add_parser('list-models',
+                       help='列出所有 agent 的 models: chain + 当前 resolved')
+    p.add_argument('--root', help='项目根目录 (默认: 当前 git 仓库)')
+    p.add_argument('--unbound-only', action='store_true',
+                   help='只显示当前未 resolve 的 agent (即有 unresolved abstract 的)')
+
     # 12 个 agent 子命令
     for name, module in AGENTS.items():
         if hasattr(module, 'register'):
@@ -104,6 +111,8 @@ def run(args):
         return cmd_lint(args)
     if args.agent_command == 'set-model':
         return cmd_set_model(args)
+    if args.agent_command == 'list-models':
+        return cmd_list_models(args)
     module = AGENTS.get(args.agent_command)
     if not module or not hasattr(module, 'run'):
         print(f"lk agent: '{args.agent_command}' not found", flush=True)
@@ -338,4 +347,71 @@ def cmd_set_model(args):
         )
         cmd_opencode(regen_args)
 
+    return 0
+
+
+def cmd_list_models(args):
+    """v0.6-007: lk agent list-models — 显示每个 agent 的 models: chain + 当前 resolved."""
+    from ._color import cyan, dim, yellow as y, red, green, bold
+    from .board import agent_source, parse_frontmatter
+    from .models import resolve_model
+
+    # 1. Resolve project root
+    explicit = getattr(args, 'root', None)
+    if explicit:
+        root = Path(explicit).resolve()
+    else:
+        root = git_root()
+    if root is None:
+        print(f'{red("error:")} lk agent list-models 需要 git 仓库 (或显式 --root).',
+              file=sys.stderr)
+        return 1
+
+    src = agent_source(root)
+    if not src.exists():
+        print(f'{red(f"agent source not found: {src}")}', file=sys.stderr)
+        return 1
+
+    # 2. 收集每个 agent 的 models: chain
+    rows = []  # [(name, models_chain, resolved_or_None)]
+    for fp in sorted(src.glob('*.md')):
+        if fp.name in {'README.md', 'ROSTER.md'}:
+            continue
+        text = fp.read_text(encoding='utf-8')
+        fm, _ = parse_frontmatter(text)
+        name = str(fm.get('name') or fp.stem)
+        models = fm.get('models') or []
+        if isinstance(models, str):
+            models = [models]
+        # 当前 resolved = chain 中第一个能 resolve 的
+        resolved = None
+        for m in models:
+            r_real = resolve_model(m)
+            if r_real != m:  # 不等于 abstract (说明 resolve 成功)
+                resolved = r_real
+                break
+        rows.append((name, models, resolved))
+
+    # 3. 过滤
+    if getattr(args, 'unbound_only', False):
+        rows = [r for r in rows if r[2] is None]
+
+    if not rows:
+        print(f'{green("✓")} 所有 agent 都已 resolve')
+        return 0
+
+    # 4. 输出表格
+    name_w = max(len(r[0]) for r in rows)
+    print(f'{bold("agent")}      | {bold("models: chain")}'
+          f'{" " * max(0, 30 - 12)} | {bold("current resolved")}')
+    print(f'{"-" * (name_w + 4)}-+-{"-" * 32}-+-{"-" * 30}')
+    for name, models, resolved in rows:
+        chain = ', '.join(models)
+        if len(chain) > 30:
+            chain = chain[:27] + '...'
+        if resolved:
+            res_str = f'{cyan(resolved)}'
+        else:
+            res_str = f'{y("(未绑)")} ← 跑 lk models bind'
+        print(f'{name:<{name_w}} | {chain:<32} | {res_str}')
     return 0
