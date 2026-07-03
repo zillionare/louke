@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "louke"
-version = "0.6.0"
+version = "0.6.1"
 description = "Lòukè - 超越氛围写意，乃是工笔造物 (beyond vibes, into craft)"
 readme = "README.md"
 requires-python = ">=3.9"

@@ -31,7 +31,7 @@ def register(parser):
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
     p = sub.add_parser('opencode', help='生成 OpenCode agents')
     p.add_argument('--dry-run', action='store_true')
-    p.add_argument('--quiet', action='store_true')
+    p.add_argument('--quiet', action='store_true', help='不打印每步进度 (只输出最终汇总)')
     p = sub.add_parser('status', help='查看 board 状态')
     p.add_argument('--root', default='')
     p = sub.add_parser('vscode', help='VS Code board 当前不支持')
@@ -155,24 +155,82 @@ def cmd_opencode(args):
     root = Path(root)
     src = agent_source(root)
     dest_dir = root / '.opencode/agents'
-    generated = []
+
+    if not quiet:
+        print(f'[1/5] 读取 source agents: {src}', flush=True)
+
+    # 1. 收集 source agents
+    source_files = []
     for fp in sorted(src.glob('*.md')):
         if fp.name in SKIP:
             continue
+        source_files.append(fp)
+    if not quiet:
+        print(f'      发现 {len(source_files)} 个 agent prompt', flush=True)
+
+    # 2. 解析 frontmatter, 收集所有 abstract model names
+    from .models import opencode_models, auth_providers, model_costs
+    parsed = []  # [(fp, fm, body)]
+    abstract_models = set()
+    for fp in source_files:
         text = fp.read_text(encoding='utf-8')
         fm, body = parse_frontmatter(text)
+        parsed.append((fp, fm, body))
+        models = fm.get('models') or []
+        if isinstance(models, str):
+            models = [models]
+        for m in models:
+            if m and not m.startswith(('ark/', 'openrouter/', 'opencode/', 'kimi/', 'aliyun/', 'minimax/', 'glm', 'xfei', 'deepseek')):
+                abstract_models.add(m)
+
+    if not quiet:
+        print(f'[2/5] 查询 opencode models + 解析 provider/model bind', flush=True)
+    # 2a. 读 ~/.louke/models.json alias (不打印)
+    if not quiet:
+        alias_user = (Path.home() / '.louke/models.json')
+        alias_proj = root / '.louke/models.json'
+        print(f'      用户级 alias: {alias_user}', flush=True)
+        print(f'      项目级 alias: {alias_proj}', flush=True)
+    # 2b. opencode models (subprocess, 可能慢)
+    if abstract_models:
+        if not quiet:
+            print(f'      调用 opencode models (N={len(abstract_models)} abstract names)...', flush=True)
+        try:
+            available = opencode_models()
+            if not quiet:
+                print(f'      opencode models 返回 {len(available)} 个 model', flush=True)
+        except Exception as e:
+            if not quiet:
+                print(f'      [warn] opencode models 失败: {e}', flush=True)
+            available = []
+    else:
+        available = []
+    # 2c. auth providers (auth.json) + model costs
+    if not quiet:
+        print(f'[3/5] 读取 auth providers + cost index', flush=True)
+    auth = auth_providers()
+    if not quiet:
+        print(f'      auth providers: {len(auth)} 个 ({sorted(auth)[:3]}{"..." if len(auth) > 3 else ""})', flush=True)
+    costs = model_costs()
+    if not quiet:
+        free_count = sum(1 for v in costs.values() if v == (0, 0))
+        print(f'      model costs: {len(costs)} 个, 其中 free {free_count} 个', flush=True)
+
+    # 4. 解析每个 source 的 model, 写文件
+    if not quiet:
+        print(f'[4/5] 解析 model bind + 写入 .opencode/agents/', flush=True)
+    generated = []
+    for fp, fm, body in parsed:
         name = str(fm.get('name') or fp.stem).lower()
         description = fm.get('description') or fp.stem
         mode = fm.get('mode') or 'all'
         models = fm.get('models') or []
         if isinstance(models, str):
             models = [models]
-        model = resolve_model(models[0], root=root) if models else ''
-
-        # v0.6-009 FR-0030: 渲染透传字段
+        model = resolve_model(models[0], root=root, models=available) if models else ''
         passthrough = _render_passthrough_block(fm, exclude={'description', 'mode', 'model'})
 
-        # v0.6-009 FR-0030 AC-5: dry-run 警告未白名单字段
+        # dry-run 警告未白名单字段
         unknown_keys = set(fm.keys()) - {'name', 'description', 'mode', 'model', 'models'} - PASSTHROUGH_KEYS
         if unknown_keys and dry_run:
             for k in sorted(unknown_keys):
@@ -188,12 +246,15 @@ def cmd_opencode(args):
         generated.append(dest)
         if dry_run:
             if not quiet:
-                print(f'[+] {dest}')
+                print(f'      [+] {name:<12} {mode:<10} -> {model}', flush=True)
         else:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(out, encoding='utf-8')
+            if not quiet:
+                print(f'      [✓] {name:<12} {mode:<10} -> {model}', flush=True)
+
     if not dry_run and not quiet:
-        print(f'generated {len(generated)} OpenCode agents')
+        print(f'[5/5] 完成: 生成 {len(generated)} 个 OpenCode agent -> {dest_dir}', flush=True)
     return 0
 
 

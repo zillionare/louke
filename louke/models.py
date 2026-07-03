@@ -24,6 +24,7 @@ def register(parser):
     p.add_argument('--ide', default='opencode')
     p.add_argument('--probe', action='store_true',
                    help='对 ✓ 候选调 opencode run 做最小请求验证 (慢、耗 token)')
+    p.add_argument('--quiet', action='store_true', help='不打印每步进度')
     p = sub.add_parser('bind', help='绑定抽象名')
     p.add_argument('abstract')
     p.add_argument('full')
@@ -295,12 +296,33 @@ def cmd_list(args):
 
 
 def cmd_doctor(args):
+    quiet = getattr(args, 'quiet', False)
+    used = used_models()
+    if not quiet:
+        print(f'[1/4] 扫描 source agents: 发现 {len(used)} 个 abstract model',
+              flush=True)
+        print(f'      样例: {", ".join(used[:3])}{"..." if len(used) > 3 else ""}',
+              flush=True)
+    if not quiet:
+        print(f'[2/4] 查询 opencode models (subprocess)...', flush=True)
     models = opencode_models()
-    costs = model_costs() if models else {}
-    # auth_providers() reads auth.json directly, so it works even without
-    # `opencode` on PATH. But if `opencode models` returned nothing, we
-    # also can't match — treat as "no auth info" to keep ✓/✗ simple.
+    if not quiet:
+        print(f'      返回 {len(models)} 个 model', flush=True)
+        print(f'[3/4] 读取 auth.json + model costs', flush=True)
     auth = auth_providers() if models else None
+    if not quiet:
+        if auth:
+            print(f'      auth providers ({len(auth)}): {sorted(auth)}', flush=True)
+        else:
+            print(f'      auth providers: (none / auth.json missing)',
+                  flush=True)
+    costs = model_costs() if models else {}
+    if not quiet:
+        free = sum(1 for v in costs.values() if v == (0, 0))
+        print(f'      model costs: {len(costs)} 个, 其中 free {free} 个',
+              flush=True)
+        print(f'[4/4] 三层验证 (alias → strong/weak match → auth filter)',
+              flush=True)
     ok = True
     fixes: dict[str, str] = {}
     for name in used_models():
