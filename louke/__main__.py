@@ -60,8 +60,25 @@ def build_parser():
 
 
 def _do_upgrade(extra_args):
-    """lk upgrade — find the venv that owns lk and pip install --upgrade louke there."""
+    """lk upgrade — find the venv that owns lk and pip install --upgrade louke there.
+
+    支持的 louke-level 选项 (其余原样转发给 pip):
+      --index URL        指定 PyPI 源 (e.g. https://test.pypi.org/simple/)
+                         内部翻译为 pip 的 --index-url
+      --pre              允许 pre-release / dev 版本
+      --dry-run          显示将要执行的 pip 命令, 不实际执行
+    """
     import subprocess, os
+
+    # 0. 解析 louke-level 选项, 剩余原样转 pip
+    parser = argparse.ArgumentParser(prog='lk upgrade', add_help=True)
+    parser.add_argument('--index', metavar='URL',
+                        help='指定 PyPI 源 URL (e.g. https://test.pypi.org/simple/)')
+    parser.add_argument('--pre', action='store_true',
+                        help='允许 pre-release / dev 版本')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='显示将要执行的 pip 命令, 不实际执行')
+    opts, rest = parser.parse_known_args(extra_args)
 
     # 1. Find the venv: lk 入口脚本 shebang 指向 venv python
     lk_bin = os.path.realpath(sys.argv[0])
@@ -75,8 +92,16 @@ def _do_upgrade(extra_args):
         print('hint: run install.sh again to recreate the venv', file=sys.stderr)
         return 1
 
-    cmd = [venv_python, '-m', 'pip', 'install', '--upgrade', 'louke'] + extra_args
+    cmd = [venv_python, '-m', 'pip', 'install', '--upgrade', 'louke']
+    if opts.index:
+        cmd.extend(['--index-url', opts.index])
+    if opts.pre:
+        cmd.append('--pre')
+    cmd.extend(rest)
+
     print(f'Running: {" ".join(cmd)}')
+    if opts.dry_run:
+        return 0
     result = subprocess.run(cmd)
     if result.returncode == 0:
         # Verify
@@ -149,7 +174,7 @@ def print_help_text():
     print('  lk init <name|path>         Initialize/adopt louke project skeleton')
     print('  lk models list|doctor|bind|unbind  Manage abstract model bindings')
     print('  lk board opencode|status    Generate IDE agent boards')
-    print('  lk upgrade                  Upgrade louke via pip')
+    print('  lk upgrade [--index URL] [--pre] [--dry-run]  Upgrade louke via pip')
     print('  lk version                  Print version')
     print('  lk help                     Print this help')
     print()
