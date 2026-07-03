@@ -388,6 +388,45 @@ def _direct_bind(abstract: str, full: str, project: bool) -> int:
     return 0
 
 
+def _probe_or_skip(model: str, project: bool, allow_skip: bool = True) -> bool:
+    """Probe model before binding. Returns True if usable OR user chose skip.
+
+    If model is unusable, prompts user: retry / skip / cancel.
+    """
+    from ._color import Spinner, ok as _ok, fail as _fail, warn, dim
+    print(f'  {dim("验证")} {model} ...', flush=True)
+    with Spinner(f'probe {model}'):
+        ok = probe_model(model)
+    if ok:
+        print(f'  {_ok("可用")}')
+        return True
+    print(f'  {_fail("不可用")} (probe 失败 / key 过期 / 模型下架 / 30s 超时)')
+    if not allow_skip:
+        return False
+    while True:
+        try:
+            choice = input('  [r] 重试 / [s] 跳过 (不绑) / [a] 强制绑? [r/s/a]: ').strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print(f'\n  {warn("中断")}')
+            return False
+        if choice in ('r', 'retry', ''):
+            print(f'  {dim("重试...")}')
+            with Spinner(f'probe {model}'):
+                ok = probe_model(model)
+            if ok:
+                print(f'  {_ok("可用")}')
+                return True
+            print(f'  {_fail("仍然不可用")}')
+            continue
+        if choice in ('s', 'skip'):
+            print(f'  {dim("跳过")}')
+            return False
+        if choice in ('a', 'always'):
+            print(f'  {warn("强制保存, OpenCode 实际用时可能失败")}')
+            return True
+        print(f'  {dim("无效")}')
+
+
 def _rank_candidates(abstract: str, models: list[str]) -> list[str]:
     """Return relevant model candidates, sorted by Levenshtein similarity.
 
@@ -415,7 +454,7 @@ def _rank_candidates(abstract: str, models: list[str]) -> list[str]:
 
 
 def _interactive_bind_one(abstract: str, project: bool) -> int:
-    """交互式绑定一个 abstract: 列出候选 -> 用户选/输入 -> 写入."""
+    """交互式绑定一个 abstract: 列出候选 -> 用户选/输入 -> probe -> 写入."""
     from ._color import info, warn, ok, dim, red, cyan
     from .models import auth_providers
 
@@ -469,12 +508,19 @@ def _interactive_bind_one(abstract: str, project: bool) -> int:
                 confirm = input(f'  {warn(custom)} 不在 opencode models 里. 仍要绑定? [y/N]: ').strip().lower()
                 if confirm != 'y':
                     continue
+            # NEW: probe custom before save
+            if not _probe_or_skip(custom, project):
+                continue
             return _direct_bind(abstract, custom, project)
         if choice.isdigit():
             idx = int(choice) - 1
             pool = relevant if opencode_ok else sorted(auth)
             if 0 <= idx < len(pool):
-                return _direct_bind(abstract, pool[idx], project)
+                selected = pool[idx]
+                # NEW: probe before save
+                if not _probe_or_skip(selected, project):
+                    continue
+                return _direct_bind(abstract, selected, project)
         print(f'  {red("无效选择")}, 重试')
 
 
