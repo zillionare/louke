@@ -83,13 +83,14 @@ def register(parser):
     p.add_argument('--strict', action='store_true',
                    help='严格模式: 白名单外字段也报错 (默认仅 warning)')
 
-    # v0.6-006: lk agent set-model <name> <abstract>
+    # v0.6-009: lk agent set-model <name> <abstract>
+    # 临时直接改 .opencode/agents/<name>.md 的 model: 字段, 不持久
     p = sub.add_parser('set-model',
-                       help='改 agent models[0] 为指定 abstract, 交互绑 + probe + 自动重生 board')
+                       help='临时改 <name>.md (output) 的 model 字段. 直接生效, '
+                            '下次 lk board opencode 会覆盖. 用于 model 临时不可用 (费用/busy).')
     p.add_argument('name', help='agent 名字 (e.g. archer)')
     p.add_argument('model', help='abstract 模型名 (e.g. glm-5.2)')
     p.add_argument('--no-probe', action='store_true', help='跳过 probe 检查')
-    p.add_argument('--no-regen', action='store_true', help='改完不跑 lk board opencode')
     p.add_argument('--root', help='项目根目录 (默认: 当前 git 仓库)')
     p.add_argument('--dry-run', action='store_true', help='只打印会做什么, 不实际改')
 
@@ -263,63 +264,59 @@ def _resolve_root(args) -> Path | None:
 
 
 def cmd_set_model(args):
-    """v0.6-006: lk agent set-model <name> <abstract>
+    """v0.6-009: lk agent set-model <name> <abstract>
 
-    1. 改 <name>.md 的 models[0] 为 <abstract>
-    2. 跑交互式 bind (resolve abstract → real model, probe + save)
-    3. 自动跑 lk board opencode 重生 .opencode/agents/<name>.md
+    临时改 .opencode/agents/<name>.md 的 model: 字段 (不持久, 直接生效).
+
+    适用: 某个 model 临时不可用 (费用/busy), 切到别的 model 用一次.
+    注意: 下次 lk board opencode 会用 source 重生, 覆盖此修改.
+
+    流程:
+    1. 找 .opencode/agents/<name>.md (output, 不是 source)
+    2. resolve abstract → real model (alias / interactive bind)
+    3. probe 验证 (v0.6.5 流程)
+    4. regex 替换 output 文件的 model: 行
     """
     from ._color import ok, fail, warn, info, cyan, dim, red
-    from .board import agent_source, cmd_opencode
     from .models import (
-        resolve_model, _interactive_bind_one, _probe_or_skip, _direct_bind,
+        resolve_model, _interactive_bind_one, _probe_or_skip,
     )
 
     name: str = args.name
     abstract: str = args.model
 
     # 1. Resolve project root
-    root = _resolve_root(args)
+    explicit = getattr(args, 'root', None)
+    if explicit:
+        root = Path(explicit).resolve()
+    else:
+        root = git_root()
     if root is None:
+        print(f'{red("error:")} lk agent set-model 需要 git 仓库 (或显式 --root).',
+              file=sys.stderr)
         return 1
 
-    # 2. Find agent source file
-    src = agent_source(root)
-    agent_file = src / f'{name}.md'
-    if not agent_file.exists():
-        candidates = [f for f in src.glob('*.md') if f.stem.lower() == name.lower()]
+    # 2. Find OUTPUT file (.opencode/agents/<name>.md)
+    out_dir = root / '.opencode/agents'
+    out_file = out_dir / f'{name}.md'
+    if not out_file.exists():
+        candidates = [f for f in out_dir.glob('*.md')
+                      if f.stem.lower() == name.lower()]
         if not candidates:
-            print(f'{fail(f"agent file not found: {agent_file}")}', file=sys.stderr)
+            print(f'{fail(f"output file not found: {out_file}")}', file=sys.stderr)
+            print(f'  {cyan("hint:")} 先跑 lk board opencode 生成 output',
+                  file=sys.stderr)
             return 1
         if len(candidates) > 1:
             names = ', '.join(c.name for c in candidates)
-            print(f'{fail(f"multiple matches for {name!r}: {names}")}', file=sys.stderr)
+            print(f'{fail(f"multiple matches for {name!r}: {names}")}',
+                  file=sys.stderr)
             return 1
-        agent_file = candidates[0]
+        out_file = candidates[0]
 
-    # 3. Update models: first entry in frontmatter (preserve rest of file)
-    text = agent_file.read_text(encoding='utf-8')
-    pattern = re.compile(r'(^models:\s*\n\s*-\s*)\S+', re.MULTILINE)
-    match = pattern.search(text)
-    if not match:
-        print(f'{fail(f"no models: list found in {agent_file.name}")}', file=sys.stderr)
-        return 1
-    old_first = match.group(0).split('-', 1)[1].strip()
-    if old_first == abstract:
-        print(f'{info(f"{agent_file.name} models[0] 已经是 {abstract}, 无变化")}')
-    else:
-        if args.dry_run:
-            print(f'{info(f"[dry-run] {agent_file.name} models[0] {old_first} -> {abstract}")}')
-        else:
-            new_text = pattern.sub(rf'\g<1>{abstract}', text, count=1)
-            agent_file.write_text(new_text, encoding='utf-8')
-            print(f'{ok(f"{agent_file.name}: models[0] {old_first} -> {abstract}")}')
-
-    # 4. Bind abstract to real model (if not already bound)
-    if args.dry_run:
-        return 0
+    # 3. Resolve abstract
     resolved = resolve_model(abstract)
-    if resolved == abstract:
+    if not args.dry_run and resolved == abstract:
         # 未绑 — 交互式
         print(f'{warn(f"{abstract} 未绑定, 进入交互式...")}')
         if args.no_probe:
@@ -329,24 +326,27 @@ def cmd_set_model(args):
         if result != 0:
             return result
         resolved = resolve_model(abstract)
-    else:
-        # 已绑 (alias or opencode 匹配) — probe 验证
-        if not args.no_probe:
-            probed = _probe_or_skip(resolved, False, allow_skip=True)
-            if not probed:
-                print(f'{warn(f"{resolved} probe 失败但已绑, 继续 (可能运行时失败)")}')
-        print(f'{ok(f"{abstract} -> {resolved} (已绑定)")}')
+    elif not args.dry_run and not args.no_probe:
+        # 已绑 — probe 验证
+        probed = _probe_or_skip(resolved, False, allow_skip=True)
+        if not probed:
+            print(f'{warn(f"{resolved} probe 失败但已绑, 继续 (可能运行时失败)")}')
 
-    # 5. Regenerate board
-    if not args.no_regen:
-        print(f'{info("重新生成 board...")}')
-        regen_args = argparse.Namespace(
-            root=str(root),
-            quiet=True,
-            dry_run=False,
-        )
-        cmd_opencode(regen_args)
+    if args.dry_run:
+        print(f'{info(f"[dry-run] {out_file.name}: model -> {resolved} (临时)")}')
+        return 0
 
+    # 4. Update output file's model: line (regex replace)
+    text = out_file.read_text(encoding='utf-8')
+    pattern = re.compile(r'(^model:\s*)\S+', re.MULTILINE)
+    new_text, n = pattern.subn(rf'\g<1>{resolved}', text, count=1)
+    if n == 0:
+        # 没 model: 行 (异常). 尝试在 frontmatter 第二行插入
+        print(f'{warn(f"{out_file.name} 无 model: 行, 尝试插入...")}')
+        new_text = re.sub(r'^(---.*?\n)', rf'\1model: {resolved}\n', text,
+                          count=1, flags=re.DOTALL)
+    out_file.write_text(new_text, encoding='utf-8')
+    print(f'{ok(f"{out_file.name}: model -> {resolved} (临时, 下次 lk board opencode 会覆盖)")}')
     return 0
 
 
