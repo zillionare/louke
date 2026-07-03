@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 from ._common import git_root
@@ -32,10 +33,12 @@ def register(parser):
     p = sub.add_parser('opencode', help='生成 OpenCode agents')
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--quiet', action='store_true', help='不打印每步进度 (只输出最终汇总)')
+    p.add_argument('--root', help='显式指定项目根目录 (默认: 当前 git 仓库根)')
     p = sub.add_parser('status', help='查看 board 状态')
-    p.add_argument('--root', default='')
+    p.add_argument('--root', default='', help='显式指定项目根目录 (默认: 当前 git 仓库根)')
     p = sub.add_parser('vscode', help='VS Code board 当前不支持')
     p.add_argument('--dry-run', action='store_true')
+    p.add_argument('--root', default='')
 
 
 def run(args):
@@ -148,11 +151,37 @@ def _render_passthrough_block(fm: dict, exclude: set[str]) -> str:
     return '\n'.join(lines) + ('\n' if lines else '')
 
 
+def _require_project_root(args, command: str):
+    """Resolve and validate the project root.
+
+    Priority: --root arg > git_root() > error.
+    Errors out (exit 1) if neither available, with hint about lk init.
+    """
+    from ._color import red, cyan
+    explicit = getattr(args, 'root', None)
+    if explicit:
+        root = Path(explicit).resolve()
+    else:
+        root = git_root()
+    if root is None:
+        print(
+            f'{red("error:")} {command} 需要 git 仓库 (或显式 --root).',
+            file=sys.stderr,
+        )
+        print(
+            f'  {cyan("hint:")} 在 louke 项目根目录 (有 .git/) 跑, 或 --root <path>',
+            file=sys.stderr,
+        )
+        return None
+    return Path(root)
+
+
 def cmd_opencode(args):
-    root = getattr(args, 'root', None) or git_root() or Path.cwd()
+    root = _require_project_root(args, 'lk board opencode')
+    if root is None:
+        return 1
     quiet = getattr(args, 'quiet', False)
     dry_run = getattr(args, 'dry_run', False)
-    root = Path(root)
     src = agent_source(root)
     dest_dir = root / '.opencode/agents'
 
@@ -302,7 +331,9 @@ def _default_agent_status(root: Path) -> str:
 
 
 def cmd_status(args):
-    root = Path(args.root).resolve() if getattr(args, 'root', '') else (git_root() or Path.cwd())
+    root = _require_project_root(args, 'lk board status')
+    if root is None:
+        return 1
     files = list((root / '.opencode/agents').glob('*.md')) if (root / '.opencode/agents').exists() else []
     ok = any('model:' in f.read_text(encoding='utf-8', errors='replace').split('---', 2)[1] for f in files if f.exists())
     mark = '✓' if ok else '-'
