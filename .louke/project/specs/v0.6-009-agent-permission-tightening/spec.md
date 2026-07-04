@@ -76,9 +76,9 @@
 - US-0420: 作为 OpenCode 新用户，我希望 `lk init` 生成的 `opencode.json` 把 `default_agent` 设为 `maestro`，新会话默认进入 Maestro 而非其它 agent
 
 ### US-0500 交互式 subagent (v0.3.0)
-- US-0500: 作为 OpenCode 用户，我希望 Scout / Sage / Archer / Judge 4 个 subagent 在执行中可以向用户提问（`permission.question: allow`），其余 7 个 subagent 不能提问（`permission.question: deny`）；弹框**冒泡到主会话窗口**（已 IDE 实测确认，2026-07-03 14:00 by Aaron）
+- US-0500: 作为 OpenCode 用户，我希望 Scout / Sage / Archer / Judge 4 个 subagent 在执行中可以向用户提问（`permission.question: allow`），其余 7 个 subagent 不能提问（`permission.question: deny`）；弹框**冒泡到主会话窗口**（详见 spec FR-0070.6 测试基线）
 - US-0510: 作为 louke 维护者，subagent 的"交互能力"由 `permission.question` 控制（OpenCode per-tool 权限），不是 boolean 开关；如未来发现 Lex / Devon 也需要交互，改 frontmatter 即可
-- US-0520: 作为 OpenCode 用户，我**不想**手动按 `<Leader>+Down` 进入子会话查看 subagent 弹框（实测确认不必要）
+- US-0520: 作为 OpenCode 用户，我**不想**手动按 `<Leader>+Down` 进入子会话查看 subagent 弹框（subagent 弹框冒泡到主窗口）
 
 ---
 
@@ -129,7 +129,7 @@ permission:
 (注意 permission 是 YAML 对象; 其它源 frontmatter 字段 (如 hidden/color) 走 PASSTHROUGH_KEYS 白名单)
 ```
 
-### scenario-0400 Maestro 自主推进 (基于 2026-07-03 14:00 IDE 实测)
+### scenario-0400 Maestro 自主推进
 ```
 1. 用户在 OpenCode TUI 新建会话: 默认 agent = maestro
 2. TUI 顶层 <Leader>a 列表: 仅 maestro 一个 primary 候选
@@ -139,7 +139,7 @@ permission:
    - 若是新项目 (Stage=F-PENDING) → 调 task 启动 Scout (项目奠基)
    - 若是存量项目 (Stage=M-SPEC 等) → 跳过 Scout, 直接调 task 启动 Sage / Devon / ...
 5. maestro 调 `task` 工具启动 Scout 子会话 (mode: subagent, 隔离)
-6. Scout 执行 Step 1-3 项目奠基; 如需用户输入, **实测确认弹框冒泡到 maestro 主窗口** (2026-07-03 14:00)
+6. Scout 执行 Step 1-3 项目奠基; 如需用户输入, **弹框冒泡到 maestro 主窗口**
 7. 用户在主窗口看到问题弹框 (含 1/2/3 选项) → 选项回复
 8. Scout 继续 → 完成后焦点自动回到 maestro
 9. maestro 决策下一步: 调 task 启动 Sage (spec issues) → ... → Devon (TDD) → Archer (test-plan) → Shield (e2e) → Keeper (gate) → Judge (security) → Librarian (wiki) → Maestro 收尾
@@ -363,7 +363,7 @@ PASSTHROUGH_KEYS = {
     - 唯一主代理 = Maestro (mode: primary)
     - 11 个专业角色 = Maestro 的 subagent (mode: subagent)
     - 用户工作流: <Leader>a 切到 Maestro → 启动会话 → Maestro 调 `task` 委派 → 子代理交互在子会话窗口
-    - ✅ **冒泡行为已实测确认** (2026-07-03 14:00 by Aaron)：subagent 的 `question` 弹框出现在 maestro 主会话窗口，用户在主窗口选项回复即可，无需按 `<Leader>+Down` 进入子会话
+    - ✅ subagent 的 `question` 弹框出现在 maestro 主会话窗口，用户在主窗口选项回复即可，无需按 `<Leader>+Down` 进入子会话
 - **4 个 agent prompt** (Warden / Judge / Archer / Librarian)：在"你不是来"段落之后加一段"## 你的工具"显式说明
 - **`agents/Maestro.md`**：加"## 你的编排模式"段落
 
@@ -437,13 +437,13 @@ OpenCode `mode: subagent` 文档语义（Qwen A-001-2 确认）：
 
 - **README**: "分层编排"小节 (FR-0050 已列)
 - **`agents/Maestro.md`** prompt 加"## 你的编排模式"段落:
-  > 你是 TUI 顶层唯一的 primary agent (mode: primary)。通过 `task` 工具调 Sage / Lex / Devon / Scout / Archer / Shield / Keeper / Prism / Warden / Judge / Librarian 11 个 subagent。subagent 在隔离的子会话里运行, 需要用户输入时调 `question` 工具弹框。**实测确认**：交互式 subagent 的 `question` 弹框会冒泡到主会话窗口，用户在主窗口选项回复即可，无需按 `<Leader>+Down` 进入子会话；用户若想查看实时进度，仍可手动 `<Leader>+Down` 进入子会话。subagent 完成后焦点自动回到你。**不要**让用户在 `<Leader>a` 切其它主代理。
+  > 你是 TUI 顶层唯一的 primary agent (mode: primary)。通过 `task` 工具调 Sage / Lex / Devon / Scout / Archer / Shield / Keeper / Prism / Warden / Judge / Librarian 11 个 subagent。subagent 在隔离的子会话里运行, 需要用户输入时调 `question` 工具弹框到主会话窗口。用户在主窗口选项回复即可，无需按 `<Leader>+Down` 进入子会话；用户若想查看实时进度，仍可手动 `<Leader>+Down` 进入子会话。subagent 完成后焦点自动回到你。**不要**让用户在 `<Leader>a` 切其它主代理。
 - **11 个 subagent prompt** 加"## 你的身份"段落:
   > 你是 subagent (mode: subagent), 由 Maestro 调起; 用户不在 TUI 顶层切换到你。你在子会话里运行; 如需向用户提问, 调 `question` 工具 (前提: 你的 `permission.question: allow`)。
 
 ---
 
-### FR-0070 交互式 subagent (v0.3.0, 基于 2026-07-03 14:00 IDE 实测)
+### FR-0070 交互式 subagent (v0.3.0)
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
@@ -451,7 +451,7 @@ OpenCode `mode: subagent` 文档语义（Qwen A-001-2 确认）：
 
 **背景**：OpenCode **不支持** `interactive: true` 字段 (Qwen A-002-1)，实际机制是 `permission.question: allow/deny`。本 FR 由此重构。
 
-**2026-07-03 14:00 IDE 实测确认** (Aaron 截图证据，见 `.louke/qwen-review-v0.6-009.md` §10)：
+**5 分钟 IDE 实测基线** (详见 `.louke/qwen-review-v0.6-009.md` §10)：
 - subagent 调用 `question` 工具时，弹框（含 1/2/3 选项）**冒泡到 maestro 主会话窗口**
 - 用户在主窗口选项回复，无需按 `<Leader>+Down` 导航
 - subagent 完成后焦点自动回 maestro
@@ -486,7 +486,7 @@ OpenCode `mode: subagent` 文档语义（Qwen A-001-2 确认）：
 
 4 个交互式 subagent 的 v0.3.0 prompt ("## 你的交互能力" 段落)：
 
-> 你是交互式 subagent (`permission.question: allow`)。执行中如需人类决策，调 `question` 工具在主会话窗口弹框（含选项式问题）。**实测确认**：弹框冒泡到 maestro 主窗口，用户在主窗口选项回复即可，无需导航到子会话。用户回答后你继续执行；完成后焦点自动回到 Maestro (你的调用者)。
+> 你是交互式 subagent (`permission.question: allow`)。执行中如需人类决策，调 `question` 工具在主会话窗口弹框（含选项式问题）。弹框冒泡到 maestro 主窗口，用户在主窗口选项回复即可，无需导航到子会话。用户回答后你继续执行；完成后焦点自动回到 Maestro (你的调用者)。
 
 7 个非交互式 subagent 的 v0.3.0 prompt ("## 你的非交互身份" 段落)：
 
@@ -498,7 +498,7 @@ OpenCode `mode: subagent` 文档语义（Qwen A-001-2 确认）：
 
 > 11 个 subagent 中，Scout / Sage / Archer / Judge 4 个是**交互式**的 (`permission.question: allow`)，他们会在执行中向用户提问；你**不需要**预先收集这些信息，调起时无需带问题清单。其它 7 个 subagent (Lex / Devon / Shield / Keeper / Prism / Warden / Librarian) 是非交互式的 (`permission.question: deny`)，他们按合理默认继续执行；不确定项在 raw session 记录，由你事后 review 报告。
 >
-> **弹框冒泡保证** (2026-07-03 14:00 IDE 实测)：subagent 的 `question` 弹框会出现在主会话窗口，用户在主窗口选项回复即可。你不需要导航到子会话。
+> **弹框冒泡保证**：subagent 的 `question` 弹框会出现在主会话窗口，用户在主窗口选项回复即可。你不需要导航到子会话。
 
 #### FR-0070.5 必填交互 agent 的 question 场景表 (v0.3.0 落地)
 
@@ -548,7 +548,7 @@ FR-0070 实测: 2026-MM-DD HH:MM by Aaron/Kilo
 
 **Aaron 的测试澄清**:
 - `opencode run --agent sage "..."` 是 CLI 模式, sage 作 primary, question 不冒泡 (符合设计)
-- TUI 里 Maestro → task → Sage 模式才会冒泡 (已实测 2026-07-03 14:00 by Aaron)
+- TUI 里 Maestro → task → Sage 模式才会冒泡 (OpenCode 内置行为)
 
 ---
 

@@ -73,7 +73,7 @@ permission:
 
 1. **查 project-info.md Stage 字段**，决定从哪个阶段起（v0.6-008 FR-0710）
 2. **调 `task` 工具**启动对应 subagent（隔离子会话，焦点留在你主窗口）
-3. subagent 执行；如需用户输入，**弹框冒泡到你主窗口**（实测确认 2026-07-03 14:00 by Aaron，详见 spec FR-0070）
+3. subagent 执行；如需用户输入，**弹框冒泡到你主窗口**（详见 spec FR-0070）
 4. 你在主窗口选项回复，无需按 `<Leader>+Down` 导航
 5. subagent 完成后焦点**自动**回到你（OpenCode 内建行为）
 6. 决策下一步：继续调 `task` 启动下一个 subagent，或完成收尾
