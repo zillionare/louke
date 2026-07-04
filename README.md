@@ -325,3 +325,34 @@ lk librarian from-raw                      # Distill raw sessions to wiki pages
 ## 11. License
 
 MIT
+
+## 12. Release History
+
+Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`) self-updates via `pip install --upgrade louke`; project-local state (`.louke/agents/`, `~/.louke/models.json`) is preserved across upgrades. After `lk upgrade`, re-run `lk board opencode` to refresh `.opencode/agents/`.
+
+### v0.6.0 — v0.6.13 (2026-07-04)
+
+| Version | Highlights |
+|---|---|
+| **v0.6.13** | `lk models doctor` critical bugfix: `ok` variable shadowed imported `ok` function (same pattern as v0.6.8 fix in `set-model`, but missed in `doctor`). Crash on any aliased model. Regression test added. |
+| v0.6.12 | Cleanup: removed internal spec references (`(v0.6-008 FR-0710)`, `(FR-0070)`, etc.) from 6 agent prompts shipped to users. |
+| v0.6.11 | Cleanup: removed redundant `(实测确认 2026-07-03 14:00 by Aaron)` annotations from 4 interactive subagent prompts. |
+| v0.6.10 | Subagent dispatch clarification: `agents/Maestro.md` now explicitly says "只**用 `task` 工具调子 agent, 不要用 `opencode run`". Spec FR-0070.7 documents the two invocation modes (production TUI vs CLI test). |
+| v0.6.9 | `lk agent set-model` redesign: writes directly to `.opencode/agents/<name>.md` (output) instead of source. **Temporary** — next `lk board opencode` regenerates from source. |
+| v0.6.8 | `lk agent set-model` bugfix: `ok` variable shadowed imported `ok` function → `TypeError: 'bool' object is not callable`. |
+| v0.6.7 | `lk agent list-models` — table view of all agents' `models:` chain + current resolved model. `--unbound-only` flag. |
+| v0.6.6 | `lk agent set-model <name> <abstract>` — change an agent's primary model in one command. Interactive bind + probe before save. |
+| v0.6.5 | `lk models bind` probes the selected model via `opencode run --model <m> "ping"` before saving. Prompts `[r]etry / [s]kip / [a]ssign-force` on failure. |
+| v0.6.4 | `lk board opencode` requires a git repository (or explicit `--root <path>`). Prevents accidental file creation in random directories. |
+| v0.6.3 | `lk models bind` ranking: Levenshtein distance over substring matching. Better top-1 candidates for naming-style mismatches (e.g. `kimi-2.6` ↔ `kimi-k2.6`). |
+| v0.6.2 | Progress output for `lk board opencode` and `lk models doctor`: 5-step / 4-step numbered output with ANSI colors (✓/✗/⚠) and Spinner on subprocess calls. |
+| v0.6.1 | Source `agents/*.md` updated to v0.6.0 style (`mode: primary/subagent`, `permission:` block). |
+| v0.6.0 | Agent permission tightening + layered orchestration. 4 roles (Warden / Judge / Archer / Librarian) + Maestro get explicit `permission:` blocks (11-13 keys). 11 agents set to `mode: subagent`; Maestro is the sole `mode: primary`. |
+
+### v0.3.0 (2026-06-29) — Initial public release
+
+12 specialized agents, 10-stage pipeline (M-FOUND → M-MILESTONE), `lk init` / `lk scout foundation` / `lk archer ci-scan` / `lk keeper gate`, OpenSpec-style YAML issue template, 129 bats tests.
+
+---
+
+For older (pre-v0.6) release notes, see `.github/RELEASE_NOTES_v0.X.md`.

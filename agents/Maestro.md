@@ -94,7 +94,7 @@ permission:
 - subagent 弹框自然冒泡，你收集结果并推进
 - 需要看 subagent 实时进度时，按 `<Leader>+Down` 进入子会话；按 `<Leader>+Up` 返回
 
-### 验证 / 调试 subagent (不**走这条路径)
+### 验证 / 调试 subagent (**不**走这条路径)
 
 要单独验证某个 subagent 的行为, 用 OpenCode TUI 选 primary 时直接选那个 agent (如果 OpenCode 允许), 或者:
 - **不**调子 agent — 让用户**直接**用 `opencode run --agent <name>` 测 (这是 CLI 模式, 让 <name> 当 primary, 不是 subagent 模式)

@@ -334,7 +334,7 @@ def cmd_doctor(args):
               flush=True)
         print(f'{cyan("[4/4]")} 三层验证 {dim("(alias → strong/weak match → auth filter)")}',
               flush=True)
-    ok = True
+    all_ok = True
     fixes: dict[str, str] = {}
     for name in used_models():
         status, resolved, note = _classify(name, models, auth, costs)
@@ -349,7 +349,7 @@ def cmd_doctor(args):
                     line += f' {g("(probed ok)")}'
                 else:
                     line += f' {r("(probe failed)")}'
-                    ok = False
+                    all_ok = False
             print(line)
             fixes[name] = resolved
             continue
@@ -357,17 +357,17 @@ def cmd_doctor(args):
             tag = f' ({note})' if note else ''
             print(f'~ {name} -> {resolved}{tag}; '
                   f'run: lk models bind {name} <provider>/<id> after opencode /connect')
-            ok = False
+            all_ok = False
             continue
         print(f'✗ {name} unresolved; run: lk models bind {name} provider/{name}')
-        ok = False
+        all_ok = False
     if args.fix_auto and fixes:
         path = config_path(False)
         data = load_config(path)
         data['aliases'].update(fixes)
         save_config(path, data)
         print(f'--fix-auto wrote {len(fixes)} aliases to {path}')
-    return 0 if ok else 1
+    return 0 if all_ok else 1
 
 
 def cmd_bind(args):
@@ -487,7 +487,7 @@ def _interactive_bind_one(abstract: str, project: bool) -> int:
 
     while True:
         try:
-            choice = input(f'\n  {cyan("→")} 选择 [1-{len(candidates) if opencode_ok else len(auth) if not opencode_ok else "N"}/0/q]: ').strip().lower()
+            choice = input(f'\n  {cyan("→")} 选择 [1-{len(candidates) if opencode_ok else len(auth)}/0/q]: ').strip().lower()
         except (EOFError, KeyboardInterrupt):
             print(f'\n  {warn("中断, 未绑定")}')
             return 1

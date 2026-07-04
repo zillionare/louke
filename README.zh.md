@@ -345,3 +345,34 @@ lk librarian from-raw                      # 蒸馏 raw 会话到 wiki pages
 ## 11. 许可证
 
 MIT
+
+## 12. 更新历史
+
+Louke 遵循 [语义化版本](https://semver.org/)。CLI (`lk`) 通过 `pip install --upgrade louke` 自更新；项目级状态 (`.louke/agents/`, `~/.louke/models.json`) 升级时保留。`lk upgrade` 后跑 `lk board opencode` 刷新 `.opencode/agents/`。
+
+### v0.6.0 — v0.6.13 (2026-07-04)
+
+| 版本 | 重点 |
+|---|---|
+| **v0.6.13** | `lk models doctor` critical bugfix: `ok` 变量遮蔽了 import 的 `ok` 函数（与 v0.6.8 在 `set-model` 修过的同模式, 但 `doctor` 漏修了). 任何有 alias 的 model 都会 crash. 加了回归测试. |
+| v0.6.12 | 清理: 删 6 个 agent prompt 里的内部 spec 引用 (`(v0.6-008 FR-0710)`, `(FR-0070)` 等). 这些是发行给用户的, 不该有内部追踪 ID. |
+| v0.6.11 | 清理: 删 4 个交互式 subagent prompt 里冗余的 `(实测确认 2026-07-03 14:00 by Aaron)` 注释. |
+| v0.6.10 | Subagent 调度澄清: `agents/Maestro.md` 显式写 "只**用 `task` 工具调子 agent, 不要用 `opencode run`". Spec FR-0070.7 文档化两种 invocation 模式 (生产 TUI vs CLI 测试). |
+| v0.6.9 | `lk agent set-model` 重设计: 直接写 `.opencode/agents/<name>.md` (output), 不改 source. **临时** — 下次 `lk board opencode` 用 source 重新生成覆盖. |
+| v0.6.8 | `lk agent set-model` bugfix: `ok` 变量遮蔽了 import 的 `ok` 函数 → `TypeError: 'bool' object is not callable`. |
+| v0.6.7 | `lk agent list-models` — 表格显示所有 agent 的 `models:` chain + 当前 resolved model. `--unbound-only` flag. |
+| v0.6.6 | `lk agent set-model <name> <abstract>` — 一条命令改 agent 模型. 交互式 bind + probe 后保存. |
+| v0.6.5 | `lk models bind` 在保存前用 `opencode run --model <m> "ping"` probe. 失败时提示 `[r]etry / [s]kip / [a]ssign-force`. |
+| v0.6.4 | `lk board opencode` 要求 git 仓库 (或显式 `--root <path>`). 防止在随机目录误创建文件. |
+| v0.6.3 | `lk models bind` 排序: 用 Levenshtein 距离代替子串匹配. 对命名风格不匹配的候选排序更准 (如 `kimi-2.6` ↔ `kimi-k2.6`). |
+| v0.6.2 | `lk board opencode` 和 `lk models doctor` 加进度输出: 5 步 / 4 步编号 + ANSI 颜色 (✓/✗/⚠) + Spinner. |
+| v0.6.1 | Source `agents/*.md` 改 v0.6.0 风格 (`mode: primary/subagent`, `permission:` 块). |
+| v0.6.0 | Agent 权限收紧 + 分层编排. 4 角色 (Warden / Judge / Archer / Librarian) + Maestro 显式 `permission:` 块 (11-13 keys). 11 agent 改 `mode: subagent`; Maestro 是唯一 `mode: primary`. |
+
+### v0.3.0 (2026-06-29) — 首次公开发布
+
+12 个专门化 agent, 10 阶段流水线 (M-FOUND → M-MILESTONE), `lk init` / `lk scout foundation` / `lk archer ci-scan` / `lk keeper gate`, OpenSpec 风格 YAML issue 模板, 129 个 bats 测试.
+
+---
+
+更早 (pre-v0.6) 的 release notes 见 `.github/RELEASE_NOTES_v0.X.md`.
