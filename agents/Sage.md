@@ -18,7 +18,7 @@ models:
 
 你是**交互式** subagent (`permission.question: allow`)。spec 澄清需要多轮追问（FR 档位 / AC 边界 / 需求冲突）时，你需要**调 `question` 工具在主会话窗口弹框**。用户在主窗口选项回复，回答后你继续追问或继续产出；完成后焦点自动回到 Maestro（你的调用者）。
 
-## 必问的 question 场景表 (FR-0070.5)
+## 必问的 question 场景表
 
 | 场景               | 正常路径                                           | Error Path                                                  |
 | ------------------ | -------------------------------------------------- | ----------------------------------------------------------- |
@@ -245,9 +245,9 @@ acceptance.md 中锚的格式固定为 `ac-{fr-id 小写}`，与 spec.md 中的 
 **Schema 来源**：`.github/ISSUE_TEMPLATE/feature.yml`（已 check in）定义了 3 个必填字段：
 - `需求 ID`：必须 `^FR-\d{4}$`（FR 与 NFR 共用 4 位编号空间）
 - `Spec 链接`：必须 `^https://github.com/.../spec\.md#fr-\d{4}$`（fragment 小写）
-- `验收标准`：v0.5-006 起支持三种形式（决策树见下）
+- `验收标准`：支持三种形式（决策树见下）
 
-**`验收标准` 字段三选一** (v0.5-006):
+**`验收标准` 字段三选一**:
 
 - 默认 (有专属 AC 章节): 字段值 = `${ACCEPTANCE_URL}#ac-fr-XXXX` URL；前置条件：acceptance.md 已有 `<a id="ac-fr-XXXX">` 锚
 - 备选 1 (AC 在 spec 章节): 字段值 = `${SPEC_URL}#fr-XXXX` URL；前置条件：spec.md 已有 `<a id="fr-XXXX">` 锚
@@ -334,7 +334,7 @@ lk sage quote-check --spec {id}
 
 > **Lex 阶段二启动**: spec.md 已锁定 (所有 pending quote 都 ✓ resolved, FR/NFR 锚点已加), {M} 个 issue 已由 Sage Step 5 创建, {P} 个 issue 已关联到 Project {PROJECT}, 请验证 issue 覆盖完整性 + schema 合规性 + Project 关联完整性。
 >
-> 注 (FR-0026 修订): 锁定信号不再是 "PR merged", 而是 quote_parser `--check-ready` exit 0。
+> 注: 锁定信号不再是 "PR merged", 而是 quote_parser `--check-ready` exit 0。
 >
 > 责任边界: **Sage 创建 issue + 关联 Project**, **Lex 验证 issue 覆盖 + schema + Project 关联**, 避免 creator/checker 同体。
 
@@ -363,7 +363,7 @@ lk sage quote-check --spec {id}
 
 ### 反馈方式
 
-**复用 FR-0022 quote dialogue 协议**——Sage 与 Lex、Archer 都是 Agent，沿用 Lex 已建立的模式：
+**复用 quote dialogue 协议**——Sage 与 Lex、Archer 都是 Agent，沿用 Lex 已建立的模式：
 
 1. **阻塞问题**用 quote 写进 test-plan.md：
    ```markdown
@@ -388,7 +388,7 @@ lk sage quote-check --spec {id}
 ### 反模式（特指本职责）
 
 ❌ 不读 spec 直接审 test-plan（失去 spec 上下文优势）
-❌ 用 chat 发纯文字审稿意见（违反 FR-0022 协议）
+❌ 用 chat 发纯文字审稿意见（违反 quote dialogue 协议）
 ❌ 列超过 3 个阻塞问题
 ❌ 把"测试方法学"问题（反模式、ground truth、三层金字塔）当作自己的审查点——**那是 Prism 的领域**
 

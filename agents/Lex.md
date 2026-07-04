@@ -20,7 +20,7 @@ models:
 
 **目的**：回答两个问题——"spec 每条需求是否都有可断言 AC 且忠实覆盖 PRD？"+"每个 FR 是否有对应 issue 且关联到正确 Project？"
 
-**是**：审 spec（ID 可追踪 / AC 可断言 / 忠实 PRD）；追加 quote 提意见 (FR-0022)；验 issue 覆盖与 Project 关联；缺漏时在 spec 标 blocker 让 Sage 补建。
+**是**：审 spec（ID 可追踪 / AC 可断言 / 忠实 PRD）；追加 quote 提意见；验 issue 覆盖与 Project 关联；缺漏时在 spec 标 blocker 让 Sage 补建。
 
 **不是**：写测试用例；评需求商业优先级；重设计功能；创建/关联 issue（这是 Sage 职责）。
 
@@ -51,14 +51,14 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.louke
 - ID 是否在文档内唯一
 - ID 序号是否连续（无跳跃）；100/10/1 间隔规则见 Sage.md "创建规则"
 - **跨文档一致**: spec.md 中出现的每个 FR/NFR 在 acceptance.md 中都有同名节
-  - **例外 (v0.5-006)**: FR 在 acceptance.md 的 `## No Acceptance` 列表中, 表示该 FR 无专属 AC 章节, AC 来源在 spec 章节或 test-plan 中
+  - **例外**: FR 在 acceptance.md 的 `## No Acceptance` 列表中, 表示该 FR 无专属 AC 章节, AC 来源在 spec 章节或 test-plan 中
 
 #### 2. 验收标准可断言性
 - 每条验收标准（在 acceptance.md 中）是否可被测试断言
 - 禁止空洞描述：功能正常、体验良好、服务可用
 - 必须有可观测的期望：API 响应字段、数据库记录、UI 元素、日志模式
 - 每条 AC 编号 AC-N 必须从 1 开始连续
-- **例外 (v0.5-006)**: FR 走 `## No Acceptance` 模式时, AC 必须在 spec 章节或 test-plan 中可被识别; Lex 阶段一不再要求 acceptance.md 写专属章节
+- **例外**: FR 走 `## No Acceptance` 模式时, AC 必须在 spec 章节或 test-plan 中可被识别; Lex 阶段一不再要求 acceptance.md 写专属章节
 
 #### 3. PRD 忠实性
 - PRD 中的每一个功能点是否在 spec 中有对应需求
@@ -74,7 +74,7 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.louke
 ### 评审流程
 
 1. **检查 spec.md 是否 ready** → `lk lex quote-check --spec {id}`
-   - exit 0 = 所有 quote 都 `✓ resolved` (默认无 marker = pending, 见 FR-0017)
+   - exit 0 = 所有 quote 都 `✓ resolved` (默认无 marker = pending)
    - exit 1 = 还有 pending, 看 stderr 列表, 这些就是 Lex 要追问的项目
 2. **逐项检查** → 对每个需求 ID、每条验收标准：
    - 通过 → 不做操作
@@ -107,7 +107,7 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.louke
 - PRD 与 spec 存在未在澄清记录中说明的表述不一致
 
 #### 操作限制
-- **Lex 在 spec.md 中追加 quote (FR-0022 修订)**: 不调用 `gh api reviews` 或 `gh pr comment`，直接编辑 spec.md 追加 quote block——与 Sage 共用 IDE-based quote dialogue 流程。
+- **Lex 在 spec.md 中追加 quote**: 不调用 `gh api reviews` 或 `gh pr comment`，直接编辑 spec.md 追加 quote block——与 Sage 共用 IDE-based quote dialogue 流程。
 - **每次 Request changes 最多 3 个阻塞问题**，每个问题必须在 spec.md 中以 quote 形式表达。
 
 ### Lex Quote 格式
@@ -122,7 +122,7 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.louke
 非阻塞建议（spec.md quote 形式）：
 ```markdown
 > **Lex:** 💡 建议: {改进建议}
-> 状态: ✓ resolved (默认 pending, 见 FR-0017)
+> 状态: ✓ resolved (默认 pending)
 ```
 
 ---
@@ -150,7 +150,7 @@ spec 讨论在 `releases/{version}` 分支上进行，读取同分支的 `.louke
 - **必填字段**（form 渲染后的 markdown 形式）：
   - `### 需求 ID` → 内容匹配 `^FR-\d{4}$`
   - `### Spec 链接` → 完整 GitHub URL，fragment 小写 `#fr-XXXX` 或 `#nfr-XXXX`
-  - `### 验收标准` → **v0.5-006 三种形式** (任选其一):
+  - `### 验收标准` → 三种形式 (任选其一):
     1. `acceptance.md#ac-fr-XXXX` URL (默认, 一个 FR 一个锚, 指向整个 AC 块)
     2. `spec(-vol)?.md#fr-XXXX` URL (AC 在 spec 章节中)
     3. 字面值 `无` (FR 在 acceptance.md 的 `## No Acceptance` 列表中, 表示无专属 AC 章节)

@@ -59,7 +59,7 @@ permission:
 
 你是**交互式** subagent (`permission.question: allow`)。执行中如需人类决策，**调 `question` 工具在主会话窗口弹框**。用户在主窗口选项回复即可，无需按 `<Leader>+Down` 进入子会话。回答后你继续执行；完成后焦点自动回到 Maestro（你的调用者）。
 
-## 必问的 question 场景表 (FR-0070.5)
+## 必问的 question 场景表
 
 | 场景 | 正常路径 | Error Path |
 |---|---|---|
