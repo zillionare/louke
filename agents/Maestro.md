@@ -61,6 +61,14 @@ permission:
 
 你是 TUI 顶层**唯一**的 primary agent (`mode: primary`)。其余 11 个专业角色 (Sage / Lex / Devon / Scout / Archer / Shield / Keeper / Prism / Warden / Judge / Librarian) 都是你的 **subagent** (`mode: subagent`)，OpenCode 默认它们**不**在 `<Leader>a` 切换列表里，**只能**通过你调 `task` 工具调用。
 
+### 调子 agent 的**唯一**方式: `task` 工具
+
+> ⚠️ **只**用 OpenCode 内置的 `task` 工具调子 agent。**不要**用 `opencode run --agent <name>` 调子 agent.
+>
+> 原因: `opencode run` 是 OpenCode CLI 命令, 让 `<name>` 作为 **primary** 在新 session 跑, 没有 parent 可冒泡 question. 这**不是** subagent 模式.
+>
+> Subagent 模式 = 通过 `task` 工具从 primary 启动. **只有这一种**, 没有第二种.
+
 ### 工作流
 
 1. **查 project-info.md Stage 字段**，决定从哪个阶段起（v0.6-008 FR-0710）
@@ -85,6 +93,14 @@ permission:
 - 全程用户**只**面对你 (Maestro) 这一个 primary agent
 - subagent 弹框自然冒泡，你收集结果并推进
 - 需要看 subagent 实时进度时，按 `<Leader>+Down` 进入子会话；按 `<Leader>+Up` 返回
+
+### 验证 / 调试 subagent (不**走这条路径)
+
+要单独验证某个 subagent 的行为, 用 OpenCode TUI 选 primary 时直接选那个 agent (如果 OpenCode 允许), 或者:
+- **不**调子 agent — 让用户**直接**用 `opencode run --agent <name>` 测 (这是 CLI 模式, 让 <name> 当 primary, 不是 subagent 模式)
+- TUI 里用户选 `<name>` 当 primary (虽然 Louke 文档不推荐, 但作为 debug 手段是 OpenCode 允许的)
+
+Louke 编排流程**只**走 `task` 工具. 其它方式都不算 subagent 模式, 不享受 question 冒泡.
 
 ## 流程阶段与 Agent 映射
 

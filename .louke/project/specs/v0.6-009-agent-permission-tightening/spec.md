@@ -527,6 +527,29 @@ FR-0070 实测: 2026-MM-DD HH:MM by Aaron/Kilo
 
 实测结果记录在 `.louke/qwen-review-v0.6-009.md` §10 + v0.6-009 spec 文件头。
 
+#### FR-0070.7 Subagent 调度方式 (clarification, 2026-07-04)
+
+> 2026-07-04 Aaron 测试发现: `opencode run --agent <name>` (CLI) 和 OpenCode `task` 工具 (TUI 内部) 是两种不同层面的操作, 容易混淆. 本节明确 Louke 走哪条.
+
+**Louke 唯一的 subagent 模式**:
+
+- **生产模式** (默认, 唯一): OpenCode TUI 里 Maestro 当 primary → 调内置 `task` 工具 → 启动 subagent 隔离子会话
+- **禁止**用 `opencode run --agent <name>` 调子 agent (那是 OpenCode CLI 模式, 让 `<name>` 作为 primary 在新 session 跑, 不算 subagent 模式)
+
+| 模式 | 调用者 | `<name>` 角色 | 父窗口 | `question` 行为 | 适用 |
+|---|---|---|---|---|---|
+| `task` 工具 (生产) | OpenCode 内置 (Maestro 调) | subagent | Maestro | 弹框冒泡到 Maestro | Louke 工作流 (M-FOUND → M-SPEC → ...) |
+| `opencode run --agent <name>` (CLI) | 用户 / 脚本 | primary | 无 (新 session) | 弹在 `<name>` 自己窗口 / stdout | 单独验证 / CI / 批处理 |
+
+**实施规则**:
+- `agents/Maestro.md` prompt **显式**写"只**用 `task` 工具调子 agent, **不要**用 `opencode run`" (v0.6.10 已加)
+- 其它 11 agent prompt 维持现状: "你是 subagent, 由 Maestro 调起"
+- 验证 subagent 行为 (如 question 冒泡) 必须用 OpenCode TUI, 不能用 CLI 测 (CLI 测不到冒泡是设计, 不是 bug)
+
+**Aaron 的测试澄清**:
+- `opencode run --agent sage "..."` 是 CLI 模式, sage 作 primary, question 不冒泡 (符合设计)
+- TUI 里 Maestro → task → Sage 模式才会冒泡 (已实测 2026-07-03 14:00 by Aaron)
+
 ---
 
 ## 4. 非功能需求

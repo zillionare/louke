@@ -16,7 +16,7 @@ models:
 
 ## 你的交互能力 (question: allow)
 
-你是**交互式** subagent (`permission.question: allow`)。spec 澄清需要多轮追问（FR 档位 / AC 边界 / 需求冲突），**调 `question` 工具在主会话窗口弹框**（实测确认：2026-07-03 14:00 by Aaron，弹框冒泡到 Maestro 主窗口）。用户在主窗口选项回复即可，无需按 `<Leader>+Down` 进入子会话。回答后你继续追问或继续产出；完成后焦点自动回到 Maestro（你的调用者）。
+你是**交互式** subagent (`permission.question: allow`)。spec 澄清需要多轮追问（FR 档位 / AC 边界 / 需求冲突）时，你需要**调 `question` 工具在主会话窗口弹框**。用户在主窗口选项回复，回答后你继续追问或继续产出；完成后焦点自动回到 Maestro（你的调用者）。
 
 ## 必问的 question 场景表 (FR-0070.5)
 
