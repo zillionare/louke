@@ -165,6 +165,30 @@ def _check_mode_uniqueness(agents_fm: dict, errors: list[str]) -> None:
                       f'found in: {all_modes}')
 
 
+def _check_subagent_task_deny(agents_fm: dict, warnings: list[str]) -> None:
+    """v0.6.14 (GLM review): 所有 subagent 必须显式 task: deny.
+
+    OpenCode 默认 task: allow (未指定 = allow). 如果 subagent 漏 task: deny,
+    M3 等 small 模型会在 task/question 工具间混淆 / 幻觉 "没有 question tool".
+
+    See .louke/review-sage-question-tool.md §6.2.
+    """
+    for name, fm in agents_fm.items():
+        if name == 'maestro':  # maestro 是 primary, 唯一该有 task: allow
+            continue
+        if fm.get('mode') != 'subagent':
+            continue
+        perm = fm.get('permission') or {}
+        if not isinstance(perm, dict):
+            continue
+        if perm.get('task') != 'deny':
+            warnings.append(
+                f'{name}: subagent 缺 task: deny (OpenCode 默认 task: allow, '
+                f'会允许 subagent 调 task 工具, 违反 "Maestro 是唯一编排者" 设计. '
+                f'加 task: deny 强制 subagent 只能用 question 等直接工具)'
+            )
+
+
 def _get_opencode_version() -> str | None:
     """Read `opencode --version`, return None if opencode unavailable."""
     try:
@@ -216,6 +240,13 @@ def cmd_lint(args):
 
     # NFR-0050: 单一 primary 约束
     _check_mode_uniqueness(agents_fm, errors)
+
+    # v0.6.14 GLM review: subagent 必须 task: deny
+    from ._color import yellow
+    warnings: list[str] = []
+    _check_subagent_task_deny(agents_fm, warnings)
+    for w in warnings:
+        print(f'  {yellow("⚠")} {w}', flush=True)
 
     # NFR-0040: OpenCode 版本检查 (optional)
     if args.check_opencode_version:

@@ -3,6 +3,7 @@ name: scout
 description: 项目奠基 — 执行 §2.1 初始化流程
 mode: subagent
 permission:
+  task: deny
   question: allow
 models:
   - deepseek-v4-flash

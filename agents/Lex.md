@@ -3,6 +3,7 @@ name: lex
 description: spec 审查与 issue 组织者
 mode: subagent
 permission:
+  task: deny
   question: deny
 models:
   - deepseek-v4-flash

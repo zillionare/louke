@@ -3,6 +3,7 @@ name: shield
 description: e2e 测试编写 — 按 test-plan 写 e2e 测试 (B 级, Playwright/testclient/DB)
 mode: subagent
 permission:
+  task: deny
   question: deny
 models:
   - kimi-2.7-code

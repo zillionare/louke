@@ -311,3 +311,51 @@ PYEOF
     [[ "$output" == *"only maestro can be primary"* ]]
     # teardown will restore Sage via snapshot_agent
 }
+
+# === v0.6.14 GLM review: subagent permission 完整性 ===
+
+@test "v0.6.14: 11 个 subagent 必须有 task: deny (防 question tool 幻觉回归)" {
+    for agent in sage scout devon keeper lex archer judge librarian warden keeper prism shield; do
+        # Skip if file doesn't exist
+        [ -f "$AGENTS_DIR/${agent}.md" ] || continue
+        # 11 subagent must have task: deny (excludes Maestro which is primary)
+        run grep -q "^  task: deny" "$AGENTS_DIR/${agent}.md"
+        [ "$status" -eq 0 ] || {
+            echo "FAIL: $agent missing 'task: deny' in permission block"
+            echo "  (OpenCode default for unspecified task is 'allow', which lets subagent"
+            echo "   spawn other subagents — violates 'Maestro is sole orchestrator' design"
+            echo "   and causes M3 to confuse task/question tools, hallucinating 'no question tool')"
+            false
+        }
+    done
+}
+
+@test "v0.6.14: 4 交互式 subagent (Scout/Sage/Archer/Judge) 必须有 question: allow" {
+    for agent in scout sage archer judge; do
+        [ -f "$AGENTS_DIR/${agent}.md" ] || continue
+        run grep -q "^  question: allow" "$AGENTS_DIR/${agent}.md"
+        [ "$status" -eq 0 ] || {
+            echo "FAIL: $agent missing 'question: allow' (interactive subagent needs question tool)"
+            false
+        }
+    done
+}
+
+@test "v0.6.14: 7 非交互式 subagent 必须有 question: deny" {
+    for agent in devon keeper librarian warden prism shield; do
+        # 6 non-interactive (excludes Lex which is spec review, not interactive)
+        # actually Lex IS spec-stage but the question test is about the 4-question-tool subagents only
+        if [ "$agent" = "lex" ]; then continue; fi
+        [ -f "$AGENTS_DIR/${agent}.md" ] || continue
+        run grep -q "^  question: deny" "$AGENTS_DIR/${agent}.md"
+        [ "$status" -eq 0 ] || {
+            echo "FAIL: $agent missing 'question: deny' (non-interactive subagent should not ask user)"
+            false
+        }
+    done
+}
+
+@test "v0.6.14: Maestro 是唯一 task: allow 的 agent" {
+    run grep -E "^  task: allow" "$AGENTS_DIR/Maestro.md"
+    [ "$status" -eq 0 ] || { echo "FAIL: Maestro must have task: allow (sole orchestrator)"; false; }
+}

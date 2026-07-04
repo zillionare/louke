@@ -3,6 +3,7 @@ name: prism
 description: 多视角 code review — 批判性审视 (3 个内部子视角)
 mode: subagent
 permission:
+  task: deny
   question: deny
 models:
   - deepseek-v4-pro

@@ -3,6 +3,7 @@ name: keeper
 description: 质量门禁 — 验证 R-G-R / 测试通过 / lint / commit 格式
 mode: subagent
 permission:
+  task: deny
   question: deny
 models:
   - deepseek-v4-flash

@@ -3,6 +3,7 @@ name: sage
 description: 需求澄清与 spec 撰写 — 把 story 翻译为可追踪的 spec
 mode: subagent
 permission:
+  task: deny
   question: allow
 models:
   - minimax-m3

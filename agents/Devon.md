@@ -3,6 +3,7 @@ name: devon
 description: TDD 实施者 — Red-Green-Refactor 循环 + 测试与实现
 mode: subagent
 permission:
+  task: deny
   question: deny
 models:
   - kimi-2.7-code

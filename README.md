@@ -91,7 +91,7 @@ Each agent has a default primary model (with an in-tier fallback). Override via 
 
 ### 6.1 Agent Permissions (v0.6-009)
 
-5 agents have explicit `permission:` blocks (YAML object, 11-13 keys) constraining their tool access. The other 7 use OpenCode defaults.
+5 agents have explicit `permission:` blocks (YAML object, 11-13 keys) constraining their tool access. The other 7 also have explicit blocks (11 keys each) — all 12 agents declare their permissions explicitly. **All 11 subagents have `task: deny`** to enforce "Maestro is the sole orchestrator" design.
 
 | Agent | Mode | `question` | `edit` | Notes |
 |---|---|---|---|---|
@@ -102,7 +102,7 @@ Each agent has a default primary model (with an in-tier fallback). Override via 
 | **Librarian** | `subagent` | ❌ | ✅ | Writes wiki; 11 keys; path restriction via prompt |
 | **Sage** | `subagent` | ✅ | (default) | Interactive spec clarification |
 | **Scout** | `subagent` | ✅ | (default) | Interactive project foundation |
-| Lex / Devon / Shield / Keeper / Prism / Warden / Librarian | `subagent` | ❌ | (default) | Non-interactive; conservative defaults |
+| Lex / Devon / Shield / Keeper / Prism / Warden / Librarian | `subagent` | ❌ | `task: deny`, `question: deny` | Non-interactive; explicit permission block |
 
 > Run `lk agent lint` to verify all agent frontmatter conforms.
 
