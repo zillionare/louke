@@ -28,3 +28,17 @@
 - **Spec ID**: v0.4-004-quote-dialogue
 - **Release Branch**: `releases/v0.4`
 - **Created**: 2026-06-15
+
+## v0.7 (当前活跃)
+- **Story**: pre-commit 接管 lint/format/typecheck/test + R-G-R Red 去 commit + Keeper 瘦到 R-G-R/format/AC trace/反模式。详见 `.louke/project/specs/v0.7-001-pre-commit-quality-gates/spec.md`。
+- **Version**: 0.7
+- **Repo**: github.com/zillionare/louke
+- **Project**: louke-v0.7 (#8)
+- **Project ID**: https://github.com/users/quantclaws/projects/8
+- **Spec ID**: v0.7-001-pre-commit-quality-gates
+- **Release Branch**: `releases/v0.7` (待建)
+- **Smoke Test Issue**: #80 (closed, previous v0.6 milestone 冒烟)
+- **DoD**: e2e 全通过 + 单元测试覆盖率 ≥95%（沿用 default，未启用 Security Audit 因本项目为内部工具）
+- **Security Audit**: disabled
+- **Created**: 2026-07-05
+- **Related Issues** (本 spec 已建): #81 FR-0100, #82 FR-0200, #83 FR-0300, #84 FR-0400, #85 FR-0500, #86 FR-0600, #87 FR-0700, #88 NFR-0010, #89 NFR-0020, #90 NFR-0030
