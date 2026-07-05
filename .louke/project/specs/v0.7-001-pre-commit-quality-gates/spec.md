@@ -32,7 +32,7 @@
 3. 该提案存在未解问题（`paths` schema 与 `keeper.py:166` 不一致、漏迁 e2e loader、§6 风险表 `edit: deny` 事实错误），全部因改用 pre-commit 而消失。
 4. `lk keeper gate` 仍需做**跨 commit 语义检查**（commit 消息格式、R-G-R 顺序、AC trace、反模式扫描），这些 pre-commit 做不了 —— Keeper 保留这部分，不消亡。
 
-`quality-gates.toml` 不引入；keeper.py 的 `_load_quality_gates` / `run_external_tool` / `run_project_tests` 删除（FR-0600）；shield.py 的 e2e 配置 loader 处置待 Aaron 拍板（见下方 Sage 评注）。
+`quality-gates.toml` 不引入；keeper.py 的 `_load_quality_gates` / `run_external_tool` / `run_project_tests` 删除（FR-0600）；shield.py 的 `_load_quality_gates` / `_load_e2e_config` / `cmd_run_e2e` 保留（e2e 是 Shield 职责，不在本 spec 范围）。
 
 > **与 v0.7-002 关系**：v0.7-002（知识蒸馏 Karpathy 化）早期版本曾含 `quality-gates.toml` 内容，现已剔除。本 spec 的否决声明是清理动作，防止未来 reviewer 看到旧设计稿误以为仍生效。
 
@@ -43,7 +43,8 @@
 > 3. 若 Aaron 同意方向 → §0.2 第 4 段重写，FR-0600 范围缩小为"删除 lint/typecheck/test 代码路径 + `[lint] [typecheck] [test]` 段读取"，**e2e 相关全部保留**。
 > 4. 若 Aaron 仍要完全砍掉 `quality-gates.toml`（包括 shield 端）→ 需补一份 `quality-gates-e2e.toml` 或迁回 `pyproject.toml [tool.louke.test.e2e]`，本 spec 范围会扩大。
 >
-> 默认建议：方向 2（保留文件，仅砍 lint/typecheck/test 段读取）。OK？
+> 默认建议：方向 2（保留文件，仅砍 lint/typecheck/test 段读取）。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 ### 0.3 本 spec 不收纳
 
@@ -156,7 +157,7 @@
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 `pre-commit` 作为 louke 的**运行时依赖**加入 `pyproject.toml` 的 `dependencies`。用户 `pip install louke` 后即有 `pre-commit` 命令可用。
 
@@ -183,7 +184,7 @@
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 louke 自带模板目录 `louke/templates/pre-commit/`：
 
@@ -215,7 +216,7 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 每次 `git commit` 触发 pre-commit，依次跑：
 
@@ -243,7 +244,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 > - **软目标**（推荐）：超出不报错，Archer 可优化；CI 中 CI-only test hook 拆分作为兜底手段。
 > - **硬指标**：pre-commit 启动超时 → commit 失败——会阻塞 agent 工作流，不建议。
 >
-> 默认建议：软目标。OK？
+> 默认建议：软目标。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 ---
 
@@ -251,7 +253,7 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 #### FR-0400.1 Red 阶段不 commit
 
@@ -280,7 +282,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 - `RGR_PREFIX` 是嵌套 dict（key 为 `(label, phase)` tuple，`devon.py:16`），删除两个 tuple 键：`('feature', 'red')` 和 `('fix', 'red')`；保留 `('feature','green')` `('fix','green')` `('feature','refactor')` `('fix','refactor')`
 - Green 仍自动追加 `Closes #{issue}`，Refactor 不追加
 
-> **现状提示**：当前 `louke/devon.py:16-23` 的 `RGR_PREFIX` 仍含 `('feature', 'red')` 和 `('fix', 'red')` 键；`louke/agents/Devon.md` §5.1 仍含 `--phase red` 调用和 `test: red` 退出条件。本 FR 落地时同步修改，详见 §6 关联文件表。
+> [!NOTE]
+> 现状提示：当前 `louke/devon.py:16-23` 的 `RGR_PREFIX` 仍含 `('feature', 'red')` 和 `('fix', 'red')` 键；`louke/agents/Devon.md` §5.1 仍含 `--phase red` 调用和 `test: red` 退出条件。本 FR 落地时同步修改，详见 §6 关联文件表。
 
 #### FR-0400.3 R-G-R 顺序检查简化
 
@@ -295,7 +298,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 > 1. **fix cycle**：`commit-rgr` 支持 `--label fix` 产出 `fix: green` 前缀（`devon.py:21`），fix cycle 内"refactor 不得先于 green"的语义跟 feature cycle 一致。请确认 `lk keeper gate` 把 `fix: green` / `feat: green` 都视为"green 前缀"同等检查。
 > 2. **跨 issue 时不强制**：spec 文字"跨 issue 时不强制"——具体是 (a) 不同 issue 的 commit 序列不参与顺序校验、(b) 同 issue 内仍校验，(c) git log 输出按 issue 分组后再校验？建议 (a)——按 issue 分组过于精细，对 agent 增加不必要负担。
 >
-> 默认建议：fix cycle 等同 feature cycle + 跨 issue 不参与校验（即实现最简）。OK？
+> 默认建议：fix cycle 等同 feature cycle + 跨 issue 不参与校验（即实现最简）。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 ---
 
@@ -303,7 +307,7 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 `agents/Devon.md` §8 反模式追加一条：
 
@@ -323,7 +327,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 > 2. Devon prompt §6.2 `--no-verify` 禁令（commit 前最后一道提示）
 > 3. CI `pre-commit run --all-files`（FR-0700，全量复查，捕获漏网）
 >
-> 这三层已足够。OK？
+> 这三层已足够。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 ---
 
@@ -331,7 +336,7 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 #### FR-0600.1 `louke/keeper.py` 删除的代码路径
 
@@ -348,20 +353,21 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 > 2. **e2e 处置**：建议 keeper.py 只删 lint/typecheck/test 代码路径，**`shield.py` 的 `_load_quality_gates()` + `_load_e2e_config()` + `cmd_run_e2e` 全部保留**（e2e 是 Shield 职责，不在本 spec 范围内）。需要 Aaron 显式同意"keeper 端瘦到只剩 R-G-R 顺序 / commit 消息格式 / AC trace / 反模式扫描，e2e 不动"。
 > 3. **CLI flag 同步删**：keeper.py 当前 `--lint` / `--typecheck` / `--tests` 三个 flag — `--tests` spec 写了要删，`--lint` `--typecheck` 没明说。建议**三个一并删**（FR-0300 把测试归 pre-commit，lint/typecheck 也归 pre-commit，keeper 不重复跑）。
 >
-> 默认建议：上面表格的内容 + Q1 方向 2 一起锁定。OK？
+> 默认建议：上面表格的内容 + Q1 方向 2 一起锁定。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 #### FR-0600.2 `lk keeper gate` 保留的检查项
 
 | 检查项 | 数据源 | 为什么 pre-commit 做不了 |
 |---|---|---|
 | commit 消息格式（`feat: green` / `fix: green` / `refactor` 前缀） | `git log` | pre-commit 只看当前 commit 的 staged 文件，不看 commit 消息内容（虽然也有 `commit-msg` hook 但那是另一套） |
-| R-G-R 顺序（Green 先于 Refactor、同 issue 内） | `git log` 跨 commit | pre-commit 单 commit 作用域 |
+| R-G-R 顺序（refactor 不得先于 green、同 issue 内；`fix: green` 与 `feat: green` 等价检查） | `git log` 跨 commit | pre-commit 单 commit 作用域 |
 | AC trace（docstring `AC-FRXXXX-YY` 锚点存在性） | 跨文件 AST 扫描 | pre-commit 不做语义分析 |
 | 反模式扫描（`assert True` / `try: pass` / `# noqa` 滥用） | AST 扫描 | louke 特定规则，社区 hook 无 |
 
-#### FR-0600.3 `lk keeper gate --tests` flag 移除
+#### FR-0600.3 `lk keeper gate` CLI flag 移除（`--tests` / `--lint` / `--typecheck`）
 
-`--tests` / `--no-tests` 选项删除。测试归 pre-commit（本地）+ CI（远程），Keeper 不重复跑。
+`--tests` / `--no-tests` / `--lint` / `--typecheck` 选项全部删除。lint/typecheck/test 归 pre-commit（本地）+ CI（远程），Keeper 不重复跑。`_load_quality_gates` 的 `pyproject.toml [tool.louke.*]` fallback 路径一并删除。
 
 Keeper.md description 字段更新：
 
@@ -378,7 +384,7 @@ description: 质量门禁 — 验证 R-G-R 顺序 / commit 消息格式 / AC tra
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 
@@ -398,7 +404,10 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 > 1. **dogfood**（推荐）：louke 仓库根目录写一份 `.pre-commit-config.yaml`（用 louke 模板的 base + python 组合），`pyproject.toml` 的 `dependencies` 同样依赖 `pre-commit`，CI `.github/workflows/ci.yml` 跑 `pre-commit run --all-files` 把模板自身当 lint 网——模板有问题第一时间在 louke 仓库暴露。
 > 2. **不 dogfood**：只在 `louke/templates/pre-commit/` 产模板，自己 CI 用 ruff/mypy/pytest 原生命令。模板与 louke 自身 lint 规则可能漂移。
 >
-> 默认建议：dogfood。OK？
+> 默认建议：dogfood。OK？ ✓ resolved
+>> **Aaron:** dogfood ✓ resolved
+
+**louke 自身 dogfood**（Aaron 已确认）：louke 仓库根目录写一份 `.pre-commit-config.yaml`（用 louke 模板的 base + python 组合），CI `.github/workflows/ci.yml` 跑 `pre-commit run --all-files`。模板有问题第一时间在 louke 仓库暴露，避免模板与 louke 自身 lint 规则漂移。
 
 ---
 
@@ -408,7 +417,7 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 ⚠️ **Breaking changes 显式声明**：
 
@@ -416,6 +425,8 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 2. **`lk keeper gate --tests` / `--lint` / `--typecheck` 移除**：`--tests` 写了要删；`--lint` `--typecheck` 同样需删（FR-0300 把 lint/typecheck 归 pre-commit，keeper 不重复跑）。CI 脚本若调用 → 改为 `pre-commit run --all-files`。
 3. **`pyproject.toml [tool.louke.*]` 不再读取**：v0.6 的 `_load_quality_gates()` 对 `[tool.louke.lint]` 等段有 fallback 读取；本 spec 后该 fallback 是否一并删（FR-0600 提示需要）——若保留则与"lint/typecheck 归 pre-commit"语义冲突，建议删。
 4. **git 历史中的 `test: red` commit**：v0.7 前的存量 commit 不受影响（不重写历史）。Keeper 的 R-G-R 顺序检查对 legacy `test: red` commit 静默接受。
+5. **模板同步**：`louke/templates/task-log.md` 和 `louke/templates/bug-fix.md` 中的 `Commit: test: red – {编号} {描述}` 模板需同步改为 `feat: green` / `fix: green` / `refactor` 前缀（FR-0400 后这些模板会让 agent 误产 `test: red` commit）。
+6. **`.opencode/agents/` 部署产物**：`.opencode/agents/devon.md` 是 `lk board opencode` 的部署产物（非源文件）。FR-0400/FR-0500 改动只需改 `louke/agents/Devon.md`（单一来源），功能完成后跑 `lk board opencode` 刷新部署。
 
 > **Sage:** 请 Aaron 把以下 4 个边界纳入 v0.7-001 改动清单（否则 spec 落地后这些会被遗忘）：
 >
@@ -424,9 +435,10 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 > 3. **templates 同步**：`louke/templates/task-log.md:12` `louke/templates/bug-fix.md:26` 都是 `Commit: test: red – {编号} {描述}` 模板，FR-0400 后这些模板会让 agent 误产 `test: red` commit。建议同时改：
 >    - `task-log.md:12` → 改为 `Commit: feat: green – ... 或 refactor: ...`
 >    - `bug-fix.md:26` → `Commit: fix: green – BUG-{编号} {描述}` / `refactor: ...`
-> 4. **Dual prompt file**: `.opencode/agents/devon.md:76` 跟 `louke/agents/Devon.md:90` 是两份独立 Dev prompt 源，FR-0400/FR-0500 改动只列了 `agents/Devon.md`。请确认 **两份都要改**，或 `.opencode/` 目录是 shadow / 旧版（如是 shadow 则 `agents/Devon.md` 单一来源）。
->
-> 默认建议：以上 4 项全部纳入。OK？
+> 4. **Dual prompt file**: `.opencode/agents/devon.md:76` 跟 `louke/agents/Devon.md:90` 是两份独立 Dev prompt 源，FR-0400/FR-0500 改动只列了 `agents/Devon.md`。请确认 **两份都要改**，或 `.opencode/` 目录是 shadow / 旧版（如是 shadow 则 `agents/Devon.md` 单一来源）。 ✓ resolved
+>> **Aaron:** 本项目下的.opencode/agents 视为部署，功能完成后，要执行 lk upgrade/board ✓ resolved
+> **Sage:** 默认建议：以上 4 项全部纳入。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 **升级路径**：
 - `lk upgrade` 升级到 v0.7+ 后，跑 `lk scout install-precommit --force` 补装 pre-commit hook
@@ -443,19 +455,20 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 - `pre-commit` 加入 `pyproject.toml` 的 `dependencies`（非 dev-dependencies，因为 louke 运行时需要它安装 hook）
-- 版本约束：`pre-commit >= 3.0`（mypy / ruff hook repo 要求）
+- 版本约束：`pre-commit >= 3.0, < 5.0`（允许 3.x / 4.x，留主版本缓冲；hook repo 在主版本切换时可能破坏向后兼容）
 - 非 Python 项目（纯 Node / Java / Rust）仍需 Python 环境装 `pre-commit` —— 接受此约束，因 louke 本身依赖 Python，用户装 louke 时已有 Python
 
-> **Sage:** 请 Aaron 决定 `pre-commit` 依赖上限。`pre-commit 4.x` 已发布，hook repo 在主版本切换时可能破坏向后兼容。建议钉 `pre-commit >= 3.0, < 5.0`（允许 3.x / 4.x，留缓冲）。OK？
+> **Sage:** 请 Aaron 决定 `pre-commit` 依赖上限。`pre-commit 4.x` 已发布，hook repo 在主版本切换时可能破坏向后兼容。建议钉 `pre-commit >= 3.0, < 5.0`（允许 3.x / 4.x，留缓冲）。OK？ ✓ resolved
+>> **Aaron:** agree ✓ resolved
 
 ### NFR-0030 文档同步
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ |
 
 - **README.md / README.zh.md**：在"工作流"章节加"pre-commit 质量门禁"小节，说明 lint/format/typecheck/test 在 commit 时自动跑、零 token、`--no-verify` 是反模式
 - **`agents/Devon.md`**：§5.1 Red 不 commit、§6.2 加 `--no-verify` 禁令、§8 加反模式条目
@@ -497,11 +510,13 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 | `louke/scout.py` | 加 `cmd_install_precommit` 实现 + Step 5 流程 |
 | `louke/devon.py` | `commit-rgr` `--phase` 枚举移除 `red`；`RGR_PREFIX` 移除 `('feature','red')` / `('fix','red')` 两个 tuple 键 |
 | `louke/keeper.py` | 删 `_load_quality_gates` / `run_external_tool` / `run_project_tests`；`cmd_gate` 移除 lint/typecheck/test 调用；`--tests` / `--lint` / `--typecheck` flag 移除 |
-| `louke/shield.py` | `_load_quality_gates` / `_load_e2e_config` 处置待 Aaron 拍板（见 §0.2 Sage 评注） |
+| `louke/shield.py` | 保留 `_load_quality_gates` / `_load_e2e_config` / `cmd_run_e2e`（e2e 是 Shield 职责，不在本 spec 范围） |
 | `louke/agents/Devon.md` | §5.1 Red 不 commit；§6.2 加 `--no-verify` 禁令；§8 加反模式 |
 | `louke/agents/Keeper.md` | description 改；§3 移除 lint/test；§2.1 tools 移除 lint/test CLI |
 | `louke/agents/Scout.md` | 新增 Step 5: 安装 pre-commit hook |
 | `louke/agents/Archer.md` | §6 加 `.pre-commit-config.yaml` 是 Archer 可编辑产物 |
+| `louke/templates/task-log.md` | `Commit: test: red` 模板改为 `feat: green` / `refactor` 前缀 |
+| `louke/templates/bug-fix.md` | `Commit: test: red` 模板改为 `fix: green` / `refactor` 前缀 |
 | `README.md` / `README.zh.md` | 加"pre-commit 质量门禁"小节 |
 | `.github/workflows/ci.yml` | 加 `pre-commit run --all-files` 步骤 |
 | `tests/test_devon_commit_rgr.bats` | 更新：`--phase red` 报错；`--phase green` / `refactor` 通过 |

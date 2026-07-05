@@ -222,6 +222,10 @@
 - `louke/templates/pre-commit/README.md` 含指向 ci-snippet.yml 的链接 + 使用说明
 - Archer 可引用 ci-snippet.yml 到用户项目 `.github/workflows/`
 
+### AC-4
+- louke 仓库自身 dogfood：根目录 `.pre-commit-config.yaml` 由 `louke/templates/pre-commit/base.yaml` + `python.yaml` 合并生成
+- louke CI `.github/workflows/ci.yml` 跑 `pre-commit run --all-files`，模板问题在 louke 仓库自身暴露
+
 ---
 
 ## NFR-0010 向后兼容
@@ -251,15 +255,15 @@
 - `louke/templates/bug-fix.md` Commit 字段模板从 `test: red – BUG-{编号} ...` 改为 `fix: green – BUG-{编号} ... 或 refactor: ...`
 
 ### AC-7
-- `agents/Devon.md` 与 `.opencode/agents/devon.md` 两份 prompt 中 Dev §5.1 Red 阶段不含 commit-rgr 调用
-- 视哪个文件是 Devon 的最终驱动源（需 Sage Step 3 阶段 Aaron 确认）
+- `louke/agents/Devon.md` 是单一源文件，§5.1 Red 阶段不含 commit-rgr 调用
+- `.opencode/agents/devon.md` 是 `lk board opencode` 的部署产物（非源文件），功能完成后跑 `lk board opencode` 刷新部署即可同步
 
 ---
 
 ## NFR-0020 pre-commit 框架依赖
 
 ### AC-1
-- `pyproject.toml` `[project.dependencies]` 含 `pre-commit >= 3.0, < 5.0`（待 Aaron 确认上限）
+- `pyproject.toml` `[project.dependencies]` 含 `pre-commit >= 3.0, < 5.0`（允许 3.x / 4.x，留主版本缓冲）
 - `pip show pre-commit` 在 louke 装好后可执行
 
 ### AC-2
