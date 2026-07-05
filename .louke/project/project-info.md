@@ -38,7 +38,9 @@
 - **Spec ID**: v0.7-001-pre-commit-quality-gates
 - **Release Branch**: `releases/v0.7` (待建)
 - **Smoke Test Issue**: #80 (closed, previous v0.6 milestone 冒烟)
-- **DoD**: e2e 全通过 + 单元测试覆盖率 ≥95%（沿用 default，未启用 Security Audit 因本项目为内部工具）
+- **unittest**: bats (bash testing — v0.6 既有 20 份 .bats；本 v0.7 spec 新增/更新 5 份 bats；FR-0700 dogfood `pre-commit run --all-files` step 旁安装在 ci.yml，独立于 bats)
+- **Spec Stage**: Archer 阶段一 + 阶段二 已完成 (test-plan + architecture + interfaces)
+- **DoD**: e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 58/58；未启用 Security Audit 因本项目为内部工具）
 - **Security Audit**: disabled
 - **Created**: 2026-07-05
 - **Related Issues** (本 spec 已建): #81 FR-0100, #82 FR-0200, #83 FR-0300, #84 FR-0400, #85 FR-0500, #86 FR-0600, #87 FR-0700, #88 NFR-0010, #89 NFR-0020, #90 NFR-0030
