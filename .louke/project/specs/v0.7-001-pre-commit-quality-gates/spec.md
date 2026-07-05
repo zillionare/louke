@@ -153,6 +153,8 @@
 
 ## 3. 功能需求
 
+<a id="fr-0100"></a>
+
 ### FR-0100 pre-commit 框架引入 + Scout 阶段安装
 
 | 有效需求 | 可测性 | 是否已决定 |
@@ -179,6 +181,8 @@
 **新增 CLI 子命令** `lk scout install-precommit [--force]`：单独触发 Step 5，供存量项目补装或重装。
 
 ---
+
+<a id="fr-0200"></a>
 
 ### FR-0200 `.pre-commit-config.yaml` 模板体系
 
@@ -211,6 +215,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 **Archer 编辑权**：M-ARCH 阶段 Archer 可编辑 `.pre-commit-config.yaml`（如换 linter、加 project-local 规则）。Archer 的 `edit: allow` 配合 prompt 路径白名单已覆盖此文件（属于 architecture 决策范畴）。
 
 ---
+
+<a id="fr-0300"></a>
 
 ### FR-0300 pre-commit hook 内容（lint / format / typecheck / test）
 
@@ -248,6 +254,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 >> **Aaron:** agree ✓ resolved
 
 ---
+
+<a id="fr-0400"></a>
 
 ### FR-0400 Devon R-G-R 改造：Red 不 commit + commit-rgr 移除 `--phase red`
 
@@ -303,6 +311,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 
 ---
 
+<a id="fr-0500"></a>
+
 ### FR-0500 Devon 反模式：`--no-verify` 禁止
 
 | 有效需求 | 可测性 | 是否已决定 |
@@ -331,6 +341,8 @@ louke 自带模板目录 `louke/templates/pre-commit/`：
 >> **Aaron:** agree ✓ resolved
 
 ---
+
+<a id="fr-0600"></a>
 
 ### FR-0600 Keeper 瘦身：移除 lint / typecheck / test 代码路径
 
@@ -380,6 +392,8 @@ description: 质量门禁 — 验证 R-G-R 顺序 / commit 消息格式 / AC tra
 
 ---
 
+<a id="fr-0700"></a>
+
 ### FR-0700 CI parity：`pre-commit run --all-files`
 
 | 有效需求 | 可测性 | 是否已决定 |
@@ -412,6 +426,8 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 ---
 
 ## 4. 非功能需求
+
+<a id="nfr-0010"></a>
 
 ### NFR-0010 向后兼容
 
@@ -451,6 +467,8 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 4. 跑 `pre-commit run --all-files` 验证
 - Archer 在 M-ARCH 阶段把 lint 决策从 spec 产物迁移到 `.pre-commit-config.yaml`
 
+<a id="nfr-0020"></a>
+
 ### NFR-0020 pre-commit 框架依赖
 
 | 有效需求 | 可测性 | 是否已决定 |
@@ -463,6 +481,8 @@ louke 自身的 CI（`.github/workflows/*.yml`）新增一步：
 
 > **Sage:** 请 Aaron 决定 `pre-commit` 依赖上限。`pre-commit 4.x` 已发布，hook repo 在主版本切换时可能破坏向后兼容。建议钉 `pre-commit >= 3.0, < 5.0`（允许 3.x / 4.x，留缓冲）。OK？ ✓ resolved
 >> **Aaron:** agree ✓ resolved
+
+<a id="nfr-0030"></a>
 
 ### NFR-0030 文档同步
 

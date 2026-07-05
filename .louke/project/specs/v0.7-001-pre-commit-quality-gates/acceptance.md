@@ -9,6 +9,8 @@
 
 ---
 
+<a id="ac-fr-0100"></a>
+
 ## FR-0100 pre-commit 框架引入 + Scout 阶段安装
 
 ### AC-1
@@ -42,6 +44,8 @@
 
 ---
 
+<a id="ac-fr-0200"></a>
+
 ## FR-0200 `.pre-commit-config.yaml` 模板体系
 
 ### AC-1
@@ -66,6 +70,8 @@
 - Archer 在 M-ARCH 阶段修改 `.pre-commit-config.yaml`（如换 linter）→ 下次 commit 生效
 
 ---
+
+<a id="ac-fr-0300"></a>
 
 ## FR-0300 pre-commit hook 内容（lint / format / typecheck / test）
 
@@ -93,6 +99,8 @@
 - Green/Refactor commit 时测试必过 → test hook 通过
 
 ---
+
+<a id="ac-fr-0400"></a>
 
 ## FR-0400 Devon R-G-R 改造：Red 不 commit + commit-rgr 移除 --phase red
 
@@ -136,6 +144,8 @@
 
 ---
 
+<a id="ac-fr-0500"></a>
+
 ## FR-0500 Devon 反模式：`--no-verify` 禁止
 
 ### AC-1
@@ -155,6 +165,8 @@
 - `Maestro` 撤退回触发器仅为：(a) Devon prompt 反模式规则记录在 agent 自我审查；(b) CI 红灯（FR-0700）
 
 ---
+
+<a id="ac-fr-0600"></a>
 
 ## FR-0600 Keeper 瘦身：移除 lint / typecheck / test 代码路径
 
@@ -207,6 +219,8 @@
 
 ---
 
+<a id="ac-fr-0700"></a>
+
 ## FR-0700 CI parity：`pre-commit run --all-files`
 
 ### AC-1
@@ -227,6 +241,8 @@
 - louke CI `.github/workflows/ci.yml` 跑 `pre-commit run --all-files`，模板问题在 louke 仓库自身暴露
 
 ---
+
+<a id="ac-nfr-0010"></a>
 
 ## NFR-0010 向后兼容
 
@@ -260,6 +276,8 @@
 
 ---
 
+<a id="ac-nfr-0020"></a>
+
 ## NFR-0020 pre-commit 框架依赖
 
 ### AC-1
@@ -271,6 +289,8 @@
 - `pre-commit install` 在 Node 项目 repo 成功执行
 
 ---
+
+<a id="ac-nfr-0030"></a>
 
 ## NFR-0030 文档同步
 
