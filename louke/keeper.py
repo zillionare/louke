@@ -1,6 +1,6 @@
 """Keeper commands - gate 检查.
 
-Keeper 职责: per-commit gate (R-G-R + tests pass + lint + commit 格式) +
+Keeper 职责: per-commit gate (R-G-R 顺序 + commit 格式 + AC trace + 反模式扫描) +
 回归判断 (合并 Shield 的判断部分)。
 """
 import argparse
@@ -16,11 +16,11 @@ def register(subparsers):
     parser = subparsers.add_parser('keeper', help='gate 检查 (Keeper)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('gate', help='per-commit gate (FR-0590: format + R-G-R 顺序 + lint/typecheck/AC trace/反模式/tests)')
+    p = sub.add_parser('gate', help='per-commit gate (format + R-G-R 顺序 + AC trace + 反模式扫描)')
     p.add_argument('--commit-range', default='HEAD~1..HEAD', help='要检查的 commit 范围')
-    p.add_argument('--tests', action='store_true', help='运行项目测试 command')
-    p.add_argument('--lint', action='store_true', help='运行项目 lint command')
-    p.add_argument('--typecheck', action='store_true', help='运行项目 typecheck command')
+    p.add_argument('--tests', action='store_true', help='已废弃 (v0.7-001)')
+    p.add_argument('--lint', action='store_true', help='已废弃 (v0.7-001)')
+    p.add_argument('--typecheck', action='store_true', help='已废弃 (v0.7-001)')
     p.add_argument('--skip-ac-trace', action='store_true', help='跳过 AC trace 校验')
     p.add_argument('--skip-anti-pattern', action='store_true', help='跳过反模式扫描')
 
@@ -47,8 +47,8 @@ def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
     valid_prefixes = (
         'test: red',
         'feat: green',
+        'fix: green',
         'refactor:',
-        'e2e:',
         'fix:',
         'docs:',
         'chore:',
@@ -77,7 +77,7 @@ def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
 
 # ---- FR-0590: R-G-R 顺序校验 ----
 
-PHASE_ORDER = {'test: red': 1, 'feat: green': 2, 'refactor': 3}
+PHASE_ORDER = {'test: red': 1, 'feat: green': 2, 'fix: green': 2, 'refactor:': 3}
 
 
 def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
@@ -103,7 +103,7 @@ def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
 
 
 def check_test_before_impl(commit_range: str, cwd: Path = None) -> list:
-    """cycle 内 test: red 必须先于 feat: green。"""
+    """cycle 内 test: red 必须先于 green (feat: green / fix: green 等价)。"""
     rc, out, _ = git('log', '--reverse', '--format=%s', commit_range, cwd=cwd)
     if rc != 0:
         return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
@@ -114,72 +114,39 @@ def check_test_before_impl(commit_range: str, cwd: Path = None) -> list:
         s = line.strip()
         if s.startswith('test: red'):
             seen_red = True
-        elif s.startswith('feat: green'):
+        elif s.startswith('feat: green') or s.startswith('fix: green'):
             if not seen_red:
                 findings.append({
                     'subject': s,
                     'severity': 'high',
-                    'description': f'feat: green before test: red in cycle',
+                    'description': f'green before test: red in cycle',
                 })
             seen_green = True
-        elif s.startswith('refactor'):
+        elif s.startswith('refactor:'):
             if not seen_green:
                 findings.append({
                     'subject': s,
                     'severity': 'high',
-                    'description': f'refactor without preceding feat: green',
+                    'description': f'refactor without preceding green',
                 })
     return findings
 
 
-def _load_pyproject_tool(name):
-    try:
-        import tomllib
-    except ImportError:
-        try:
-            import tomli as tomllib  # type: ignore
-        except ImportError:
-            return None
-    path = Path.cwd() / 'pyproject.toml'
-    if not path.exists():
-        return None
-    with open(path, 'rb') as f:
-        data = tomllib.load(f)
-    return data.get('tool', {}).get('louke', {}).get(name)
-
-
-def run_external_tool(name: str) -> tuple[bool, str]:
-    cfg = _load_pyproject_tool(name)
-    if not cfg or not cfg.get('command'):
-        return None, f'no [tool.louke.{name}] configured'
-    cmd = [cfg['command'], *cfg.get('args', [])]
-    result = subprocess.run(cmd, cwd=Path.cwd(), capture_output=True, text=True)
-    if result.returncode == 0:
-        return True, ''
-    return False, (result.stdout + result.stderr).strip()[:500]
-
-
-def run_project_tests() -> tuple[bool, str]:
-    cfg = _load_pyproject_tool('test') or {}
-    cmd = cfg.get('command', 'python3')
-    args = cfg.get('args', ['-m', 'pytest', '-q', '--tb=short'])
-    paths = (cfg.get('paths') or {}).get('all', 'tests/')
-    if isinstance(paths, str):
-        paths = [paths]
-    result = subprocess.run([cmd, *args, *paths], cwd=Path.cwd(), capture_output=True, text=True)
-    if result.returncode == 0:
-        return True, ''
-    return False, (result.stdout + result.stderr).strip()[:500]
-
-
 def cmd_gate(args):
-    """per-commit gate 检查: commit format + R-G-R 顺序 + lint/typecheck/AC trace/反模式/tests."""
+    """per-commit gate 检查: commit format + R-G-R 顺序 + AC trace + 反模式扫描。"""
+    if args.tests:
+        print('error: --tests 已废弃 (v0.7-001); lint/test/typecheck 不再由 keeper gate 调度', file=sys.stderr)
+        return 1
+    if args.lint:
+        print('error: --lint 已废弃 (v0.7-001); lint/test/typecheck 不再由 keeper gate 调度', file=sys.stderr)
+        return 1
+    if args.typecheck:
+        print('error: --typecheck 已废弃 (v0.7-001); lint/test/typecheck 不再由 keeper gate 调度', file=sys.stderr)
+        return 1
+
     cwd = Path.cwd()
     print(f"=== Keeper Gate ===")
     print(f"Commit range: {args.commit_range}")
-    print(f"Run tests:   {args.tests}")
-    print(f"Run lint:    {args.lint}")
-    print(f"Run typechk: {args.typecheck}")
     print()
 
     all_findings = []
@@ -215,24 +182,6 @@ def cmd_gate(args):
         if rc != 0:
             all_findings.append({'severity': 'high', 'description': 'anti-pattern scan failed'})
             print('--- Anti-Pattern: FAIL ---')
-
-    if args.lint:
-        ok, msg = run_external_tool('lint')
-        print(f"--- Lint: {'PASS' if ok else 'FAIL' if ok is False else 'SKIPPED'} ---")
-        if ok is False:
-            all_findings.append({'severity': 'high', 'description': f'lint failed: {msg}'})
-
-    if args.typecheck:
-        ok, msg = run_external_tool('typecheck')
-        print(f"--- Typecheck: {'PASS' if ok else 'FAIL' if ok is False else 'SKIPPED'} ---")
-        if ok is False:
-            all_findings.append({'severity': 'high', 'description': f'typecheck failed: {msg}'})
-
-    if args.tests:
-        ok, msg = run_project_tests()
-        print(f"--- Tests: {'PASS' if ok else 'FAIL'} ---")
-        if not ok:
-            all_findings.append({'severity': 'high', 'description': f'tests failed: {msg}'})
 
     has_blocking = any(f.get('severity') in ('critical', 'high') for f in all_findings)
     if has_blocking:
