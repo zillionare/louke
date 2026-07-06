@@ -4,9 +4,11 @@ Keeper 职责: per-commit gate (R-G-R 顺序 + commit 格式 + AC trace + 反模
 回归判断 (合并 Shield 的判断部分)。
 """
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 from ._common import git
 
@@ -74,60 +76,61 @@ def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
     return findings
 
 
-# ---- FR-0590: R-G-R 顺序校验 ----
+# ---- FR-0400.3: R-G-R 顺序校验 ----
 
-PHASE_ORDER = {'test: red': 1, 'feat: green': 2, 'fix: green': 2, 'refactor:': 3}
+_ISSUE_RE = re.compile(r'#(\d+)')
+
+
+def _issue_key(subject: str) -> str:
+    """从 commit subject 中提取 issue 编号作为分组 key；无 issue 编号时返回 subject 自身。"""
+    match = _ISSUE_RE.search(subject)
+    return match.group(1) if match else subject
+
+
+def _rgr_phase(subject: str) -> Optional[str]:
+    """返回 subject 对应的 R-G-R 阶段：'green' / 'refactor'；非相关阶段返回 None。"""
+    if subject.startswith('feat: green') or subject.startswith('fix: green'):
+        return 'green'
+    if subject.startswith('refactor:'):
+        return 'refactor'
+    return None
 
 
 def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
-    """同 cycle 内 test: red → feat: green → refactor 顺序不允许跳跃或回退。"""
+    """按 issue 分组校验 green 必须早于 refactor，跨 issue 不参与顺序校验。
+
+    同 issue 内允许的序列：
+    - [green]
+    - [green, refactor...]
+    - [refactor...]
+
+    禁止的序列：
+    - [refactor..., green...]（refactor 出现在 green 之前）
+    """
     rc, out, _ = git('log', '--reverse', '--format=%s', commit_range, cwd=cwd)
     if rc != 0:
         return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
-    findings = []
-    last_phase = 0
-    for line in out.strip().split('\n'):
-        s = line.strip()
-        for prefix, order in PHASE_ORDER.items():
-            if s.startswith(prefix):
-                if order < last_phase:
-                    findings.append({
-                        'subject': s,
-                        'severity': 'high',
-                        'description': f'R-G-R order violation: {s} after phase {last_phase}',
-                    })
-                last_phase = max(last_phase, order)
-                break
-    return findings
 
-
-def check_test_before_impl(commit_range: str, cwd: Path = None) -> list:
-    """cycle 内 test: red 必须先于 green (feat: green / fix: green 等价)。"""
-    rc, out, _ = git('log', '--reverse', '--format=%s', commit_range, cwd=cwd)
-    if rc != 0:
-        return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
-    findings = []
-    seen_red = False
-    seen_green = False
+    grouped: dict[str, list[tuple[str, str]]] = {}
     for line in out.strip().split('\n'):
-        s = line.strip()
-        if s.startswith('test: red'):
-            seen_red = True
-        elif s.startswith('feat: green') or s.startswith('fix: green'):
-            if not seen_red:
+        subject = line.strip()
+        phase = _rgr_phase(subject)
+        if phase is None:
+            continue
+        grouped.setdefault(_issue_key(subject), []).append((phase, subject))
+
+    findings = []
+    for commits in grouped.values():
+        seen_refactor = False
+        for phase, subject in commits:
+            if phase == 'green' and seen_refactor:
                 findings.append({
-                    'subject': s,
+                    'subject': subject,
                     'severity': 'high',
-                    'description': f'green before test: red in cycle',
+                    'description': 'refactor before green within the same issue',
                 })
-            seen_green = True
-        elif s.startswith('refactor:'):
-            if not seen_green:
-                findings.append({
-                    'subject': s,
-                    'severity': 'high',
-                    'description': f'refactor without preceding green',
-                })
+            elif phase == 'refactor':
+                seen_refactor = True
     return findings
 
 
@@ -158,12 +161,6 @@ def cmd_gate(args):
 
     findings = check_rgr_order(args.commit_range, cwd=cwd)
     print(f"--- R-G-R Order ({len(findings)} findings) ---")
-    for f in findings:
-        print(f"[{f.get('severity','?')}] {f.get('subject','?')} - {f.get('description','')}")
-    all_findings.extend(findings)
-
-    findings = check_test_before_impl(args.commit_range, cwd=cwd)
-    print(f"--- Test Before Impl ({len(findings)} findings) ---")
     for f in findings:
         print(f"[{f.get('severity','?')}] {f.get('subject','?')} - {f.get('description','')}")
     all_findings.extend(findings)

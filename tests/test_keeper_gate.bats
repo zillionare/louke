@@ -112,3 +112,58 @@ commit() {
         false
     }
 }
+
+@test "FR-0400.3: same-issue [green, refactor] passes" {
+    init_tmp_repo
+    commit "chore: init"
+    commit "feat: green – #1 – implement feature"
+    commit "refactor: – #1 – clean up"
+    run python -m louke agent keeper gate --commit-range HEAD~2..HEAD \
+        --skip-ac-trace --skip-anti-pattern
+    [ "$status" -eq 0 ] || {
+        echo "expected pass but got: $output" >&2
+        false
+    }
+}
+
+@test "FR-0400.3: same-issue [refactor, green] fails" {
+    init_tmp_repo
+    commit "chore: init"
+    commit "refactor: – #1 – premature cleanup"
+    commit "feat: green – #1 – implement feature"
+    run python -m louke agent keeper gate --commit-range HEAD~2..HEAD \
+        --skip-ac-trace --skip-anti-pattern
+    [ "$status" -ne 0 ] || {
+        echo "expected failure but gate passed" >&2
+        false
+    }
+    [[ "$output" == *"refactor before green"* ]] || {
+        echo "expected 'refactor before green' finding; got: $output" >&2
+        false
+    }
+}
+
+@test "FR-0400.3: cross-issue [refactor #86, green #81] passes" {
+    init_tmp_repo
+    commit "chore: init"
+    commit "refactor: – #86 – FR-0600: update keeper checks"
+    commit "feat: green – #81 – FR-0100: implement feature"
+    run python -m louke agent keeper gate --commit-range HEAD~2..HEAD \
+        --skip-ac-trace --skip-anti-pattern
+    [ "$status" -eq 0 ] || {
+        echo "cross-issue reorder should pass but got: $output" >&2
+        false
+    }
+}
+
+@test "FR-0400.3: green without test: red is accepted" {
+    init_tmp_repo
+    commit "chore: init"
+    commit "feat: green – #1 – implement feature"
+    run python -m louke agent keeper gate --commit-range HEAD~1..HEAD \
+        --skip-ac-trace --skip-anti-pattern
+    [ "$status" -eq 0 ] || {
+        echo "green without red should be accepted; got: $output" >&2
+        false
+    }
+}
