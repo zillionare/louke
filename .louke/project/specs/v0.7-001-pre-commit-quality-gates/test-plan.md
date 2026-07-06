@@ -12,7 +12,7 @@
 本 spec 的被测对象是 **louke 工作流基础设施**（CLI 命令、模板文件、prompt 文件、CI 配置片段），**不是算法/金融/规则引擎**。外部可观测出口限于：
 
 - **CLI 端点**：`lk scout install-precommit`、`lk scout foundation`、`lk devon commit-rgr`、`lk keeper gate`、`lk init --adopt` 的 stdout/stderr/exit code
-- **文件产物**：`.pre-commit-config.yaml`（项目根）、`.git/hooks/pre-commit`（git 仓库内）、`louke/templates/pre-commit/*.yaml`（louke 仓库模板目录）、`project-info.md` 的 `Pre-commit:` 字段、`.github/workflows/ci.yml` 的 step
+- **文件产物**：`.pre-commit-config.yaml`（项目根）、`.git/hooks/pre-commit`（git 仓库内）、`louke/templates/pre-commit/*.yaml`（louke 仓库模板目录）、`project.toml` 的 `[meta].pre_commit` 字段（fix-002 后）、`.github/workflows/ci.yml` 的 step
 - **源/prompt 文件内容**：`louke/agents/{Scout,Devon,Keeper,Archer}.md`、`louke/templates/{task-log,bug-fix}.md` 的文本片段（prompt 文件在此 spec 中是被测对象，不是观测出口——验证 prompt 不再含某关键句对应 acceptance 中的"移除/加入"AC）
 - **被删代码的不存在性**：通过 grep / import 在 `louke/keeper.py` / `louke/shield.py` 上断言"某函数已不存在"或"某函数仍保留"
 - **pre-commit 框架行为**：通过 `git commit` 触发的 pre-commit hook 的 exit code 与 stderr（不直接断言 hook 内部，仅断言"commit 被阻止"与"stderr 含 ruff/mypy/pytest 报告"）
@@ -204,7 +204,7 @@ CI 静态检查：测试脚本中若出现 `import louke` → 阻塞 merge（适
 测试断言**只能**落在 `interfaces.md` 已定义的外部可观测出口上：
 
 - **CLI 出口**：`lk scout install-precommit` exit code / stderr；`lk devon commit-rgr --phase red` stderr 须含 "v0.7-001" + "agents/Devon.md §5.1"；`lk keeper gate --lint/--typecheck/--tests` stderr 须含对应 v0.7-001 message
-- **文件 schema**：`.pre-commit-config.yaml` 的 `repos:` 列表 schema（base + per-language）；`louke/templates/pre-commit/*.yaml` 的 hook id / rev / repo 字段；`project-info.md` 的 `Pre-commit: installed (...)` 字段
+- **文件 schema**：`.pre-commit-config.yaml` 的 `repos:` 列表 schema（base + per-language）；`louke/templates/pre-commit/*.yaml` 的 hook id / rev / repo 字段；`project.toml` 的 `[meta].pre_commit = "installed (...)"` 字段（fix-002 后）
 - **源文件 grep 出口**：keeper.py 不含 `_load_quality_gates` / `run_external_tool` / `run_project_tests`；shield.py 反之仍含
 - **prompt 文件文本出口**：`agents/Devon.md` §8 含"--no-verify"字样；§5.1 不含"commit-rgr --phase red"
 
@@ -245,7 +245,7 @@ lk archer ci-scan \
 - AC-3: L1 — fixture repo 放 `pyproject.toml` + `package.json` 双 manifest → `lk scout install-precommit --force` 后 `.pre-commit-config.yaml` 含 python + node 两套 repos
 - AC-4: L1 — fixture repo 跑 install-precommit → `.pre-commit-config.yaml` 存在且 yaml 解析后 `repos[0]` repo 来自 base.yaml；再次跑（无 --force）→ 文件不被覆写
 - AC-5: L2 — 跑 install-precommit → `.git/hooks/pre-commit` 文件存在；再跑 → 文件 mtime 刷新 + exit 0
-- AC-6: L1 — `project-info.md` 含 `Pre-commit: installed (python + base)` 字段
+- AC-6: L1 — `project.toml` 含 `[meta].pre_commit = "installed (python + base)"` 字段（fix-002 后）
 - AC-7: L1/L2 — `lk scout install-precommit --force` 独立运行 + `lk init --adopt` 独立运行（fixture repo 已有 git 历史但无 pre-commit）
 
 ### FR-0200 (4 AC) → `templates/test_precommit_templates.bats`

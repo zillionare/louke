@@ -1,0 +1,81 @@
+name: Bug
+description: 报告一个 louke 使用中的缺陷或异常行为
+title: "[BUG] 简述"
+labels: ["Bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 用一句话概括 bug，并补充必要背景。
+      placeholder: 运行 `lk init` 时崩溃，报错 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: |
+        提供最小复现步骤， ideally 是一组命令:
+        1.  mkdir tmp && cd tmp
+        2.  lk init foo
+        3.  ...
+      placeholder: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 你期望发生什么？
+      placeholder: 命令成功执行并生成 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么？附上完整报错或截图。
+      placeholder: 终端输出 ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: louke 版本
+      description: 运行 `lk --version` 或 `pip show louke` 获取版本号。
+      placeholder: 0.6.14
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python 版本
+      placeholder: "3.11"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: 操作系统
+      placeholder: macOS 15.7 / Ubuntu 22.04 / Windows 11
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 附加日志或上下文
+      description: 如有 traceback、配置文件片段或其他上下文，请贴在这里（注意脱敏）。
+      render: shell
+    validations:
+      required: false

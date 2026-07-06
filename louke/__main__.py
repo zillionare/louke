@@ -31,6 +31,7 @@ from . import __version__
 from . import init as init_cmd
 from . import models as models_cmd
 from . import board as board_cmd
+from . import quote as quote_cmd
 from . import agent as agent_main
 
 
@@ -38,6 +39,7 @@ USER_COMMANDS = {
     'init': init_cmd,
     'models': models_cmd,
     'board': board_cmd,
+    'quote': quote_cmd,
 }
 
 
@@ -190,7 +192,7 @@ def print_help_text():
     print('    prism      review, test-patterns, security-quick-scan, code-quality')
     print('    devon      run-tests, commit-rgr')
     print('    shield     run-e2e, commit-e2e, scaffold')
-    print('    librarian  distill, lint, rebuild-index, from-raw, write')
+    print('    librarian  distill, lint, rebuild-index, compact, rewrite')
     print('    maestro    status, advance, regress, escalate')
     print()
     print('Run lk <command> --help for detailed usage.')

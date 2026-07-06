@@ -21,7 +21,7 @@
 | 退出码      | 0=成功；非 0=失败（pre-commit 包未装 / git 仓库不存在 / `pre-commit install` 子进程失败） |
 | stdout      | 人类可读步骤日志：探测到的语言列表、生成文件路径、`pre-commit install` 成功与否            |
 | stderr      | 错误信息（含 v0.7-001 引用）                                                              |
-| 副作用      | (1) 写或刷新项目根 `.pre-commit-config.yaml`；(2) 写或刷新 `.git/hooks/pre-commit`；(3) `project-info.md` 追加/更新 `Pre-commit: installed ({language} + base)` 字段 |
+| 副作用      | (1) 写或刷新项目根 `.pre-commit-config.yaml`；(2) 写或刷新 `.git/hooks/pre-commit`；(3) `project.toml` 追加/更新 `[meta].pre_commit = "installed ({language} + base)"` 字段（fix-002 后） |
 
 **`--force` 语义**：*.yaml 已存在时也覆写（用于存量项目补装或重塑）。无 `--force` 且已存在 → stdout 打印 "skipped: .pre-commit-config.yaml exists (use --force to overwrite)"，退出 0，不报错。
 
@@ -124,13 +124,13 @@
 
 `lk scout install-precommit` 调 `pre-commit install` 子进程创建。该文件存在即可观测；测试断言此文件存在 + mtime 在重跑 install 时刷新。文件内容本身是 pre-commit 框架生成的 shim，不属本契约内容。
 
-### 2.7 `project-info.md` 新增字段
+### 2.7 `project.toml` 新增字段（fix-002 后）
 
-| 字段            | 类型   | 值                                                         |
-| --------------- | ------ | ---------------------------------------------------------- |
-| `Pre-commit:`    | string | 形如 `installed (python + base)` / `installed (node + base)` / `installed (base)` |
+| 字段                       | 类型   | 值                                                         |
+| -------------------------- | ------ | ---------------------------------------------------------- |
+| `[meta].pre_commit`         | string | 形如 `"installed (python + base)"` / `"installed (node + base)"` / `"installed (base)"` |
 
-由 Scout Step 5 写入；下游 agent 可 grep 此字段确认 pre-commit 已装。
+由 Scout Step 5 写入；下游 agent 可读此字段确认 pre-commit 已装（用 `tomllib.load` 解析，不再用 grep）。
 
 ---
 
@@ -202,7 +202,7 @@ step 名固定为 `Run pre-commit on all files`；run 命令固定 `pre-commit r
 
 唯一的"数据存盘"是：
 - `.pre-commit-config.yaml`（YAML 文件，§2.5）
-- `project-info.md` 的 `Pre-commit:` 字段（§2.7，plain text）
+- `project.toml` 的 `[meta].pre_commit` 字段（§2.7，TOML，fix-002 后）
 - louke 仓库根 `.pre-commit-config.yaml`（与 §2.5 同；dogfood 产物）
 
 无数据库、无缓存、无结构化日志 schema 引入。
@@ -224,7 +224,7 @@ step 名固定为 `Run pre-commit on all files`；run 命令固定 `pre-commit r
 | 源文件 grep 出口              | 8    | §8 FR-0600 + NFR-0010-2                              |
 | prompt 文件 grep 出口         | 16   | §8 FR-0400 / FR-0500 / FR-0600 / NFR-0010-6/7 + NFR-0030 |
 | CI 配置 step                  | 1    | §8 FR-0700-1                                        |
-| project-info.md 字段          | 1    | §8 FR-0100-6                                        |
+| project.toml 字段 (fix-002)     | 1    | §8 FR-0100-6                                        |
 | `.pre-commit-config.yaml`（项目根产物） | schema | §8 FR-0200-3 / FR-0700-4                            |
 
 每个出口在 test-plan.md §8 表中均有对应 AC 编号 + 测试方向。闭合成立。

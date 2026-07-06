@@ -5,6 +5,7 @@ lk 提供: status 查询 + advance/regress/escalate 操作。
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -64,27 +65,21 @@ def run(args):
 
 
 def _read_project_info(label):
-    path = Path('.louke/project/project-info.md')
-    if not path.exists():
-        return ''
-    for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
-        prefix = f'- **{label}**:'
-        if line.startswith(prefix):
-            return line.split(':', 1)[1].strip().strip('`')
-    return ''
+    # fix-002: 委托给 _common. project.toml 取代 project-info.md.
+    from ._common import _read_project_info_field
+    return _read_project_info_field(label)
 
 
 def _set_project_info_current_stage(stage):
-    path = Path('.louke/project/project-info.md')
+    path = Path('.louke/project/project.toml')
     if not path.exists():
         return
-    text = path.read_text(encoding='utf-8')
-    if '- **Current Stage**' in text:
-        text = '\n'.join(
-            line if not line.startswith('- **Current Stage**:') else f'- **Current Stage**: {stage}'
-            for line in text.splitlines()
-        )
-    path.write_text(text, encoding='utf-8')
+    text = path.read_text(encoding='utf-8', errors='replace')
+    pattern = r'^(current_stage\s*=\s*)"[^"]*"'
+    if re.search(pattern, text, flags=re.MULTILINE):
+        escaped = stage.replace('\\', '\\\\').replace('"', '\\"')
+        text = re.sub(pattern, rf'\1"{escaped}"', text, count=1, flags=re.MULTILINE)
+        path.write_text(text, encoding='utf-8')
 
 
 def _run_lk(*args):
@@ -116,9 +111,9 @@ def cmd_status(args):
     """Show stage table + current progress."""
     cwd = Path.cwd()
     print(f"=== Maestro Status ===")
-    info_path = cwd / '.louke/project/project-info.md'
+    info_path = cwd / '.louke/project/project.toml'
     if info_path.exists():
-        print(f"\n--- project-info.md ---")
+        print(f"\n--- project.toml ---")
         print(info_path.read_text(encoding='utf-8'))
     print(f"\n--- Stage Table ---")
     print(f"{'Code':<14} {'Stage':<14} {'Implementer':<14} {'Reviewer':<20}")
@@ -136,9 +131,9 @@ def _holdpoint(stage, args):
     """Return (ok, message)."""
     spec = args.spec_id or _read_current_spec()
     if stage == 'M-FOUND':
-        if not Path('.louke/project/project-info.md').exists():
-            return False, 'project-info.md missing; run lk scout foundation first'
-        return True, 'project-info.md exists'
+        if not Path('.louke/project/project.toml').exists():
+            return False, 'project.toml missing; run lk scout foundation first'
+        return True, 'project.toml exists'
     if stage == 'M-SPEC':
         if not spec:
             return False, 'spec-id required (--spec-id)'
@@ -250,7 +245,7 @@ def cmd_advance(args):
     print(f'[{ "ok" if ok else "high" }] {msg}')
     if not ok:
         print(f'\n→ 拒绝 ({msg})')
-        print(f'  提示: 人工核对后用 "lk maestro advance --stage {args.stage} --force" 强制推进')
+        print(f'  提示: 人工核对后用 "lk agent maestro advance --stage {args.stage} --force" 强制推进')
         return 1
     _set_project_info_current_stage(next_code)
     _record_raw_event(args.stage, 'advance', extra=f'advanced to {next_code}')

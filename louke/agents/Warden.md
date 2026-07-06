@@ -41,7 +41,7 @@ lk warden foundation-check --repo {owner}/{repo} --version {version} --spec-id {
 - **F3** Test Issue 合规（标题 `Good First Issue: {repo}-{version}`，状态 closed
 - **F4** Test PR 合规（标题 `Good First PR: {repo}-{version}`，状态 closed）
 - **F5** Agent prompt 文件存在
-- **F6** project-info.md 包含必须字段：`Version`, `Repo`, `Project`, `Spec ID`, `Release Branch`
+- **F6** project.toml `[project]` 段含必填字段（fix-002 后）：`version`, `repo`, `project`, `spec_id`, `release_branch`
 - **F7** story.md 存在
 - **F8** 开发分支 `releases/{version}` 在远程存在（基于 `main`）
 - **F9** Spec ID 格式合规（`^v{version}-{NNN}-{keyword}$`，如 `v0.3-001-adopt-mode`）

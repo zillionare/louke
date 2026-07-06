@@ -35,7 +35,7 @@
 - 重跑 `lk scout install-precommit` → hook 文件被刷新（幂等），不报错
 
 ### AC-6
-- Scout Step 6 写 `project-info.md` 含字段 `Pre-commit: installed ({language} + base)`
+- Scout Step 6 写 `project.toml` 含字段 `[meta].pre_commit = "installed ({language} + base)"`（fix-002 后）
 - 下游 agent 可读此字段确认 pre-commit 已装
 
 ### AC-7
@@ -311,7 +311,7 @@
 
 ### AC-4
 - `agents/Scout.md` 工作流程含 "Step 5: 安装 pre-commit hook"
-- Step 5 描述: 探测语言 → 生成 `.pre-commit-config.yaml` → `pre-commit install` → 记录 project-info.md
+- Step 5 描述: 探测语言 → 生成 `.pre-commit-config.yaml` → `pre-commit install` → 记录 `project.toml`
 
 ### AC-5
 - `agents/Archer.md` §6 显式列出 `.pre-commit-config.yaml` 为 Archer 可编辑产物

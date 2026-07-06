@@ -34,6 +34,8 @@ def register(subparsers):
 
     # quote-check: 复用 Sage 的 quote-check (同 louke/_tools/quote_parser.py)
     p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 quote 都 ✓ resolved')
+    p.add_argument('--check-violations', action='store_true', help='检测 ownership violations (谁关了不是自己的 quote)')
+    p.add_argument('--format', choices=['text', 'json'], default='text', help='输出格式 (默认 text)')
     p.add_argument('--spec', required=True)
 
 
@@ -51,14 +53,9 @@ from ._common import resolve_existing_path
 
 
 def _read_project_info(label: str) -> str:
-    path = Path('.louke/project/project-info.md')
-    if not path.exists():
-        return ''
-    for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
-        prefix = f'- **{label}**:'
-        if line.startswith(prefix):
-            return line.split(':', 1)[1].strip().strip('`')
-    return ''
+    # fix-002: 委托给 _common. project.toml 取代 project-info.md.
+    from ._common import _read_project_info_field
+    return _read_project_info_field(label)
 
 
 def cmd_verify_acceptance(args):
@@ -123,7 +120,7 @@ def cmd_verify_project(args):
     """FR-0740: 验证 spec 中所有 FR issue 已关联 Project."""
     project_url = _read_project_info('Project ID')
     if not project_url or not project_url.startswith('https://'):
-        print('Project URL missing in project-info.md; run lk scout foundation first', file=sys.stderr)
+        print('Project URL missing in project.toml; run lk scout foundation first', file=sys.stderr)
         return 1
     spec_text, frs = _extract_frs_from_spec(args.spec)
     if not frs:
@@ -131,7 +128,7 @@ def cmd_verify_project(args):
         return 0
     repo = _resolve_repo(args)
     if not repo:
-        print('cannot resolve repo; pass --repo or set Repo in project-info.md', file=sys.stderr)
+        print('cannot resolve repo; pass --repo or set Repo in project.toml', file=sys.stderr)
         return 1
     if args.dry_run:
         print(f'would verify {len(frs)} FR issues in {repo} against {project_url}')
@@ -174,14 +171,27 @@ def cmd_verify_project(args):
 
 
 def cmd_quote_check(args):
-    """调用 louke._tools.quote_parser (同 Sage quote-check + FR-0450 resolve_spec_path)."""
+    """调用 louke._tools.quote_parser (同 Sage quote-check + FR-0450 resolve_spec_path).
+
+    3 个 flag 互斥:
+    --check-ready: exit 0 if 0 [open] quotes (Maestro gate; 不输出 JSON)
+    --check-violations: 检测谁关了不是自己的 quote (不输出 JSON)
+    --format text|json (默认 text): 列出所有 quote + 状态; 拿 JSON 时**不要**同时加 --check-ready
+    """
     spec_arg = args.spec
+    if not spec_arg:
+        spec_arg = _read_project_info('Spec ID')
     candidate = Path(spec_arg)
     if not candidate.exists():
         default = Path(f'.louke/project/specs/{args.spec}/spec.md')
         spec_arg = str(default if default.exists() else resolve_existing_path(spec_arg))
-    result = subprocess.run(
-        [sys.executable, '-m', 'louke._tools.quote_parser', spec_arg, '--check-ready'],
-        cwd=Path.cwd(),
-    )
+    cmd = [sys.executable, '-m', 'louke._tools.quote_parser', spec_arg]
+    if args.check_violations:
+        cmd.append('--check-violations')
+    elif args.check_ready:
+        cmd.append('--check-ready')
+    # else: 默认行为, --format 控制输出 (text/json)
+    if args.format != 'text':
+        cmd += ['--format', args.format]
+    result = subprocess.run(cmd, cwd=Path.cwd())
     return result.returncode

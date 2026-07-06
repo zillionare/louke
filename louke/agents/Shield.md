@@ -56,6 +56,8 @@ models:
        # 3. 断言（按 interfaces.md 出口断言——API 响应字段/DB 记录/UI 元素）
    ```
 5. **本地验证** → `lk shield run-e2e --spec {SPEC-ID} --browser chromium` 至少跑一次确认脚本可执行
+   - **fix-001a 后**：`run-e2e` 默认按 `.louke/project/project.toml` 的 `[e2e]` 段自动启停项目（Archer M-ARCH 填 start/ready/teardown）
+   - 用户已手动启动项目时加 `--no-env` 跳过自动启停
 6. **提交**：`lk shield commit-e2e --spec {SPEC-ID} --message "cover {SPEC-ID} per test-plan §6 (AC-FRXXXX-YY)"`
 
 ---

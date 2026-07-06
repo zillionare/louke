@@ -1,0 +1,49 @@
+# .louke/project/project.toml
+# 当前活跃版本的元信息 + 工具配置 (fix-002 后从 project-info.md 迁移).
+# 历史版本在 history.md (Markdown, agent 不解析).
+#
+# 读取方: Maestro / Lex / Sage / Scout / Warden / Shield
+# 写入方: Scout (M-FOUND 初始化), Archer (M-ARCH [e2e]), M-MILESTONE 收尾迁移到 history.md
+
+[project]
+version = "0.7"
+repo = "github.com/zillionare/louke"
+project = "louke-v0.7 (#8)"
+project_id = "https://github.com/users/quantclaws/projects/8"
+spec_id = "v0.7-002-knowledge-distillation-karpathy"
+release_branch = "releases/v0.7"
+
+[meta]
+created = "2026-07-05"
+tag = "v0.7.0 (zillionare/louke@v0.7.0)"
+current_stage = "M-E2E"
+security_audit = "disabled"
+smoke_test_issue = "#80 (closed, previous v0.6 milestone 冒烟)"
+smoke_test_pr = "#81 (closed, M-FOUND test PR for v0.7)"
+dod = "e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 58/58；未启用 Security Audit 因本项目为内部工具）"
+pre_commit = "installed (python + base)"
+test_framework = "pytest"
+acknowledged_orphan_releases = []
+
+story = """
+pre-commit 接管 lint/format/typecheck/test + R-G-R Red 去 commit + Keeper 瘦到 R-G-R/format/AC trace/反模式 + 知识蒸馏 Karpathy 化（cron 触发 raw → pages 重写）.
+"""
+
+[meta.known_carryover]
+dirty_files = "louke 工作树里有 ~70 个 pre-existing dirty 文件 (agents/ 目录迁移、Makefile 删除等), 跟当前 spec 无关"
+project_owner = "Project `louke-v0.7` (#8) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN"
+commit_rgr = "`lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数, 后续 v0.7+ 应去掉以保持 R-G-R commit 格式干净"
+
+[active_specs]
+# 当前活跃 spec 列表 (post-v0.7 hotfix)
+v0_7_001 = "shipped (2026-07-05, tag v0.7.0)"
+v0_7_002 = "in progress (knowledge-distillation-karpathy)"
+
+[e2e]
+# Archer M-ARCH 填; Shield 读这段自动启停项目. 全部字段可选, 缺失时降级.
+# start = "make e2e-env-up"
+# ready = "curl -sf http://localhost:8000/health"
+# ready_timeout_seconds = 60
+# framework = "playwright"
+# browsers = ["chromium"]
+# teardown = "make e2e-env-down"

@@ -81,13 +81,28 @@ class SpecFRSpec:
 # ---------- 工具函数 ----------
 
 def _project_info_value(label: str) -> str:
-    path = Path('.louke/project/project-info.md')
+    """读 project.toml 中嵌套 key 的 string value (fix-002 后)."""
+    path = Path('.louke/project/project.toml')
     if not path.exists():
         return ''
-    for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
-        prefix = f'- **{label}**:'
-        if line.startswith(prefix):
-            return line.split(':', 1)[1].strip().strip('`')
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore
+        except ImportError:
+            return ''
+    try:
+        with open(path, 'rb') as f:
+            data = tomllib.load(f)
+    except Exception:
+        return ''
+    snake = label.lower().replace(' ', '_').replace('-', '_')
+    for section in ('project', 'meta'):
+        if snake in data.get(section, {}):
+            return str(data[section][snake])
+    if snake in data:
+        return str(data[snake])
     return ''
 
 
@@ -98,7 +113,7 @@ def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
     if not branch:
         branch = pi_branch or 'main'
         if not pi_branch:
-            print(f'warn: project-info.md missing Release Branch; fallback to main', file=sys.stderr)
+            print(f'warn: project.toml missing Release Branch; fallback to main', file=sys.stderr)
     endpoint = f"repos/{repo}/contents/{path}?ref={branch}" if repo else f"contents/{path}?ref={branch}"
     try:
         out = subprocess.check_output(

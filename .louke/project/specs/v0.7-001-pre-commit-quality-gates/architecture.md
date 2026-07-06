@@ -41,7 +41,7 @@ lk scout foundation
                                           ├── 读 louke/templates/pre-commit/base.yaml + {language}.yaml
                                           ├── 写项目根 .pre-commit-config.yaml
                                           ├── 子进程: pre-commit install
-                                          └── 写 project-info.md Pre-commit 字段
+                                          └── 写 project.toml [meta].pre_commit 字段 (fix-002 后)
 
 lk devon commit-rgr --phase {green | refactor}      # red 被拒
   └── 读 RGR_PREFIX[(label, phase)] → 生成 commit message → git commit (触发 pre-commit hook)

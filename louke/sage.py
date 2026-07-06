@@ -20,6 +20,8 @@ def register(subparsers):
     # quote-check: 检查 spec.md 的 quote 状态
     p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 quote 都 ✓ resolved')
     p.add_argument('--spec', required=True, help='spec-id, 例 v0.1-001-init')
+    p.add_argument('--check-violations', action='store_true', help='检测 ownership violations (谁关了不是自己的 quote)')
+    p.add_argument('--format', choices=['text', 'json'], default='text', help='输出格式 (默认 text)')
 
     # commit-spec: 封装多步 git 操作
     p = sub.add_parser('commit-spec', help='提交 spec + acceptance (git add + commit + push)')
@@ -52,16 +54,27 @@ def run(args):
 
 
 def cmd_quote_check(args):
-    """调用 louke._tools.quote_parser --check-ready (FR-0450 resolve_spec_path)."""
+    """调用 louke._tools.quote_parser (FR-0450 resolve_spec_path).
+
+    3 个 flag 互斥:
+    --check-ready: exit 0 if 0 [open] quotes (Maestro gate; 不输出 JSON)
+    --check-violations: 检测谁关了不是自己的 quote (不输出 JSON)
+    --format text|json (默认 text): 列出所有 quote + 状态; 拿 JSON 时**不要**同时加 --check-ready
+    """
     spec_arg = args.spec
     candidate = Path(spec_arg)
     if not candidate.exists():
         default = Path(f'.louke/project/specs/{args.spec}/spec.md')
         spec_arg = str(default if default.exists() else resolve_existing_path(spec_arg))
-    result = subprocess.run(
-        [sys.executable, '-m', 'louke._tools.quote_parser', spec_arg, '--check-ready'],
-        cwd=Path.cwd(),
-    )
+    cmd = [sys.executable, '-m', 'louke._tools.quote_parser', spec_arg]
+    if args.check_violations:
+        cmd.append('--check-violations')
+    elif args.check_ready:
+        cmd.append('--check-ready')
+    # else: 默认行为, --format 控制输出 (text/json)
+    if args.format != 'text':
+        cmd += ['--format', args.format]
+    result = subprocess.run(cmd, cwd=Path.cwd())
     return result.returncode
 
 
@@ -90,14 +103,9 @@ RE_AC_ANCHOR = re.compile(r'<a\s+id="ac-(fr|nfr)-(\d{4})"></a>', re.I)
 
 
 def _read_project_info_value(label: str) -> str:
-    path = Path('.louke/project/project-info.md')
-    if not path.exists():
-        return ''
-    for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
-        prefix = f'- **{label}**:'
-        if line.startswith(prefix):
-            return line.split(':', 1)[1].strip().strip('`')
-    return ''
+    # fix-002: 委托给 _common. project.toml 取代 project-info.md.
+    from ._common import _read_project_info_field
+    return _read_project_info_field(label)
 
 
 def _find_spec_path(args) -> Path:
@@ -191,15 +199,15 @@ def cmd_create_issues(args):
     acc_text = _acceptance_spec_text(args.spec)
     repo = _read_project_info_value('Repo').replace('github.com/', '')
     if not repo:
-        print('Repo field missing in project-info.md; run lk scout foundation first', file=sys.stderr)
+        print('Repo field missing in project.toml; run lk scout foundation first', file=sys.stderr)
         return 1
     branch = _read_project_info_value('Release Branch')
     if not branch:
-        print('Release Branch field missing in project-info.md; run lk scout foundation first', file=sys.stderr)
+        print('Release Branch field missing in project.toml; run lk scout foundation first', file=sys.stderr)
         return 1
     project_url = _read_project_info_value('Project ID')
     if not project_url and not args.skip_project:
-        print('Project URL field missing in project-info.md; cannot link issues', file=sys.stderr)
+        print('Project URL field missing in project.toml; cannot link issues', file=sys.stderr)
         print('  hint: lk scout foundation (writes Project ID) or pass --skip-project', file=sys.stderr)
         return 1
     repo_url = f'https://github.com/{repo}'

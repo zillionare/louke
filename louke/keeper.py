@@ -40,19 +40,19 @@ def run(args):
 
 
 def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
-    """检查 commit message 格式 - R-G-R 模式 (test: red / feat: green / refactor:)."""
+    """检查 commit message 格式 - R-G-R 模式 (feat: green / fix: green / refactor:)."""
     rc, out, _ = git('log', '--format=%H %s', commit_range, cwd=cwd)
     if rc != 0:
         return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
 
     valid_prefixes = (
-        'test: red',
         'feat: green',
         'fix: green',
         'refactor:',
         'fix:',
         'docs:',
         'chore:',
+        'e2e:',
     )
 
     findings = []
@@ -70,7 +70,7 @@ def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
                 'severity': 'medium',
                 'description': (
                     f'commit 格式不规范 (需以 {" / ".join(valid_prefixes)} 之一开头; '
-                    f'Red-Green 阶段必须严格用 "test: red" / "feat: green")'
+                    f'Green 阶段用 "feat: green" / "fix: green")'
                 ),
             })
     return findings

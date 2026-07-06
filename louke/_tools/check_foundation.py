@@ -19,13 +19,14 @@ check_foundation.py — 验证 Scout 奠基阶段的工作是否完整
   F3 Test Issue 合规:    标题 "Good First Issue: {repo}-{version}", 状态 closed
   F4 Test PR 合规:       标题 "Good First PR: {repo}-{version}", 状态 closed
   F5 Agent 文件存在:     agents/*.md 文件存在
-  F6 project-info 完整:  .louke/project/project-info.md 包含必须字段
-                          Version, Repo, Project, Spec ID, Release Branch
+  F6 project.toml 完整:  .louke/project/project.toml 包含必须字段 (fix-002 后)
+                          [project] 段: version, repo, project, spec_id, release_branch
+                          [meta] 段: smoke_test_issue, smoke_test_pr, dod, security_audit, current_stage, created
   F7 story.md 存在:      .louke/project/specs/{spec-id}/story.md 存在
   F8 开发分支存在:       releases/{version} 分支在远程存在 (基于 main)
   F9 Spec ID 格式合规:   符合 v{version}-{NNN}-{keyword}
-  F10 未合并的 releases/*: 无未合并 releases/*; 若存在, project-info 需
-                          含 Acknowledged-Orphan-Releases 字段作为警告放行
+  F10 未合并的 releases/*: 无未合并 releases/*; 若存在, project.toml 需
+                          [meta].acknowledged_orphan_releases 列表作为警告放行
   F11 身份一致性:       gh 与 git 同身份 (委托 check_identity.py L1-L5)
 
 使用:
@@ -223,32 +224,59 @@ def check_f5_agents() -> CheckResult:
     return r
 
 
-# project-info.md 必须字段 (与 Scout Step 6 输出对齐 / FR-0800)
+# project.toml 必须字段 (fix-002 后, 从 Markdown 迁 TOML)
+# [project] 段字段 (含 project_id spec_id release_branch)
+# [meta] 段字段 (含 created security_audit 等)
 REQUIRED_PROJECT_INFO_FIELDS = [
-    "Version", "Repo", "Project", "Project ID", "Spec ID", "Release Branch",
-    "Smoke Test Issue", "Smoke Test PR", "DoD", "Security Audit", "Current Stage", "Created",
+    ("project", "version"),
+    ("project", "repo"),
+    ("project", "project"),
+    ("project", "project_id"),
+    ("project", "spec_id"),
+    ("project", "release_branch"),
+    ("meta", "smoke_test_issue"),
+    ("meta", "smoke_test_pr"),
+    ("meta", "dod"),
+    ("meta", "security_audit"),
+    ("meta", "current_stage"),
+    ("meta", "created"),
+    ("meta", "test_framework"),
 ]
 
 RE_SPEC_ID = re.compile(r"^v[\w.]+-\d{3}-[\w-]+$")
 
 
 def check_f6_project_info(spec_id: str | None) -> CheckResult:
-    """F6: project-info.md 存在且包含必须字段"""
-    r = CheckResult(code="F6", name="project-info.md 完整")
-    pi_path = Path(".louke/project/project-info.md")
+    """F6: project.toml 存在且包含必须字段 (fix-002 后从 Markdown 迁 TOML)"""
+    r = CheckResult(code="F6", name="project.toml 完整")
+    pi_path = Path(".louke/project/project.toml")
     if not pi_path.is_file():
-        r.error = ".louke/project/project-info.md 不存在"
+        r.error = ".louke/project/project.toml 不存在"
         return r
 
-    content = pi_path.read_text(encoding="utf-8")
+    # 用 tomllib 解析
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore
+        except ImportError:
+            r.error = "Python tomllib/tomli 不可用, 无法解析 project.toml"
+            return r
+    try:
+        with open(pi_path, 'rb') as f:
+            data = tomllib.load(f)
+    except Exception as e:
+        r.error = f"project.toml 解析失败: {e}"
+        return r
 
     # 检查必须字段
     missing = []
-    for fld in REQUIRED_PROJECT_INFO_FIELDS:
-        if f"**{fld}**" not in content:
-            missing.append(fld)
+    for section, key in REQUIRED_PROJECT_INFO_FIELDS:
+        if section not in data or key not in data[section]:
+            missing.append(f'[{section}].{key}')
     if missing:
-        r.error = f"project-info.md 缺少字段: {', '.join(missing)}"
+        r.error = f"project.toml 缺少字段: {', '.join(missing)}"
         return r
 
     # 如果提供了 spec_id, 验证 F9 (Spec ID 格式)
@@ -256,8 +284,9 @@ def check_f6_project_info(spec_id: str | None) -> CheckResult:
         if not RE_SPEC_ID.match(spec_id):
             r.error = f"Spec ID 格式不合规: '{spec_id}' — 期望 v{{version}}-{{NNN}}-{{keyword}} (如 v0.3-001-adopt-mode)"
             return r
-        if f"**Spec ID**: {spec_id}" not in content and f"**Spec ID**: " not in content:
-            r.error = f"project-info.md 中的 Spec ID 与参数 '{spec_id}' 不匹配"
+        actual_spec_id = data.get('project', {}).get('spec_id', '')
+        if actual_spec_id != spec_id:
+            r.error = f"project.toml 中的 Spec ID 与参数 '{spec_id}' 不匹配"
             return r
 
     r.passed = True
@@ -333,8 +362,8 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
     豁免规则: 当前正在工作的 release (--version 对应的 releases/{version})
     不算作 orphan — 它是本版奠基的工作分支,还没合并是正常的。
 
-    其他未合并 release: 如果 project-info 中显式列出了
-    'Acknowledged-Orphan-Releases' 字段, 则作为警告放行 (warning=True)。
+    其他未合并 release: 如果 project.toml 中 [meta.acknowledged_orphan_releases] 列表
+    显式列出了, 则作为警告放行 (warning=True)。
     这与 Scout Step 3.5 中 "用户答 y" 的语义对称:
       - Scout 警告 + 询问 → 用户答 y
       - Warden 检查 + 警告放行 → 不阻塞, 但在输出中标记 [!]
@@ -381,23 +410,32 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
         r.message = "所有 releases/* 分支都已合入 main"
         return r
 
-    # 2. 检查 project-info 是否显式承认这些 orphan
-    pi_path = Path(".louke/project/project-info.md")
+    # 2. 检查 project.toml 是否显式承认这些 orphan (fix-002 后)
+    pi_path = Path(".louke/project/project.toml")
     acked: list[str] = []
     if pi_path.is_file():
-        content = pi_path.read_text(encoding="utf-8")
-        if "**Acknowledged-Orphan-Releases**:" in content:
-            # 解析列表 (格式: "- releases/v0.2" 每行一项)
-            for line in content.splitlines():
-                m = re.match(r"\s*-\s*(releases/[\w.-]+)", line)
-                if m:
-                    acked.append(m.group(1))
+        try:
+            import tomllib
+        except ImportError:
+            try:
+                import tomli as tomllib  # type: ignore
+            except ImportError:
+                tomllib = None  # type: ignore
+        if tomllib is not None:
+            try:
+                with open(pi_path, 'rb') as f:
+                    data = tomllib.load(f)
+                acked_list = data.get('meta', {}).get('acknowledged_orphan_releases', [])
+                if isinstance(acked_list, list):
+                    acked = acked_list
+            except Exception:
+                pass
 
     unacked = [b for b in unmerged if b not in acked]
     if unacked:
         r.error = (
-            f"存在未合并到 main 且未被 project-info 承认的 release 分支: "
-            f"{', '.join(unacked)} — 请先合并到 main, 或在 project-info 中显式列出"
+            f"存在未合并到 main 且未被 project.toml 承认的 release 分支: "
+            f"{', '.join(unacked)} — 请先合并到 main, 或在 project.toml [meta].acknowledged_orphan_releases 列出"
         )
         return r
 
@@ -405,7 +443,7 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
     r.warning = True
     r.passed = False
     r.error = (
-        f"以下 release 分支未合并到 main, 已被 project-info 标记为 acknowledged orphan: "
+        f"以下 release 分支未合并到 main, 已被 project.toml 标记为 acknowledged orphan: "
         f"{', '.join(unmerged)}"
     )
     return r

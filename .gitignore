@@ -28,6 +28,11 @@ Thumbs.db
 # 对应 README 里 "Status" / "Wiki" 章节内容。
 .louke/raw/
 
+# Librarian temp files (FR-0100 / FR-0140.2)
+.louke/wiki/.compact-bundle*.md
+.louke/wiki/.cron.log
+.louke/wiki/.distillations/
+
 # Test/cache files
 .coverage
 .pytest_cache/
@@ -38,6 +43,13 @@ louke.egg-info/
 .github/agents/*
 .opencode/
 
+# canonical: louke/agents/ and louke/templates/ (包内数据, 单一来源)
+# 禁止在仓库根目录创建同名目录 (避免双份漂移)
+/agents/
+/templates/
+/Makefile
+
 # Session artifacts (per-agent / per-IDE state)
 .kilo/
 .sisyphus/
+.trae/

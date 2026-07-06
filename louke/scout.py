@@ -26,9 +26,10 @@ def register(subparsers):
 
     # foundation: 完整奠基流程 (MVP + 完整 P0)
     p = sub.add_parser('foundation', help='完整奠基流程 (Steps 1-8)')
-    p.add_argument('--repo', required=True)
+    p.add_argument('--repo', default='', help='owner/repo (空则自动从 git remote origin 推断)')
     p.add_argument('--version', required=True)
-    p.add_argument('--spec-id', required=True)
+    p.add_argument('--spec-id', default='', help='v{version}-NNN-{keyword}; 空则自动从 --keyword + .louke/project/specs/ 推断下一个 NNN')
+    p.add_argument('--keyword', required=True, help='spec keyword (≤3 词, - 连接, 如 knowledge-distillation-karpathy); agent 必须从 story 提取')
     p.add_argument('--upstream', default='main')
     p.add_argument('--story', default='')
     p.add_argument('--story-file', default='')
@@ -81,28 +82,66 @@ def _gh_run(args, *cmd, check=False, capture=False):
 
 
 def _read_project_info(path: Path) -> str:
+    """读 project.toml (fix-002 后). 保留旧签名 (返回完整文件内容) 给 _render_project_info_13_fields 使用."""
     if not path.exists():
         return ''
     return path.read_text(encoding='utf-8', errors='replace')
 
 
-def _render_project_info_12_fields(*, version, repo, owner, repo_name, spec_id, release_branch, dod, security, project_id='', smoke_issue='TODO', smoke_pr='TODO', current_stage='M-FOUND', created='TODO', backlog_project='') -> str:
-    return f"""# Project Info
+def _render_project_info_13_fields(*, version, repo, owner, repo_name, spec_id, release_branch, dod, security, test_framework='pytest', project_id='', smoke_issue='TODO', smoke_pr='TODO', current_stage='M-FOUND', created='TODO', backlog_project='') -> str:
+    """生成 project.toml 13 字段 (fix-002: 替换原 Markdown 模板)."""
+    return f"""[project]
+version = "{version}"
+repo = "github.com/{repo}"
+project = "{repo_name}-{version}"
+project_id = "{project_id or 'TODO'}"
+spec_id = "{spec_id}"
+release_branch = "{release_branch}"
 
-- **Version**: {version}
-- **Repo**: github.com/{repo}
-- **Project**: {repo_name}-{version}
-- **Project ID**: {project_id or 'TODO'}
-- **Spec ID**: {spec_id}
-- **Release Branch**: `{release_branch}`
-- **Smoke Test Issue**: #{smoke_issue} (closed)
-- **Smoke Test PR**: #{smoke_pr} (closed)
-- **DoD**: {dod}
-- **Security Audit**: {security}
-- **Current Stage**: {current_stage}
-- **Backlog Project**: {backlog_project or 'TODO'}
-- **Created**: {created}
+[meta]
+created = "{created}"
+current_stage = "{current_stage}"
+security_audit = "{security}"
+smoke_test_issue = "#{smoke_issue} (closed)"
+smoke_test_pr = "#{smoke_pr} (closed)"
+dod = "{dod}"
+test_framework = "{test_framework}"
+backlog_project = "{backlog_project or 'TODO'}"
 """
+
+
+def _update_project_info_fields(path: Path, *, project_id='', smoke_issue='', smoke_pr='', backlog_url='') -> None:
+    """更新 project.toml 的特定字段 (只替换匹配行, 保留其他内容不变).
+
+    fix-002: 用 targeted regex 替换替代整文件重写, 避免损坏 list/nested-table/其他段.
+    只处理单行字符串字段; 不触碰 list/dict/multi-line string 等复杂类型.
+    """
+    if not path.exists():
+        return
+
+    text = path.read_text(encoding='utf-8', errors='replace')
+
+    def _set_toml_string_field(text: str, key: str, new_value: str, section: str) -> str:
+        """Set a TOML string field. Replace if exists, add to section if not."""
+        escaped = new_value.replace('\\', '\\\\').replace('"', '\\"')
+        pattern = rf'^({re.escape(key)}\s*=\s*)"[^"]*"'
+        if re.search(pattern, text, flags=re.MULTILINE):
+            return re.sub(pattern, rf'\1"{escaped}"', text, count=1, flags=re.MULTILINE)
+        section_pattern = rf'^(\[{re.escape(section)}\]\s*\n)'
+        if re.search(section_pattern, text, flags=re.MULTILINE):
+            return re.sub(section_pattern, rf'\1{key} = "{escaped}"\n', text, count=1, flags=re.MULTILINE)
+        return text + f'\n[{section}]\n{key} = "{escaped}"\n'
+
+    if project_id:
+        text = _set_toml_string_field(text, 'project_id', project_id, 'project')
+    if smoke_issue:
+        text = _set_toml_string_field(text, 'smoke_test_issue', f'#{smoke_issue} (closed)', 'meta')
+    if smoke_pr:
+        text = _set_toml_string_field(text, 'smoke_test_pr', f'#{smoke_pr} (closed)', 'meta')
+    if backlog_url:
+        text = _set_toml_string_field(text, 'backlog_project', backlog_url, 'meta')
+
+    path.write_text(text, encoding='utf-8')
 
 
 def _gh_api_login(args):
@@ -299,19 +338,20 @@ def _merge_precommit_config(base: dict, lang: dict) -> dict:
 
 
 def _update_project_info_precommit(info_path: Path, language: str) -> None:
-    """Append or update the Pre-commit line in project-info.md."""
+    """Update [meta].pre_commit field in project.toml."""
     label = f'{language} + base' if language else 'base'
-    line = f'- **Pre-commit**: installed ({label})'
-    text = ''
-    if info_path.exists():
-        text = info_path.read_text(encoding='utf-8', errors='replace')
-    if re.search(r'- \*\*Pre-commit\*\*:', text):
-        text = re.sub(r'- \*\*Pre-commit\*\*:[^\n]*', line, text)
+    new_value = f'installed ({label})'
+    if not info_path.exists():
+        return
+    text = info_path.read_text(encoding='utf-8', errors='replace')
+    escaped = new_value.replace('\\', '\\\\').replace('"', '\\"')
+    pattern = r'^(pre_commit\s*=\s*)"[^"]*"'
+    if re.search(pattern, text, flags=re.MULTILINE):
+        text = re.sub(pattern, rf'\1"{escaped}"', text, count=1, flags=re.MULTILINE)
     else:
-        if text and not text.endswith('\n'):
-            text += '\n'
-        text += f'{line}\n'
-    info_path.parent.mkdir(parents=True, exist_ok=True)
+        text = re.sub(r'^(\[meta\]\s*\n)',
+                      rf'\1pre_commit = "{escaped}"\n',
+                      text, count=1, flags=re.MULTILINE)
     info_path.write_text(text, encoding='utf-8')
 
 
@@ -341,7 +381,7 @@ def cmd_install_precommit(args):
         print('pre-commit install failed', file=sys.stderr)
         return result.returncode
 
-    info_path = root / '.louke' / 'project' / 'project-info.md'
+    info_path = root / '.louke' / 'project' / 'project.toml'
     _update_project_info_precommit(info_path, language)
     print(f'pre-commit installed ({language or "base"} + base)')
     return 0
@@ -350,8 +390,37 @@ def cmd_install_precommit(args):
 def cmd_foundation(args):
     """Scout foundation: MVP (FR-0400) + 完整 P0 (FR-0401) + backlog (FR-0402)."""
     cwd = Path.cwd()
+
+    # Auto-infer --repo from git remote if not provided
+    if not args.repo:
+        repo_inferred = _infer_repo_from_git_remote(cwd)
+        if repo_inferred is None:
+            print(
+                'error: --repo 未提供且无法从 git remote origin 推断。\n'
+                '  → agent: 用 question 工具向用户询问 owner/repo, 然后用 --repo owner/repo 重试。\n'
+                '  → 例: lk scout foundation --repo zillionare/louke --keyword init-foundation --version 0.7 ...',
+                file=sys.stderr,
+            )
+            return 1
+        args.repo = repo_inferred
+
+    # Auto-infer --spec-id: 扫 .louke/project/specs/v{version}-*.md 取最大 NNN + 1, 用 --keyword 拼接
+    if not args.spec_id:
+        specs_dir = cwd / '.louke/project/specs'
+        if specs_dir.exists():
+            existing = []
+            for d in specs_dir.iterdir():
+                m = re.match(rf'^v{re.escape(args.version)}-(\d+)-', d.name)
+                if m:
+                    existing.append(int(m.group(1)))
+            next_nnn = max(existing) + 1 if existing else 1
+        else:
+            next_nnn = 1
+        # --keyword 已 required=True, 此处必有
+        args.spec_id = f'v{args.version}-{next_nnn:03d}-{args.keyword}'
+
     spec_dir = cwd / '.louke/project/specs' / args.spec_id
-    info_path = cwd / '.louke/project/project-info.md'
+    info_path = cwd / '.louke/project/project.toml'
     story_text = args.story
     if args.story_file:
         story_text = Path(args.story_file).read_text(encoding='utf-8')
@@ -389,11 +458,12 @@ def cmd_foundation(args):
     info_path.parent.mkdir(parents=True, exist_ok=True)
     if not info_path.exists():
         info_path.write_text(
-            _render_project_info_12_fields(
+            _render_project_info_13_fields(
                 version=args.version, repo=args.repo, owner=owner,
                 repo_name=repo_name, spec_id=args.spec_id,
                 release_branch=release_branch, dod=args.dod,
-                security=security, project_id='', backlog_project='',
+                security=security, test_framework='pytest',
+                project_id='', backlog_project='',
             ),
             encoding='utf-8',
         )
@@ -436,17 +506,14 @@ def cmd_foundation(args):
             ))
             if rc != 0:
                 print(f'warn: invite-owner failed (rc={rc}); foundation continues', file=sys.stderr)
-        # Update project-info.md with resolved IDs
-        info_text = _read_project_info(info_path)
-        if project_id:
-            info_text = re.sub(r'- \*\*Project ID\*\*:[^\n]*', f'- **Project ID**: {project_id}', info_text)
-        if smoke_issue_num:
-            info_text = re.sub(r'- \*\*Smoke Test Issue\*\*:[^\n]*', f'- **Smoke Test Issue**: #{smoke_issue_num} (closed)', info_text)
-        if smoke_pr_num:
-            info_text = re.sub(r'- \*\*Smoke Test PR\*\*:[^\n]*', f'- **Smoke Test PR**: #{smoke_pr_num} (closed)', info_text)
-        if backlog_url:
-            info_text = re.sub(r'- \*\*Backlog Project\*\*:[^\n]*', f'- **Backlog Project**: {backlog_url}', info_text)
-        info_path.write_text(info_text, encoding='utf-8')
+        # Update project.toml with resolved IDs (fix-002: from project-info.md)
+        _update_project_info_fields(
+            info_path,
+            project_id=project_id,
+            smoke_issue=smoke_issue_num,
+            smoke_pr=smoke_pr_num,
+            backlog_url=backlog_url,
+        )
 
     # Step 4a / 4: identity + foundation-check (existing tools)
     for cmd in (
@@ -526,7 +593,7 @@ def cmd_commit_foundation(args):
     spec_files = sorted(glob.glob(f"{spec_path}/*.md"))
     if not spec_files:
         print(f"warn: no markdown files under {spec_path}", file=sys.stderr)
-    add_targets = [*spec_files, '.louke/project/project-info.md']
+    add_targets = [*spec_files, '.louke/project/project.toml']
     cmds = [
         ['git', 'add', *add_targets],
         ['git', 'commit', '-m', args.message],

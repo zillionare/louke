@@ -174,7 +174,7 @@
    - 上述都没有 → 仅装 base（FR-0200）
 2. **生成 `.pre-commit-config.yaml`**：从 `louke/templates/pre-commit/base.yaml` + 探测到的 `{language}.yaml` 合并写入项目根目录。若已存在 `.pre-commit-config.yaml`，跳过生成（除非 `--force`）。
 3. **跑 `pre-commit install`**：幂等，重复执行只更新 `.git/hooks/pre-commit`。
-4. **记录到 `project-info.md`**：`Pre-commit: installed ({language} + base)`，下游 agent 可读。
+4. **记录到 `project.toml`**（fix-002 后）：`[meta].pre_commit = "installed ({language} + base)"`，下游 agent 可读。
 
 **`lk init --adopt`** 走同样流程（已有 repo 补装 hook）。
 

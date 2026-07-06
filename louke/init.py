@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,10 +30,10 @@ def _add_arguments(parser):
     parser.add_argument('--board', default='opencode', choices=['opencode', 'none'])
     parser.add_argument('--with-issue-template', action='store_true', default=True)
     parser.add_argument('--no-issue-template', action='store_true')
-    parser.add_argument('--with-workflows', action='store_true', default=True)
-    parser.add_argument('--no-workflows', action='store_true')
     parser.add_argument('--no-default-agent', action='store_true')
     parser.add_argument('--force-default-agent', action='store_true')
+    parser.add_argument('--no-cron', action='store_true', help='跳过安装每日 wiki 蒸馏 cron')
+    parser.add_argument('--cron-time', default='0 4', help='cron 触发时间 (默认 "0 4" = 每日 04:00)')
     parser.add_argument('--json', action='store_true')
     parser.set_defaults(command='run')
 
@@ -131,6 +132,55 @@ def _write_default_agent(root: Path, args, report: dict[str, list[str]]) -> int:
     return 0
 
 
+def _install_cron(root: Path, cron_time: str, report: dict[str, list[str]]) -> int:
+    """幂等安装每日 wiki 蒸馏 cron 到当前用户的 crontab.
+
+    标记注释: # louke:wiki-distill:<absolute-project-path>
+    已存在则跳过 (跳过前报告)。
+    """
+    if sys.platform == 'win32':
+        print('cron 安装不支持 Windows (请用 WSL 或手动任务计划)', file=sys.stderr)
+        return 0
+
+    project_path = str(root.resolve())
+    marker = f'# louke:wiki-distill:{project_path}'
+
+    try:
+        existing = subprocess.run(
+            ['crontab', '-l'], capture_output=True, text=True, check=False
+        )
+    except FileNotFoundError:
+        print('crontab 命令不可用 (cron 未安装?)', file=sys.stderr)
+        return 0
+
+    existing_text = existing.stdout if existing.returncode == 0 else ''
+
+    if marker in existing_text:
+        report['skipped'].append(f'crontab: {marker} (已存在)')
+        return 0
+
+    lk_path = shutil.which('lk') or sys.argv[0] or 'lk'
+    cron_line = (
+        f'{cron_time} * * * '
+        f'cd {project_path} && {lk_path} librarian compact '
+        f'>> .louke/wiki/.cron.log 2>&1'
+    )
+    new_text = existing_text
+    if new_text and not new_text.endswith('\n'):
+        new_text += '\n'
+    new_text += f'{marker}\n{cron_line}\n'
+
+    proc = subprocess.run(
+        ['crontab', '-'], input=new_text, capture_output=True, text=True, check=False
+    )
+    if proc.returncode != 0:
+        print(f'crontab 安装失败: {proc.stderr}', file=sys.stderr)
+        return 1
+
+    report['added'].append(f'crontab: {cron_line}')
+    return 0
+
+
 def _migrate_legacy(root: Path, args, report: dict[str, list[str]]) -> int:
     if args.no_migrate:
         return 0
@@ -188,8 +238,7 @@ def cmd_init(args):
 
     if not args.no_issue_template:
         _write_file_if_needed(pkg / '.github/ISSUE_TEMPLATE/feature.yml', target / '.github/ISSUE_TEMPLATE/feature.yml', args, report)
-    if not args.no_workflows:
-        _write_file_if_needed(pkg / '.github/workflows/louke-ci.yml', target / '.github/workflows/louke-ci.yml', args, report)
+        _write_file_if_needed(pkg / '.github/ISSUE_TEMPLATE/bug.yml', target / '.github/ISSUE_TEMPLATE/bug.yml', args, report)
 
     if not args.no_gitignore:
         for line in ('.louke/agents/', '.louke/templates/'):
@@ -206,6 +255,9 @@ def cmd_init(args):
     rc = _write_default_agent(target, args, report)
     if rc:
         return rc
+
+    if not args.no_cron and not args.dry_run:
+        _install_cron(target, args.cron_time, report)
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))

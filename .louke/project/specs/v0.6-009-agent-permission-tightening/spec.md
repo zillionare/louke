@@ -135,7 +135,7 @@ permission:
 2. TUI 顶层 <Leader>a 列表: 仅 maestro 一个 primary 候选
    (其余 11 个 role: Sage / Lex / ... 不在 <Leader>a 列表里; 它们 mode: subagent)
 3. 用户说 "开始 v0.6-009 实施", maestro 收到指令
-4. maestro 查 project-info.md 的 Stage 字段, 决定从哪个阶段起
+4. maestro 查 project.toml 的 `[meta].current_stage` 字段, 决定从哪个阶段起 (fix-002 后)
    - 若是新项目 (Stage=F-PENDING) → 调 task 启动 Scout (项目奠基)
    - 若是存量项目 (Stage=M-SPEC 等) → 跳过 Scout, 直接调 task 启动 Sage / Devon / ...
 5. maestro 调 `task` 工具启动 Scout 子会话 (mode: subagent, 隔离)
