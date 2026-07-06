@@ -85,6 +85,60 @@ Lòukè defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI — 
 
 **Principle: implementer ≠ reviewer. Always.**
 
+### 5.1 M-SPEC Internal: Sage ↔ Lex Three-Phase Interaction
+
+M-SPEC is **not** "Sage produces spec → Lex reviews once at the end." Lex runs three phases at three distinct trigger points. Maestro must actively trigger Phase 1 and Phase 3 (Phase 2 is handed off by Sage Step 6, but still routed through Maestro). Skipping any phase makes the M-LOCK Lex signal invalid.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant M as Maestro
+    participant S as Sage
+    participant L as Lex
+
+    U->>M: Story ("add user auth")
+    M->>S: M-SPEC start
+    S->>U: Step 1: ≤7 questions in chat
+    S->>S: Step 2: draft spec.md + acceptance.md
+    S->>U: Step 3: inline quote clarification (≤5 rounds)
+    S->>S: Step 4: add HTML anchors
+    S->>S: Step 5: create GitHub issues + link Project
+    Note over M: Maestro triggers Lex Phase 1
+    M->>L: verify-acceptance (L1-L5) + quote-check
+    L-->>M: [pass] / [reject]
+    alt Phase 1 rejected
+        M->>S: fix spec.md (forward tool stderr)
+        S->>S: fix
+        M->>L: re-run Phase 1
+    end
+    S->>S: Step 6: quote-check exit 0 → handoff
+    Note over S: Sage Step 6 notifies Lex Phase 2 (via Maestro)
+    M->>L: issue coverage + Project link check
+    L-->>M: [pass] / [reject]
+    alt Phase 2 rejected
+        M->>S: create/link missing issues
+        S->>S: fix
+        M->>L: re-run Phase 2
+    end
+    Note over M: Maestro triggers Lex Phase 3
+    M->>L: verify-issue (L1-L8 schema)
+    L-->>M: [pass] / [reject]
+    alt Phase 3 rejected
+        M->>S: fix issue schema fields
+        S->>S: fix
+        M->>L: re-run Phase 3
+    end
+    Note over M: 3 signals: Sage quote-check ✓ + Lex 3 phases ✓
+    M->>U: M-LOCK: confirm spec lock
+    U-->>M: confirmed
+    M->>M: advance to M-TESTPLAN
+```
+
+**Key rules**:
+- Phase 1 failure → fix spec only; Phase 2 failure → fix issues only; Phase 3 failure → fix issue schema fields only
+- If a fix reveals an upstream root cause → regress to M-SPEC and re-run from Phase 1
+- Maestro forwards tool raw output (stderr/stdout) to Sage on rejection — never paraphrases
+
 ## 6. The 12 Agents
 
 Each agent has a default primary model (with an in-tier fallback). Override via `~/.louke/models.json` (user-level) or `.louke/models.json` (project-level); use `lk models list` / `lk models doctor` to check current bindings, `lk models bind <abstract> <full>` to override.
@@ -177,7 +231,7 @@ cd ~/work/my-existing-repo && lk init .
 
 `lk init` does:
 
-1. Copies agents/templates into `.louke/`
+1. Copies louke's bundled agents/templates into `.louke/` (project-local override layer)
 2. Generates `.opencode/agents/*.md` (each agent with resolved `model:` field)
 3. Writes `default_agent: maestro` to project-level `opencode.json`
 4. Installs `.github/ISSUE_TEMPLATE/feature.yml` (4-digit FR schema) + `.github/workflows/louke-ci.yml` (AC traceability gate)
@@ -266,6 +320,10 @@ We also throw in a small gift — by creating a project named `{repo}-backlog`, 
 
 Issues created with `gh issue create --no-milestone` naturally land in the backlog; during planning, pull backlog issues into the current release with `gh project item-add`.
 
+### 7.7. pre-commit 质量门禁
+
+Lint, format, typecheck, and tests run automatically at commit time via the project's `.pre-commit-config.yaml` — no tokens spent, no manual invocation. Bypassing hooks with `--no-verify` is an anti-pattern because it breaks the Infrastructure-as-Checkpoint contract. See `louke/templates/pre-commit/README.md` for the bundled templates.
+
 ## 8. Quick Command Reference
 
 ### 8.1. Project Initialization
@@ -328,7 +386,7 @@ MIT
 
 ## 12. Release History
 
-Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`) self-updates via `pip install --upgrade louke`; project-local state (`.louke/agents/`, `~/.louke/models.json`) is preserved across upgrades. After `lk upgrade`, re-run `lk board opencode` to refresh `.opencode/agents/`.
+Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`) self-updates via `pip install --upgrade louke`; project-local state (`.louke/agents/` override, `~/.louke/models.json`) is preserved across upgrades. After `lk upgrade`, re-run `lk board opencode` to refresh `.opencode/agents/`.
 
 ### v0.6.0 — v0.6.13 (2026-07-04)
 
@@ -337,7 +395,7 @@ Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`)
 | **v0.6.13** | `lk models doctor` critical bugfix: `ok` variable shadowed imported `ok` function (same pattern as v0.6.8 fix in `set-model`, but missed in `doctor`). Crash on any aliased model. Regression test added. |
 | v0.6.12 | Cleanup: removed internal spec references (`(v0.6-008 FR-0710)`, `(FR-0070)`, etc.) from 6 agent prompts shipped to users. |
 | v0.6.11 | Cleanup: removed redundant `(实测确认 2026-07-03 14:00 by Aaron)` annotations from 4 interactive subagent prompts. |
-| v0.6.10 | Subagent dispatch clarification: `agents/Maestro.md` now explicitly says "只**用 `task` 工具调子 agent, 不要用 `opencode run`". Spec FR-0070.7 documents the two invocation modes (production TUI vs CLI test). |
+| v0.6.10 | Subagent dispatch clarification: `louke/agents/Maestro.md` now explicitly says "只**用 `task` 工具调子 agent, 不要用 `opencode run`". Spec FR-0070.7 documents the two invocation modes (production TUI vs CLI test). |
 | v0.6.9 | `lk agent set-model` redesign: writes directly to `.opencode/agents/<name>.md` (output) instead of source. **Temporary** — next `lk board opencode` regenerates from source. |
 | v0.6.8 | `lk agent set-model` bugfix: `ok` variable shadowed imported `ok` function → `TypeError: 'bool' object is not callable`. |
 | v0.6.7 | `lk agent list-models` — table view of all agents' `models:` chain + current resolved model. `--unbound-only` flag. |
@@ -346,7 +404,7 @@ Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`)
 | v0.6.4 | `lk board opencode` requires a git repository (or explicit `--root <path>`). Prevents accidental file creation in random directories. |
 | v0.6.3 | `lk models bind` ranking: Levenshtein distance over substring matching. Better top-1 candidates for naming-style mismatches (e.g. `kimi-2.6` ↔ `kimi-k2.6`). |
 | v0.6.2 | Progress output for `lk board opencode` and `lk models doctor`: 5-step / 4-step numbered output with ANSI colors (✓/✗/⚠) and Spinner on subprocess calls. |
-| v0.6.1 | Source `agents/*.md` updated to v0.6.0 style (`mode: primary/subagent`, `permission:` block). |
+| v0.6.1 | Source `louke/agents/*.md` updated to v0.6.0 style (`mode: primary/subagent`, `permission:` block). |
 | v0.6.0 | Agent permission tightening + layered orchestration. 4 roles (Warden / Judge / Archer / Librarian) + Maestro get explicit `permission:` blocks (11-13 keys). 11 agents set to `mode: subagent`; Maestro is the sole `mode: primary`. |
 
 ### v0.3.0 (2026-06-29) — Initial public release
