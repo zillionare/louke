@@ -7,12 +7,12 @@ setup() {
   export PATH="${VENV_BIN}:${PATH}"
 }
 
-@test "pip show louke reports workspace location" {
+@test "pip show louke reports editable workspace location" {
   run pip show louke
   [ "$status" -eq 0 ]
-  # After pip install -e . the package Location must be the workspace, not a separate site-packages copy.
-  [[ "$output" == *"Location: /Users/aaronyang/workspace/louke"* ]] || {
-    echo "FAIL: louke is not installed from workspace: $output"
+  # After pip install -e . pip must report an editable project location pointing at the workspace.
+  [[ "$output" == *"Editable project location: /Users/aaronyang/workspace/louke"* ]] || {
+    echo "FAIL: louke is not installed editable from workspace: $output"
     return 1
   }
 }
@@ -35,9 +35,9 @@ PY
   }
 }
 
-@test "lk agent devon commit-rgr --help shows FR-0400 CLI (no --task-id, --phase {green,refactor})" {
+@test "lk agent devon commit-rgr --help shows v0.7 CLI (no --task-id, green/refactor only)" {
   run lk agent devon commit-rgr --help
   [ "$status" -eq 0 ]
   [[ "$output" != *"task-id"* ]] || { echo "FAIL: site-packages louke stale (--task-id still present)"; return 1; }
-  [[ "$output" == *"--phase {green,refactor}"* ]] || { echo "FAIL: --phase choices not green,refactor"; return 1; }
+  [[ "$output" == *"green/refactor"* ]] || { echo "FAIL: --phase help does not mention green/refactor"; return 1; }
 }
