@@ -29,7 +29,7 @@
 - **Release Branch**: `releases/v0.4`
 - **Created**: 2026-06-15
 
-## v0.7 (当前活跃)
+## v0.7 (已完成)
 - **Story**: pre-commit 接管 lint/format/typecheck/test + R-G-R Red 去 commit + Keeper 瘦到 R-G-R/format/AC trace/反模式。详见 `.louke/project/specs/v0.7-001-pre-commit-quality-gates/spec.md`。
 - **Version**: 0.7
 - **Repo**: github.com/zillionare/louke
@@ -43,4 +43,11 @@
 - **DoD**: e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 58/58；未启用 Security Audit 因本项目为内部工具）
 - **Security Audit**: disabled
 - **Created**: 2026-07-05
+- **Closed**: 2026-07-05
+- **Tag**: v0.7.0 (zillionare/louke@v0.7.0)
+- **Implementation**: 12 commits (含 keeper R-G-R bug fix `11cd56a`); 50/50 spec bats 全绿 (含 NFR-0010/FR-0200/FR-0400/FR-0500/FR-0600/FR-0700/NFR-0020/NFR-0030 + keeper fix 4 项); keeper gate `lk keeper gate --commit-range HEAD~10..HEAD` exit 0 / 0 blocker
 - **Related Issues** (本 spec 已建): #81 FR-0100, #82 FR-0200, #83 FR-0300, #84 FR-0400, #85 FR-0500, #86 FR-0600, #87 FR-0700, #88 NFR-0010, #89 NFR-0020, #90 NFR-0030
+- **Known carryover** (非阻塞):
+  - louke 工作树里有 ~70 个 pre-existing dirty 文件 (agents/ 目录迁移、Makefile 删除等), 跟本 spec 无关, 不影响 tag
+  - Project `louke-v0.7` (#8) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN; 不影响使用
+  - `lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数, 后续 v0.7+ 应去掉以保持 R-G-R commit 格式干净
