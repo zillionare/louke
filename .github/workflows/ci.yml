@@ -35,8 +35,20 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build
 
-      - name: Sync package data + build wheel/sdist
-        run: make build
+      - name: Run pre-commit on all files
+        run: |
+          python -m pip install pre-commit
+          pre-commit run --all-files
+
+      - name: Sync .github resources into package
+        run: |
+          rm -rf louke/.github
+          mkdir -p louke/.github
+          cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
+          cp -r .github/workflows louke/.github/workflows
+
+      - name: Build wheel/sdist
+        run: python -m build
 
       - name: Install wheel into a clean venv
         run: |
