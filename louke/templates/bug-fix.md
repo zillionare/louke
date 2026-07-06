@@ -23,7 +23,7 @@
 
 - **测试文件**: ...
 - **CI 状态**: Red ✅（确认 Bug 可被测试捕获）
-- **Commit**: `test: red – BUG-{编号} {描述}`
+- **Commit**: `fix: green – BUG-{编号} {描述}` 或 `refactor: BUG-{编号} {描述}`
 
 ## Phase 2: Green（修复）
 

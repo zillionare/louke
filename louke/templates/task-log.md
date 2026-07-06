@@ -9,7 +9,7 @@
 - **测试用例编号**: ...
 - **CI 状态**: Red ✅
 - **失败原因**: 指向待实现功能（非测试本身 Bug）
-- **Commit**: `test: red – {编号} {描述}`
+- **Commit**: `feat: green – {编号} {描述}` 或 `refactor: {描述}`
 
 ## Phase 2: Green
 
