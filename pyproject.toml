@@ -27,8 +27,6 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
-# No runtime dependencies - louke wraps stdlib-only tools
-
 [project.scripts]
 lk = "louke.__main__:main"
 
@@ -44,7 +42,11 @@ packages = ["louke", "louke._tools"]
 louke = [
     "py.typed",
     "agents/*.md",
+    "agents/_protocols/*.md",
+    "agents/_skills/*/*.md",
     "templates/*.md",
+    "templates/pre-commit/*.yaml",
+    "templates/pre-commit/*.yml",
+    "templates/pre-commit/*.md",
     ".github/ISSUE_TEMPLATE/*.yml",
-    ".github/workflows/*.yml",
 ]
