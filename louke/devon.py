@@ -5,7 +5,6 @@ lk 提供: 运行测试 + 按 R-G-R 规范 commit。
 """
 import argparse
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path

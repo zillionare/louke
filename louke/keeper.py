@@ -4,7 +4,6 @@ Keeper 职责: per-commit gate (R-G-R 顺序 + commit 格式 + AC trace + 反模
 回归判断 (合并 Shield 的判断部分)。
 """
 import argparse
-import re
 import subprocess
 import sys
 from pathlib import Path
