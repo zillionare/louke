@@ -11,6 +11,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
+from ._common import package_root
+
 
 def register(subparsers):
     parser = subparsers.add_parser('scout', help='项目奠基 (Scout)')
@@ -48,6 +52,9 @@ def register(subparsers):
     p.add_argument('--version', required=True, help='release 分支名, 例 v0.1')
     p.add_argument('--no-push', action='store_true', help='默认会 push；--no-push 跳过 push（FR-0580 默认）')
 
+    p = sub.add_parser('install-precommit', help='安装 pre-commit hook (Step 5)')
+    p.add_argument('--force', action='store_true', help='覆盖已存在的 .pre-commit-config.yaml')
+
 
 def run(args):
     handlers = {
@@ -55,6 +62,7 @@ def run(args):
         'foundation': cmd_foundation,
         'invite-owner': cmd_invite_owner,
         'commit-foundation': cmd_commit_foundation,
+        'install-precommit': cmd_install_precommit,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -249,6 +257,96 @@ def _git(args, *cmd):
     return subprocess.run(['git', *cmd], cwd=Path.cwd(), capture_output=True, text=True).returncode, None, None
 
 
+# Detection priority table for pre-commit language templates.
+# Ordered from highest to lowest priority; first existing file wins.
+_PRE_COMMIT_DETECTORS = [
+    ('pyproject.toml', 'python'),
+    ('package.json', 'node'),
+    ('go.mod', 'go'),
+    ('Cargo.toml', 'rust'),
+    ('pom.xml', 'java'),
+]
+
+
+def _detect_precommit_language(root: Path) -> str:
+    """Return the language slug for the pre-commit template to merge.
+
+    Checks the repository root for well-known manifest files in priority
+    order. If none match, returns an empty string (base-only configuration).
+    """
+    for filename, language in _PRE_COMMIT_DETECTORS:
+        if (root / filename).exists():
+            return language
+    return ''
+
+
+def _load_yaml(path: Path) -> dict:
+    """Load a YAML file; return an empty dict if missing or unreadable."""
+    if not path.exists():
+        return {}
+    try:
+        with path.open('r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        print(f'warn: cannot read {path}: {exc}', file=sys.stderr)
+        return {}
+
+
+def _merge_precommit_config(base: dict, lang: dict) -> dict:
+    """Merge two pre-commit configs by concatenating their repos lists."""
+    return {'repos': (base.get('repos') or []) + (lang.get('repos') or [])}
+
+
+def _update_project_info_precommit(info_path: Path, language: str) -> None:
+    """Append or update the Pre-commit line in project-info.md."""
+    label = f'{language} + base' if language else 'base'
+    line = f'- **Pre-commit**: installed ({label})'
+    text = ''
+    if info_path.exists():
+        text = info_path.read_text(encoding='utf-8', errors='replace')
+    if re.search(r'- \*\*Pre-commit\*\*:', text):
+        text = re.sub(r'- \*\*Pre-commit\*\*:[^\n]*', line, text)
+    else:
+        if text and not text.endswith('\n'):
+            text += '\n'
+        text += f'{line}\n'
+    info_path.parent.mkdir(parents=True, exist_ok=True)
+    info_path.write_text(text, encoding='utf-8')
+
+
+def cmd_install_precommit(args):
+    """Install pre-commit hooks and write merged config (FR-0100)."""
+    root = Path.cwd().resolve()
+    config_path = root / '.pre-commit-config.yaml'
+
+    if config_path.exists() and not args.force:
+        print('pre-commit config already exists; use --force to overwrite', file=sys.stderr)
+        return 1
+
+    language = _detect_precommit_language(root)
+    templates_dir = package_root() / 'templates' / 'pre-commit'
+    base_data = _load_yaml(templates_dir / 'base.yaml')
+    lang_data = _load_yaml(templates_dir / f'{language}.yaml') if language else {}
+    merged = _merge_precommit_config(base_data, lang_data)
+
+    try:
+        config_path.write_text(yaml.safe_dump(merged, sort_keys=False), encoding='utf-8')
+    except Exception as exc:
+        print(f'failed to write {config_path}: {exc}', file=sys.stderr)
+        return 1
+
+    result = subprocess.run(['pre-commit', 'install'], cwd=root)
+    if result.returncode != 0:
+        print('pre-commit install failed', file=sys.stderr)
+        return result.returncode
+
+    info_path = root / '.louke' / 'project' / 'project-info.md'
+    _update_project_info_precommit(info_path, language)
+    print(f'pre-commit installed ({language or "base"} + base)')
+    return 0
+
+
 def cmd_foundation(args):
     """Scout foundation: MVP (FR-0400) + 完整 P0 (FR-0401) + backlog (FR-0402)."""
     cwd = Path.cwd()
@@ -278,10 +376,11 @@ def cmd_foundation(args):
         print(f'would run lk scout identity-check --repo {args.repo}')
         print(f'would run lk warden foundation-check --repo {args.repo} --version {args.version} --spec-id {args.spec_id}')
         if full_p0:
+            login = _gh_api_login(args) or '<gh-user>'
             print(f'would gh repo create/view for {args.repo}')
             print(f'would ensure releases/{args.version} branch')
-            print(f'would ensure project {repo_name}-{args.version} under {owner}')
-            print(f'would ensure project {repo_name}-backlog under {owner}')
+            print(f'would ensure project {repo_name}-{args.version} under {login}')
+            print(f'would ensure project {repo_name}-backlog under {login}')
             print(f'would gh issue create (smoke) + close')
             print(f'would gh pr create (smoke) + close')
         return 0
