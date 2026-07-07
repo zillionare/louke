@@ -57,13 +57,13 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 
 ### 2.2. skills
 
-- **inline-comments**: quote dialogue 完整语法（speaker 标签、嵌套、`@` mention、三类语义区别）及 quote_parser 验证。
+- **inline-discussion** (v0.7-003): inline discussion 完整语法 (speaker 标签、嵌套、`@` mention、三类状态、`T-NNN` thread_id、5 元组定位)。Skill 定义在 `agents/_skills/inline-discussion/SKILL.md`。
 - **reserve-memory**: raw session 记录（路径、frontmatter、约束）。
 
 ### 2.3. permissions
 
 - 允许读取项目内任意文件
-- 允许 `edit` 写入: `spec.md` / `acceptance.md` / `test-plan.md`（评审时写 inline-comments）
+- 允许 `edit` 写入: `spec.md` / `acceptance.md` / `test-plan.md`（评审时写 inline-discussion）
 - ❌ 禁止写入: `architecture.md` / `interfaces.md` / `story.md` / 业务代码
 
 ---
@@ -85,7 +85,7 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 
 1. 按 `.louke/templates/spec.md` 模板撰写 spec.md
 2. 同步生成 acceptance.md（每个 FR/NFR 一节，AC 编号 AC-1, AC-2...，**必须可被测试断言**）
-3. 对拿不准的需求用 inline-comments skill（quote dialogue）在 spec.md 中向用户提问
+3. 对拿不准的需求用 inline-discussion skill（inline discussion）在 spec.md 中向用户提问
 4. 待澄清项 `是否已决定` = ⚠️
 
 **严禁沉默即同意** — 只有满足以下之一，Sage 才能将 ⚠️ 改 ✅：
@@ -101,7 +101,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
 
 提醒用户在 IDE 中 review spec.md，等待用户回到对话通知已完成。
 
-### Step 3: quote dialogue 再澄清（≤5 轮）
+### Step 3: inline discussion 再澄清（≤5 轮）
 
 每轮操作:
 
@@ -109,13 +109,13 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
    ```bash
    lk sage commit-spec --spec {spec-id} --message "spec: user review (pre-sage-response)"
    ```
-2. **定位 open quote** —— 用 `quote_parser` 工具列出所有 [open] 状态 quote:
+2. **定位 open thread** —— 用 `lk discuss query` 工具列出所有 [open] thread:
    ```bash
-   lk agent sage quote-check --spec {spec-id} --format json
+   lk discuss query --file .louke/project/specs/{spec-id}/spec.md
    ```
-   stdout 是 JSON 列表，**不要**自己 grep 找 quote。所有 inline-comments 决策都基于此列表。
+   stdout 是 JSON 列表, 含 5 元组定位字段 (`anchor_line` / `anchor_text` / `root_line` / `root_text`)。**不要**自己 grep 找 thread。所有 inline-discussion 决策都基于此列表。
    > ⚠️ **不要**加 `--check-ready`——它会提前 return 只剩 exit code, 拿不到 JSON 列表。`--format json` 是默认 `--check-ready` 之外的输出路径。
-3. 用 inline-comments skill 在 spec.md 中响应所有 open quote:
+3. 用 inline-discussion skill 在 spec.md 中响应所有 open quote:
    - 用户有回复 → 处理回复
    - 用户未回复 → 追问一次（不擅自决定）
    - 用户满意 → 改 `是否已决定` 为 ✅（遵守严禁沉默即同意）
@@ -187,7 +187,7 @@ lk sage record-lock --spec {spec-id} --confirm
 3. 隐忧继承（quote 中用户的顾虑须有对应测试）
 4. spec 一致性（test-plan 不与 spec 矛盾）
 
-**反馈**: 用 inline-comments skill 写入 test-plan.md。阻塞 ≤3 个。通过 = 0 阻塞。
+**反馈**: 用 inline-discussion skill 写入 test-plan.md。阻塞 ≤3 个。通过 = 0 阻塞。
 
 **反模式**: 不读 spec 直接审 / chat 发纯文字审稿 / 超 3 个阻塞 / 把测试方法学问题（反模式、ground truth）当自己的审查点（归 Prism）。
 
@@ -205,7 +205,7 @@ lk sage record-lock --spec {spec-id} --confirm
 3. **已知约束与排除项**
 
 **格式约定**:
-- 少用表格（表格无法展开 quote dialogue，不便 PR diff 行级 review）
+- 少用表格（表格无法展开 inline discussion，不便 PR diff 行级 review）
 - 需求描述用 headings + bullets
 - 状态字段用表格:
 

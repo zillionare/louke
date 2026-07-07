@@ -1,8 +1,13 @@
-# v0.6-016 — Quote Dialogue Speaker-Tag 协议 — Spec
+# v0.6-016 — Quote Dialogue Speaker-Tag 协议 — Spec (SUPERSEDED)
+
+```yaml
+valid: false
+superseded-by: v0.7-003-inline-discussion-protocol
+```
 
 - **Spec ID**: v0.6-016-quote-dialogue-protocol
 - **创建日期**: 2026-07-04
-- **状态**: 草稿
+- **状态**: **SUPERSEDED** (被 v0.7-003 替代)
 - **作者**: Kilo (受 GLM 委托, 见 `.louke/review-sage-question-tool.md` §7.0)
 - **关联**:
   - 既有规范: v0.4-004-quote-dialogue (quote dialogue 流程)

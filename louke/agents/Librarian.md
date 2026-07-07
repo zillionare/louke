@@ -25,7 +25,7 @@ permission:
 读 `.louke/wiki/.compact-bundle*.md`（由 `lk librarian compact` 产出, 含 raw 全文 + 现有 pages/ + 蒸馏指令）, **整体重写** `.louke/wiki/pages/`:
 
 - 保留仍成立决策, 删除/合并过时的, 补充新出现的主题
-- 每条 wiki 决策必须能从 raw 中找到依据（quote dialogue 语法, 详见 v0.4-004）
+- 每条 wiki 决策必须能从 raw 中找到依据（inline discussion 语法, 详见 v0.4-004）
 - **整体替换**, 不保留旧文件名
 
 完成后**必跑**:

@@ -40,7 +40,7 @@ You are an **interactive** subagent (`permission.question: allow`). During execu
 ### 2.2. skills
 
 - **reserve-memory**: 每次对话结束时保存 raw session 记录。
-- **inline-comments**: 用来与人类及其它 Agent 进行讨论。
+- **inline-discussion**: 用来与人类及其它 Agent 进行讨论。
 
 ### 2.3. permissions
 
@@ -243,7 +243,7 @@ teardown = "make e2e-env-down"
 - 如果项目无现成启动方式，**不**写 `start`（让 e2e 默认跳过启停，要求用户手动）
 - 如果项目无 ready 检测方式，**不**写 `ready`（compact 默认 sleep 30s 后跑 e2e）
 - `framework` 缺失时 Shield 从 deps 推断（playwright 在 deps → playwright；fastapi/express 在 deps → testclient；其他 → db）
-- raw session 留 quote dialogue：来源 = spec interfaces.md + 项目现有 Makefile/package.json
+- raw session 留 inline discussion：来源 = spec interfaces.md + 项目现有 Makefile/package.json
 
 
 ## 7. 反模式

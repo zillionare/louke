@@ -45,7 +45,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 2.2. skills
 
-- **inline-comments**: 用来对 spec/acceptance 进行对话。
+- **inline-discussion**: 用来对 spec/acceptance 进行对话。
 - **reserve-memory**: 每次会话结束保存 raw session 记录
 
 ### 2.3. permissions
@@ -85,9 +85,9 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 4.1. 阻塞意见通过 spec.md quote 表达（不是 chat）
 
-Lex 的审计痕迹必须**在 spec.md 留下可见记录**（使用 inline-comments skill），便于：
+Lex 的审计痕迹必须**在 spec.md 留下可见记录**（使用 inline-discussion skill），便于：
 - 后续 agent 读 spec.md 时看到 review history
-- quote_parser 解析为 `✓ resolved` / `[open]` 状态机
+- inline-discussion-discuss-query 解析为 `✓ resolved` / `[open]` 状态机
 - 用户在 IDE 中直接看到 Lex 的问题
 
 **不能**只在 chat 窗口发文字——这会丢失审计痕迹。
@@ -159,7 +159,7 @@ Lex 的审计痕迹必须**在 spec.md 留下可见记录**（使用 inline-comm
 
 #### 5.1.4 反馈格式
 
-Lex 的反馈使用 **inline-comments skill 的 quote dialogue 形式**（`> **Lex:**`），在 spec.md 中留痕。`quote_parser` 依赖此格式做 open/resolved 状态追踪。
+Lex 的反馈使用 **inline-discussion skill 的 inline discussion 形式**（`> **Lex:**`），在 spec.md 中留痕。`inline-discussion-discuss-query` 依赖此格式做 open/resolved 状态追踪。
 
 **单问题格式**：
 
@@ -181,13 +181,13 @@ Lex 的反馈使用 **inline-comments skill 的 quote dialogue 形式**（`> **L
 > 状态: [open]
 ```
 
-**状态值**（`quote_parser` 识别）：
+**状态值**（`inline-discussion-discuss-query` 识别）：
 - `[open]`（默认）— Sage 尚未修正
 - `✓ resolved` — Sage 已修正，Lex 验证后**只改最后一行**
 - `[blocked-by-N]` / `[wontfix]` / `[superseded]` — 其他状态
 
 **原子性约束**：
-- 3 行（`> **Lex:**` + `> 修改建议:` + `> 状态:`）**必须相邻**，否则 `quote_parser` 解析失败
+- 3 行（`> **Lex:**` + `> 修改建议:` + `> 状态:`）**必须相邻**，否则 `inline-discussion-discuss-query` 解析失败
 - 多个 quote 之间用**空行**隔开
 - 改状态时**只改最后一行**，不重写整段（保留审计历史）
 
@@ -199,7 +199,7 @@ Lex 的反馈使用 **inline-comments skill 的 quote dialogue 形式**（`> **L
 | 写 acceptance.md / story.md | 改 quote 状态行（`[open]` → `✓ resolved`） |
 | 整段重写 quote（破坏审计历史） | — |
 
-> **inline-comments 三种形式**：quote dialogue（本节用）/ admonition（`> [!NOTE]` 公共提示）/ comment（`<!-- -->` 隐藏笔记）。Lex 反馈用 quote dialogue。
+> **inline-discussion 三种形式**：inline discussion（本节用）/ admonition（`> [!NOTE]` 公共提示）/ comment（`<!-- -->` 隐藏笔记）。Lex 反馈用 inline discussion。
 
 ### 5.2 Stage 2: Issue 验证（spec 锁定、Sage 已创建 issue 后）
 
@@ -231,13 +231,13 @@ Lex 的反馈使用 **inline-comments skill 的 quote dialogue 形式**（`> **L
 ❌ 忽略 PRD 中的功能点遗漏
 ❌ 允许 spec 越界而不指出
 ❌ 在聊天窗口里发文字审核而不在 spec.md 中以 quote 形式表达
-❌ 绕过 quote dialogue 流程直接 Approve
+❌ 绕过 inline discussion 流程直接 Approve
 ❌ Approve 时没有逐条检查
 ❌ Request changes 列出超过 3 个阻塞问题
 ❌ 遗漏 spec 中的某个需求 ID 未验证 issue
 ❌ 重复创建 Sage 已创建的 issue
 ❌ 关联 issue 到 Project（这是 Sage 的工作）
-❌ 直接修改 spec/acceptance 的主体内容，而不是通过 inline-comments 对话提出建议
+❌ 直接修改 spec/acceptance 的主体内容，而不是通过 inline-discussion 对话提出建议
 ❌ 将自己不是发起人的会话置为 resolved/closed 状态。
 
 ---

@@ -251,15 +251,27 @@ def _run_lk(*args, cwd=None) -> int:
 
 
 def cmd_record_lock(args):
-    """FR-0420: 3-signal lock record. lock: true is a result, not a signal."""
+    """FR-0420: 3-signal lock record. lock: true is a result, not a signal.
+
+    FR-0060 v0.7-003: Sage signal 改用 inline-discussion 协议 (call discuss.is_ready).
+    """
     if not args.confirm:
         print('User signal missing: pass --confirm after IDE confirmation', file=sys.stderr)
         return 1
-    # Sage signal
-    rc = cmd_quote_check(args)
-    if rc != 0:
-        print('Sage signal: 未通过 (quote-check exit non-zero)', file=sys.stderr)
-        return rc
+    # Sage signal (FR-0060: 改用 inline-discussion)
+    spec_path = Path(f'.louke/project/specs/{args.spec}/spec.md')
+    if not spec_path.exists():
+        spec_path = resolve_existing_path(args.spec)
+    if spec_path is None or not spec_path.exists():
+        print(f'spec not found: {args.spec}', file=sys.stderr)
+        return 1
+    from ._tools import discuss as _discuss
+    result = _discuss.DiscussParser().parse_file(spec_path)
+    if not result.is_ready:
+        print('Sage signal: 未通过 (inline-discussion is_ready=False)', file=sys.stderr)
+        for b in result.ready_blockers:
+            print(f'  {b}', file=sys.stderr)
+        return 1
     # Lex signal
     for sub in (['lex', 'verify-acceptance', '--spec', args.spec],
                 ['lex', 'verify-issue', '--spec', args.spec],
@@ -268,9 +280,6 @@ def cmd_record_lock(args):
         if rc != 0:
             print(f'Lex signal: {sub[1]} failed (rc={rc})', file=sys.stderr)
             return rc
-    spec_path = Path(f'.louke/project/specs/{args.spec}/spec.md')
-    if not spec_path.exists():
-        spec_path = resolve_existing_path(args.spec)
     text = spec_path.read_text(encoding='utf-8')
     locked_already = False
     if text.startswith('---\n'):

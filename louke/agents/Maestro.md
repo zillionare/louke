@@ -329,6 +329,10 @@ main
 ❌ 丢失前序产出中的追踪编号
 ❌ 静默忽略 Agent 错误而不上报
 
+## Language
+
+speak same language the user speak.
+
 ## 7. 会话保存
 
 记录人类的每一个指示。每个阶段推进时，使用 `reserve-memory` skill 保存会话。

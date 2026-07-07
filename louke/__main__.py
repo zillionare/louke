@@ -26,12 +26,12 @@ Agent commands:
 """
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from . import init as init_cmd
 from . import models as models_cmd
 from . import board as board_cmd
-from . import quote as quote_cmd
 from . import agent as agent_main
 
 
@@ -39,7 +39,6 @@ USER_COMMANDS = {
     'init': init_cmd,
     'models': models_cmd,
     'board': board_cmd,
-    'quote': quote_cmd,
 }
 
 
@@ -142,6 +141,8 @@ def main(argv=None):
         except SystemExit as e:
             return e.code if isinstance(e.code, int) else 1
         return agent_main.run(args)
+    if raw[0] == 'discuss':
+        return _cmd_discuss(raw[1:])
     if raw[0] in USER_COMMANDS:
         module = USER_COMMANDS[raw[0]]
         parser = build_command_parser(module, f'lk {raw[0]}')
@@ -195,7 +196,162 @@ def print_help_text():
     print('    librarian  distill, lint, rebuild-index, compact, rewrite')
     print('    maestro    status, advance, regress, escalate')
     print()
+    print('Inline discussion (v0.7-003):')
+    print('  lk discuss query --file <path> [--initiator <a>] [--blocker <a>] [--status <s>]')
+    print('  lk discuss start --file <path> --anchor-line <N> --speaker <a> <message>')
+    print('  lk discuss reply --file <path> --thread-id <id> --anchor-line <N> --anchor-text <t> --root-line <N> --root-text <t> --speaker <a> <message>')
+    print('  lk discuss edit --file <path> --thread-id <id> --anchor-line <N> --anchor-text <t> --root-line <N> --root-text <t> --depth <N> --speaker <a> <new>')
+    print('  lk discuss set-status --file <path> --thread-id <id> --anchor-line <N> --anchor-text <t> --root-line <N> --root-text <t> --status <resolved|reopen>')
+    print()
     print('Run lk <command> --help for detailed usage.')
+
+
+def _build_discuss_parser() -> argparse.ArgumentParser:
+    """FR-0030: lk discuss 5 子命令 (query/start/reply/edit/set-status)."""
+    parser = argparse.ArgumentParser(prog='lk discuss', add_help=True)
+    sub = parser.add_subparsers(dest='discuss_command', required=True, metavar='<command>')
+
+    # 1. query
+    p_query = sub.add_parser('query', help='列出 thread (含 5 元组定位字段)')
+    p_query.add_argument('--file', required=True, help='spec.md 路径')
+    p_query.add_argument('--initiator', help='按发起人过滤 (e.g. Sage)')
+    p_query.add_argument('--blocker', help='按 blocker 过滤 (e.g. Aaron)')
+    p_query.add_argument('--status', choices=['open', 'resolved', 'reopen'],
+                        help='按状态过滤')
+
+    # 2. start
+    p_start = sub.add_parser('start', help='创建新 thread (插在 anchor_line 后)')
+    p_start.add_argument('--file', required=True)
+    p_start.add_argument('--anchor-line', type=int, required=True, help='被评论内容行号')
+    p_start.add_argument('--speaker', required=True, help='发起人 (e.g. Sage)')
+    p_start.add_argument('message', help='评论内容 (单行)')
+
+    # 3. reply
+    p_reply = sub.add_parser('reply', help='追加回复到 thread 末尾')
+    p_reply.add_argument('--file', required=True)
+    p_reply.add_argument('--thread-id', required=True, help='如 T-001')
+    p_reply.add_argument('--anchor-line', type=int, required=True)
+    p_reply.add_argument('--anchor-text', required=True)
+    p_reply.add_argument('--root-line', type=int, required=True)
+    p_reply.add_argument('--root-text', required=True)
+    p_reply.add_argument('--speaker', required=True)
+    p_reply.add_argument('message')
+
+    # 4. edit
+    p_edit = sub.add_parser('edit', help='修改自己某条评论 (仅原作者)')
+    p_edit.add_argument('--file', required=True)
+    p_edit.add_argument('--thread-id', required=True)
+    p_edit.add_argument('--anchor-line', type=int, required=True)
+    p_edit.add_argument('--anchor-text', required=True)
+    p_edit.add_argument('--root-line', type=int, required=True)
+    p_edit.add_argument('--root-text', required=True)
+    p_edit.add_argument('--depth', type=int, required=True, help='评论的嵌套深度 (1=根评论)')
+    p_edit.add_argument('--speaker', required=True, help='原评论作者 (验证 = 发起人)')
+    p_edit.add_argument('new_body', help='新评论内容')
+
+    # 5. set-status
+    p_status = sub.add_parser('set-status', help='修改 thread 状态 (RESOLVED 仅 initiator)')
+    p_status.add_argument('--file', required=True)
+    p_status.add_argument('--thread-id', required=True)
+    p_status.add_argument('--anchor-line', type=int, required=True)
+    p_status.add_argument('--anchor-text', required=True)
+    p_status.add_argument('--root-line', type=int, required=True)
+    p_status.add_argument('--root-text', required=True)
+    p_status.add_argument('--status', required=True, choices=['resolved', 'reopen'])
+    p_status.add_argument('--operator', required=True,
+                          help='操作者 (验证 = initiator 才对 RESOLVED 有效)')
+
+    return parser
+
+
+def _cmd_discuss(argv: list) -> int:
+    """lk discuss 5 子命令 dispatcher."""
+    from ._tools import discuss
+    parser = _build_discuss_parser()
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 1
+
+    try:
+        if args.discuss_command == 'query':
+            result = discuss.DiscussParser().parse_file(Path(args.file))
+            threads = result.threads
+            # Apply filters
+            if args.initiator:
+                threads = [t for t in threads if t.initiator == args.initiator.lower()]
+            if args.status:
+                threads = [t for t in threads if t.status == args.status]
+            if args.blocker:
+                # QoderWork P2-2 3 类别
+                target = args.blocker.lower()
+                open_threads = [t for t in threads if t.status == 'open']
+                # unanswered: 我起的 + 无回复
+                unanswered = [t for t in open_threads if t.initiator == target and t.reply_count == 0]
+                # unresolved: 我起的 + 最后一层不是我也不是 resolved (这里只看 reply_count 和 status)
+                # (简化: reply_count > 0 但 status != resolved)
+                unresolved = [t for t in open_threads if t.initiator == target and t.reply_count > 0]
+                # awaiting_my_reply: @mentioned me
+                awaiting = [t for t in open_threads if target in t.mentioned_agents]
+                threads = unanswered + unresolved + awaiting
+            import json
+            out = []
+            for t in threads:
+                out.append({
+                    'thread_id': t.thread_id,
+                    'initiator': t.initiator,
+                    'status': t.status,
+                    'last_speaker': t.last_speaker,
+                    'reply_count': t.reply_count,
+                    'snippet': t.snippet,
+                    'mentioned_agents': t.mentioned_agents,
+                    'total_lines': t.total_lines,
+                    'anchor_line': t.anchor_line,
+                    'anchor_text': t.anchor_text,
+                    'root_line': t.root_line,
+                    'root_text': t.root_text,
+                })
+            print(json.dumps(out, ensure_ascii=False, indent=2))
+            return 0
+
+        elif args.discuss_command == 'start':
+            p = discuss.DiscussParser()
+            t = p.add_thread(Path(args.file), anchor_line=args.anchor_line,
+                             initiator=args.speaker, body=args.message)
+            print(f"created {t.thread_id} ({t.initiator}) at root_line={t.root_line}")
+            return 0
+
+        elif args.discuss_command == 'reply':
+            p = discuss.DiscussParser()
+            p.add_reply(Path(args.file), thread_id=args.thread_id,
+                        body=args.message, speaker=args.speaker,
+                        anchor_line=args.anchor_line, anchor_text=args.anchor_text,
+                        root_line=args.root_line, root_text=args.root_text)
+            print(f"reply added to {args.thread_id}")
+            return 0
+
+        elif args.discuss_command == 'edit':
+            p = discuss.DiscussParser()
+            p.edit_comment(Path(args.file), thread_id=args.thread_id,
+                          depth=args.depth, speaker=args.speaker,
+                          new_body=args.new_body,
+                          anchor_line=args.anchor_line, anchor_text=args.anchor_text,
+                          root_line=args.root_line, root_text=args.root_text)
+            print(f"comment at depth {args.depth} in {args.thread_id} edited")
+            return 0
+
+        elif args.discuss_command == 'set-status':
+            p = discuss.DiscussParser()
+            p.set_status(Path(args.file), thread_id=args.thread_id,
+                         new_status=args.status, operator_speaker=args.operator,
+                         anchor_line=args.anchor_line, anchor_text=args.anchor_text,
+                         root_line=args.root_line, root_text=args.root_text)
+            print(f"{args.thread_id} status -> {args.status}")
+            return 0
+
+    except (FileNotFoundError, ValueError, PermissionError) as e:
+        print(f"lk discuss: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':
