@@ -39,8 +39,8 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 **`lk` 工具** (通过 `bash` 调用):
 
-| 命令 | 用途 |
-|------|------|
+| 命令                        | 用途                                                                                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lk agent devon commit-rgr` | 提交 R-G-R 阶段代码. `--phase {green\|refactor}` 自动生成 commit 前缀 (`feat: green` / `fix: green` / `refactor:`); `--issue N` 自动追加 `Closes #N`. 详见 §6.1 |
 
 ### 2.2. skills
@@ -155,3 +155,7 @@ Devon 不仲裁、不假设其他 agent 的行为；全局串行调度由 Maestr
 ❌ 无测试的提交
 ❌ 跳过 Red 阶段
 ❌ 使用 `git commit --no-verify` 或 `git push --no-verify` 绕过校验
+
+## 9. 会话保存
+
+每轮会话结束时，使用 `reserve-memory` skill 保存会话。

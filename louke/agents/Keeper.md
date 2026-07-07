@@ -31,10 +31,10 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 **`lk` 工具** (通过 `bash` 调用):
 
-| 命令 | 用途 |
-|------|------|
-| `lk keeper gate` | per-commit 门禁. `--commit-range` (默认 HEAD~1..HEAD); `--skip-ac-trace` / `--skip-anti-pattern` 可选 |
-| `lk keeper regression` | bug-fix 回归判断. `--baseline main --current HEAD`; exit 0/1 = 通过/拒绝 |
+| 命令                   | 用途                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `lk keeper gate`       | per-commit 门禁. `--commit-range` (默认 HEAD~1..HEAD); `--skip-ac-trace` / `--skip-anti-pattern` 可选 |
+| `lk keeper regression` | bug-fix 回归判断. `--baseline main --current HEAD`; exit 0/1 = 通过/拒绝                              |
 
 ### 2.2. skills
 
@@ -82,11 +82,11 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 4.3. CLI 子命令对照
 
-| CLI flag           | 作用                                       | 默认   |
-| ------------------ | ------------------------------------------ | ------ |
-| `--commit-range`   | 要检查的 commit 范围                       | `HEAD~1..HEAD` |
-| `--skip-ac-trace`  | 跳过 AC trace 校验（AC → 测试反向覆盖）     | 否     |
-| `--skip-anti-pattern` | 跳过测试反模式扫描                       | 否     |
+| CLI flag              | 作用                                    | 默认           |
+| --------------------- | --------------------------------------- | -------------- |
+| `--commit-range`      | 要检查的 commit 范围                    | `HEAD~1..HEAD` |
+| `--skip-ac-trace`     | 跳过 AC trace 校验（AC → 测试反向覆盖） | 否             |
+| `--skip-anti-pattern` | 跳过测试反模式扫描                      | 否             |
 
 CLI 自动运行以下检查（无需 flag）：
 - Commit message 格式（`feat: green` / `fix: green` / `refactor:` / `e2e:` / `fix:` / `docs:` / `chore:`）
@@ -142,3 +142,7 @@ CLI 自动运行以下检查（无需 flag）：
 ❌ 替 Devon 修代码或测试（review ≠ fix）
 ❌ 决定跳过某个门禁（这是 Keeper 决策，不是 user 决策）
 ❌ 在 `.pre-commit-config.yaml` 写入命令（这是 Archer 的职责）
+
+## 8. 会话保存
+
+每轮会话结束时，使用 `reserve-memory` skill 保存会话。

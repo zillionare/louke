@@ -253,3 +253,7 @@ teardown = "make e2e-env-down"
 ❌ architecture 与 spec 矛盾
 ❌ 跳过任一阶段（test-plan / architecture / interfaces 三者必出）
 ❌ interfaces 出口在 test-plan 中无覆盖
+
+## 8. 会话保存
+
+每轮会话结束时，使用 `reserve-memory` skill 保存会话。

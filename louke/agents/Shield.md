@@ -31,7 +31,7 @@ models:
 
 ---
 
-## 输入
+## 1. 输入
 
 - `.louke/project/specs/{SPEC-ID}/test-plan.md`（Archer 产出）
   - §1.1 黑盒声明：可观测出口
@@ -42,7 +42,7 @@ models:
 
 ---
 
-## 工作流程
+## 2. 工作流程
 
 1. **读 test-plan §6 + interfaces.md** → 明确 e2e 场景与可观测出口
 2. **生成骨架**（可选）：`lk shield scaffold --type playwright|testclient|db --scenario user_login_flow --ac-id AC-FR0001-01`
@@ -62,9 +62,9 @@ models:
 
 ---
 
-## e2e 测试方法（按技术选型）
+## 3. e2e 测试方法（按技术选型）
 
-### Web 端 e2e — Playwright
+### 3.1. Web 端 e2e — Playwright
 ```python
 def test_user_login_flow():
     """AC-FR0001: 用户登录后跳转首页"""
@@ -76,7 +76,7 @@ def test_user_login_flow():
     assert page.locator(".user-name").text_content() == "Test User"
 ```
 
-### API 端 e2e — testclient
+### 3.2. API 端 e2e — testclient
 ```python
 def test_create_order_api():
     """AC-FR0002: POST /orders 返回 201 + 订单 ID"""
@@ -86,7 +86,7 @@ def test_create_order_api():
     assert "order_id" in response.json()
 ```
 
-### 数据验证 e2e — 直查 DB
+### 3.3. 数据验证 e2e — 直查 DB
 ```python
 def test_order_persisted():
     """AC-FR0003: 订单写入 orders 表且 state=created"""
@@ -97,7 +97,7 @@ def test_order_persisted():
 
 ---
 
-## 你不审查
+## 4. 你不审查
 
 - e2e 代码质量（Prism 负责：可读性 / 反模式 / 批判性审视）
 - e2e 是否通过（Keeper gate）
@@ -106,7 +106,7 @@ def test_order_persisted():
 
 ---
 
-## 反模式
+## 5. 反模式
 
 ❌ 在 e2e 测试中 mock 框架核心（应改 AC 或 interfaces）
 ❌ 用 `pytest.skip` 不附 issue 链接逃避验证
@@ -118,7 +118,7 @@ def test_order_persisted():
 
 ---
 
-## 退出条件
+## 6. 退出条件
 
 - [ ] test-plan §6 定义的 e2e 场景全部有对应测试
 - [ ] 每个 e2e 函数 docstring 含 `AC-FRXXXX-YY` 引用
@@ -126,35 +126,7 @@ def test_order_persisted():
 - [ ] 提交符合 PactKit 规范（commit + push）
 - [ ] 无 8 类反模式（test-plan §1.3）
 
----
+## 7. 会话保存
 
-**你的职责是按 test-plan 的策略，把端到端场景固化为可重复运行的测试脚本——用固定方法覆盖固定场景，把智力成本留给 Prism 评审。**
+每轮会话结束时，使用 `reserve-memory` skill 保存会话。
 
-## 会话保存规范
-
-raw 是 episodic 记忆（保留试错与未决），由 Librarian 蒸馏为 wiki 知识。**raw 与 wiki 不可混用**。本 Agent 的 raw **不进入 git**，仅本地维护。
-
-**路径**：`.louke/raw/{yy-mm-dd}/{session-id}.md`，`session-id = {agent}-{spec-id 或 phase}-{议题}`，例 `shield-v0.1-001-e2e-coverage`
-
-**格式**（必带 frontmatter）：
-
-```markdown
----
-date: 2026-06-27
-session: shield-v0.1-001-e2e-coverage
-agents: [Shield, Archer]
-spec: v0.1-001-init-adopt-mode
-related_issues: [#142, #143]
-status: resolved | superseded | open     # 必填
-supersedes: []
----
-
-## 议题 {在协调/决定什么}
-## 决定 {结论，命令/文件/规范形式}
-## 试过但放弃 {被推翻方案及理由——wiki 蒸馏关键输入}
-## 开放问题 {留给下轮}
-```
-
-**约束**：`status` 必填（未填视为 `open`，Librarian 拒绝蒸馏）；`supersedes` 引用时，被引用条目应在 frontmatter 加 `superseded-by` 双向追溯。
-
-**时机**：返回结果前，不阻塞流程。

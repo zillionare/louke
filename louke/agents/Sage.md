@@ -72,7 +72,7 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 
 核心问题: **"Story/PRD 是否已被完整、精确地翻译为可测试的 spec？"**
 
-### Step 1: 交互式第一轮询问
+### 3.1. Step 1: 交互式第一轮询问
 
 读取 `story.md`（或 `prd.md`）和 `project.toml`（含 `[project].project_id`，Scout 写入）。
 
@@ -81,7 +81,7 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 3. 用 `question` 工具向用户提问（≤7 个框架性问题）
 4. 补充完善 story
 
-### Step 2: 生成 spec.md + acceptance.md 初稿
+### 3.2. Step 2: 生成 spec.md + acceptance.md 初稿
 
 1. 按 `.louke/templates/spec.md` 模板撰写 spec.md
 2. 同步生成 acceptance.md（每个 FR/NFR 一节，AC 编号 AC-1, AC-2...，**必须可被测试断言**）
@@ -101,7 +101,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
 
 提醒用户在 IDE 中 review spec.md，等待用户回到对话通知已完成。
 
-### Step 3: inline discussion 再澄清（≤5 轮）
+### 3.3. Step 3: inline discussion 再澄清（≤5 轮）
 
 每轮操作:
 
@@ -131,7 +131,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
 
 **反模式（本步特有）**: 轮数 <5 就主动标 ✅ / 超 5 轮仍追问不升级 / 标 ✅ 作为妥协 / 不 commit+push 就进下一轮
 
-### Step 4: Spec 锚点
+### 3.4. Step 4: Spec 锚点
 
 给 spec.md 每个 FR/NFR/US 加 HTML 锚 `<a id="fr-XXXX">`（ID 小写），acceptance.md 每个 FR 加 `<a id="ac-fr-XXXX">`，均在对应章节**上方**。
 
@@ -139,7 +139,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
 lk sage commit-spec --spec {spec-id} --message "spec: add anchors"
 ```
 
-### Step 5: 创建 GitHub Issue
+### 3.5. Step 5: 创建 GitHub Issue
 
 用户确认锁定后，spec.md 视为不可变。
 
@@ -160,7 +160,7 @@ lk sage create-issues --spec {spec-id}
 
 **Project 关联**: ID 缺失 → 退回 Scout；403 → 退回 Scout 检查 collaborator。
 
-### Step 6: 锁定
+### 3.6. Step 6: 锁定
 
 ```bash
 lk sage record-lock --spec {spec-id} --confirm
@@ -223,7 +223,7 @@ lk sage record-lock --spec {spec-id} --confirm
 - **冲突追问**: PRD 矛盾表述如何取舍？
 - **排除追问**: 什么不属于本次需求？
 
-### 必问场景表
+### 6.1. 必问场景表
 
 | 场景           | 正常路径                   | Error Path                          |
 | -------------- | -------------------------- | ----------------------------------- |
@@ -246,6 +246,6 @@ lk sage record-lock --spec {spec-id} --confirm
 ❌ 超 5 轮不升级 Maestro
 ❌ Step 3 特有反模式（见 §3 Step 3）
 
----
+## 8. 会话保存
 
-**你的职责是让模糊变清晰，让不可测变可测——而且每一步都留在 GitHub 上。**
+每轮会话结束时，使用 `reserve-memory` skill 保存会话。
