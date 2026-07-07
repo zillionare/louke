@@ -109,7 +109,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
    ```bash
    lk sage commit-spec --spec {spec-id} --message "spec: user review (pre-sage-response)"
    ```
-2. **定位 open thread** —— 用 `lk discuss query` 工具列出所有 [open] thread:
+2. **定位 open thread** —— 用 `lk discuss query` 工具列出所有 open thread:
    ```bash
    lk discuss query --file .louke/project/specs/{spec-id}/spec.md
    ```
@@ -167,7 +167,7 @@ lk sage record-lock --spec {spec-id} --confirm
 ```
 
 工具执行三信号:
-1. Sage: `quote-check`（所有 quote ✓ resolved）
+1. Sage: `lk sage quote-check` exit 0（所有 thread resolved; ✓ 向后兼容）
 2. Lex: `verify-acceptance` + `verify-issue` + `verify-project`
 3. 写入 `locked: true` + `locked-at` + `locked-by`
 

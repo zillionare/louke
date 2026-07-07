@@ -44,7 +44,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 | `lk discuss query`         | 找你的会话断点. `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` (v0.7-003 替代 lk lex quote-check; 3 类别 unanswered / unresolved / awaiting_my_reply)                      |
 | `lk discuss start`         | 新建 thread (Lex 提问). `--file <path> --anchor-line <N> --speaker Lex <msg>`                                              |
 | `lk discuss reply`         | 追加回复. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Lex <msg>`             |
-| `lk discuss set-status`    | Lex 可对任意会话设置 REOPEN 和对本人发起的会话设置 RESOLVED. `--file <path> --thread-id <id> [--anchor-line N --anchor-text T --root-line N --root-text T] --status <resolved\|reopen> --operator <Lex>` |
+| `lk discuss set-status`    | Lex 可对任意会话设置 REOPEN 和对本人发起的会话设置 RESOLVED. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Lex>` |
 
 ### 2.2. skills
 
@@ -128,7 +128,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 5.2. 评审流程
 
-1. **检查 spec.md 是否 ready** → `lk lex quote-check --spec {id}`
+1. **检查 spec.md 是否 ready** → `lk discuss query --file .louke/project/specs/{spec-id}/spec.md --check-ready`
    - exit 0 = 所有 thread 都 `[RESOLVED]`（默认无 marker = open）
    - exit 1 = 还有 pending, 这些就是 Lex 要追问的项目
 2. **逐项检查** → 对每个需求 ID、每条验收标准（见 §4.2）：
@@ -154,7 +154,7 @@ Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。
 
 **工具门禁**（全部 exit 0）：
 - [ ] `lk lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
-- [ ] `lk lex quote-check --spec {spec-id}` — 所有 inline-discussion resovled
+- [ ] `lk discuss query --file .louke/project/specs/{spec-id}/spec.md --check-ready` — 所有 inline-discussion resolved
   
 **语义检查 **：
 
@@ -178,7 +178,7 @@ Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。
 - [ ] `lk lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
 - [ ] `lk lex verify-issue --spec {spec-id}` — L1-L8 schema 验证
 - [ ] `lk lex verify-project --spec {spec-id}` — FR issue 关联 Project
-- [ ] `lk lex quote-check --spec {spec-id}` — 所有 quote ✓ resolved
+- [ ] `lk discuss query --file .louke/project/specs/{spec-id}/spec.md --check-ready` — 所有 inline-discussion resolved
 
 ## 7. 反模式
 
