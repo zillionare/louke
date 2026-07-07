@@ -1,6 +1,7 @@
-"""Archer commands - test-plan + architecture/interfaces 编写.
+"""Archer commands - test-plan + architecture/interfaces authoring.
 
-Archer 职责: 阶段一（test-plan.md）+ 阶段二（architecture.md + interfaces.md）。
+Archer responsibilities: stage 1 (test-plan.md) + stage 2 (architecture.md
++ interfaces.md).
 """
 import argparse
 import subprocess
@@ -9,32 +10,32 @@ from pathlib import Path
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('archer', help='test-plan + 架构设计 (Archer)')
+    parser = subparsers.add_parser('archer', help='test-plan + architecture design (Archer)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    # ci-scan: AC 引用 + 反模式校验
-    p = sub.add_parser('ci-scan', help='CI 扫描（AC 引用闭合 + 反模式）')
+    # ci-scan: AC reference + anti-pattern validation
+    p = sub.add_parser('ci-scan', help='CI scan (AC reference closure + anti-patterns)')
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument('--spec')
     g.add_argument('--acceptance')
     p.add_argument('--tests', default='tests/')
     p.add_argument('--json', action='store_true')
 
-    # check-acs: AC 覆盖率检查
-    p = sub.add_parser('check-acs', help='AC 引用闭合检查')
+    # check-acs: AC coverage check
+    p = sub.add_parser('check-acs', help='AC reference closure check')
     p.add_argument('--spec', required=True)
 
-    # commit-test-plan: 提交 test-plan + architecture + interfaces
-    p = sub.add_parser('commit-design', help='提交 test-plan + architecture + interfaces (git add + commit + push)')
+    # commit-test-plan: commit test-plan + architecture + interfaces
+    p = sub.add_parser('commit-design', help='commit test-plan + architecture + interfaces (git add + commit + push)')
     p.add_argument('--spec', required=True)
     p.add_argument('--message', required=True)
 
     # validate-test-plan: FR-0700 M-TESTPLAN holdpoint (structure check)
-    p = sub.add_parser('validate-test-plan', help='校验 test-plan.md 结构 (M-TESTPLAN holdpoint)')
+    p = sub.add_parser('validate-test-plan', help='validate test-plan.md structure (M-TESTPLAN holdpoint)')
     p.add_argument('--spec', required=True)
 
     # validate-arch: FR-0700 M-ARCH holdpoint (structure check)
-    p = sub.add_parser('validate-arch', help='校验 architecture.md 结构 (M-ARCH holdpoint)')
+    p = sub.add_parser('validate-arch', help='validate architecture.md structure (M-ARCH holdpoint)')
     p.add_argument('--spec', required=True)
 
 
@@ -50,7 +51,7 @@ def run(args):
 
 
 def cmd_ci_scan(args):
-    """调用 louke._tools.ci_scan."""
+    """Invoke louke._tools.ci_scan."""
     cmd = [sys.executable, '-m', 'louke._tools.ci_scan', '--tests', args.tests]
     if args.acceptance:
         cmd.extend(['--acceptance', args.acceptance])
@@ -66,7 +67,7 @@ def cmd_ci_scan(args):
 
 
 def cmd_check_acs(args):
-    """调用 louke._tools.check_acs."""
+    """Invoke louke._tools.check_acs."""
     result = subprocess.run(
         [sys.executable, '-m', 'louke._tools.check_acs',
          '--acceptance', f".louke/project/specs/{args.spec}/acceptance.md"],
@@ -93,7 +94,7 @@ def cmd_commit_design(args):
 
 
 def cmd_validate_test_plan(args):
-    """FR-0700 M-TESTPLAN holdpoint: 校验 test-plan.md 结构."""
+    """FR-0700 M-TESTPLAN holdpoint: validate test-plan.md structure."""
     tp = Path(f".louke/project/specs/{args.spec}/test-plan.md")
     if not tp.exists():
         print(f'test-plan.md not found: {tp}', file=sys.stderr)
@@ -115,7 +116,7 @@ def cmd_validate_test_plan(args):
 
 
 def cmd_validate_arch(args):
-    """FR-0700 M-ARCH holdpoint: 校验 architecture.md 结构."""
+    """FR-0700 M-ARCH holdpoint: validate architecture.md structure."""
     arch = Path(f".louke/project/specs/{args.spec}/architecture.md")
     if not arch.exists():
         print(f'architecture.md not found: {arch}', file=sys.stderr)

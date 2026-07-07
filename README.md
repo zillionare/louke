@@ -320,7 +320,7 @@ We also throw in a small gift — by creating a project named `{repo}-backlog`, 
 
 Issues created with `gh issue create --no-milestone` naturally land in the backlog; during planning, pull backlog issues into the current release with `gh project item-add`.
 
-### 7.7. pre-commit 质量门禁
+### 7.7. pre-commit Quality Gate
 
 Lint, format, typecheck, and tests run automatically at commit time via the project's `.pre-commit-config.yaml` — no tokens spent, no manual invocation. Bypassing hooks with `--no-verify` is an anti-pattern because it breaks the Infrastructure-as-Checkpoint contract. See `louke/templates/pre-commit/README.md` for the bundled templates.
 

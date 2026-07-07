@@ -1,6 +1,6 @@
-"""lk 共享模式扫描 — 安全 pattern 库.
+"""lk shared-mode scanner — security pattern library.
 
-被 lk judge, lk prism 共享。模式基于 `.louke/templates/security-checklist.md`。
+Shared by lk judge and lk prism. Patterns based on `.louke/templates/security-checklist.md`.
 """
 import re
 from pathlib import Path
@@ -9,95 +9,95 @@ SECURITY_PATTERNS = [
     {
         'id': 'eval-exec',
         'severity': 'critical',
-        'description': '使用 eval/exec 动态执行代码',
+        'description': 'using eval/exec to dynamically execute code',
         'patterns': [
-            (r'\beval\s*\(', 'eval() 调用'),
-            (r'\bexec\s*\(', 'exec() 调用'),
-            (r'\bcompile\s*\(', 'compile() 调用 (潜在 exec)'),
+            (r'\beval\s*\(', 'eval() call'),
+            (r'\bexec\s*\(', 'exec() call'),
+            (r'\bcompile\s*\(', 'compile() call (potential exec)'),
         ],
         'file_exts': ['.py'],
     },
     {
         'id': 'hardcoded-secret',
         'severity': 'high',
-        'description': '硬编码密钥/密码/token',
+        'description': 'hardcoded secret/password/token',
         'patterns': [
             (r'(?i)(password|passwd|secret|api_?key|token|access_?key|auth_?token)\s*=\s*["\'][^"\']{4,}["\']',
-             '字符串字面量赋值敏感字段'),
+             'string literal assignment to sensitive field'),
         ],
         'file_exts': ['.py', '.js', '.ts', '.go', '.rs', '.java', '.rb', '.yml', '.yaml', '.env', '.json'],
     },
     {
         'id': 'sql-string-concat',
         'severity': 'high',
-        'description': 'SQL 字符串拼接 (潜在注入)',
+        'description': 'SQL string concatenation (potential injection)',
         'patterns': [
-            (r'(execute|cursor\.execute)\s*\(\s*f["\']', 'f-string 拼接 SQL'),
-            (r'(execute|cursor\.execute)\s*\([^)]*\+\s*\w+', '+ 拼接变量到 SQL'),
+            (r'(execute|cursor\.execute)\s*\(\s*f["\']', 'f-string concatenating SQL'),
+            (r'(execute|cursor\.execute)\s*\([^)]*\+\s*\w+', '+ concatenating variable into SQL'),
             (r'(SELECT|INSERT|UPDATE|DELETE)[^;]*["\'][^"\']*["\'][^;]*\+\s*\w+',
-             'SELECT/INSERT/UPDATE/DELETE 字符串拼接'),
+             'SELECT/INSERT/UPDATE/DELETE string concatenation'),
         ],
         'file_exts': ['.py'],
     },
     {
         'id': 'shell-injection',
         'severity': 'high',
-        'description': 'subprocess shell=True + 字符串拼接',
+        'description': 'subprocess shell=True + string concatenation',
         'patterns': [
-            (r'subprocess\.[A-Za-z_]+\s*\([^)]*shell\s*=\s*True', 'shell=True 使用'),
+            (r'subprocess\.[A-Za-z_]+\s*\([^)]*shell\s*=\s*True', 'shell=True usage'),
         ],
         'file_exts': ['.py'],
     },
     {
         'id': 'pickle-load',
         'severity': 'high',
-        'description': 'pickle 反序列化不可信数据',
+        'description': 'pickle deserializing untrusted data',
         'patterns': [
-            (r'pickle\.loads?\s*\(', 'pickle.load(s) 使用'),
+            (r'pickle\.loads?\s*\(', 'pickle.load(s) usage'),
         ],
         'file_exts': ['.py'],
     },
     {
         'id': 'yaml-unsafe-load',
         'severity': 'medium',
-        'description': 'yaml.load (无 Loader)',
+        'description': 'yaml.load (no Loader)',
         'patterns': [
-            (r'yaml\.load\s*\(\s*[^,]+\s*\)(?!\s*,)', 'yaml.load 无 Loader (PyYAML < 5.1 兼容问题)'),
+            (r'yaml\.load\s*\(\s*[^,]+\s*\)(?!\s*,)', 'yaml.load without Loader (PyYAML < 5.1 compatibility issue)'),
         ],
         'file_exts': ['.py'],
     },
     {
         'id': 'todo-security',
         'severity': 'medium',
-        'description': 'TODO/FIXME 涉及安全',
+        'description': 'TODO/FIXME involving security',
         'patterns': [
             (r'(?i)#\s*(TODO|FIXME|XXX).*(security|auth|password|token|secret|crypt|sanitize)',
-             'TODO/FIXME 安全相关'),
+             'TODO/FIXME security related'),
         ],
         'file_exts': None,
     },
     {
         'id': 'logging-sensitive',
         'severity': 'medium',
-        'description': '日志中记录敏感字段',
+        'description': 'logging sensitive fields',
         'patterns': [
             (r'(?i)log(?:ger)?\.\w+\([^)]*(password|passwd|secret|token|api_?key)',
-             '日志调用含敏感字段'),
+             'log call contains sensitive field'),
         ],
         'file_exts': ['.py'],
     },
 ]
 
-# 应扫描的文件扩展名（None 表示扫描所有文本文件）
+# File extensions that should be scanned (None means scan all text files)
 SCANNABLE_EXTS = {'.py', '.js', '.ts', '.go', '.rs', '.java', '.rb',
                   '.yml', '.yaml', '.env', '.json', '.sh', '.toml'}
 
-# Scanner 自身: regex 定义匹配自身, 跳过避免 false positive
+# The scanner itself: its regex definitions match itself, so skip to avoid false positives
 SELF_SCAN_EXCLUDE = {'louke/_security.py', 'louke/_tests.py'}
 
 
 def scan_file(filepath: Path):
-    """扫描单个文件的 security patterns, 返回 findings list."""
+    """Scan a single file for security patterns, returns findings list."""
     fp_str = str(filepath)
     if any(s in fp_str for s in SELF_SCAN_EXCLUDE):
         return []
@@ -124,5 +124,5 @@ def scan_file(filepath: Path):
                         'matched': desc,
                         'snippet': line.strip()[:120],
                     })
-                    break  # 一个模式匹配后, 不重复匹配该行
+                    break  # after a pattern matches, do not match the same line again
     return findings

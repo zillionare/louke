@@ -1,22 +1,22 @@
-# {Feature 标题} — PRD
+# {Feature Title} — PRD
 
-## 背景
-<!-- 为什么要做这个功能？解决什么问题？ -->
+## Background
+<!-- Why build this feature? What problem does it solve? -->
 
-## 目标
-<!-- 这个功能要达到什么效果？ -->
+## Goals
+<!-- What outcome should this feature achieve? -->
 
-## 验收标准
-<!-- 哪些条件满足后，这个功能才算完成？ -->
+## Acceptance Criteria
+<!-- What conditions must be met for this feature to be considered done? -->
 - [ ] ...
 
-## 非目标（Out of Scope）
-<!-- 明确不做什么，防止范围蔓延 -->
+## Out of Scope
+<!-- Explicitly state what will not be done to prevent scope creep -->
 - ...
 
-## 风险
-<!-- 已知的技术风险、依赖风险、时间风险 -->
+## Risks
+<!-- Known technical, dependency, and schedule risks -->
 
-## 关联
+## Related
 - Spec ID: {SPEC-ID}
-- 相关 Issue: ...
+- Related Issue: ...

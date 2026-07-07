@@ -1,6 +1,7 @@
-"""Prism commands - 代码 review (含测试代码 + 安全 quick scan).
+"""Prism commands - code review (incl. test code + security quick scan).
 
-Prism 职责: 多视角代码 review + 批判性视角 + 测试反模式扫描 + 安全 quick scan。
+Prism responsibilities: multi-perspective code review + critical-perspective +
+test anti-pattern scan + security quick scan.
 """
 import argparse
 import re
@@ -14,20 +15,20 @@ from ._tests import scan_test_file, find_test_files
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('prism', help='代码 review (Prism)')
+    parser = subparsers.add_parser('prism', help='code review (Prism)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('review', help='完整 review (生产 + 测试 + 安全)')
-    p.add_argument('--diff', default='HEAD', help='要 review 的 ref (默认 HEAD)')
+    p = sub.add_parser('review', help='full review (production + test + security)')
+    p.add_argument('--diff', default='HEAD', help='ref to review (default HEAD)')
 
-    p = sub.add_parser('test-patterns', help='测试代码反模式扫描 (8 类 + AC 引用)')
-    p.add_argument('--tests', default='tests/', help='tests 目录 (默认 tests/)')
+    p = sub.add_parser('test-patterns', help='test code anti-pattern scan (8 categories + AC reference)')
+    p.add_argument('--tests', default='tests/', help='tests directory (default tests/)')
 
-    p = sub.add_parser('security-quick-scan', help='浅层安全 pattern 扫描')
-    p.add_argument('--diff', default='HEAD', help='要扫描的 ref')
+    p = sub.add_parser('security-quick-scan', help='shallow security pattern scan')
+    p.add_argument('--diff', default='HEAD', help='ref to scan')
 
-    p = sub.add_parser('code-quality', help='代码质量检查 (函数长度 / 嵌套深度 / DRY)')
-    p.add_argument('--diff', default='HEAD', help='要扫描的 ref')
+    p = sub.add_parser('code-quality', help='code quality check (function length / nesting depth / DRY)')
+    p.add_argument('--diff', default='HEAD', help='ref to scan')
 
 
 def run(args):
@@ -41,7 +42,7 @@ def run(args):
 
 
 def cmd_review(args):
-    """完整 review: 生产 + 测试 + 安全 quick scan."""
+    """Full review: production + test + security quick scan."""
     cwd = Path.cwd()
     print(f"=== Prism Full Review ===")
     print(f"Diff: {args.diff}")
@@ -71,17 +72,17 @@ def cmd_review(args):
     print(f"Test findings:     {len(test_findings)}")
     print(f"Security findings: {len(security_findings)}")
 
-    # 判定: critical/high → 拒绝
+    # Verdict: critical/high -> REJECT
     all_findings = test_findings + security_findings
     if has_blocking_severity(all_findings):
-        print("→ 拒绝 (有 critical/high)")
+        print("-> REJECT (critical/high found)")
         return 1
-    print("→ 通过 (semantic review 仍需 Prism 主体)")
+    print("-> PASS (semantic review still required by Prism agent)")
     return 0
 
 
 def cmd_test_patterns(args):
-    """测试代码反模式扫描."""
+    """Test code anti-pattern scan."""
     cwd = Path.cwd()
     test_root = cwd / args.tests
 
@@ -98,13 +99,13 @@ def cmd_test_patterns(args):
 
     print(f"\n=== Summary: {len(all_findings)} findings ===")
     if has_blocking_severity(all_findings):
-        print("→ critical/high 命中, 需修复")
+        print("-> critical/high hit; needs fix")
         return 1
     return 0
 
 
 def cmd_security_quick_scan(args):
-    """安全 pattern 浅扫 - 与 judge quick-scan 类似但视角不同 (Prism 看代码质量)."""
+    """Shallow security pattern scan - similar to judge quick-scan but from a different angle (Prism looks at code quality)."""
     cwd = Path.cwd()
     changed = get_diff_files('HEAD~1', args.diff, cwd=cwd)
     print(f"=== Prism Security Quick Scan ===")
@@ -121,7 +122,7 @@ def cmd_security_quick_scan(args):
 
 
 def cmd_code_quality(args):
-    """代码质量检查 (函数长度 / 嵌套深度)."""
+    """Code quality check (function length / nesting depth)."""
     cwd = Path.cwd()
     changed = get_diff_files('HEAD~1', args.diff, cwd=cwd)
     print(f"=== Code Quality Check ===")
@@ -137,7 +138,7 @@ def cmd_code_quality(args):
         except (OSError, PermissionError):
             continue
 
-        # 函数长度检查
+        # function length check
         lines = content.split('\n')
         in_func = False
         func_start = 0
@@ -146,14 +147,14 @@ def cmd_code_quality(args):
         for i, line in enumerate(lines):
             m = re.match(r'^(\s*)(?:async\s+)?def\s+(\w+)\s*\(', line)
             if m:
-                # 进入新函数
+                # entering a new function
                 if in_func:
                     func_len = i - func_start
                     if func_len > 30:
                         findings.append({
                             'file': str(fp), 'line': func_start + 1,
                             'severity': 'medium', 'pattern_id': 'func-too-long',
-                            'description': f'函数 {func_name} 长度 {func_len} 行 (建议 ≤30)',
+                            'description': f'function {func_name} length {func_len} lines (recommended <=30)',
                             'matched': 'function length',
                             'snippet': lines[func_start].strip()[:120],
                         })
@@ -162,13 +163,13 @@ def cmd_code_quality(args):
                 func_name = m.group(2)
                 func_indent = len(m.group(1))
             elif in_func and line.strip() and not line.startswith(' ' * (func_indent + 1)) and not line.startswith(func_indent * ' '):
-                # 函数结束
+                # function ended
                 func_len = i - func_start
                 if func_len > 30:
                     findings.append({
                         'file': str(fp), 'line': func_start + 1,
                         'severity': 'medium', 'pattern_id': 'func-too-long',
-                        'description': f'函数 {func_name} 长度 {func_len} 行 (建议 ≤30)',
+                        'description': f'function {func_name} length {func_len} lines (recommended <=30)',
                         'matched': 'function length',
                         'snippet': lines[func_start].strip()[:120],
                     })

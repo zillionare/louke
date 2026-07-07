@@ -1,19 +1,19 @@
-# {Feature 标题} — Task Plan
+# {Feature Title} — Task Plan
 
 - **Spec ID**: {SPEC-ID}
-- **创建日期**: {YYYY-MM-DD}
+- **Date created**: {YYYY-MM-DD}
 
-## 任务列表
+## Task List
 
-| ID | 任务描述 | 关联测试 | 目标文件 | 依赖 | 并行标记 | 状态 |
+| ID | Task description | Related test | Target file | Depends on | Parallel marker | Status |
 |----|---------|---------|---------|------|---------|------|
-| T-001 | ... | UT-001 | src/foo.ts | — | [P] | ⬜ |
-| T-002 | ... | UT-002 | src/bar.ts | T-001 | | ⬜ |
+| T-001 | ... | UT-001 | src/foo.ts | — | [P] | todo |
+| T-002 | ... | UT-002 | src/bar.ts | T-001 | | todo |
 
-- `[P]` = 可并行执行
-- `—` 表示无依赖，可最先开始
+- `[P]` = can run in parallel
+- `—` means no dependency, can start first
 
-## 依赖图
+## Dependency Graph
 
 ```
 T-001 ──→ T-002 ──→ T-004
@@ -21,9 +21,9 @@ T-001 ──→ T-002 ──→ T-004
   └──→ T-003 [P] ──→ T-004
 ```
 
-## Keeper 评审结果
+## Keeper Review Result
 
-- [ ] 每个任务关联了正确的测试用例
-- [ ] 依赖关系标注正确
-- [ ] 并行标记合理（无文件冲突）
-- [ ] 没有遗漏的 spec 需求
+- [ ] Each task is associated with the correct test case
+- [ ] Dependencies are marked correctly
+- [ ] Parallel markers are reasonable (no file conflicts)
+- [ ] No missing spec requirements

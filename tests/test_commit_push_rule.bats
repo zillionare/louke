@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
 
-AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
+AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
 @test "PUSH-001: Devon mentions git push after each commit" {
-    run grep -qE "(git push|立即 push|立即推送|push.*after.*commit|commit.*之后.*push)" "$AGENTS_DIR/Devon.md"
+    run grep -qE "(git push|push.*after.*commit|commit.*then.*push|immediately.*push)" "$AGENTS_DIR/Devon.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Devon.md does not mention pushing after commit"
         false
@@ -11,7 +11,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "PUSH-002: Devon mentions push triggers CI and status updates" {
-    run grep -qE "(push.*CI|push.*trigger|push.*status|推送.*CI|推送.*状态)" "$AGENTS_DIR/Devon.md"
+    run grep -qE "(push.*CI|push.*trigger|push.*status)" "$AGENTS_DIR/Devon.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Devon.md does not mention that push triggers CI/status"
         false

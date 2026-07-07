@@ -12,9 +12,9 @@ setup() {
     cat > .louke/project/specs/test/spec.md <<'EOF'
 # Test Spec
 
-### FR-0001 用户登录
+### FR-0001 User Login
 
-需求内容.
+Requirement content.
 EOF
     SPEC_FILE=".louke/project/specs/test/spec.md"
     ACC_FILE=".louke/project/specs/test/acceptance.md"
@@ -23,14 +23,14 @@ EOF
 @test "L1 fail: acceptance.md missing" {
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"acceptance.md 缺失"* ]]
+    [[ "$output" == *"acceptance.md missing"* ]]
 }
 
 @test "L1 fail: acceptance.md empty" {
     printf '' > "$ACC_FILE"
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"内容为空"* ]]
+    [[ "$output" == *"is empty"* ]]
 }
 
 @test "L2 fail: spec FR missing in acceptance" {
@@ -44,7 +44,7 @@ EOF
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"缺少"* ]]
+    [[ "$output" == *"missing"* ]]
 }
 
 @test "L3 fail: AC numbering not sequential" {
@@ -61,7 +61,7 @@ EOF
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"不连续"* ]] || [[ "$output" == *"AC 编号"* ]]
+    [[ "$output" == *"not sequential"* ]] || [[ "$output" == *"AC numbering"* ]]
 }
 
 @test "L4 fail: AC has no bullets" {
@@ -74,7 +74,7 @@ EOF
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"无任何 AC"* ]] || [[ "$output" == *"内容不合格"* ]]
+    [[ "$output" == *"missing bullet"* ]] || [[ "$output" == *"AC content invalid"* ]]
 }
 
 @test "L4 fail: AC has placeholder {{...}}" {
@@ -88,7 +88,7 @@ EOF
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"占位符"* ]]
+    [[ "$output" == *"placeholder"* ]]
 }
 
 @test "L5 fail: ghost FR not in spec" {
@@ -107,7 +107,7 @@ EOF
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"不存在"* ]] || [[ "$output" == *"ghost"* ]] || [[ "$output" == *"FR-0099"* ]]
+    [[ "$output" == *"not present in spec"* ]] || [[ "$output" == *"ghost"* ]] || [[ "$output" == *"FR-0099"* ]]
 }
 
 @test "L1-L5 all pass (happy path)" {
@@ -124,5 +124,5 @@ EOF
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"全部通过"* ]]
+    [[ "$output" == *"checks passed"* ]]
 }

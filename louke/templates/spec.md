@@ -1,78 +1,78 @@
-# {Feature 标题} — Spec
+# {Feature Title} — Spec
 
 - **Spec ID**: {SPEC-ID}
-- **创建日期**: {YYYY-MM-DD}
-- **状态**: {草稿 / 评审中 / 已确认}
+- **Created**: {YYYY-MM-DD}
+- **Status**: {Draft / Reviewing / Confirmed}
 
-> **职责划分**: 本文档只写需求本身 (FR/NFR 的描述 + 元数据).
-> 验收标准 (可观察、可断言的通过条件) 放在 `acceptance.md`, 便于不断扩充而不撑大 spec.
-> 测试计划 (`test-plan.md`) 同时引用 spec.md 和 acceptance.md 作为输入.
+> **Responsibility split**: This document only describes the requirements themselves (FR/NFR descriptions + metadata).
+> Acceptance criteria (observable, assertable pass conditions) live in `acceptance.md` so they can grow without bloating spec.
+> The test plan (`test-plan.md`) references both spec.md and acceptance.md as inputs.
 
-## 用户故事
+## User Stories
 
 ### US-0010
-story: 作为{角色}，我想{功能}，以便{价值}
+story: As a {role}, I want {feature}, so that {value}
 priority: P0
 
 ### US-0020
-story: 作为{角色}，我想{功能}，以便{价值}
+story: As a {role}, I want {feature}, so that {value}
 priority: P0
 
-## 用户使用场景
+## Usage Scenarios
 
 ### scenario-0010
 
-{描述用户应该如何实用本软件}
+{Describe how the user should use this software}
 
-## 功能需求
+## Functional Requirements
 
-> **格式约定（必读）**: 每个 FR 单元由三级标题 + 空格 + FR-XXXX (大写, 4 位零填充) + {title} 引起, 紧接一个 3 列表格存放元数据 (有效需求/可测性/是否已决定), 然后是需求描述; FR 之间用 `---` 分隔.
+> **Format convention (must read)**: Each FR unit starts with a level-3 heading + space + FR-XXXX (uppercase, 4-digit zero-padded) + {title}, immediately followed by a 3-column metadata table (Valid / Testable / Decided), then the requirement description; separate FRs with `---`.
 >
-> **编号约定(必读)**: FR 的编码采用 **4 位数字**, 0 填充, **初稿时从 100 起步, 每 100 一档**（FR-0001, FR-0101, FR-0201, ...）; **第一轮 review 后可按 10 一档补充**（FR-0011 插在 FR-0001 与 FR-0101 之间）; **第二轮后连续编号**. 这套 100/10/1 间隔规则给后续插入预留空间, 避免大规模重新编号.
+> **Numbering convention (must read)**: FR codes use **4 digits**, zero-padded, **starting from 100 in the initial draft, stepping by 100** (FR-0001, FR-0101, FR-0201, ...); **after the first review round, insert by step 10** (FR-0011 between FR-0001 and FR-0101); **after the second round, use sequential numbering**. This 100/10/1 spacing reserves room for future insertions and avoids large-scale renumbering.
 >
-> **必读**: FR-XXXX 编号即该需求的 id. 禁止删除已有需求 id, 以避免引用混淆; 如需废弃某 FR, 在表格里把 `有效需求` 改为 `❌`, 并在澄清记录中说明.
+> **Must read**: The FR-XXXX code is the id of that requirement. Never delete an existing requirement id to avoid reference confusion; if a FR must be deprecated, change `Valid` to `❌` in the table and explain in the clarification log.
 >
-> **AC 引用**: 验收标准用 `AC-FRXXXX-YY` 格式（4 位 FR + 2 位 AC）, 见 `acceptance.md`.
+> **AC reference**: Acceptance criteria use the `AC-FRXXXX-YY` format (4-digit FR + 2-digit AC), see `acceptance.md`.
 >
-> **元数据字段 (表格列)**:
-> - 有效需求 (原 yaml `valid`): `✅` = 仍生效, `❌` = 已废弃
-> - 可测性 (原 yaml `testability`): `✅` = 可被测试断言, `⚠️ {原因}` = 有保留
-> - 是否已决定 (原 yaml `resolved`): `✅` = 用户已 review 通过, `⚠️` = 待澄清, `❌` = 用户明确否决
+> **Metadata fields (table columns)**:
+> - Valid (formerly yaml `valid`): `✅` = still active, `❌` = deprecated
+> - Testable (formerly yaml `testability`): `✅` = can be tested/asserted, `⚠️ {reason}` = has reservations
+> - Decided (formerly yaml `resolved`): `✅` = user approved, `⚠️` = pending clarification, `❌` = user explicitly rejected
 
 ### FR-0010 {title}
 
-| 有效需求 | 可测性 | 是否已决定 |
+| Valid | Testable | Decided |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-{需求描述}
+{Requirement description}
 
 ---
 
 ### FR-0020 {title}
 
-| 有效需求 | 可测性 | 是否已决定 |
+| Valid | Testable | Decided |
 |---|---|---|
-| ✅ | ⚠️ {原因} | ⚠️ |
+| ✅ | ⚠️ {reason} | ⚠️ |
 
-{需求描述}
+{Requirement description}
 
 ---
 
-## 非功能需求
+## Non-Functional Requirements
 
-> **必读**: 本节的格式、编号等要求同 FR, 此处省略.
+> **Must read**: Format and numbering rules are the same as FR; omitted here.
 
 ### NFR-0010 {title}
 
-| 有效需求 | 可测性 | 是否已决定 |
+| Valid | Testable | Decided |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-{需求描述}
+{Requirement description}
 
 ---
 
-## 澄清记录
+## Clarification Log
 
-> 记录用户 review 的问题、Sage/Lex 的答复、被废弃需求的原因、以及所有影响 FR/NFR 表格状态的决定。
+> Record questions raised during user review, Sage/Lex replies, reasons for deprecated requirements, and any decisions that affect FR/NFR table status.

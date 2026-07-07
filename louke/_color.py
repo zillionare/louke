@@ -64,7 +64,7 @@ class Spinner:
     """Context manager showing a spinner while work is done.
 
     Usage:
-        with Spinner('查询 opencode models'):
+        with Spinner('querying opencode models'):
             result = subprocess.run(...)
 
     Auto-disabled when stdout is not a TTY (no visual noise in pipes).

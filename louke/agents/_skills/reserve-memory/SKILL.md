@@ -48,10 +48,10 @@ supersedes: []
 Required sections:
 
 ```markdown
-## 议题 {what was being decided}
-## 决定 {conclusion, commands/files/specs}
-## 试过但放弃 {rejected options and why}
-## 开放问题 {left for next round}
+## Topic {what was being decided}
+## Decision {conclusion, commands/files/specs}
+## Tried but abandoned {rejected options and why}
+## Open questions {left for next round}
 ```
 
 ## Rules

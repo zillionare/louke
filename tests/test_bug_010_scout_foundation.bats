@@ -1,34 +1,43 @@
 #!/usr/bin/env bats
 
-AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
+AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
-# --- 收集项目信息 ---
+# --- Collect project metadata ---
 
 @test "SCOUT-010-001: Scout asks user for story/PRD" {
-    run grep -qE "(询问|ask|收集|拿到).*(story|故事|PRD|需求)" "$AGENTS_DIR/Scout.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not ask user for story/PRD"
+    grep -q "Ask the user for" "$AGENTS_DIR/Scout.md" || {
+        echo "FAIL: Scout.md does not ask user for input"
+        false
+    }
+    grep -qE "Story.*/.*PRD" "$AGENTS_DIR/Scout.md" || {
+        echo "FAIL: Scout.md does not mention Story/PRD"
         false
     }
 }
 
 @test "SCOUT-010-002: Scout asks user for version number" {
-    run grep -qE "(询问|ask|收集|拿到).*(版本|version)" "$AGENTS_DIR/Scout.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not ask user for version number"
+    grep -q "Ask the user for" "$AGENTS_DIR/Scout.md" || {
+        echo "FAIL: Scout.md does not ask user for input"
+        false
+    }
+    grep -qE "[Vv]ersion number" "$AGENTS_DIR/Scout.md" || {
+        echo "FAIL: Scout.md does not ask for version number"
         false
     }
 }
 
 @test "SCOUT-010-003: Scout asks user for repo name" {
-    run grep -qE "(询问|ask|收集|拿到).*(repo|仓库)" "$AGENTS_DIR/Scout.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not ask user for repo name"
+    grep -q "Ask the user for" "$AGENTS_DIR/Scout.md" || {
+        echo "FAIL: Scout.md does not ask user for input"
+        false
+    }
+    grep -qE "[Rr]epo name" "$AGENTS_DIR/Scout.md" || {
+        echo "FAIL: Scout.md does not ask for repo name"
         false
     }
 }
 
-# --- 创建 Repo ---
+# --- Create Repo ---
 
 @test "SCOUT-010-004: Scout creates repo via gh if not exists" {
     run grep -qE "gh repo create" "$AGENTS_DIR/Scout.md"
@@ -39,17 +48,17 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "SCOUT-010-005: Scout initializes local workspace if repo was just created" {
-    run grep -qE "(git clone|git init|本地.*工作区|local.*workspace)" "$AGENTS_DIR/Scout.md"
+    run grep -qE "(git clone|git init|local.*workspace)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md does not initialize local workspace"
         false
     }
 }
 
-# --- Project 配置 ---
+# --- Project configuration ---
 
 @test "SCOUT-010-006: Scout uses {repo}-{version} as project name" {
-    run grep -qE "(\{repo\}.*\{version\}|repo.*-.*version|项目名.*repo.*version)" "$AGENTS_DIR/Scout.md"
+    run grep -qE "(\{repo\}.*\{version\}|repo.*-.*version)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md does not use {repo}-{version} project naming"
         false
@@ -57,7 +66,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "SCOUT-010-007: Scout links default repository to project" {
-    run grep -qE "(default repository|default repo|默认.*仓库|关联.*repo)" "$AGENTS_DIR/Scout.md"
+    run grep -qE "(default repository|default repo|link.*repo)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md does not link default repo to project"
         false
@@ -65,7 +74,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "SCOUT-010-008: Scout writes story to project README" {
-    run grep -qE "(project.*README|写入.*story|write.*story.*README)" "$AGENTS_DIR/Scout.md"
+    run grep -qiE "(write.*story.*README|story.*README|Writing.*story)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md does not write story to project README"
         false

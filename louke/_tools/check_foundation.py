@@ -1,43 +1,43 @@
 #!/usr/bin/env python3
 """
-check_foundation.py — 验证 Scout 奠基阶段的工作是否完整
+check_foundation.py — validate whether Scout's foundation-stage work is complete
 
-为什么需要这个检查:
-  Scout 的工作流涉及多个 GitHub 操作(repo/project/issue/PR)和本地文件创建。
-  Agent 内联执行这些检查容易出错且难以维护。本脚本将全部检查集中在一处,
-  提供一致的通过/拒绝输出。
+Why this check is needed:
+  Scout's workflow involves multiple GitHub operations (repo/project/issue/PR) and local file creation.
+  Doing these checks inline in the agent is error-prone and hard to maintain. This script centralizes
+  all checks in one place and provides consistent PASS/REJECT output.
 
-  设计目标:
-  - 零 LLM token: 纯结构化检查
-  - 零额外依赖: 仅 Python stdlib
-  - 幂等: 可重复运行,不会创建/修改任何资源
-  - 可组合: 每个检查独立,可单独跳过
+  Design goals:
+  - Zero LLM tokens: pure structural checks
+  - Zero extra dependencies: Python stdlib only
+  - Idempotent: can be re-run, never creates or modifies any resource
+  - Composable: each check is independent and can be skipped individually
 
-检查项(F1-F11):
-  F1 Repo 可访问:        gh repo view 成功
-  F2 Project 存在:       gh project list 包含 {repo}-{version}
-  F3 Test Issue 合规:    标题 "Good First Issue: {repo}-{version}", 状态 closed
-  F4 Test PR 合规:       标题 "Good First PR: {repo}-{version}", 状态 closed
-  F5 Agent 文件存在:     agents/*.md 文件存在
-  F6 project.toml 完整:  .louke/project/project.toml 包含必须字段 (fix-002 后)
-                          [project] 段: version, repo, project, spec_id, release_branch
-                          [meta] 段: smoke_test_issue, smoke_test_pr, dod, security_audit, current_stage, created
-  F7 story.md 存在:      .louke/project/specs/{spec-id}/story.md 存在
-  F8 开发分支存在:       releases/{version} 分支在远程存在 (基于 main)
-  F9 Spec ID 格式合规:   符合 v{version}-{NNN}-{keyword}
-  F10 未合并的 releases/*: 无未合并 releases/*; 若存在, project.toml 需
-                          [meta].acknowledged_orphan_releases 列表作为警告放行
-  F11 身份一致性:       gh 与 git 同身份 (委托 check_identity.py L1-L5)
+Checks (F1-F11):
+  F1 Repo accessible:        gh repo view succeeds
+  F2 Project exists:        gh project list contains {repo}-{version}
+  F3 Test Issue compliant:   title "Good First Issue: {repo}-{version}", state closed
+  F4 Test PR compliant:      title "Good First PR: {repo}-{version}", state closed
+  F5 Agent files exist:      agents/*.md files exist
+  F6 project.toml complete:  .louke/project/project.toml contains required fields (after fix-002)
+                          [project] section: version, repo, project, spec_id, release_branch
+                          [meta] section: smoke_test_issue, smoke_test_pr, dod, security_audit, current_stage, created
+  F7 story.md exists:        .louke/project/specs/{spec-id}/story.md exists
+  F8 Dev branch exists:      releases/{version} branch exists on remote (based on main)
+  F9 Spec ID format compliant: matches v{version}-{NNN}-{keyword}
+  F10 Unmerged releases/*:  no unmerged releases/*; if any exist, project.toml needs
+                          [meta].acknowledged_orphan_releases list as a warning pass
+  F11 Identity consistency: gh and git same identity (delegates to check_identity.py L1-L5)
 
-使用:
+Usage:
   lk warden foundation-check <owner/repo> --version <version> --spec-id <spec-id>
   lk warden foundation-check zillionare/louke --version v0.1 --spec-id v0.1-001-louke
 
-  可选 flags:
-    --project-id NUMBER   GitHub Project 数字 ID (跳过自动查找)
-    --skip F3,F4          跳过指定检查项 (逗号分隔)
-    --upstream BRANCH     验证开发分支基于的上游分支 (默认不检查 F8, 推荐传 main)
-    --offline             离线模式: 只跑本地检查 (F5, F6, F7, F9, F10)
+Optional flags:
+  --project-id NUMBER   GitHub Project numeric ID (skip auto-lookup)
+  --skip F3,F4          skip specific checks (comma-separated)
+  --upstream BRANCH     upstream branch the dev branch is based on (skips F8 by default; pass main to enable)
+  --offline             offline mode: only run local checks (F5, F6, F7, F9, F10)
 """
 
 from __future__ import annotations
@@ -51,24 +51,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-# ---------- 数据结构 ----------
+# ---------- Data structures ----------
 
 
 @dataclass
 class CheckResult:
     code: str           # F1, F2, ...
-    name: str           # 检查名称
+    name: str           # check name
     passed: bool = False
-    message: str = ""   # 通过时的详情
-    error: str = ""     # 失败时的原因
-    warning: bool = False  # True = 警告而非阻塞
+    message: str = ""   # details on pass
+    error: str = ""     # reason on failure
+    warning: bool = False  # True = warning rather than blocking
 
 
-# ---------- 辅助函数 ----------
+# ---------- Helper functions ----------
 
 
 def _gh(*args: str) -> tuple[str, bool]:
-    """运行 gh 命令,返回 (stdout, success)"""
+    """Run a gh command, returns (stdout, success)"""
     try:
         out = subprocess.check_output(
             ["gh", *args], stderr=subprocess.STDOUT
@@ -79,7 +79,7 @@ def _gh(*args: str) -> tuple[str, bool]:
 
 
 def _gh_json(*args: str) -> tuple[dict | list | None, bool]:
-    """运行 gh 命令并解析 JSON 输出"""
+    """Run a gh command and parse its JSON output"""
     text, ok = _gh(*args)
     if not ok or not text:
         return None, False
@@ -89,15 +89,15 @@ def _gh_json(*args: str) -> tuple[dict | list | None, bool]:
         return None, False
 
 
-# ---------- 检查项 ----------
+# ---------- Checks ----------
 
 
 def check_f1_repo(repo: str) -> CheckResult:
-    """F1: Repo 可访问"""
-    r = CheckResult(code="F1", name="Repo 可访问")
+    """F1: Repo accessible"""
+    r = CheckResult(code="F1", name="Repo accessible")
     data, ok = _gh_json("repo", "view", repo, "--json", "nameWithOwner,isPrivate")
     if not ok or not data:
-        r.error = f"无法访问 repo {repo} — 请确认 repo 存在且当前 token 有权限"
+        r.error = f"unable to access repo {repo} — please confirm the repo exists and the current token has permission"
         return r
     visibility = "private" if data.get("isPrivate") else "public"
     r.passed = True
@@ -106,12 +106,12 @@ def check_f1_repo(repo: str) -> CheckResult:
 
 
 def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckResult:
-    """F2: GitHub Project 存在 (允许创建在 repo owner 或 gh 身份下)"""
-    r = CheckResult(code="F2", name="Project 存在")
+    """F2: GitHub Project exists (allowed to be created under repo owner or gh identity)"""
+    r = CheckResult(code="F2", name="Project exists")
     expected_title = f"{repo.split('/')[-1]}-{version}"
 
     if project_id:
-        # 直接验证指定 ID
+        # Validate the specified ID directly
         data, ok = _gh_json("project", "view", str(project_id),
                             "--owner", repo.split("/")[0],
                             "--json", "title,number")
@@ -120,18 +120,18 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
             r.message = f"{data['title']} (#{data['number']})"
             return r
 
-    # 搜索 project 列表 — 同时查 repo owner 和 gh 身份 (collaborator 模式)
+    # Search project list — check both repo owner and gh identity (collaborator mode)
     repo_owner = repo.split("/")[0]
     gh_user_out, _ = _gh("api", "user", "-q", ".login")
     gh_user = gh_user_out.strip()
-    owners_to_check = list({repo_owner, gh_user})  # 去重保序
+    owners_to_check = list({repo_owner, gh_user})  # dedupe preserving order
 
     for owner in owners_to_check:
         data, ok = _gh_json("project", "list", "--owner", owner,
                             "--format", "json", "--limit", "50")
         if not ok or not data:
             continue
-        # gh project list --format json 返回 {"projects": [...], "totalCount": N}
+        # gh project list --format json returns {"projects": [...], "totalCount": N}
         if isinstance(data, dict):
             projects = data.get("projects", [])
         elif isinstance(data, list):
@@ -147,24 +147,24 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
                 return r
 
     r.error = (
-        f"未找到 Project '{expected_title}' — 请先创建。"
-        f"可创建在 {repo_owner} 或 {gh_user} 名下。"
-        f"如创建在 {gh_user} 名下,在 GitHub UI 手动把 {repo_owner} 设为 project READER, "
-        f"或调 gh api updateProjectV2Collaborators API"
+        f"Project '{expected_title}' not found — please create it first. "
+        f"It can be created under {repo_owner} or {gh_user}. "
+        f"If created under {gh_user}, manually set {repo_owner} as project READER in the GitHub UI, "
+        f"or call the gh api updateProjectV2Collaborators API"
     )
     return r
 
 
 def check_f3_test_issue(repo: str, version: str) -> CheckResult:
-    """F3: Test Issue 存在且已关闭 (Scout 创建)"""
-    r = CheckResult(code="F3", name="Test Issue 合规")
+    """F3: Test Issue exists and is closed (created by Scout)"""
+    r = CheckResult(code="F3", name="Test Issue compliant")
     expected_title = f"Good First Issue: {repo.split('/')[-1]}-{version}"
 
     data, ok = _gh_json("issue", "list", "--repo", repo,
                         "--state", "all", "--limit", "100",
                         "--json", "number,title,state")
     if not ok or not data:
-        r.error = "无法列出 issues — 请确认 gh 有 repo 访问权限"
+        r.error = "unable to list issues — please confirm gh has repo access"
         return r
 
     for issue in (data if isinstance(data, list) else []):
@@ -173,23 +173,23 @@ def check_f3_test_issue(repo: str, version: str) -> CheckResult:
                 r.passed = True
                 r.message = f"#{issue['number']} (closed)"
                 return r
-            r.error = f"Test Issue #{issue['number']} 状态为 {issue.get('state')} — 需要 CLOSED"
+            r.error = f"Test Issue #{issue['number']} state is {issue.get('state')} — needs CLOSED"
             return r
 
-    r.error = f"未找到 Test Issue '{expected_title}' — Scout 须创建"
+    r.error = f"Test Issue '{expected_title}' not found — Scout must create it"
     return r
 
 
 def check_f4_test_pr(repo: str, version: str) -> CheckResult:
-    """F4: Test PR 存在且已关闭 (Scout 创建)"""
-    r = CheckResult(code="F4", name="Test PR 合规")
+    """F4: Test PR exists and is closed (created by Scout)"""
+    r = CheckResult(code="F4", name="Test PR compliant")
     expected_title = f"Good First PR: {repo.split('/')[-1]}-{version}"
 
     data, ok = _gh_json("pr", "list", "--repo", repo,
                         "--state", "all", "--limit", "100",
                         "--json", "number,title,state")
     if not ok or not data:
-        r.error = "无法列出 PRs — 请确认 gh 有 repo 访问权限"
+        r.error = "unable to list PRs — please confirm gh has repo access"
         return r
 
     for pr in (data if isinstance(data, list) else []):
@@ -199,34 +199,34 @@ def check_f4_test_pr(repo: str, version: str) -> CheckResult:
                 r.passed = True
                 r.message = f"#{pr['number']} ({state.lower()})"
                 return r
-            r.error = f"Test PR #{pr['number']} 状态为 {state} — 需要 CLOSED/MERGED"
+            r.error = f"Test PR #{pr['number']} state is {state} — needs CLOSED/MERGED"
             return r
 
-    r.error = f"未找到 Test PR '{expected_title}' — Scout 须创建"
+    r.error = f"Test PR '{expected_title}' not found — Scout must create it"
     return r
 
 
 def check_f5_agents() -> CheckResult:
-    """F5: Agent prompt 文件存在"""
-    r = CheckResult(code="F5", name="Agent 文件存在")
+    """F5: Agent prompt files exist"""
+    r = CheckResult(code="F5", name="Agent files exist")
     agents_dir = Path("agents")
     if not agents_dir.is_dir():
-        r.error = "agents/ 目录不存在"
+        r.error = "agents/ directory does not exist"
         return r
 
     md_files = list(agents_dir.glob("*.md"))
     if not md_files:
-        r.error = "agents/ 下没有任何 .md 文件"
+        r.error = "no .md files found under agents/"
         return r
 
     r.passed = True
-    r.message = f"{len(md_files)} 个 Agent prompt 文件"
+    r.message = f"{len(md_files)} Agent prompt files"
     return r
 
 
-# project.toml 必须字段 (fix-002 后, 从 Markdown 迁 TOML)
-# [project] 段字段 (含 project_id spec_id release_branch)
-# [meta] 段字段 (含 created security_audit 等)
+# Required fields in project.toml (after fix-002, migrated from Markdown to TOML)
+# [project] section fields (including project_id spec_id release_branch)
+# [meta] section fields (including created security_audit etc.)
 REQUIRED_PROJECT_INFO_FIELDS = [
     ("project", "version"),
     ("project", "repo"),
@@ -247,63 +247,63 @@ RE_SPEC_ID = re.compile(r"^v[\w.]+-\d{3}-[\w-]+$")
 
 
 def check_f6_project_info(spec_id: str | None) -> CheckResult:
-    """F6: project.toml 存在且包含必须字段 (fix-002 后从 Markdown 迁 TOML)"""
-    r = CheckResult(code="F6", name="project.toml 完整")
+    """F6: project.toml exists and contains required fields (after fix-002 migrated from Markdown to TOML)"""
+    r = CheckResult(code="F6", name="project.toml complete")
     pi_path = Path(".louke/project/project.toml")
     if not pi_path.is_file():
-        r.error = ".louke/project/project.toml 不存在"
+        r.error = ".louke/project/project.toml does not exist"
         return r
 
-    # 用 tomllib 解析
+    # Parse with tomllib
     try:
         import tomllib
     except ImportError:
         try:
             import tomli as tomllib  # type: ignore
         except ImportError:
-            r.error = "Python tomllib/tomli 不可用, 无法解析 project.toml"
+            r.error = "Python tomllib/tomli unavailable, cannot parse project.toml"
             return r
     try:
         with open(pi_path, 'rb') as f:
             data = tomllib.load(f)
     except Exception as e:
-        r.error = f"project.toml 解析失败: {e}"
+        r.error = f"project.toml parse failed: {e}"
         return r
 
-    # 检查必须字段
+    # Check required fields
     missing = []
     for section, key in REQUIRED_PROJECT_INFO_FIELDS:
         if section not in data or key not in data[section]:
             missing.append(f'[{section}].{key}')
     if missing:
-        r.error = f"project.toml 缺少字段: {', '.join(missing)}"
+        r.error = f"project.toml missing fields: {', '.join(missing)}"
         return r
 
-    # 如果提供了 spec_id, 验证 F9 (Spec ID 格式)
+    # If spec_id is provided, validate F9 (Spec ID format)
     if spec_id:
         if not RE_SPEC_ID.match(spec_id):
-            r.error = f"Spec ID 格式不合规: '{spec_id}' — 期望 v{{version}}-{{NNN}}-{{keyword}} (如 v0.3-001-adopt-mode)"
+            r.error = f"Spec ID format non-compliant: '{spec_id}' — expected v{{version}}-{{NNN}}-{{keyword}} (e.g. v0.3-001-adopt-mode)"
             return r
         actual_spec_id = data.get('project', {}).get('spec_id', '')
         if actual_spec_id != spec_id:
-            r.error = f"project.toml 中的 Spec ID 与参数 '{spec_id}' 不匹配"
+            r.error = f"Spec ID in project.toml does not match argument '{spec_id}'"
             return r
 
     r.passed = True
-    r.message = f"包含 {len(REQUIRED_PROJECT_INFO_FIELDS)} 个必须字段"
+    r.message = f"contains {len(REQUIRED_PROJECT_INFO_FIELDS)} required fields"
     return r
 
 
 def check_f7_story(spec_id: str) -> CheckResult:
-    """F7: story.md 存在"""
-    r = CheckResult(code="F7", name="story.md 存在")
+    """F7: story.md exists"""
+    r = CheckResult(code="F7", name="story.md exists")
     if not spec_id:
-        r.error = "未提供 spec-id, 无法检查 story.md"
+        r.error = "no --spec-id provided, cannot check story.md"
         return r
 
     story_path = Path(f".louke/project/specs/{spec_id}/story.md")
     if not story_path.is_file():
-        r.error = f".louke/project/specs/{spec_id}/story.md 不存在"
+        r.error = f".louke/project/specs/{spec_id}/story.md does not exist"
         return r
 
     size = story_path.stat().st_size
@@ -313,11 +313,11 @@ def check_f7_story(spec_id: str) -> CheckResult:
 
 
 def check_f8_dev_branch(version: str, upstream: str | None) -> CheckResult:
-    """F8: 开发分支 releases/{version} 在远程存在"""
-    r = CheckResult(code="F8", name="开发分支存在")
+    """F8: dev branch releases/{version} exists on remote"""
+    r = CheckResult(code="F8", name="Dev branch exists")
     branch = f"releases/{version}"
 
-    # 用 git ls-remote 直接查 (不依赖 gh, 也避免 gh api 嵌套 shell 展开的坑)
+    # Use git ls-remote directly (does not depend on gh, also avoids gh api nested shell expansion pitfalls)
     try:
         ls_out = subprocess.check_output(
             ["git", "ls-remote", "--heads", "origin", branch],
@@ -325,79 +325,79 @@ def check_f8_dev_branch(version: str, upstream: str | None) -> CheckResult:
         ).decode().strip()
         if ls_out:
             r.passed = True
-            r.message = f"远程分支 {branch} 存在"
+            r.message = f"remote branch {branch} exists"
             if upstream:
-                r.message += f" (基于 {upstream})"
+                r.message += f" (based on {upstream})"
             return r
     except Exception as e:
         r.warning = True
-        r.message = f"无法列远程分支 (降为警告): {e}"
+        r.message = f"unable to list remote branches (downgraded to warning): {e}"
         return r
 
-    r.error = f"远程分支 {branch} 不存在 — 请先创建: git checkout -b {branch} && git push -u origin {branch}"
+    r.error = f"remote branch {branch} does not exist — please create it first: git checkout -b {branch} && git push -u origin {branch}"
     return r
 
 
 def check_f9_spec_id(spec_id: str) -> CheckResult:
-    """F9: Spec ID 格式合规"""
-    r = CheckResult(code="F9", name="Spec ID 格式合规")
+    """F9: Spec ID format compliant"""
+    r = CheckResult(code="F9", name="Spec ID format compliant")
     if not spec_id:
-        r.error = "未提供 --spec-id"
+        r.error = "no --spec-id provided"
         return r
 
     if RE_SPEC_ID.match(spec_id):
         r.passed = True
-        r.message = f"格式正确: {spec_id}"
+        r.message = f"format valid: {spec_id}"
     else:
         r.error = (
-            f"Spec ID '{spec_id}' 格式不合规 — "
-            f"期望 v{{version}}-{{NNN}}-{{keyword}} (如 v0.3-001-adopt-mode)"
+            f"Spec ID '{spec_id}' format non-compliant — "
+            f"expected v{{version}}-{{NNN}}-{{keyword}} (e.g. v0.3-001-adopt-mode)"
         )
     return r
 
 
 def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -> CheckResult:
-    """F10: 检查所有未合并到 main 的 releases/* 分支
+    """F10: check all releases/* branches not merged into main
 
-    豁免规则: 当前正在工作的 release (--version 对应的 releases/{version})
-    不算作 orphan — 它是本版奠基的工作分支,还没合并是正常的。
+    Exemption rule: the release currently being worked on (releases/{version} corresponding to --version)
+    does not count as an orphan — it is the working branch for this foundation, not being merged yet is normal.
 
-    其他未合并 release: 如果 project.toml 中 [meta.acknowledged_orphan_releases] 列表
-    显式列出了, 则作为警告放行 (warning=True)。
-    这与 Scout Step 3.5 中 "用户答 y" 的语义对称:
-      - Scout 警告 + 询问 → 用户答 y
-      - Warden 检查 + 警告放行 → 不阻塞, 但在输出中标记 [!]
+    Other unmerged releases: if explicitly listed in [meta.acknowledged_orphan_releases] in project.toml,
+    they pass as a warning (warning=True).
+    This mirrors the "user answers y" semantics in Scout Step 3.5:
+      - Scout warns + asks → user answers y
+      - Warden checks + warning pass → does not block, but marks [!] in the output
     """
-    r = CheckResult(code="F10", name="未合并 releases/* 分支")
+    r = CheckResult(code="F10", name="Unmerged releases/* branches")
     exempt = f"releases/{current_release}" if current_release else None
 
-    # 1. 列出所有未合并到 main 的 releases/* 远程分支
+    # 1. List all releases/* remote branches not merged into main
     try:
         out = subprocess.check_output(
             ["git", "ls-remote", "--heads", "origin", "releases/*"],
             stderr=subprocess.DEVNULL,
         ).decode().strip()
     except Exception as e:
-        r.error = f"无法列远程分支: {e}"
+        r.error = f"unable to list remote branches: {e}"
         return r
 
     if not out:
         r.passed = True
-        r.message = "项目无任何 releases/* 分支 (首次启动, 跳过)"
+        r.message = "project has no releases/* branches (first launch, skipped)"
         return r
 
     unmerged: list[str] = []
     for line in out.splitlines():
-        # 格式: <sha>\trefs/heads/releases/v0.x
+        # Format: <sha>\trefs/heads/releases/v0.x
         parts = line.split()
         if len(parts) < 2:
             continue
         ref = parts[1]
         branch = ref.removeprefix("refs/heads/")
-        # 豁免当前正在工作的 release 分支
+        # Exempt the release branch currently being worked on
         if branch == exempt:
             continue
-        # 检查是否已合并到 main (merge-base --is-ancestor)
+        # Check whether already merged into main (merge-base --is-ancestor)
         rc = subprocess.run(
             ["git", "merge-base", "--is-ancestor", branch, "main"],
             capture_output=True,
@@ -407,10 +407,10 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
 
     if not unmerged:
         r.passed = True
-        r.message = "所有 releases/* 分支都已合入 main"
+        r.message = "all releases/* branches have been merged into main"
         return r
 
-    # 2. 检查 project.toml 是否显式承认这些 orphan (fix-002 后)
+    # 2. Check whether project.toml explicitly acknowledges these orphans (after fix-002)
     pi_path = Path(".louke/project/project.toml")
     acked: list[str] = []
     if pi_path.is_file():
@@ -434,31 +434,31 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
     unacked = [b for b in unmerged if b not in acked]
     if unacked:
         r.error = (
-            f"存在未合并到 main 且未被 project.toml 承认的 release 分支: "
-            f"{', '.join(unacked)} — 请先合并到 main, 或在 project.toml [meta].acknowledged_orphan_releases 列出"
+            f"unmerged release branches not acknowledged by project.toml exist: "
+            f"{', '.join(unacked)} — please merge into main first, or list them in project.toml [meta].acknowledged_orphan_releases"
         )
         return r
 
-    # 全部已 ack, 警告而非阻塞
+    # All acked, warning rather than blocking
     r.warning = True
     r.passed = False
     r.error = (
-        f"以下 release 分支未合并到 main, 已被 project.toml 标记为 acknowledged orphan: "
+        f"the following release branches are not merged into main, marked as acknowledged orphan in project.toml: "
         f"{', '.join(unmerged)}"
     )
     return r
 
 
 def check_f11_identity(repo: str) -> CheckResult:
-    """F11: gh 与 git 身份一致性 (委托 check_identity.py)"""
-    r = CheckResult(code="F11", name="身份一致性 (gh/git)")
-    # 故意分两层 except: ImportError/AttributeError 是 F11 自身集成 bug
-    # (e.g. check_identity 改签名后这里没跟上), 必须 surface 给用户,
-    # 不能静默降为 warning 后 hold point 失效。
+    """F11: gh and git identity consistency (delegates to check_identity.py)"""
+    r = CheckResult(code="F11", name="Identity consistency (gh/git)")
+    # Intentionally two layers of except: ImportError/AttributeError is an F11 integration bug itself
+    # (e.g. check_identity changed its signature and this was not updated), must surface to the user,
+    # cannot silently downgrade to a warning and let the hold point fail.
     try:
         from louke._tools import check_identity
     except ImportError as e:
-        r.error = f"F11 集成异常: 无法 import check_identity — {e}"
+        r.error = f"F11 integration error: cannot import check_identity — {e}"
         return r
 
     try:
@@ -477,27 +477,27 @@ def check_f11_identity(repo: str) -> CheckResult:
         check_identity.check(ident, repo)
         rc = check_identity.report(ident, repo)
     except (AttributeError, TypeError) as e:
-        # F11 自身集成 bug (签名不匹配, Identity 字段对不上等)
-        r.error = f"F11 集成异常: check_identity API 不匹配 — {e}"
+        # F11 integration bug itself (signature mismatch, Identity fields mismatched, etc.)
+        r.error = f"F11 integration error: check_identity API mismatch — {e}"
         return r
     except Exception as e:
-        # 真正的外部异常 (gh/git 未安装, 网络问题) — 降为 warning
+        # Genuine external exception (gh/git not installed, network issue) — downgrade to warning
         r.warning = True
-        r.message = f"身份检查异常 (降为警告): {e}"
+        r.message = f"identity check exception (downgraded to warning): {e}"
         return r
 
     if rc == 0:
         r.passed = True
-        r.message = "身份一致"
+        r.message = "identity consistent"
         return r
-    # identity check 失败 → 警告 (GH identity 漂移已非 blocker,
-    # agent 在自己名下创建 project 即可解决)
+    # Identity check failed → warning (GH identity drift is no longer a blocker,
+    # agent can resolve by creating project under its own name)
     r.warning = True
-    r.message = f"身份检查失败 (退出码 {rc}, 降为警告 — 见上方 check_identity 输出)"
+    r.message = f"identity check failed (exit code {rc}, downgraded to warning — see check_identity output above)"
     return r
 
 
-# ---------- 报告 ----------
+# ---------- Report ----------
 
 
 def report(results: list[CheckResult]) -> int:
@@ -505,7 +505,7 @@ def report(results: list[CheckResult]) -> int:
     failed = [r for r in results if not r.passed and not r.warning]
     warnings = [r for r in results if not r.passed and r.warning]
 
-    print(f"\n项目奠基检查 — {len(results)} 项\n")
+    print(f"\nProject foundation check — {len(results)} items\n")
 
     for r in results:
         if r.passed:
@@ -518,18 +518,18 @@ def report(results: list[CheckResult]) -> int:
     print()
 
     if failed:
-        print(f"[拒绝] {len(failed)} 项阻塞, {len(warnings)} 项警告, {len(passed)} 项通过\n")
+        print(f"[REJECT] {len(failed)} blocking, {len(warnings)} warnings, {len(passed)} passed\n")
         return 1
 
     if warnings:
-        print(f"[通过+警告] {len(warnings)} 项警告需确认, {len(passed)} 项通过\n")
+        print(f"[PASS+warning] {len(warnings)} warnings need confirmation, {len(passed)} passed\n")
         return 0
 
-    print(f"[通过] 全部 {len(passed)} 项检查通过\n")
+    print(f"[PASS] all {len(passed)} checks passed\n")
     return 0
 
 
-# ---------- 入口 ----------
+# ---------- Entry point ----------
 
 
 def main() -> int:
@@ -537,15 +537,15 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("repo", help="owner/repo, 如 zillionare/louke")
-    p.add_argument("--version", required=True, help="版本号, 如 v0.1")
-    p.add_argument("--spec-id", dest="spec_id", help="Spec ID, 如 v0.3-001-adopt-mode")
+    p.add_argument("repo", help="owner/repo, e.g. zillionare/louke")
+    p.add_argument("--version", required=True, help="version number, e.g. v0.1")
+    p.add_argument("--spec-id", dest="spec_id", help="Spec ID, e.g. v0.3-001-adopt-mode")
     p.add_argument("--project-id", dest="project_id", type=int,
-                   help="GitHub Project 数字 ID (跳过自动查找)")
-    p.add_argument("--upstream", help="上游分支名 (启用 F8 检查)")
-    p.add_argument("--skip", help="跳过指定检查项, 逗号分隔 (如 F3,F4)")
+                   help="GitHub Project numeric ID (skip auto-lookup)")
+    p.add_argument("--upstream", help="upstream branch name (enables F8 check)")
+    p.add_argument("--skip", help="skip specific checks, comma-separated (e.g. F3,F4)")
     p.add_argument("--offline", action="store_true",
-                   help="离线模式: 只跑本地检查 (F5, F6, F7, F9)")
+                   help="offline mode: only run local checks (F5, F6, F7, F9)")
 
     args = p.parse_args()
 
@@ -555,7 +555,7 @@ def main() -> int:
 
     results: list[CheckResult] = []
 
-    # 本地检查 (不需要网络)
+    # Local checks (no network needed)
     if "F5" not in skip_set:
         results.append(check_f5_agents())
     if "F6" not in skip_set:
@@ -568,7 +568,7 @@ def main() -> int:
     if args.offline:
         return report(results)
 
-    # 远程检查 (需要 gh + 网络)
+    # Remote checks (need gh + network)
     if "F1" not in skip_set:
         results.insert(0, check_f1_repo(args.repo))
     if "F2" not in skip_set:

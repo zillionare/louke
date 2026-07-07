@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
+AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
 @test "SCOUT-PROJECT-001: Scout creates project with title format repo-slug v{version}" {
     run grep -qF "gh project create --title" "$AGENTS_DIR/Scout.md"
@@ -26,26 +26,26 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
     }
 }
 
-# ---------- 身份一致性检查 ----------
+# --- Identity consistency check ---
 
 @test "SCOUT-ID-001: scout_step4_references_check_identity_py" {
     run grep -qF "check_identity.py" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md 未在 Step 4 引用 check_identity.py"
+        echo "FAIL: Scout.md does not reference check_identity.py in Step 4"
         false
     }
 }
 
 @test "SCOUT-ID-002: scout_id_check_before_issue_permission_smoke" {
-    # Step 4a 应该是身份一致性,4b 才是 issue/PR 冒烟
-    run grep -qE "4a.*身份一致性|身份一致性.*4a" "$AGENTS_DIR/Scout.md"
+    # Step 4a should be identity consistency, 4b is issue/PR smoke test
+    run grep -qE "4a.*identity consistency|identity consistency.*4a" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ]
 }
 
 @test "SCOUT-ID-003: scout_exit_criteria_includes_identity_consistent" {
-    run grep -qF "身份一致" "$AGENTS_DIR/Scout.md"
+    run grep -qF "identity consistent" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md 退出条件未含身份一致"
+        echo "FAIL: Scout.md exit criteria does not include identity consistent"
         false
     }
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# 测试 louke/_tools/check_identity.py
+# Test louke/_tools/check_identity.py
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
 
-# ---------- 脚本存在性和语法 ----------
+# ---------- Script existence and syntax ----------
 
 @test "ID-001: check_identity_py_exists" {
     [ -f "$SCRIPT" ]
@@ -26,7 +26,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
     [[ "$output" == *"--repo"* ]]
 }
 
-# ---------- L1-L5 检查项都覆盖 ----------
+# ---------- L1-L5 check items coverage ----------
 
 @test "ID-100: source_mentions_L1_gh_auth" {
     run grep -q "L1" "$SCRIPT"
@@ -53,7 +53,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
     [ "$status" -eq 0 ]
 }
 
-# ---------- 离线模式:好 case ----------
+# ---------- Offline mode: good cases ----------
 
 @test "ID-200: offline_single_identity_WRITE_role_pass_exit_0" {
     run python3 "$SCRIPT" --offline \
@@ -66,11 +66,11 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role WRITE
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* || "$output" == *"[通过+警告]"* ]]
+    [[ "$output" == *"[PASS]"* || "$output" == *"[PASS+warning]"* ]]
     [[ "$output" != *"L4"* ]]
 }
 
-# ---------- 离线模式:坏 case ----------
+# ---------- Offline mode: bad cases ----------
 
 @test "ID-301: offline_two_identities_L4_fail_reject_exit_1" {
     run python3 "$SCRIPT" --offline \
@@ -83,7 +83,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role WRITE
     [ "$status" -eq 1 ]
-    [[ "$output" == *"[拒绝]"* ]]
+    [[ "$output" == *"[REJECT]"* ]]
     [[ "$output" == *"L4"* ]]
 }
 
@@ -98,7 +98,7 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role READ
     [ "$status" -eq 1 ]
-    [[ "$output" == *"[拒绝]"* ]]
+    [[ "$output" == *"[REJECT]"* ]]
     [[ "$output" == *"L2"* ]]
 }
 
@@ -130,10 +130,10 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
     [[ "$output" == *"L3"* ]]
 }
 
-# ---------- 离线模式:advisory (L5 不阻塞) ----------
+# ---------- Offline mode: advisory (L5 non-blocking) ----------
 
 @test "ID-400: offline_remote_owner_differs_from_gh_pass_with_warning_exit_0" {
-    # 模拟"个人 token 操作 org repo"的合法场景
+    # Simulate valid scenario: personal token operating on org repo
     run python3 "$SCRIPT" --offline \
         --repo zillionare/specforge \
         --gh-user quantclaws \
@@ -144,8 +144,8 @@ SCRIPT="$REPO_ROOT/louke/_tools/check_identity.py"
         --remote-url "git@github.com:zillionare/specforge.git" \
         --repo-role WRITE
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过+警告]"* ]]
+    [[ "$output" == *"[PASS+warning]"* ]]
     [[ "$output" == *"L5"* ]]
-    # L4 不应触发(commit email 在 gh 已知邮箱里)
+    # L4 should not trigger (commit email is in gh known emails)
     [[ "$output" != *"L4"* ]]
 }

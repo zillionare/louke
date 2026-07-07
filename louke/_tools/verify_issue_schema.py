@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
 """
-verify_issue_schema.py — 验证 GitHub Feature issue 的 schema 合规性
+verify_issue_schema.py — validate the schema compliance of GitHub Feature issues
 
-这是 Lex/Sage 创建 issue 后的门禁脚本。它把"issue 是否包含可机读的结构化数据"
-作为单一不变量来检查,所有 Archer/Devon/Keeper 都依赖这个不变量。
+This is the gate script run after Lex/Sage create issues. It treats "does the issue
+contain machine-readable structured data" as the single invariant to check; all
+Archer/Devon/Keeper depend on this invariant.
 
-设计目标:
-- 零 LLM token: 纯结构化检查,任何 C 档或更低模型都能跑
-- 零额外依赖: 仅 Python stdlib
-- 离线可测: 支持 --offline + fixture 文件,bats 可直接喂样例
+Design goals:
+- Zero LLM tokens: pure structural checks, any C-tier or lower model can run it
+- Zero extra dependencies: Python stdlib only
+- Offline-testable: supports --offline + fixture files, bats can feed samples directly
 
-检查项(L1-L8):
-  L1 标题格式:    ^\[FR-\d{4}\]
-  L2 需求 ID 字段: 存在且匹配 ^FR-\d{4}$
-  L3 Spec URL 字段: 存在且匹配 ^https://github.com/.../spec(-\w+)?\.md#(fr|nfr)-\d{4}$
-                  (支持单文件 spec.md 与多分册 spec-{name}.md)
-  L4 spec 可达:    gh api 可拉取 spec 原文 (尝试 /specs/{id}/ 和 /{id}/ 两种布局)
-  L5 锚点存在:    spec 中存在 <a id="fr-XXXX"></a>
-  L6 锚点内容:    锚点上下文包含 "FR-XXXX" 字样(防锚点误复用)
-  L7 AC 锚点:      验收标准字段支持三种形式 (v0.5-006):
-                  a) acceptance.md#ac-fr-XXXXX URL (默认, 向后兼容)
-                  b) spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中, 走 L4-L6)
-                  c) 字面值 "无" + acceptance.md ## No Acceptance 列表包含此 FR
-  L8 双向覆盖:    spec 中每个 FR 都有 issue;issue 中每个 FR 都在 spec
+Checks (L1-L8):
+  L1 Title format:    ^\\[FR-\\d{4}\\]
+  L2 Requirement ID field: present and matches ^FR-\\d{4}$
+  L3 Spec URL field: present and matches ^https://github.com/.../spec(-\\w+)?\\.md#(fr|nfr)-\\d{4}$
+                  (supports single-file spec.md and multi-volume spec-{name}.md)
+  L4 Spec reachable:  gh api can fetch the spec source (tries both /specs/{id}/ and /{id}/ layouts)
+  L5 Anchor exists:    spec contains <a id="fr-XXXX"></a>
+  L6 Anchor content:   the anchor context contains "FR-XXXX" (prevents anchor misuse)
+  L7 AC anchor:       the acceptance criteria field supports three forms (v0.5-006):
+                  a) acceptance.md#ac-fr-XXXXX URL (default, backward compatible)
+                  b) spec(-vol)?.md#fr-XXXX URL (AC inside a spec section, falls through L4-L6)
+                  c) literal "None" + acceptance.md ## No Acceptance list contains this FR
+  L8 Bidirectional coverage: every FR in the spec has an issue; every FR in issues exists in the spec
 
-使用:
+Usage:
   python louke/_tools/verify_issue_schema.py --spec v0.1-001-louke
   python louke/_tools/verify_issue_schema.py --spec v0.1-001-louke --repo owner/repo
   python louke/_tools/verify_issue_schema.py --offline \\
@@ -43,12 +44,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# ---------- 正则定义(单一真相源) ----------
+# ---------- Regex definitions (single source of truth) ----------
 
 RE_FR_ID = re.compile(r"^(FR|NFR)-\d{4}$")
 RE_FR_IN_TITLE = re.compile(r"^\[(FR|NFR)-(\d{4})\]")
-# spec 文件路径: 支持单文件 (spec.md) 和多分册 (spec-{name}.md)
-# 目录: /specs/{id}/ (spec 004 默认) 或 /{id}/ (部分项目, 如 millionaire)
+# spec file path: supports single file (spec.md) and multi-volume (spec-{name}.md)
+# directory: /specs/{id}/ (spec 004 default) or /{id}/ (some projects, e.g. millionaire)
 RE_SPEC_URL = re.compile(
     r"^https://github\.com/"
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
@@ -56,7 +57,7 @@ RE_SPEC_URL = re.compile(
     r"/\.louke/project/(?:specs/)?(?P<spec_id>[A-Za-z0-9._-]+)/spec(?P<vol_suffix>-\w+)?\.md"
     r"#(?P<fragment>(?:fr|nfr)-\d{4})$"
 )
-# acceptance.md 不带 vol_suffix: 一个 spec-id 一份 acceptance.md
+# acceptance.md has no vol_suffix: one acceptance.md per spec-id
 RE_AC_URL = re.compile(
     r"^https://github\.com/"
     r"(?P<owner>[A-Za-z0-9._-]+)/(?P<repo>[A-Za-z0-9._-]+)/blob/"
@@ -68,17 +69,17 @@ RE_ANCHOR = re.compile(r'<a\s+id="((?:fr|nfr)-\d{4})"></a>')
 RE_AC_ANCHOR = re.compile(r'<a\s+id="(ac-(?:fr|nfr)-\d{4})"></a>')
 RE_AC_LINE = re.compile(r"^AC-\d+:\s*\S+")
 RE_AC_FULL = re.compile(r"^AC-(\d+):\s*(.+)$")
-# v0.5-006: 字面值 "无" 走 No Acceptance 列表 (acceptance.md 的 ## No Acceptance 节)
+# v0.5-006: literal "None" goes through the No Acceptance list (## No Acceptance section of acceptance.md)
 RE_NO_AC_HEADER = re.compile(r"^##\s+No\s+Acceptance\s*$")
 RE_NO_AC_ITEM = re.compile(r"^\s*-\s+((?:FR|NFR)-\d{4})\b")
 
-# issue form 渲染后字段标题(必须与 .github/ISSUE_TEMPLATE/feature.yml 一致)
-FIELD_FR_ID = "需求 ID"
-FIELD_SPEC_URL = "Spec 链接"
-FIELD_AC = "验收标准"
+# Field titles after issue form rendering (must match .github/ISSUE_TEMPLATE/feature.yml)
+FIELD_FR_ID = "Requirement ID"
+FIELD_SPEC_URL = "Spec Link"
+FIELD_AC = "Acceptance Criteria"
 
 
-# ---------- 数据结构 ----------
+# ---------- Data structures ----------
 
 
 @dataclass
@@ -98,21 +99,21 @@ class IssueCheck:
         return not self.failures
 
 
-# ---------- 解析 issue body ----------
+# ---------- Parse issue body ----------
 
 
 def parse_issue_form(body: str) -> dict[str, str]:
     """
-    从 issue form 渲染后的 markdown 抽取字段值。
+    Extract field values from the markdown rendered by the issue form.
 
-    GitHub 把 form 字段渲染为:
-        ### 需求 ID
+    GitHub renders form fields as:
+        ### Requirement ID
         FR-0001
 
-        ### Spec 链接
+        ### Spec Link
         https://.../spec.md#fr-0001
 
-        ### 验收标准
+        ### Acceptance Criteria
         https://.../acceptance.md#ac-fr-0001
     """
     fields: dict[str, str] = {}
@@ -133,53 +134,53 @@ def parse_issue_form(body: str) -> dict[str, str]:
     return fields
 
 
-# ---------- 检查 ----------
+# ---------- Checks ----------
 
 
 def check_issue(
     issue: dict[str, Any], spec_cache: dict[str, str]
 ) -> IssueCheck:
-    """对单个 issue 跑 L1-L7,返回检查结果(spec_cache 用于 L4-L6 跨调用复用)"""
+    """Run L1-L7 for a single issue, return check result (spec_cache is reused across calls for L4-L6)."""
     ic = IssueCheck(number=issue["number"], title=issue["title"])
     body = issue.get("body") or ""
 
-    # L1: 标题
+    # L1: Title
     m = RE_FR_IN_TITLE.match(ic.title)
     if not m:
         ic.failures.append(
-            f"L1 标题必须以 [FR-XXXX] 或 [NFR-XXXXX] 开头,当前: {ic.title!r}"
+            f"L1 title must start with [FR-XXXX] or [NFR-XXXXX], got: {ic.title!r}"
         )
     else:
         ic.fr_id = m.group(1) + "-" + m.group(2)
 
-    # 解析 form 字段
+    # Parse form fields
     fields = parse_issue_form(body)
 
-    # L2: 需求 ID 字段
+    # L2: Requirement ID field
     raw_fr = fields.get(FIELD_FR_ID, "").strip()
     if not raw_fr:
-        ic.failures.append(f"L2 字段 '{FIELD_FR_ID}' 缺失")
+        ic.failures.append(f"L2 field '{FIELD_FR_ID}' missing")
     elif not RE_FR_ID.match(raw_fr):
         ic.failures.append(
-            f"L2 字段 '{FIELD_FR_ID}' 格式错误,期望 ^(FR|NFR)-\\d{{3}}$, 实际: {raw_fr!r}"
+            f"L2 field '{FIELD_FR_ID}' has invalid format, expected ^(FR|NFR)-\\d{{3}}$, got: {raw_fr!r}"
         )
     elif ic.fr_id and raw_fr != ic.fr_id:
         ic.failures.append(
-            f"L2 字段 '{FIELD_FR_ID}'({raw_fr})与标题中的 [{ic.fr_id}] 不一致"
+            f"L2 field '{FIELD_FR_ID}' ({raw_fr}) does not match title [{ic.fr_id}]"
         )
     else:
         ic.fr_id = raw_fr
 
-    # L3: Spec URL 字段
+    # L3: Spec URL field
     raw_url = fields.get(FIELD_SPEC_URL, "").strip()
     if not raw_url:
-        ic.failures.append(f"L3 字段 '{FIELD_SPEC_URL}' 缺失")
+        ic.failures.append(f"L3 field '{FIELD_SPEC_URL}' missing")
     else:
         m = RE_SPEC_URL.match(raw_url)
         if not m:
             ic.failures.append(
-                f"L3 字段 '{FIELD_SPEC_URL}' 格式错误,期望完整 GitHub URL "
-                f"+ #fr-XXXX (小写) 或 #nfr-XXXX (小写),实际: {raw_url!r}"
+                f"L3 field '{FIELD_SPEC_URL}' has invalid format, expected a full GitHub URL "
+                f"+ #fr-XXXX (lowercase) or #nfr-XXXX (lowercase), got: {raw_url!r}"
             )
         else:
             ic.spec_url = raw_url
@@ -187,13 +188,13 @@ def check_issue(
             expected_fragment = raw_fr.split("-")[0].lower() + "-" + raw_fr.split("-")[1] if raw_fr else ""
             if m.group("fragment") != expected_fragment:
                 ic.failures.append(
-                    f"L3 URL fragment {m.group('fragment')!r} 与需求 ID {raw_fr!r} 不匹配 "
-                    f"(应为 #{expected_fragment!r})"
+                    f"L3 URL fragment {m.group('fragment')!r} does not match requirement ID {raw_fr!r} "
+                    f"(should be #{expected_fragment!r})"
                 )
 
-            # L4-L6: spec 可达 + 锚点存在 + 内容匹配
+            # L4-L6: spec reachable + anchor exists + content matches
             if "OFFLINE" in spec_cache:
-                # 离线模式:复用 fixture spec
+                # Offline mode: reuse fixture spec
                 spec_text = spec_cache["OFFLINE"]
             else:
                 spec_filename = f"spec{m.group('vol_suffix') or ''}.md"
@@ -211,58 +212,58 @@ def check_issue(
             if spec_text is None:
                 spec_filename = f"spec{m.group('vol_suffix') or ''}.md"
                 ic.failures.append(
-                    f"L4 无法获取 spec 文件 .louke/project/(specs/)?{m.group('spec_id')}/{spec_filename} "
+                    f"L4 unable to fetch spec file .louke/project/(specs/)?{m.group('spec_id')}/{spec_filename} "
                     f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
                 )
             else:
                 anchors = RE_ANCHOR.findall(spec_text)
                 if m.group("fragment") not in anchors:
                     ic.failures.append(
-                        f"L5 spec.md 中找不到锚点 {m.group('fragment')!r}; "
-                        f"已声明的 FR 锚点: {sorted(set(anchors))}"
+                        f"L5 anchor {m.group('fragment')!r} not found in spec.md; "
+                        f"declared FR anchors: {sorted(set(anchors))}"
                     )
                 else:
-                    # L6: 锚点上下文(锚点行 + 后续 5 行)必须包含 "FR-XXXX"
+                    # L6: anchor context (anchor line + next 5 lines) must contain "FR-XXXX"
                     lines = spec_text.splitlines()
                     for i, line in enumerate(lines):
                         if f'<a id="{m.group("fragment")}">' in line:
                             context = "\n".join(lines[i : i + 6])
                             if raw_fr not in context:
                                 ic.failures.append(
-                                    f"L6 锚点 {m.group('fragment')!r} 周围找不到 {raw_fr!r}, "
-                                    f"可能锚点被错误复用。上下文:\n{context}"
+                                    f"L6 {raw_fr!r} not found around anchor {m.group('fragment')!r}; "
+                                    f"the anchor may have been misused. Context:\n{context}"
                                 )
                             break
 
-    # L7: AC 验收标准字段 — 支持三种形式 (v0.5-006):
-    #   a) acceptance.md#ac-fr-XXXXX URL (默认, 向后兼容)
-    #   b) spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中)
-    #   c) 字面值 "无" (FR 在 acceptance.md ## No Acceptance 列表中)
+    # L7: Acceptance Criteria field — supports three forms (v0.5-006):
+    #   a) acceptance.md#ac-fr-XXXXX URL (default, backward compatible)
+    #   b) spec(-vol)?.md#fr-XXXX URL (AC inside a spec section)
+    #   c) literal "None" (FR listed in acceptance.md ## No Acceptance)
     raw_ac = fields.get(FIELD_AC, "").strip()
     if not raw_ac:
-        ic.failures.append(f"L7 字段 '{FIELD_AC}' 缺失")
-    elif raw_ac == "无":
-        # (c) No Acceptance 模式
+        ic.failures.append(f"L7 field '{FIELD_AC}' missing")
+    elif raw_ac.lower() in ("无", "none"):
+        # (c) No Acceptance mode
         check_no_acceptance(ic, raw_ac, raw_fr, spec_cache)
     elif RE_SPEC_URL.match(raw_ac):
-        # (b) spec-fragment 模式 — 复用 L3-L6 的 spec 文本缓存
+        # (b) spec-fragment mode — reuse L3-L6 spec text cache
         check_spec_fragment_ac(ic, raw_ac, raw_fr, spec_cache)
     elif RE_AC_URL.match(raw_ac):
-        # (a) acceptance.md URL 模式 (向后兼容)
+        # (a) acceptance.md URL mode (backward compatible)
         check_acceptance_url(ic, raw_ac, raw_fr, spec_cache)
     else:
         ic.failures.append(
-            f"L7 字段 '{FIELD_AC}' 格式错误,期望以下三种之一:\n"
-            f"  1) acceptance.md#ac-fr-XXXXX URL (默认, 有专属 AC 章节)\n"
-            f"  2) spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中)\n"
-            f"  3) 字面值 '无' (FR 在 acceptance.md ## No Acceptance 列表)\n"
-            f"实际: {raw_ac!r}"
+            f"L7 field '{FIELD_AC}' has invalid format; expected one of:\n"
+            f"  1) acceptance.md#ac-fr-XXXXX URL (default, with dedicated AC section)\n"
+            f"  2) spec(-vol)?.md#fr-XXXX URL (AC in spec section)\n"
+            f"  3) literal value 'None' (FR listed in acceptance.md ## No Acceptance)\n"
+            f"actual: {raw_ac!r}"
         )
 
     return ic
 
 
-# ---------- L7 子检查 (v0.5-006 拆分, 便于测试与维护) ----------
+# ---------- L7 sub-checks (split in v0.5-006 for easier testing and maintenance) ----------
 
 
 def check_acceptance_url(
@@ -271,12 +272,12 @@ def check_acceptance_url(
     raw_fr: str,
     spec_cache: dict[str, str],
 ) -> None:
-    """L7 形式 (a): acceptance.md#ac-fr-XXXXX URL (默认, 向后兼容)"""
+    """L7 form (a): acceptance.md#ac-fr-XXXXX URL (default, backward compatible)"""
     m = RE_AC_URL.match(raw_ac)
     if not m:
         ic.failures.append(
-            f"L7 字段 '{FIELD_AC}' 格式错误,期望完整 GitHub URL "
-            f"+ #ac-fr-XXXXX 或 #ac-nfr-XXXX (小写),实际: {raw_ac!r}"
+            f"L7 field '{FIELD_AC}' has invalid format, expected a full GitHub URL "
+            f"+ #ac-fr-XXXXX or #ac-nfr-XXXX (lowercase), got: {raw_ac!r}"
         )
         return
     ic.ac_url = raw_ac
@@ -288,11 +289,11 @@ def check_acceptance_url(
     )
     if m.group("fragment") != expected_frag:
         ic.failures.append(
-            f"L7 URL fragment {m.group('fragment')!r} 与需求 ID {raw_fr!r} 不匹配 "
-            f"(应为 #{expected_frag!r})"
+            f"L7 URL fragment {m.group('fragment')!r} does not match requirement ID {raw_fr!r} "
+            f"(should be #{expected_frag!r})"
         )
 
-    # 拉 acceptance.md 验证锚点
+    # Fetch acceptance.md to validate the anchor
     if "OFFLINE" in spec_cache and "OFFLINE_ACC" in spec_cache:
         acc_text = spec_cache["OFFLINE_ACC"]
     else:
@@ -308,7 +309,7 @@ def check_acceptance_url(
 
     if acc_text is None:
         ic.failures.append(
-            f"L7 无法获取 acceptance 文件 .louke/project/(specs/)?{m.group('spec_id')}/acceptance.md "
+            f"L7 unable to fetch acceptance file .louke/project/(specs/)?{m.group('spec_id')}/acceptance.md "
             f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
         )
         return
@@ -316,20 +317,20 @@ def check_acceptance_url(
     acc_anchors = RE_AC_ANCHOR.findall(acc_text)
     if m.group("fragment") not in acc_anchors:
         ic.failures.append(
-            f"L7 acceptance.md 中找不到锚点 {m.group('fragment')!r}; "
-            f"已声明的 AC 锚点: {sorted(set(acc_anchors))}"
+            f"L7 anchor {m.group('fragment')!r} not found in acceptance.md; "
+            f"declared AC anchors: {sorted(set(acc_anchors))}"
         )
         return
 
-    # 锚点上下文(锚点行 + 后续 8 行)必须包含 "FR-XXXX" 字样
+    # Anchor context (anchor line + next 8 lines) must contain "FR-XXXX"
     lines = acc_text.splitlines()
     for i, line in enumerate(lines):
         if f'<a id="{m.group("fragment")}">' in line:
             context = "\n".join(lines[i : i + 9])
             if raw_fr not in context:
                 ic.failures.append(
-                    f"L7 锚点 {m.group('fragment')!r} 周围找不到 {raw_fr!r}, "
-                    f"可能锚点被错误复用。上下文:\n{context}"
+                    f"L7 {raw_fr!r} not found around anchor {m.group('fragment')!r}; "
+                    f"the anchor may have been misused. Context:\n{context}"
                 )
             break
 
@@ -340,15 +341,16 @@ def check_spec_fragment_ac(
     raw_fr: str,
     spec_cache: dict[str, str],
 ) -> None:
-    """L7 形式 (b): spec(-vol)?.md#fr-XXXX URL (AC 在 spec 章节中)
+    """L7 form (b): spec(-vol)?.md#fr-XXXX URL (AC inside a spec section)
 
-    复用 L3-L6 已有的 spec 文本缓存: L3 已经在 spec_cache 里存了同一份 spec
-    (可能不同 vol_suffix, 但相同 spec_id 通常指向同一份); 这里再走一遍 L5+L6 校验.
+    Reuses the spec text cache from L3-L6: L3 already stored the same spec in spec_cache
+    (possibly with a different vol_suffix, but the same spec_id usually points to the same file);
+    here we rerun L5+L6 validation.
     """
     m = RE_SPEC_URL.match(raw_ac)
     if not m:
-        # 理论上前面 RE_SPEC_URL.match 已通过, 这里二次保险
-        ic.failures.append(f"L7 spec-fragment URL 解析失败: {raw_ac!r}")
+        # In theory RE_SPEC_URL.match already passed above; this is a second safety net
+        ic.failures.append(f"L7 spec-fragment URL parse failed: {raw_ac!r}")
         return
 
     spec_text = _get_spec_text(
@@ -357,7 +359,7 @@ def check_spec_fragment_ac(
     )
     if spec_text is None:
         ic.failures.append(
-            f"L7 spec-fragment URL 无法获取 spec 原文 "
+            f"L7 spec-fragment URL unable to fetch spec source "
             f".louke/project/(specs/)?{m.group('spec_id')}/spec{m.group('vol_suffix') or ''}.md "
             f"(repo {m.group('owner')}/{m.group('repo')}@{m.group('branch')})"
         )
@@ -366,24 +368,24 @@ def check_spec_fragment_ac(
     anchors = RE_ANCHOR.findall(spec_text)
     if m.group("fragment") not in anchors:
         ic.failures.append(
-            f"L7 spec-fragment URL fragment {m.group('fragment')!r} 在 spec 中找不到; "
-            f"已声明的 FR 锚点: {sorted(set(anchors))}"
+            f"L7 spec-fragment URL fragment {m.group('fragment')!r} not found in spec; "
+            f"declared FR anchors: {sorted(set(anchors))}"
         )
         return
 
-    # 锚点上下文必须含 raw_fr (与 L6 一致)
+    # Anchor context must contain raw_fr (same as L6)
     lines = spec_text.splitlines()
     for i, line in enumerate(lines):
         if f'<a id="{m.group("fragment")}">' in line:
             context = "\n".join(lines[i : i + 6])
             if raw_fr not in context:
                 ic.failures.append(
-                    f"L7 spec-fragment 锚点 {m.group('fragment')!r} 周围找不到 {raw_fr!r}, "
-                    f"可能锚点被错误复用。上下文:\n{context}"
+                    f"L7 {raw_fr!r} not found around spec-fragment anchor {m.group('fragment')!r}; "
+                    f"the anchor may have been misused. Context:\n{context}"
                 )
             break
 
-    # 记录解析结果 (供 report 使用)
+    # Record parsed result (used by report)
     ic.ac_url = raw_ac
     ic.ac_url_parsed = m.groupdict()
 
@@ -394,21 +396,22 @@ def check_no_acceptance(
     raw_fr: str,
     spec_cache: dict[str, str],
 ) -> None:
-    """L7 形式 (c): 字面值 '无' — 校验 acceptance.md ## No Acceptance 列表包含此 FR.
+    """L7 form (c): literal 'None' — verify acceptance.md ## No Acceptance list contains this FR.
 
-    acceptance.md 的 No Acceptance 列表是声明 "该 FR 没有专属 AC" 的唯一权威源.
+    The No Acceptance list in acceptance.md is the single authoritative source
+    for declaring "this FR has no dedicated AC".
     """
-    # 取 acceptance.md 文本
+    # Get acceptance.md text
     if "OFFLINE" in spec_cache and "OFFLINE_ACC" in spec_cache:
         acc_text = spec_cache["OFFLINE_ACC"]
     else:
-        # L7 (a) 模式下 acceptance.md 已经在 spec_cache 里; 这里是首次访问, 需 fetch.
-        # 不知道 owner/repo/branch/spec_id, 走 ic 里之前存过的; 没有则报错.
-        # 实际生产路径: 走 ic.spec_url_parsed
+        # In L7 (a) mode acceptance.md is already in spec_cache; here it is first access, need to fetch.
+        # owner/repo/branch/spec_id are unknown; use what was previously stored in ic; if missing, error out.
+        # Production path: use ic.spec_url_parsed
         if not ic.spec_url_parsed:
             ic.failures.append(
-                f"L7 字段 '无' 需要先解析 Spec 链接字段 (L3) 才能定位 acceptance.md; "
-                f"请先填合法的 Spec URL"
+                "L7 field 'None' requires the Spec Link field (L3) to be parsed "
+                "first to locate acceptance.md; please provide a valid Spec URL"
             )
             return
         p = ic.spec_url_parsed
@@ -421,36 +424,39 @@ def check_no_acceptance(
 
     if acc_text is None:
         ic.failures.append(
-            f"L7 字段 '无' 需要 acceptance.md 存在 (用于声明 '## No Acceptance' 列表); "
-            f"无法获取 acceptance.md"
+            "L7 field 'None' requires acceptance.md to exist "
+            "(to declare the '## No Acceptance' list); unable to fetch acceptance.md"
         )
         return
 
     no_acc_frs = parse_no_acceptance_list(acc_text)
     if raw_fr not in no_acc_frs:
-        # 区分两种失败原因, 提示更精准
+        # Distinguish two failure causes for more precise hints
         if "## No Acceptance" not in acc_text and "No Acceptance" not in acc_text:
             ic.failures.append(
-                f"L7 字段 '无' 表明无专属 acceptance, 但 acceptance.md 中找不到 '## No Acceptance' 节; "
-                f"请在 acceptance.md 末尾添加该节, 并把 {raw_fr!r} 加入列表"
+                "L7 field 'None' indicates no dedicated acceptance, "
+                "but the '## No Acceptance' section cannot be found in acceptance.md; "
+                f"please append that section to acceptance.md and add {raw_fr!r} to the list"
             )
         else:
-            listed = sorted(no_acc_frs) if no_acc_frs else "(空)"
+            listed = sorted(no_acc_frs) if no_acc_frs else "(empty)"
             ic.failures.append(
-                f"L7 字段 '无' 但 acceptance.md 的 '## No Acceptance' 列表中找不到 {raw_fr!r}; "
-                f"已列入 No Acceptance 列表的 FR: {listed}。"
-                f"请把 {raw_fr!r} 加入该列表, 或改用 acceptance.md#ac-fr-XXXXX URL"
+                f"L7 field 'None' but {raw_fr!r} not found in the "
+                "'## No Acceptance' list of acceptance.md; "
+                f"FRs already listed in No Acceptance: {listed}. "
+                f"Please add {raw_fr!r} to that list, "
+                "or switch to an acceptance.md#ac-fr-XXXXX URL"
             )
 
-    # 记录解析结果
-    ic.ac_url = "无"
+    # Record parsed result
+    ic.ac_url = "None"
     ic.ac_url_parsed = {"mode": "no_acceptance"}
 
 
 def parse_no_acceptance_list(acc_text: str) -> set[str]:
-    """从 acceptance.md 抽取 '## No Acceptance' 节的 FR 列表.
+    """Extract the FR list from the '## No Acceptance' section of acceptance.md.
 
-    节内每行形如 '- FR-XXXX' 或 '- FR-XXXX (说明文字)'; 取首 token 作为 fr_id.
+    Each line in the section looks like '- FR-XXXX' or '- FR-XXXX (description)'; take the first token as fr_id.
     """
     frs: set[str] = set()
     in_section = False
@@ -475,7 +481,7 @@ def _get_spec_text(
     spec_id: str,
     vol_suffix: str,
 ) -> str | None:
-    """复用 L3 的 spec 文本缓存"""
+    """Reuse the L3 spec text cache"""
     if "OFFLINE" in spec_cache:
         return spec_cache["OFFLINE"]
     spec_filename = f"spec{vol_suffix}.md"
@@ -491,11 +497,11 @@ def fetch_spec_markdown(
     owner: str, repo: str, branch: str, spec_id: str, spec_filename: str = "spec.md"
 ) -> str | None:
     """
-    用 gh api 拉取 spec 原文。返回 None 表示拉取失败。
-    gh api 自动处理公私仓库 auth。
+    Fetch the spec source via gh api. Returns None on fetch failure.
+    gh api handles auth for both public and private repos.
 
-    spec_filename: 默认 spec.md; 多分册时为 spec-{vol}.md (如 spec-strategy.md).
-    同时尝试两种目录布局: /specs/{id}/ (spec 004+) 和 /{id}/ (部分项目).
+    spec_filename: defaults to spec.md; for multi-volume it is spec-{vol}.md (e.g. spec-strategy.md).
+    Tries both directory layouts: /specs/{id}/ (spec 004+) and /{id}/ (some projects).
     """
     candidates = [
         f".louke/project/specs/{spec_id}/{spec_filename}",
@@ -533,9 +539,9 @@ def fetch_spec_markdown(
 def fetch_acceptance_markdown(
     owner: str, repo: str, branch: str, spec_id: str
 ) -> str | None:
-    """用 gh api 拉取 acceptance.md 原文。返回 None 表示拉取失败。
+    """Fetch the acceptance.md source via gh api. Returns None on fetch failure.
 
-    同样尝试两种目录布局: /specs/{id}/ 和 /{id}/.
+    Also tries both directory layouts: /specs/{id}/ and /{id}/.
     """
     candidates = [
         f".louke/project/specs/{spec_id}/acceptance.md",
@@ -570,54 +576,54 @@ def fetch_acceptance_markdown(
     return None
 
 
-# ---------- 报告 ----------
+# ---------- Report ----------
 
 
 def report(checks: list[IssueCheck], spec_frs: set[str] | None) -> int:
     ok = [c for c in checks if c.ok]
     bad = [c for c in checks if not c.ok]
-    print(f"\n总览: {len(checks)} 个 Feature issue 验证,{len(ok)} 通过,{len(bad)} 失败\n")
+    print(f"\nSummary: {len(checks)} Feature issues validated, {len(ok)} PASS, {len(bad)} FAIL\n")
 
     if bad:
-        print("[拒绝]\n")
+        print("[REJECT]\n")
         for c in bad:
             print(f"Issue #{c.number}  {c.title}")
             for f in c.failures:
                 print(f"  - {f}")
             print()
-        # 最多列出 3 个阻塞问题(同 Lex 风格)
+        # List at most 3 blocking issues (Lex style)
         flat = []
         for c in bad:
             for f in c.failures:
                 flat.append((c, f))
         if len(flat) > 3:
-            print(f"... 还有 {len(flat) - 3} 个问题(被 Lex 风格截断)\n")
+            print(f"... and {len(flat) - 3} more issues (truncated in Lex style)\n")
         return 1
 
-    # 双向覆盖
+    # Bidirectional coverage
     if spec_frs is not None and checks:
         issue_frs = {c.fr_id for c in ok}
         orphans_in_spec = sorted(spec_frs - issue_frs)
         orphans_in_issues = sorted(issue_frs - spec_frs)
         if orphans_in_spec or orphans_in_issues:
-            print("[拒绝] L8 双向覆盖失败\n")
+            print("[REJECT] L8 bidirectional coverage failed\n")
             if orphans_in_spec:
-                print(f"  - spec 中有以下 FR 没有对应 issue: {orphans_in_spec}")
+                print(f"  - FRs in spec without a matching issue: {orphans_in_spec}")
             if orphans_in_issues:
-                print(f"  - 以下 issue 引用了 spec 中不存在的 FR: {orphans_in_issues}")
+                print(f"  - issues referencing FRs not present in spec: {orphans_in_issues}")
             print()
             return 1
 
-    print("[通过]\n")
+    print("[PASS]\n")
     for c in checks:
         print(
             f"  Issue #{c.number}  {c.title}  "
-            f"(AC 锚点: {c.ac_url_parsed.get('fragment', '-')})"
+            f"(AC anchor: {c.ac_url_parsed.get('fragment', '-')})"
         )
     return 0
 
 
-# ---------- 入口 ----------
+# ---------- Entry point ----------
 
 
 def load_issues_from_gh(repo: str) -> list[dict[str, Any]]:
@@ -652,29 +658,29 @@ def load_spec_frs_from_gh(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--spec", help="spec-id,例如 v0.1-001-specforge")
-    p.add_argument("--repo", help="owner/repo,默认从 gh repo view 推断")
-    p.add_argument("--branch", help="默认分支,默认从 gh repo view 推断")
+    p.add_argument("--spec", help="spec-id, e.g. v0.1-001-specforge")
+    p.add_argument("--repo", help="owner/repo, inferred from gh repo view by default")
+    p.add_argument("--branch", help="default branch, inferred from gh repo view by default")
     p.add_argument(
         "--offline",
         action="store_true",
-        help="离线模式(给 bats 用): 用 --spec-file + --acceptance-file + --issues-json",
+        help="offline mode (for bats): use --spec-file + --acceptance-file + --issues-json",
     )
-    p.add_argument("--spec-file", help="离线模式: spec.md 路径")
-    p.add_argument("--acceptance-file", help="离线模式: acceptance.md 路径(L7 锚点校验)")
-    p.add_argument("--issues-json", help="离线模式: issue 列表 JSON 路径")
+    p.add_argument("--spec-file", help="offline mode: path to spec.md")
+    p.add_argument("--acceptance-file", help="offline mode: path to acceptance.md (for L7 anchor validation)")
+    p.add_argument("--issues-json", help="offline mode: path to issue list JSON")
     args = p.parse_args()
 
     if args.offline:
         if not (args.spec_file and args.issues_json):
-            sys.stderr.write("--offline 必须配合 --spec-file 和 --issues-json\n")
+            sys.stderr.write("--offline requires --spec-file and --issues-json\n")
             return 2
         spec_text = Path(args.spec_file).read_text(encoding="utf-8")
         spec_frs = {f"FR-{a.split('-')[1].zfill(3)}" for a in RE_ANCHOR.findall(spec_text)}
         with open(args.issues_json, "r", encoding="utf-8") as f:
             issues = json.load(f)
-        # 离线模式:任何 spec_url/ac_url 都视为指向同一份 fixture
-        # (L4/L7 不发网络请求,L5/L6 用 spec fixture 的锚点表;L7 用 acceptance fixture)
+        # Offline mode: any spec_url/ac_url is treated as pointing to the same fixture
+        # (L4/L7 do not make network requests; L5/L6 use the spec fixture anchor table; L7 uses the acceptance fixture)
         spec_cache: dict[str, str] = {"OFFLINE": spec_text}
         if args.acceptance_file:
             acc_path = Path(args.acceptance_file)
@@ -682,7 +688,7 @@ def main() -> int:
                 spec_cache["OFFLINE_ACC"] = acc_path.read_text(encoding="utf-8")
     else:
         if not args.spec:
-            sys.stderr.write("--spec 必填(或使用 --offline)\n")
+            sys.stderr.write("--spec is required (or use --offline)\n")
             return 2
         repo = args.repo
         branch = args.branch

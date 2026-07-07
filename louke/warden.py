@@ -1,6 +1,7 @@
-"""Warden commands - 项目奠基验证.
+"""Warden commands - project foundation validation.
 
-Warden 职责: 验证 Scout 的奠基工作（F1-F11 检查 + story 内容合理性）。
+Warden responsibilities: validate Scout's foundation work (F1-F11 checks +
+story content sanity).
 """
 import argparse
 import subprocess
@@ -9,11 +10,11 @@ from pathlib import Path
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('warden', help='项目奠基验证 (Warden)')
+    parser = subparsers.add_parser('warden', help='project foundation validation (Warden)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    # foundation-check: F1-F11 自动化检查
-    p = sub.add_parser('foundation-check', help='运行 F1-F11 自动化检查')
+    # foundation-check: F1-F11 automated checks
+    p = sub.add_parser('foundation-check', help='run F1-F11 automated checks')
     p.add_argument('--repo', required=True)
     p.add_argument('--version', required=True)
     p.add_argument('--spec-id', required=True)
@@ -28,7 +29,7 @@ def run(args):
 
 
 def cmd_foundation_check(args):
-    """调用 louke._tools.check_foundation."""
+    """Invoke louke._tools.check_foundation."""
     result = subprocess.run(
         [sys.executable, '-m', 'louke._tools.check_foundation',
          args.repo, '--version', args.version,

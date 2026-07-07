@@ -17,21 +17,21 @@ SCHEMA = 'louke://models-config'
 def register(parser):
     """Register models subcommands on the given parser."""
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
-    sub.add_parser('list', help='列出模型解析结果')
-    p = sub.add_parser('doctor', help='检查模型解析 (auth+match+可选 probe)')
+    sub.add_parser('list', help='list model resolution results')
+    p = sub.add_parser('doctor', help='check model resolution (auth + match + optional probe)')
     p.add_argument('--fix-auto', action='store_true',
-                   help='把 auth+strong match 的结果自动写入 ~/.louke/models.json (偏好 free)')
+                   help='write auth + strong-match results to ~/.louke/models.json automatically (prefer free)')
     p.add_argument('--ide', default='opencode')
     p.add_argument('--probe', action='store_true',
-                   help='对 ✓ 候选调 opencode run 做最小请求验证 (慢、耗 token)')
-    p.add_argument('--quiet', action='store_true', help='不打印每步进度')
-    p = sub.add_parser('bind', help='绑定抽象名 (无 <full> 时进入交互式)')
-    p.add_argument('abstract', nargs='?', help='抽象模型名 (省略 + --all-unresolved 则批量)')
-    p.add_argument('full', nargs='?', help='完整 model id (provider/model)')
+                   help='probe ✓ candidates with a minimal opencode run request (slow, consumes tokens)')
+    p.add_argument('--quiet', action='store_true', help='do not print per-step progress')
+    p = sub.add_parser('bind', help='bind an abstract name (enters interactive mode when no <full> is given)')
+    p.add_argument('abstract', nargs='?', help='abstract model name (omit and pass --all-unresolved to batch)')
+    p.add_argument('full', nargs='?', help='full model id (provider/model)')
     p.add_argument('--project', action='store_true')
     p.add_argument('--all-unresolved', action='store_true',
-                   help='逐个交互式绑定所有 unresolved abstract')
-    p = sub.add_parser('unbind', help='解绑抽象名')
+                   help='interactively bind each unresolved abstract one by one')
+    p = sub.add_parser('unbind', help='unbind an abstract name')
     p.add_argument('abstract')
     p.add_argument('--project', action='store_true')
 
@@ -309,18 +309,18 @@ def cmd_doctor(args):
     quiet = getattr(args, 'quiet', False)
     used = used_models()
     if not quiet:
-        print(f'{cyan("[1/4]")} 扫描 source agents: 发现 {len(used)} 个 abstract model',
+        print(f'{cyan("[1/4]")} scanning source agents: found {len(used)} abstract model(s)',
               flush=True)
-        print(f'      样例: {", ".join(used[:3])}{"..." if len(used) > 3 else ""}',
+        print(f'      sample: {", ".join(used[:3])}{"..." if len(used) > 3 else ""}',
               flush=True)
     if not quiet:
-        print(f'{cyan("[2/4]")} 查询 opencode models (subprocess)...', flush=True)
-    with Spinner('查询 opencode models'):
+        print(f'{cyan("[2/4]")} querying opencode models (subprocess)...', flush=True)
+    with Spinner('querying opencode models'):
         models = opencode_models()
     if not quiet:
-        print(f'      返回 {len(models)} 个 model', flush=True)
-        print(f'{cyan("[3/4]")} 读取 auth.json + model costs', flush=True)
-    with Spinner('读取 auth.json + model costs'):
+        print(f'      returned {len(models)} models', flush=True)
+        print(f'{cyan("[3/4]")} reading auth.json + model costs', flush=True)
+    with Spinner('reading auth.json + model costs'):
         auth = auth_providers() if models else None
         costs = model_costs() if models else {}
     if not quiet:
@@ -330,9 +330,9 @@ def cmd_doctor(args):
             print(f'      auth providers: {dim("(none / auth.json missing)")}',
                   flush=True)
         free = sum(1 for v in costs.values() if v == (0, 0))
-        print(f'      model costs: {len(costs)} 个, 其中 free {free} 个',
+        print(f'      model costs: {len(costs)}, of which {free} are free',
               flush=True)
-        print(f'{cyan("[4/4]")} 三层验证 {dim("(alias → strong/weak match → auth filter)")}',
+        print(f'{cyan("[4/4]")} three-layer validation {dim("(alias -> strong/weak match -> auth filter)")}',
               flush=True)
     all_ok = True
     fixes: dict[str, str] = {}
@@ -384,7 +384,7 @@ def _direct_bind(abstract: str, full: str, project: bool) -> int:
     data['aliases'][abstract] = full
     save_config(path, data)
     from ._color import ok
-    print(f'{ok()} {abstract} -> {full} (写入 {path})')
+    print(f'{ok()} {abstract} -> {full} (written to {path})')
     return 0
 
 
@@ -394,37 +394,37 @@ def _probe_or_skip(model: str, project: bool, allow_skip: bool = True) -> bool:
     If model is unusable, prompts user: retry / skip / cancel.
     """
     from ._color import Spinner, ok as _ok, fail as _fail, warn, dim
-    print(f'  {dim("验证")} {model} ...', flush=True)
+    print(f'  {dim("validating")} {model} ...', flush=True)
     with Spinner(f'probe {model}'):
         ok = probe_model(model)
     if ok:
-        print(f'  {_ok("可用")}')
+        print(f'  {_ok("usable")}')
         return True
-    print(f'  {_fail("不可用")} (probe 失败 / key 过期 / 模型下架 / 30s 超时)')
+    print(f'  {_fail("unusable")} (probe failed / key expired / model retired / 30s timeout)')
     if not allow_skip:
         return False
     while True:
         try:
-            choice = input('  [r] 重试 / [s] 跳过 (不绑) / [a] 强制绑? [r/s/a]: ').strip().lower()
+            choice = input('  [r] retry / [s] skip (do not bind) / [a] force bind? [r/s/a]: ').strip().lower()
         except (EOFError, KeyboardInterrupt):
-            print(f'\n  {warn("中断")}')
+            print(f'\n  {warn("interrupted")}')
             return False
         if choice in ('r', 'retry', ''):
-            print(f'  {dim("重试...")}')
+            print(f'  {dim("retrying...")}')
             with Spinner(f'probe {model}'):
                 ok = probe_model(model)
             if ok:
-                print(f'  {_ok("可用")}')
+                print(f'  {_ok("usable")}')
                 return True
-            print(f'  {_fail("仍然不可用")}')
+            print(f'  {_fail("still unusable")}')
             continue
         if choice in ('s', 'skip'):
-            print(f'  {dim("跳过")}')
+            print(f'  {dim("skipped")}')
             return False
         if choice in ('a', 'always'):
-            print(f'  {warn("强制保存, OpenCode 实际用时可能失败")}')
+            print(f'  {warn("force-saving; OpenCode may fail at runtime")}')
             return True
-        print(f'  {dim("无效")}')
+        print(f'  {dim("invalid")}')
 
 
 def _rank_candidates(abstract: str, models: list[str]) -> list[str]:
@@ -454,18 +454,18 @@ def _rank_candidates(abstract: str, models: list[str]) -> list[str]:
 
 
 def _interactive_bind_one(abstract: str, project: bool) -> int:
-    """交互式绑定一个 abstract: 列出候选 -> 用户选/输入 -> probe -> 写入."""
+    """Interactively bind one abstract: list candidates -> user picks/types -> probe -> write."""
     from ._color import info, warn, ok, dim, red, cyan
     from .models import auth_providers
 
-    print(f'\n{info()} {cyan(abstract)} {warn("未找到匹配")} ({len(extract_unresolved(project))} 个 unresolved 之一)')
+    print(f'\n{info()} {cyan(abstract)} {warn("no match found")} (one of {len(extract_unresolved(project))} unresolved)')
 
-    # 1. 尝试 opencode models
+    # 1. Try opencode models
     candidates: list[str] = []
     opencode_ok = False
     try:
         from ._color import Spinner
-        with Spinner(f'查询 opencode models'):
+        with Spinner(f'querying opencode models'):
             candidates = opencode_models()
         opencode_ok = bool(candidates)
     except Exception:
@@ -473,39 +473,39 @@ def _interactive_bind_one(abstract: str, project: bool) -> int:
 
     if opencode_ok:
         relevant = _rank_candidates(abstract, candidates)
-        print(f'  {dim("opencode models:")} {len(candidates)} 个, 与 {cyan(abstract)} 相关 {len(relevant)} 个:')
+        print(f'  {dim("opencode models:")} {len(candidates)} total, {len(relevant)} relevant to {cyan(abstract)}:')
         for i, m in enumerate(relevant, 1):
             print(f'  {dim(str(i).rjust(2))}. {m}')
     else:
-        # 2. 回退: 列出 auth providers (从 auth.json 读)
+        # 2. Fallback: list auth providers (read from auth.json)
         auth = auth_providers()
-        print(f'  {dim("(opencode CLI 未安装, 只能列 auth providers; 用 0 自定义完整 model)")}')
+        print(f'  {dim("(opencode CLI not installed; can only list auth providers; use 0 to enter a custom full model)")}')
         for i, p in enumerate(sorted(auth), 1):
             print(f'  {dim(str(i).rjust(2))}. {p}/<model>')
-    print(f'  {dim(" 0")}. 自定义 provider/model')
-    print(f'  {dim(" q")}. 跳过')
+    print(f'  {dim(" 0")}. custom provider/model')
+    print(f'  {dim(" q")}. skip')
 
     while True:
         try:
-            choice = input(f'\n  {cyan("→")} 选择 [1-{len(candidates) if opencode_ok else len(auth)}/0/q]: ').strip().lower()
+            choice = input(f'\n  {cyan("->")} pick [1-{len(candidates) if opencode_ok else len(auth)}/0/q]: ').strip().lower()
         except (EOFError, KeyboardInterrupt):
-            print(f'\n  {warn("中断, 未绑定")}')
+            print(f'\n  {warn("interrupted, not bound")}')
             return 1
 
         if choice in ('q', 'quit'):
-            print(f'  {dim("跳过")} {abstract}')
+            print(f'  {dim("skipped")} {abstract}')
             return 0
         if choice == '0':
             try:
-                custom = input(f'  {cyan("→")} provider/model (例: kimi-for-coding/kimi-latest): ').strip()
+                custom = input(f'  {cyan("->")} provider/model (e.g. kimi-for-coding/kimi-latest): ').strip()
             except (EOFError, KeyboardInterrupt):
-                print(f'  {warn("中断")}')
+                print(f'  {warn("interrupted")}')
                 return 1
             if not custom:
                 continue
             if opencode_ok and custom not in candidates:
                 # warn but accept
-                confirm = input(f'  {warn(custom)} 不在 opencode models 里. 仍要绑定? [y/N]: ').strip().lower()
+                confirm = input(f'  {warn(custom)} is not in opencode models. Bind anyway? [y/N]: ').strip().lower()
                 if confirm != 'y':
                     continue
             # NEW: probe custom before save
@@ -521,7 +521,7 @@ def _interactive_bind_one(abstract: str, project: bool) -> int:
                 if not _probe_or_skip(selected, project):
                     continue
                 return _direct_bind(abstract, selected, project)
-        print(f'  {red("无效选择")}, 重试')
+        print(f'  {red("invalid choice")}, retry')
 
 
 def extract_unresolved(project: bool = False) -> list[str]:
@@ -535,13 +535,13 @@ def extract_unresolved(project: bool = False) -> list[str]:
 
 
 def _interactive_bind_batch(project: bool) -> int:
-    """Batch interactive: 逐个绑定所有 unresolved."""
+    """Batch interactive: bind each unresolved abstract one by one."""
     from ._color import info, warn, dim, cyan
     unresolved = extract_unresolved(project)
     if not unresolved:
-        print(f'{info()} 没有 unresolved abstract, 无需绑定')
+        print(f'{info()} no unresolved abstracts, nothing to bind')
         return 0
-    print(f'{info()} 发现 {cyan(str(len(unresolved)))} 个 unresolved abstract: {", ".join(unresolved)}\n')
+    print(f'{info()} found {cyan(str(len(unresolved)))} unresolved abstract(s): {", ".join(unresolved)}\n')
     for i, name in enumerate(unresolved, 1):
         print(f'{dim(f"[{i}/{len(unresolved)}]")} ', end='')
         if _interactive_bind_one(name, project) != 0:

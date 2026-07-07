@@ -1,7 +1,8 @@
-"""Sage commands - 需求澄清 + spec/issue 流程.
+"""Sage commands - requirement clarification + spec/issue flow.
 
-Sage 职责: 多轮提问 → spec.md → acceptance.md → 创建 GitHub issues。
-所有命令通过本模块暴露。
+Sage responsibilities: multi-round questioning -> spec.md -> acceptance.md
+-> create GitHub issues.
+All commands are exposed via this module.
 """
 import argparse
 import json
@@ -14,31 +15,31 @@ from ._common import resolve_existing_path
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('sage', help='需求澄清 (Sage)')
+    parser = subparsers.add_parser('sage', help='requirement clarification (Sage)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    # quote-check: 检查 spec.md 的 quote 状态 (v0.7-003: 内部调 discuss.py)
-    p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 quote 都 ✓ resolved')
-    p.add_argument('--spec', required=True, help='spec-id, 例 v0.1-001-init')
-    p.add_argument('--check-ready', action='store_true', help='exit 0 if ready (Maestro gate; 不输出 JSON)')
-    p.add_argument('--check-violations', action='store_true', help='检测 ownership violations (谁关了不是自己的 quote)')
-    p.add_argument('--format', choices=['text', 'json'], default='text', help='输出格式 (默认 text)')
+    # quote-check: check quote status in spec.md (v0.7-003: invokes discuss.py internally)
+    p = sub.add_parser('quote-check', help='check whether all quotes in spec.md are resolved')
+    p.add_argument('--spec', required=True, help='spec-id, e.g. v0.1-001-init')
+    p.add_argument('--check-ready', action='store_true', help='exit 0 if ready (Maestro gate; no JSON output)')
+    p.add_argument('--check-violations', action='store_true', help='detect ownership violations (who closed someone else\'s quote)')
+    p.add_argument('--format', choices=['text', 'json'], default='text', help='output format (default text)')
 
-    # commit-spec: 封装多步 git 操作
-    p = sub.add_parser('commit-spec', help='提交 spec + acceptance (git add + commit + push)')
+    # commit-spec: multi-step git ops wrapper
+    p = sub.add_parser('commit-spec', help='commit spec + acceptance (git add + commit + push)')
     p.add_argument('--spec', required=True)
     p.add_argument('--message', required=True)
     p.add_argument('--no-push', action='store_true')
 
-    # create-issues: 从 spec 创建 GitHub issues (FR-0410)
-    p = sub.add_parser('create-issues', help='从 spec 创建 GitHub issues (含 schema 验证)')
+    # create-issues: create GitHub issues from spec (FR-0410)
+    p = sub.add_parser('create-issues', help='create GitHub issues from spec (with schema validation)')
     p.add_argument('--spec', required=True)
-    p.add_argument('--spec-file', default='', help='直接指定 spec.md 路径')
+    p.add_argument('--spec-file', default='', help='directly specify spec.md path')
     p.add_argument('--dry-run', action='store_true')
-    p.add_argument('--skip-project', action='store_true', help='Project URL 缺失时不阻塞')
+    p.add_argument('--skip-project', action='store_true', help='do not block when Project URL is missing')
 
-    # record-lock: 三信号锁定记录 (FR-0420)
-    p = sub.add_parser('record-lock', help='记录 spec locked: true (三信号通过后)')
+    # record-lock: 3-signal lock record (FR-0420)
+    p = sub.add_parser('record-lock', help='record spec locked: true (after 3 signals pass)')
     p.add_argument('--spec', required=True)
     p.add_argument('--confirm', action='store_true')
 
@@ -55,12 +56,12 @@ def run(args):
 
 
 def cmd_quote_check(args):
-    """调用 louke._tools.discuss (FR-0450 resolve_spec_path, v0.7-003 inline-discussion).
+    """Invoke louke._tools.discuss (FR-0450 resolve_spec_path, v0.7-003 inline-discussion).
 
-    3 个 flag 互斥:
-    --check-ready: exit 0 if is_ready (Maestro gate; 输出 blockers 到 stderr)
-    --check-violations: 检测嵌套回复行上的 status marker (会被 parser 忽略, 但 writer 意图错误)
-    --format text|json (默认 text): 列出所有 thread + 状态; 拿 JSON 时**不要**同时加 --check-ready
+    3 mutually-exclusive flags:
+    --check-ready: exit 0 if is_ready (Maestro gate; emits blockers to stderr)
+    --check-violations: detect status markers on nested reply lines (parser ignores them, but writer intent is wrong)
+    --format text|json (default text): list all threads + status; do NOT combine --check-ready when requesting JSON
     """
     spec_path = _resolve_quote_check_spec(args)
     if not spec_path.exists():
@@ -84,7 +85,7 @@ def cmd_quote_check(args):
 
 
 def _resolve_quote_check_spec(args) -> Path:
-    """解析 --spec 参数为 spec.md Path (spec-id 或直接路径)."""
+    """Resolve --spec argument to a spec.md Path (spec-id or direct path)."""
     spec_arg = args.spec
     candidate = Path(spec_arg)
     if candidate.exists():
@@ -96,7 +97,7 @@ def _resolve_quote_check_spec(args) -> Path:
 
 
 def cmd_commit_spec(args):
-    """git add spec.md + acceptance.md + commit + push (封装多步)."""
+    """git add spec.md + acceptance.md + commit + push (multi-step wrapper)."""
     spec_path = f".louke/project/specs/{args.spec}"
     cmds = [
         ['git', 'add', f"{spec_path}/spec.md", f"{spec_path}/acceptance.md"],
@@ -120,7 +121,7 @@ RE_AC_ANCHOR = re.compile(r'<a\s+id="ac-(fr|nfr)-(\d{4})"></a>', re.I)
 
 
 def _read_project_info_value(label: str) -> str:
-    # fix-002: 委托给 _common. project.toml 取代 project-info.md.
+    # fix-002: delegate to _common. project.toml replaces project-info.md.
     from ._common import _read_project_info_field
     return _read_project_info_field(label)
 
@@ -166,7 +167,7 @@ def _decide_ac_value(fr_id: str, spec_text: str, acc_text: str, branch: str, rep
         if repo_url:
             return f'{repo_url}/blob/{branch}/.louke/project/specs/{spec_id}/spec.md#fr-{num}'
         return f'spec.md#fr-{num}'
-    return '无'
+    return 'None'
 
 
 def _gh_list_issues_with_fr(repo, fr_id):
@@ -203,7 +204,7 @@ def _gh_link_to_project(project_url, issue_url):
 
 
 def cmd_create_issues(args):
-    """FR-0410: create GitHub issues from spec.md FR anchors (4 位 schema)."""
+    """FR-0410: create GitHub issues from spec.md FR anchors (4-digit schema)."""
     spec_path = _find_spec_path(args)
     if not spec_path.exists():
         print(f'spec file not found: {args.spec_file or args.spec}', file=sys.stderr)
@@ -237,9 +238,9 @@ def cmd_create_issues(args):
             continue
         ac_value = _decide_ac_value(fr_id, spec_text, acc_text, branch, repo_url)
         body = (
-            f'### 需求 ID\n{fr_id}\n\n'
-            f'### Spec 链接\n{repo_url}/blob/{branch}/.louke/project/specs/{args.spec}/spec.md#fr-{fr_id.split("-")[1]}\n\n'
-            f'### 验收标准\n{ac_value}\n'
+            f'### Requirement ID\n{fr_id}\n\n'
+            f'### Spec Link\n{repo_url}/blob/{branch}/.louke/project/specs/{args.spec}/spec.md#fr-{fr_id.split("-")[1]}\n\n'
+            f'### Acceptance Criteria\n{ac_value}\n'
         )
         if args.dry_run:
             print(f'[+] {fr_id} {title!r} body len={len(body)}')
@@ -270,12 +271,12 @@ def _run_lk(*args, cwd=None) -> int:
 def cmd_record_lock(args):
     """FR-0420: 3-signal lock record. lock: true is a result, not a signal.
 
-    FR-0060 v0.7-003: Sage signal 改用 inline-discussion 协议 (call discuss.is_ready).
+    FR-0060 v0.7-003: Sage signal uses inline-discussion protocol (call discuss.is_ready).
     """
     if not args.confirm:
         print('User signal missing: pass --confirm after IDE confirmation', file=sys.stderr)
         return 1
-    # Sage signal (FR-0060: 改用 inline-discussion)
+    # Sage signal (FR-0060: uses inline-discussion)
     spec_path = Path(f'.louke/project/specs/{args.spec}/spec.md')
     if not spec_path.exists():
         spec_path = resolve_existing_path(args.spec)
@@ -285,7 +286,7 @@ def cmd_record_lock(args):
     from ._tools import discuss as _discuss
     result = _discuss.DiscussParser().parse_file(spec_path)
     if not result.is_ready:
-        print('Sage signal: 未通过 (inline-discussion is_ready=False)', file=sys.stderr)
+        print('Sage signal: not passed (inline-discussion is_ready=False)', file=sys.stderr)
         for b in result.ready_blockers:
             print(f'  {b}', file=sys.stderr)
         return 1

@@ -1,7 +1,7 @@
-"""Keeper commands - gate 检查.
+"""Keeper commands - gate checks.
 
-Keeper 职责: per-commit gate (R-G-R 顺序 + commit 格式 + AC trace + 反模式扫描) +
-回归判断 (合并 Shield 的判断部分)。
+Keeper responsibilities: per-commit gate (R-G-R order + commit format + AC trace +
+anti-pattern scan) + regression check (merges Shield's judgment portion).
 """
 import argparse
 import re
@@ -14,21 +14,21 @@ from ._common import git
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('keeper', help='gate 检查 (Keeper)')
+    parser = subparsers.add_parser('keeper', help='gate check (Keeper)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('gate', help='per-commit gate (format + R-G-R 顺序 + AC trace + 反模式扫描)')
-    p.add_argument('--commit-range', default='HEAD~1..HEAD', help='要检查的 commit 范围')
-    p.add_argument('--tests', action='store_true', help='已废弃 (v0.7-001)')
-    p.add_argument('--lint', action='store_true', help='已废弃 (v0.7-001)')
-    p.add_argument('--typecheck', action='store_true', help='已废弃 (v0.7-001)')
-    p.add_argument('--skip-ac-trace', action='store_true', help='跳过 AC trace 校验')
-    p.add_argument('--skip-anti-pattern', action='store_true', help='跳过反模式扫描')
+    p = sub.add_parser('gate', help='per-commit gate (format + R-G-R order + AC trace + anti-pattern scan)')
+    p.add_argument('--commit-range', default='HEAD~1..HEAD', help='commit range to check')
+    p.add_argument('--tests', action='store_true', help='deprecated (v0.7-001)')
+    p.add_argument('--lint', action='store_true', help='deprecated (v0.7-001)')
+    p.add_argument('--typecheck', action='store_true', help='deprecated (v0.7-001)')
+    p.add_argument('--skip-ac-trace', action='store_true', help='skip AC trace validation')
+    p.add_argument('--skip-anti-pattern', action='store_true', help='skip anti-pattern scan')
 
-    p = sub.add_parser('regression', help='回归判断 (per-bug-fix, 对比修复前后)')
-    p.add_argument('--baseline', default='main', help='基线 (修复前)')
-    p.add_argument('--current', default='HEAD', help='当前 (修复后)')
-    p.add_argument('--tests', action='store_true', help='跑测试做实际对比 (默认不跑, 仅 diff 范围)')
+    p = sub.add_parser('regression', help='regression check (per-bug-fix, compare before/after fix)')
+    p.add_argument('--baseline', default='main', help='baseline (before fix)')
+    p.add_argument('--current', default='HEAD', help='current (after fix)')
+    p.add_argument('--tests', action='store_true', help='run tests for actual comparison (default: diff range only)')
 
 
 def run(args):
@@ -40,7 +40,7 @@ def run(args):
 
 
 def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
-    """检查 commit message 格式 - R-G-R 模式 (feat: green / fix: green / refactor:)."""
+    """Check commit message format - R-G-R pattern (feat: green / fix: green / refactor:)."""
     rc, out, _ = git('log', '--format=%H %s', commit_range, cwd=cwd)
     if rc != 0:
         return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
@@ -69,26 +69,26 @@ def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
                 'subject': subject,
                 'severity': 'medium',
                 'description': (
-                    f'commit 格式不规范 (需以 {" / ".join(valid_prefixes)} 之一开头; '
-                    f'Green 阶段用 "feat: green" / "fix: green")'
+                    f'commit format non-standard (must start with one of {" / ".join(valid_prefixes)}; '
+                    f'Green phase uses "feat: green" / "fix: green")'
                 ),
             })
     return findings
 
 
-# ---- FR-0400.3: R-G-R 顺序校验 ----
+# ---- FR-0400.3: R-G-R order validation ----
 
 _ISSUE_RE = re.compile(r'#(\d+)')
 
 
 def _issue_key(subject: str) -> str:
-    """从 commit subject 中提取 issue 编号作为分组 key；无 issue 编号时返回 subject 自身。"""
+    """Extract issue number from commit subject as grouping key; return subject itself if no issue number."""
     match = _ISSUE_RE.search(subject)
     return match.group(1) if match else subject
 
 
 def _rgr_phase(subject: str) -> Optional[str]:
-    """返回 subject 对应的 R-G-R 阶段：'green' / 'refactor'；非相关阶段返回 None。"""
+    """Return the R-G-R phase corresponding to the subject: 'green' / 'refactor'; None for unrelated phases."""
     if subject.startswith('feat: green') or subject.startswith('fix: green'):
         return 'green'
     if subject.startswith('refactor:'):
@@ -97,15 +97,15 @@ def _rgr_phase(subject: str) -> Optional[str]:
 
 
 def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
-    """按 issue 分组校验 green 必须早于 refactor，跨 issue 不参与顺序校验。
+    """Validate by issue grouping that green must precede refactor; cross-issue commits skip order validation.
 
-    同 issue 内允许的序列：
+    Allowed sequences within the same issue:
     - [green]
     - [green, refactor...]
     - [refactor...]
 
-    禁止的序列：
-    - [refactor..., green...]（refactor 出现在 green 之前）
+    Forbidden sequences:
+    - [refactor..., green...] (refactor appears before green)
     """
     rc, out, _ = git('log', '--reverse', '--format=%s', commit_range, cwd=cwd)
     if rc != 0:
@@ -135,15 +135,15 @@ def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
 
 
 def cmd_gate(args):
-    """per-commit gate 检查: commit format + R-G-R 顺序 + AC trace + 反模式扫描。"""
+    """per-commit gate check: commit format + R-G-R order + AC trace + anti-pattern scan."""
     if args.tests:
-        print('error: --tests 已废弃 (v0.7-001); lint/test/typecheck 不再由 keeper gate 调度', file=sys.stderr)
+        print('error: --tests deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate', file=sys.stderr)
         return 1
     if args.lint:
-        print('error: --lint 已废弃 (v0.7-001); lint/test/typecheck 不再由 keeper gate 调度', file=sys.stderr)
+        print('error: --lint deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate', file=sys.stderr)
         return 1
     if args.typecheck:
-        print('error: --typecheck 已废弃 (v0.7-001); lint/test/typecheck 不再由 keeper gate 调度', file=sys.stderr)
+        print('error: --typecheck deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate', file=sys.stderr)
         return 1
 
     cwd = Path.cwd()
@@ -169,7 +169,7 @@ def cmd_gate(args):
         rc = subprocess.run([sys.executable, '-m', 'louke.__main__', 'archer', 'ci-scan', '--spec', args.commit_range],
                             cwd=cwd).returncode
         if rc != 0:
-            all_findings.append({'severity': 'high', 'description': 'archer ci-scan failed (AC 未引用)'})
+            all_findings.append({'severity': 'high', 'description': 'archer ci-scan failed (AC not referenced)'})
             print('--- AC Trace: FAIL ---')
 
     if not args.skip_anti_pattern:
@@ -181,14 +181,14 @@ def cmd_gate(args):
 
     has_blocking = any(f.get('severity') in ('critical', 'high') for f in all_findings)
     if has_blocking:
-        print(f"\n→ 拒绝 ({sum(1 for f in all_findings if f.get('severity') in ('critical','high'))} blocking findings)")
+        print(f"\n→ REJECT ({sum(1 for f in all_findings if f.get('severity') in ('critical','high'))} blocking findings)")
         return 1
-    print(f"\n→ gate 通过 ({len(all_findings)} non-blocking findings)")
+    print(f"\n→ gate PASS ({len(all_findings)} non-blocking findings)")
     return 0
 
 
 def cmd_regression(args):
-    """回归判断: 对比 baseline 与 current 测试结果."""
+    """Regression check: compare baseline vs current test results."""
     cwd = Path.cwd()
     print(f"=== Keeper Regression Check ===")
     print(f"Baseline: {args.baseline}")
@@ -214,7 +214,7 @@ def cmd_regression(args):
     if len(code_changes) > 5:
         findings.append({
             'severity': 'medium',
-            'description': f'Bug fix 改了 {len(code_changes)} 个代码文件 (建议 ≤5, 超出可能引入新回归)',
+            'description': f'Bug fix changed {len(code_changes)} code files (recommend ≤5; exceeding may introduce new regressions)',
         })
 
     for f in changed:
@@ -222,7 +222,7 @@ def cmd_regression(args):
                                   'Cargo.toml', 'go.mod')):
             findings.append({
                 'severity': 'high',
-                'description': f'依赖文件 {f} 在 bug fix 中被改 (可能是版本变化, 需审查)',
+                'description': f'Dependency file {f} changed in bug fix (may be version change; needs review)',
             })
 
     if args.tests:
@@ -234,17 +234,17 @@ def cmd_regression(args):
         if result.returncode != 0:
             findings.append({
                 'severity': 'critical',
-                'description': '当前测试套件失败 (回归测试不通过)',
+                'description': 'Current test suite failed (regression test did not pass)',
             })
         else:
-            print("[ok] 当前测试通过")
+            print("[ok] current tests passed")
 
     print(f"\n=== Findings ({len(findings)}) ===")
     for f in findings:
         print(f"[{f['severity']}] {f['description']}")
 
     if any(f['severity'] in ('critical', 'high') for f in findings):
-        print("\n→ 拒绝 (有 critical/high 问题)")
+        print("\n→ REJECT (critical/high issues)")
         return 1
-    print("\n→ 回归检查通过")
+    print("\n→ regression check PASS")
     return 0

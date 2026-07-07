@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/templates"
+TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/templates"
 
 @test "UT-011-01: prd.md exists" {
     [ -f "$TEMPLATES_DIR/prd.md" ]
@@ -35,14 +35,14 @@ TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/templates"
 }
 
 @test "UT-012-01: prd.md has all required level-2 headings" {
-    for heading in "背景" "目标" "验收标准" "非目标" "风险"; do
+    for heading in "Background" "Goals" "Acceptance Criteria" "Out of Scope" "Risks"; do
         run grep -q "^## ${heading}" "$TEMPLATES_DIR/prd.md"
         [ "$status" -eq 0 ] || { echo "Missing heading: ## ${heading}" >&2; false; }
     done
 }
 
 @test "UT-012-02: spec.md has all required level-2 headings" {
-    for heading in "用户故事" "功能需求" "非功能需求" "澄清记录"; do
+    for heading in "User Stories" "Functional Requirements" "Non-Functional Requirements" "Clarification Log"; do
         run grep -q "^## ${heading}" "$TEMPLATES_DIR/spec.md"
         [ "$status" -eq 0 ] || { echo "Missing heading: ## ${heading}" >&2; false; }
     done

@@ -19,10 +19,12 @@ Agent commands:
     lk agent lex verify-acceptance --spec v0.1-001-init
     lk agent archer ci-scan --spec v0.1-001-init
 
-设计:
-- 用户面命令走 argparse subparser，得到完整 Namespace 后调用模块 run()。
-- agent 子命令 lk agent <name> <cmd> 通过 agent_main 路由。
-- __main__ 预先拦截 --version/-v/--help/-h/version/help/upgrade，避免 argparse subparser required 冲突。
+Design:
+- User-facing commands go through argparse subparsers; once a full Namespace is
+  parsed, the module's run() is invoked.
+- Agent subcommands `lk agent <name> <cmd>` are routed via agent_main.
+- __main__ pre-intercepts --version/-v/--help/-h/version/help/upgrade to avoid
+  argparse subparser `required` conflicts.
 """
 import argparse
 import sys
@@ -63,25 +65,25 @@ def build_parser():
 def _do_upgrade(extra_args):
     """lk upgrade — find the venv that owns lk and pip install --upgrade louke there.
 
-    支持的 louke-level 选项 (其余原样转发给 pip):
-      --index URL        指定 PyPI 源 (e.g. https://test.pypi.org/simple/)
-                         内部翻译为 pip 的 --index-url
-      --pre              允许 pre-release / dev 版本
-      --dry-run          显示将要执行的 pip 命令, 不实际执行
+    Supported louke-level options (the rest are forwarded to pip as-is):
+      --index URL        Specify PyPI source (e.g. https://test.pypi.org/simple/);
+                         internally translated to pip's --index-url
+      --pre              Allow pre-release / dev versions
+      --dry-run          Show the pip command that would run, without executing it
     """
     import subprocess, os
 
-    # 0. 解析 louke-level 选项, 剩余原样转 pip
+    # 0. Parse louke-level options; forward the rest to pip unchanged
     parser = argparse.ArgumentParser(prog='lk upgrade', add_help=True)
     parser.add_argument('--index', metavar='URL',
-                        help='指定 PyPI 源 URL (e.g. https://test.pypi.org/simple/)')
+                        help='PyPI source URL (e.g. https://test.pypi.org/simple/)')
     parser.add_argument('--pre', action='store_true',
-                        help='允许 pre-release / dev 版本')
+                        help='allow pre-release / dev versions')
     parser.add_argument('--dry-run', action='store_true',
-                        help='显示将要执行的 pip 命令, 不实际执行')
+                        help='show the pip command that would run, without executing it')
     opts, rest = parser.parse_known_args(extra_args)
 
-    # 1. Find the venv: lk 入口脚本 shebang 指向 venv python
+    # 1. Find the venv: the lk entry script's shebang points to the venv python
     lk_bin = os.path.realpath(sys.argv[0])
     # /Users/.../.local/bin/lk -> symlink -> ~/.louke/venv/bin/lk
     venv_bin = os.path.dirname(lk_bin)  # ~/.louke/venv/bin
@@ -207,31 +209,31 @@ def print_help_text():
 
 
 def _build_discuss_parser() -> argparse.ArgumentParser:
-    """FR-0030: lk discuss 5 子命令 (query/start/reply/edit/set-status)."""
+    """FR-0030: lk discuss 5 subcommands (query/start/reply/edit/set-status)."""
     parser = argparse.ArgumentParser(prog='lk discuss', add_help=True)
     sub = parser.add_subparsers(dest='discuss_command', required=True, metavar='<command>')
 
     # 1. query
-    p_query = sub.add_parser('query', help='列出 thread (含 5 元组定位字段)')
-    p_query.add_argument('--file', required=True, help='spec.md 路径')
-    p_query.add_argument('--initiator', help='按发起人过滤 (e.g. Sage)')
-    p_query.add_argument('--blocker', help='按 blocker 过滤 (e.g. Aaron)')
+    p_query = sub.add_parser('query', help='list threads (with 5-tuple locating fields)')
+    p_query.add_argument('--file', required=True, help='path to spec.md')
+    p_query.add_argument('--initiator', help='filter by initiator (e.g. Sage)')
+    p_query.add_argument('--blocker', help='filter by blocker (e.g. Aaron)')
     p_query.add_argument('--status', choices=['open', 'resolved', 'reopen'],
-                        help='按状态过滤')
+                        help='filter by status')
     p_query.add_argument('--check-ready', action='store_true',
-                        help='输出 is_ready + ready_blockers (FR-0060 门禁, 与 --initiator/--blocker 互斥)')
+                        help='output is_ready + ready_blockers (FR-0060 gate; mutually exclusive with --initiator/--blocker)')
 
     # 2. start
-    p_start = sub.add_parser('start', help='创建新 thread (插在 anchor_line 后)')
+    p_start = sub.add_parser('start', help='create a new thread (inserted after anchor_line)')
     p_start.add_argument('--file', required=True)
-    p_start.add_argument('--anchor-line', type=int, required=True, help='被评论内容行号')
-    p_start.add_argument('--speaker', required=True, help='发起人 (e.g. Sage)')
-    p_start.add_argument('message', help='评论内容 (单行)')
+    p_start.add_argument('--anchor-line', type=int, required=True, help='line number of the content being commented on')
+    p_start.add_argument('--speaker', required=True, help='initiator (e.g. Sage)')
+    p_start.add_argument('message', help='comment content (single line)')
 
     # 3. reply
-    p_reply = sub.add_parser('reply', help='追加回复到 thread 末尾')
+    p_reply = sub.add_parser('reply', help='append a reply to the end of a thread')
     p_reply.add_argument('--file', required=True)
-    p_reply.add_argument('--thread-id', required=True, help='如 T-001')
+    p_reply.add_argument('--thread-id', required=True, help='e.g. T-001')
     p_reply.add_argument('--anchor-line', type=int, required=True)
     p_reply.add_argument('--anchor-text', required=True)
     p_reply.add_argument('--root-line', type=int, required=True)
@@ -240,19 +242,19 @@ def _build_discuss_parser() -> argparse.ArgumentParser:
     p_reply.add_argument('message')
 
     # 4. edit
-    p_edit = sub.add_parser('edit', help='修改自己某条评论 (仅原作者)')
+    p_edit = sub.add_parser('edit', help='edit one of your own comments (original author only)')
     p_edit.add_argument('--file', required=True)
     p_edit.add_argument('--thread-id', required=True)
     p_edit.add_argument('--anchor-line', type=int, required=True)
     p_edit.add_argument('--anchor-text', required=True)
     p_edit.add_argument('--root-line', type=int, required=True)
     p_edit.add_argument('--root-text', required=True)
-    p_edit.add_argument('--depth', type=int, required=True, help='评论的嵌套深度 (1=根评论)')
-    p_edit.add_argument('--speaker', required=True, help='原评论作者 (验证 = 发起人)')
-    p_edit.add_argument('new_body', help='新评论内容')
+    p_edit.add_argument('--depth', type=int, required=True, help='nesting depth of the comment (1 = root comment)')
+    p_edit.add_argument('--speaker', required=True, help='original comment author (validated = initiator)')
+    p_edit.add_argument('new_body', help='new comment content')
 
     # 5. set-status
-    p_status = sub.add_parser('set-status', help='修改 thread 状态 (RESOLVED 仅 initiator)')
+    p_status = sub.add_parser('set-status', help='change thread status (RESOLVED only by initiator)')
     p_status.add_argument('--file', required=True)
     p_status.add_argument('--thread-id', required=True)
     p_status.add_argument('--anchor-line', type=int, required=True)
@@ -261,13 +263,13 @@ def _build_discuss_parser() -> argparse.ArgumentParser:
     p_status.add_argument('--root-text', required=True)
     p_status.add_argument('--status', required=True, choices=['resolved', 'reopen'])
     p_status.add_argument('--operator', required=True,
-                          help='操作者 (验证 = initiator 才对 RESOLVED 有效)')
+                          help='operator (validated = initiator for RESOLVED to take effect)')
 
     return parser
 
 
 def _cmd_discuss(argv: list) -> int:
-    """lk discuss 5 子命令 dispatcher."""
+    """lk discuss 5 subcommand dispatcher."""
     from ._tools import discuss
     parser = _build_discuss_parser()
     try:
@@ -278,7 +280,7 @@ def _cmd_discuss(argv: list) -> int:
     try:
         if args.discuss_command == 'query':
             result = discuss.DiscussParser().parse_file(Path(args.file))
-            # FR-0060 AC-2: --check-ready 输出 is_ready + ready_blockers
+            # FR-0060 AC-2: --check-ready outputs is_ready + ready_blockers
             if args.check_ready:
                 import json as _json
                 out = {
@@ -294,13 +296,14 @@ def _cmd_discuss(argv: list) -> int:
             if args.status:
                 threads = [t for t in threads if t.status == args.status]
             if args.blocker:
-                # QoderWork P2-2 3 类别
+                # QoderWork P2-2 three categories
                 target = args.blocker.lower()
                 open_threads = [t for t in threads if t.status == 'open']
-                # unanswered: 我起的 + 无回复
+                # unanswered: started by me + no replies
                 unanswered = [t for t in open_threads if t.initiator == target and t.reply_count == 0]
-                # unresolved: 我起的 + 最后一层不是我也不是 resolved (这里只看 reply_count 和 status)
-                # (简化: reply_count > 0 但 status != resolved)
+                # unresolved: started by me + last layer is not me and not resolved
+                # (here we only look at reply_count and status)
+                # (simplified: reply_count > 0 but status != resolved)
                 unresolved = [t for t in open_threads if t.initiator == target and t.reply_count > 0]
                 # awaiting_my_reply: @mentioned me
                 awaiting = [t for t in open_threads if target in t.mentioned_agents]

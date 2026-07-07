@@ -30,7 +30,7 @@ init_tmp_repo() {
     run python -m louke agent devon commit-rgr \
         --phase red --issue 42 --message "dummy"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"--phase red 已废弃 (v0.7-001)"* ]] || {
+    [[ "$output" == *"--phase red deprecated (v0.7-001)"* ]] || {
         echo "stderr/output: $output" >&2
         false
     }

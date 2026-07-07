@@ -1,14 +1,15 @@
-"""Shield commands - e2e 测试编写 (B 级).
+"""Shield commands - e2e test authoring (B level).
 
-Shield 职责: 按 test-plan §6 写 e2e 测试 (Playwright/testclient/DB 直查)。
-B 级 agent - 方法固定, 省成本。
-lk 提供: 运行 e2e + 按规范 commit + 生成骨架。
+Shield responsibilities: write e2e tests per test-plan section 6
+(Playwright/testclient/direct DB query).
+B-level agent - method fixed, low cost.
+lk provides: run e2e + commit per standard + scaffold generation.
 
-e2e env 配置 (fix-001a 后):
-- 读 .louke/project/project.toml 的 [e2e] 段 (Archer M-ARCH 填)
-- 默认自动按 start → wait ready → 跑 e2e → teardown 顺序执行
-- --no-env 跳过自动启停 (用户已手动启动项目)
-- 命令执行: shlex.split + shell=False (防 project.toml 篡改注入)
+e2e env configuration (after fix-001a):
+- read [e2e] section from .louke/project/project.toml (filled by Archer M-ARCH)
+- by default run start -> wait ready -> run e2e -> teardown in order
+- --no-env skips auto start/stop (user has manually started the project)
+- command execution: shlex.split + shell=False (prevents project.toml tampering injection)
 """
 import argparse
 import shlex
@@ -21,23 +22,23 @@ from ._common import _toml_load, git, PROJECT_INFO_PATH
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('shield', help='e2e 测试编写 (Shield, B 级)')
+    parser = subparsers.add_parser('shield', help='e2e test authoring (Shield, B level)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('run-e2e', help='运行 e2e 测试 (默认按 project.toml [e2e] 段自动启停)')
-    p.add_argument('--spec', default='', help='spec-id (可选, 过滤)')
+    p = sub.add_parser('run-e2e', help='run e2e tests (default: auto start/stop per project.toml [e2e] section)')
+    p.add_argument('--spec', default='', help='spec-id (optional, filter)')
     p.add_argument('--browser', default='chromium', choices=['chromium', 'firefox', 'webkit'])
-    p.add_argument('--no-env', action='store_true', help='跳过自动 start/ready/teardown (用户已手动启动)')
+    p.add_argument('--no-env', action='store_true', help='skip auto start/ready/teardown (user started manually)')
 
-    p = sub.add_parser('commit-e2e', help='提交 e2e 测试 (按规范)')
+    p = sub.add_parser('commit-e2e', help='commit e2e tests (per standard)')
     p.add_argument('--spec', required=True)
     p.add_argument('--message', required=True)
 
-    p = sub.add_parser('scaffold', help='生成 e2e 测试骨架 (Playwright/testclient/DB 三种模板)')
+    p = sub.add_parser('scaffold', help='generate e2e test skeleton (3 templates: Playwright/testclient/DB)')
     p.add_argument('--spec', required=True)
     p.add_argument('--type', required=True, choices=['playwright', 'testclient', 'db'])
-    p.add_argument('--scenario', required=True, help='场景名, 例 user_login_flow')
-    p.add_argument('--ac-id', required=True, help='AC-FRXXXX-YY 引用')
+    p.add_argument('--scenario', required=True, help='scenario name, e.g. user_login_flow')
+    p.add_argument('--ac-id', required=True, help='AC-FRXXXX-YY reference')
 
 
 def run(args):
@@ -50,16 +51,16 @@ def run(args):
 
 
 def _read_e2e_env_from_config() -> dict:
-    """读 project.toml [e2e] 段. 委托 _common._toml_load, 零 regex.
+    """Read [e2e] section of project.toml. Delegates to _common._toml_load, zero regex.
 
     Schema:
         [e2e]
-        start = "make e2e-env-up"           # 可选, 启动项目
-        ready = "curl -sf http://localhost/health"  # 可选, 检测就绪 (exit 0)
-        ready_timeout_seconds = 60          # 可选, 默认 60
-        framework = "playwright"             # 可选, playwright | testclient | db
-        browsers = ["chromium"]              # 可选, 仅 playwright 有效
-        teardown = "make e2e-env-down"      # 可选, 清理
+        start = "make e2e-env-up"           # optional, starts the project
+        ready = "curl -sf http://localhost/health"  # optional, readiness check (exit 0)
+        ready_timeout_seconds = 60          # optional, default 60
+        framework = "playwright"             # optional, playwright | testclient | db
+        browsers = ["chromium"]              # optional, only effective for playwright
+        teardown = "make e2e-env-down"      # optional, cleanup
     """
     data = _toml_load(PROJECT_INFO_PATH)
     if not data:
@@ -68,17 +69,17 @@ def _read_e2e_env_from_config() -> dict:
 
 
 def _run_command(cmd_str: str, cwd: Path) -> int:
-    """安全执行 shell 命令. shlex.split + shell=False, 防 project.toml 篡改注入.
+    """Safely execute a shell command. shlex.split + shell=False, prevents project.toml tampering injection.
 
-    即使 project.toml 被恶意修改, 也无法注入 shell 元字符
-    (例如 `rm -rf /tmp; curl evil.com` 被 shlex 拆为 ['rm', '-rf', '/tmp;', 'curl', 'evil.com'], 不执行 curl).
+    Even if project.toml is maliciously modified, shell metacharacters cannot be injected
+    (e.g. `rm -rf /tmp; curl evil.com` is split by shlex into ['rm', '-rf', '/tmp;', 'curl', 'evil.com'], curl is not executed).
     """
     if not cmd_str or not cmd_str.strip():
         return 0
     try:
         args = shlex.split(cmd_str)
     except ValueError as e:
-        print(f'[shield] 命令解析失败: {cmd_str!r} ({e})', file=sys.stderr)
+        print(f'[shield] command parse failed: {cmd_str!r} ({e})', file=sys.stderr)
         return 1
     if not args:
         return 0
@@ -86,7 +87,7 @@ def _run_command(cmd_str: str, cwd: Path) -> int:
 
 
 def _wait_ready(ready_cmd: str, cwd: Path, timeout_seconds: int) -> bool:
-    """轮询 ready 命令直到 exit 0 或超时."""
+    """Poll the ready command until exit 0 or timeout."""
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         if _run_command(ready_cmd, cwd) == 0:
@@ -96,7 +97,7 @@ def _wait_ready(ready_cmd: str, cwd: Path, timeout_seconds: int) -> bool:
 
 
 def _default_e2e_config(spec):
-    """内置默认 e2e 配置 (playwright pytest). Shield 自管."""
+    """Built-in default e2e config (playwright pytest). Managed by Shield."""
     return {
         'command': 'python3',
         'args': ['-m', 'pytest', '-q', '--tb=short', '--browser={browser}'],
@@ -105,7 +106,7 @@ def _default_e2e_config(spec):
 
 
 def cmd_run_e2e(args):
-    """运行 e2e 测试. 默认按 project.toml [e2e] 段启停项目; --no-env 跳过."""
+    """Run e2e tests. Default starts/stops project per project.toml [e2e] section; --no-env skips."""
     cwd = Path.cwd()
     cfg = _default_e2e_config(args.spec)
 
@@ -130,7 +131,7 @@ def cmd_run_e2e(args):
             print(f'[e2e] start failed (rc={rc})', file=sys.stderr)
             return rc
 
-    # 2. Wait ready (轮询 ready 命令直到 exit 0 或超时)
+    # 2. Wait ready (poll the ready command until exit 0 or timeout)
     if ready:
         print(f"\n[e2e] waiting ready ({ready}, timeout {ready_timeout}s)")
         if not _wait_ready(ready, cwd, ready_timeout):
@@ -148,7 +149,7 @@ def cmd_run_e2e(args):
     rc = subprocess.run(cmd, cwd=cwd, shell=False, check=False).returncode
     print(f"[e2e] exit code: {rc}")
 
-    # 4. Teardown (无论成功失败)
+    # 4. Teardown (regardless of success or failure)
     if teardown_cmd:
         print(f"\n[e2e] teardown: {teardown_cmd}")
         _run_command(teardown_cmd, cwd)
@@ -180,10 +181,10 @@ def cmd_commit_e2e(args):
 
 
 def cmd_scaffold(args):
-    """生成 e2e 测试骨架模板.
+    """Generate e2e test skeleton template.
 
-    路径与 cmd_commit_e2e 对齐: .louke/project/specs/{spec}/tests/e2e/
-    (e2e 测试属于 spec 范围, 不放顶层 tests/, 避免跨 spec 互相干扰)
+    Path aligned with cmd_commit_e2e: .louke/project/specs/{spec}/tests/e2e/
+    (e2e tests belong to the spec scope, not the top-level tests/, to avoid cross-spec interference)
     """
     cwd = Path.cwd()
     spec_path = f".louke/project/specs/{args.spec}/tests/e2e"
@@ -203,15 +204,15 @@ from playwright.sync_api import Page
 @pytest.mark.e2e
 def test_{args.scenario}(page: Page):
     """{args.ac_id}: {args.scenario}."""
-    # 1. 准备 (启动服务/构造数据)
+    # 1. Setup (start service / build data)
     # ...
 
-    # 2. 执行 (浏览器操作)
+    # 2. Execute (browser operations)
     # page.goto("/...")
     # page.fill(...)
     # page.click(...)
 
-    # 3. 断言 (按 interfaces.md 出口断言)
+    # 3. Assert (assert on outputs per interfaces.md)
     # assert page.url.endswith("/...")
     # assert page.locator("...").text_content() == "..."
 ''',
@@ -226,20 +227,20 @@ from fastapi.testclient import TestClient
 @pytest.mark.e2e
 def test_{args.scenario}(client: TestClient):
     """{args.ac_id}: {args.scenario}."""
-    # 1. 准备
+    # 1. Setup
     # ...
 
-    # 2. 执行 (API 调用)
+    # 2. Execute (API calls)
     # response = client.get("/...")
     # response = client.post("/...", json={{...}})
 
-    # 3. 断言 (按 interfaces.md 出口断言)
+    # 3. Assert (assert on outputs per interfaces.md)
     # assert response.status_code == 200
     # assert "..." in response.json()
 ''',
         'db': f'''"""E2E test: {args.scenario} (AC: {args.ac_id}).
 
-Generated by lk shield scaffold. Test framework: 直查 DB.
+Generated by lk shield scaffold. Test framework: direct DB query.
 """
 import pytest
 
@@ -247,13 +248,13 @@ import pytest
 @pytest.mark.e2e
 def test_{args.scenario}():
     """{args.ac_id}: {args.scenario}."""
-    # 1. 准备 (DB 连接)
+    # 1. Setup (DB connection)
     # conn = get_db_connection()
 
-    # 2. 执行 (查询/操作)
+    # 2. Execute (query/operation)
     # row = conn.execute("...").fetchone()
 
-    # 3. 断言 (按 interfaces.md 出口断言)
+    # 3. Assert (assert on outputs per interfaces.md)
     # assert row["state"] == "..."
 ''',
     }

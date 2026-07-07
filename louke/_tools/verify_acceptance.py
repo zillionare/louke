@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-verify_acceptance.py — 验证 Sage 生成的 acceptance.md 是否合格
+verify_acceptance.py — validate whether the acceptance.md produced by Sage is compliant
 
-这是 Lex 阶段一输入校验的工具。Lex 在读 spec.md 之前先跑这个,
-确认 Sage 的工作(尤其是 acceptance 拆分)有没有做好, 再做语义级审核。
+This is the input validation tool for Lex stage one. Lex runs this before reading spec.md
+to confirm that Sage's work (especially the acceptance split) is well-formed, before doing semantic review.
 
-设计目标:
-- 零 LLM token: 纯结构化检查
-- 零额外依赖: 仅 Python stdlib
-- 离线可测: 支持 --offline + fixture 文件, bats 直接喂样例
+Design goals:
+- Zero LLM tokens: pure structural checks
+- Zero extra dependencies: Python stdlib only
+- Offline-testable: supports --offline + fixture files, bats can feed samples directly
 
-检查项(L1-L5):
-  L1 文件存在:        .louke/project/specs/{id}/acceptance.md 存在
-  L2 FR/NFR 节存在:   spec.md 中的每个 FR/NFR 在 acceptance.md 中都有对应 ## 节
-  L3 AC 编号连续:     每个 FR/NFR 节内, ### AC-N 从 1 开始连续递增
-  L4 AC 内容非空:     每个 ### AC-N 至少 1 条项目符号, 且有可断言的具体内容
-  L5 反向覆盖:        acceptance.md 中的 ## FR/NFR 节都对应 spec.md 中存在的 FR/NFR
-                      (防 acceptance 多出 spec 没有的"幽灵 FR")
+Checks (L1-L5):
+  L1 File exists:        .louke/project/specs/{id}/acceptance.md exists
+  L2 FR/NFR section exists:   every FR/NFR in spec.md has a matching ## section in acceptance.md
+  L3 AC numbering sequential:     within each FR/NFR section, ### AC-N starts at 1 and increments by 1
+  L4 AC content non-empty:     each ### AC-N has at least 1 bullet, with concrete assertable content
+  L5 Reverse coverage:        every ## FR/NFR section in acceptance.md corresponds to an FR/NFR in spec.md
+                      (prevents "ghost FRs" in acceptance that do not exist in spec)
 
-使用:
+Usage:
   python louke/_tools/verify_acceptance.py --spec v0.1-001-louke
   python louke/_tools/verify_acceptance.py --offline \\
       --spec-file .louke/project/specs/v0.1-001-louke/spec.md \\
@@ -35,31 +35,31 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# ---------- 正则定义 ----------
+# ---------- Regex definitions ----------
 
-# spec.md 中的 FR/NFR 节: ### FR-010 {title} 或 ### NFR-020 {title}
-# (FR 用三级标题, 二级留给"功能需求/非功能需求"等语义分组节)
+# FR/NFR sections in spec.md: ### FR-010 {title} or ### NFR-020 {title}
+# (FR uses a level-3 heading; level 2 is reserved for semantic groupings like "Functional / Non-functional requirements")
 RE_FR_SECTION = re.compile(r"^###\s+(FR|NFR)-(\d{4})\b", re.MULTILINE)
 
-# acceptance.md 中的 FR/NFR 节: ## FR-010 {title}
-# (acceptance.md 没有语义分组, FR 直接二级)
+# FR/NFR sections in acceptance.md: ## FR-010 {title}
+# (acceptance.md has no semantic grouping, so FR is directly level 2)
 RE_ACC_FR_SECTION = re.compile(r"^##\s+(FR|NFR)-(\d{4})\b", re.MULTILINE)
 
-# acceptance.md 中的 AC 节: ### AC-1 或 ### AC-2
+# AC sections in acceptance.md: ### AC-1 or ### AC-2
 RE_AC_SECTION = re.compile(r"^###\s+AC-(\d+)\s*$", re.MULTILINE)
 
-# 项目符号: 行首可选空白 + (- 或 *) + 至少一个空白 + 捕获后面的非空内容
+# Bullet: optional leading whitespace + (- or *) + at least one whitespace + capture the non-empty content
 RE_BULLET = re.compile(r"^[\s]*[-*]\s+(.+)$")
 
-# 严禁作为 AC 内容的占位符(应被替换为真实条件)
-# Note: {repo}, {version}, {id}, {date}, {browser} 等单层花括号是合法的命令模板引用,
-# 不是占位符。只有 {{...}} (Jinja 风格) 才视为未替换的占位符。
+# Placeholders that must not be used as AC content (should be replaced with real conditions)
+# Note: {repo}, {version}, {id}, {date}, {browser} etc. single-brace tokens are valid command template references,
+# not placeholders. Only {{...}} (Jinja style) is treated as an unreplaced placeholder.
 PLACEHOLDER_PATTERNS = [
-    re.compile(r"\{\{.*?\}\}"),  # {{ 变量 }} — Jinja 风格未替换占位符
+    re.compile(r"\{\{.*?\}\}"),  # {{ variable }} — Jinja-style unreplaced placeholder
 ]
 
 
-# ---------- 数据类 ----------
+# ---------- Data classes ----------
 
 @dataclass
 class AccResult:
@@ -78,10 +78,10 @@ class SpecFRSpec:
     title: str = ""
 
 
-# ---------- 工具函数 ----------
+# ---------- Utility functions ----------
 
 def _project_info_value(label: str) -> str:
-    """读 project.toml 中嵌套 key 的 string value (fix-002 后)."""
+    """Read a nested-key string value from project.toml (after fix-002)."""
     path = Path('.louke/project/project.toml')
     if not path.exists():
         return ''
@@ -107,7 +107,7 @@ def _project_info_value(label: str) -> str:
 
 
 def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
-    """用 gh api 读取文件。返回 None 表示失败 (FR-0540 release branch + repo path fix)."""
+    """Read a file via gh api. Returns None on failure (FR-0540 release branch + repo path fix)."""
     repo = repo or _project_info_value('Repo').replace('github.com/', '')
     pi_branch = _project_info_value('Release Branch')
     if not branch:
@@ -130,17 +130,17 @@ def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
 
 
 def fetch_spec_text(spec_id: str, repo: str = '', branch: str = '') -> str | None:
-    """读 .louke/project/specs/{spec_id}/spec.md"""
+    """Read .louke/project/specs/{spec_id}/spec.md"""
     return gh_api_read(f".louke/project/specs/{spec_id}/spec.md", repo=repo, branch=branch)
 
 
 def fetch_acceptance_text(spec_id: str, repo: str = '', branch: str = '') -> str | None:
-    """读 .louke/project/specs/{spec_id}/acceptance.md"""
+    """Read .louke/project/specs/{spec_id}/acceptance.md"""
     return gh_api_read(f".louke/project/specs/{spec_id}/acceptance.md", repo=repo, branch=branch)
 
 
 def parse_fr_sections(text: str) -> list[SpecFRSpec]:
-    """从 spec.md 文本中提取所有 FR/NFR 节。"""
+    """Extract all FR/NFR sections from spec.md text."""
     result = []
     for m in RE_FR_SECTION.finditer(text):
         is_nfr = m.group(1) == "NFR"
@@ -153,31 +153,31 @@ def parse_fr_sections(text: str) -> list[SpecFRSpec]:
 
 
 def parse_acc_sections(text: str) -> dict[str, list[int]]:
-    """从 acceptance.md 文本中提取所有 FR/NFR 节 + 其下 AC-N 列表。
+    """Extract all FR/NFR sections + their AC-N lists from acceptance.md text.
 
-    返回: { "FR-010": [1, 2, 3], "NFR-020": [1], ... }
+    Returns: { "FR-010": [1, 2, 3], "NFR-020": [1], ... }
     """
     sections: dict[str, list[int]] = {}
     current_fr: str | None = None
     current_acs: list[int] = []
 
     for line in text.splitlines():
-        # 匹配 ## FR-XXX 或 ## NFR-XXX 节标题
+        # Match ## FR-XXX or ## NFR-XXX section header
         m = RE_ACC_FR_SECTION.match(line)
         if m:
-            # 进入新节: 提交上一个节
+            # Entering a new section: commit the previous one
             if current_fr is not None:
                 sections[current_fr] = current_acs
             current_fr = f"{m.group(1)}-{m.group(2)}"
             current_acs = []
             continue
 
-        # 匹配 ### AC-N
+        # Match ### AC-N
         am = RE_AC_SECTION.match(line)
         if am and current_fr is not None:
             current_acs.append(int(am.group(1)))
 
-    # 收尾
+    # Final commit
     if current_fr is not None:
         sections[current_fr] = current_acs
 
@@ -185,9 +185,9 @@ def parse_acc_sections(text: str) -> dict[str, list[int]]:
 
 
 def extract_ac_body(text: str, fr_id: str, ac_num: int) -> list[str]:
-    """提取 acceptance.md 中, ## FR-XXX 节下 ### AC-N 标题后面的项目符号列表。
+    """Extract the bullet list after the ### AC-N header under ## FR-XXX in acceptance.md.
 
-    返回: 项目符号文本列表(去掉前导 - 符号)。
+    Returns: a list of bullet text (with the leading - removed).
     """
     lines = text.splitlines()
     in_section = False
@@ -195,19 +195,19 @@ def extract_ac_body(text: str, fr_id: str, ac_num: int) -> list[str]:
     bullets: list[str] = []
 
     for line in lines:
-        # 进入目标 FR/NFR 节
+        # Enter the target FR/NFR section
         m = RE_ACC_FR_SECTION.match(line)
         if m and f"{m.group(1)}-{m.group(2)}" == fr_id:
             in_section = True
             continue
         if m and in_section:
-            # 进入下一个节, 结束
+            # Entering the next section, end
             break
 
         if not in_section:
             continue
 
-        # 检查是否进入目标 AC 节
+        # Check whether we entered the target AC section
         am = RE_AC_SECTION.match(line)
         if am:
             if int(am.group(1)) == ac_num:
@@ -225,101 +225,101 @@ def extract_ac_body(text: str, fr_id: str, ac_num: int) -> list[str]:
     return bullets
 
 
-# ---------- L1-L5 校验 ----------
+# ---------- L1-L5 validation ----------
 
 def check_L1_exists(acceptance_text: str | None) -> AccResult:
-    r = AccResult(code="L1", name="文件存在", passed=False)
+    r = AccResult(code="L1", name="File exists", passed=False)
     if acceptance_text is None:
-        r.message = "acceptance.md 缺失"
-        r.failures.append("未找到 acceptance.md")
+        r.message = "acceptance.md missing"
+        r.failures.append("acceptance.md not found")
         return r
     if acceptance_text.strip() == "":
-        r.message = "acceptance.md 为空"
-        r.failures.append("acceptance.md 内容为空")
+        r.message = "acceptance.md is empty"
+        r.failures.append("acceptance.md content is empty")
         return r
     r.passed = True
-    r.message = f"acceptance.md 已读取 ({len(acceptance_text)} 字符)"
+    r.message = f"acceptance.md read ({len(acceptance_text)} chars)"
     return r
 
 
 def check_L2_fr_sections(spec_frs: list[SpecFRSpec], acc_sections: dict[str, list[int]]) -> AccResult:
-    """spec.md 中每个 FR/NFR 在 acceptance.md 都有同名节。"""
-    r = AccResult(code="L2", name="FR/NFR 节存在", passed=False)
+    """Every FR/NFR in spec.md has a same-named section in acceptance.md."""
+    r = AccResult(code="L2", name="FR/NFR section exists", passed=False)
     spec_ids = {f.fr_id for f in spec_frs}
     acc_ids = set(acc_sections.keys())
     missing = spec_ids - acc_ids
     if missing:
         r.failures.append(
-            f"acceptance.md 缺少 {len(missing)} 个 FR/NFR 节: {sorted(missing)}"
+            f"acceptance.md is missing {len(missing)} FR/NFR sections: {sorted(missing)}"
         )
         return r
     r.passed = True
-    r.message = f"spec.md 中 {len(spec_ids)} 个 FR/NFR 在 acceptance.md 中都有同名节"
+    r.message = f"all {len(spec_ids)} FR/NFR in spec.md have same-named sections in acceptance.md"
     return r
 
 
 def check_L3_ac_sequential(acc_sections: dict[str, list[int]]) -> AccResult:
-    """每个 FR/NFR 节内, AC-N 从 1 开始连续递增。"""
-    r = AccResult(code="L3", name="AC 编号连续", passed=False)
+    """Within each FR/NFR section, AC-N starts at 1 and increments by 1."""
+    r = AccResult(code="L3", name="AC numbering sequential", passed=False)
     bad: list[str] = []
     for fr_id, acs in acc_sections.items():
         if not acs:
-            bad.append(f"{fr_id}: 无任何 AC")
+            bad.append(f"{fr_id}: no AC at all")
             continue
         expected = list(range(1, len(acs) + 1))
         if acs != expected:
-            bad.append(f"{fr_id}: AC 编号 {acs} (应为 {expected})")
+            bad.append(f"{fr_id}: AC numbers {acs} (expected {expected})")
     if bad:
-        r.failures.append("AC 编号不连续: " + "; ".join(bad))
+        r.failures.append("AC numbering not sequential: " + "; ".join(bad))
         return r
     r.passed = True
-    r.message = f"{len(acc_sections)} 个 FR/NFR 节的 AC 编号都从 1 连续"
+    r.message = f"AC numbering for all {len(acc_sections)} FR/NFR sections starts at 1 and is sequential"
     return r
 
 
 def check_L4_ac_content(acceptance_text: str, acc_sections: dict[str, list[int]]) -> AccResult:
-    """每个 AC 至少 1 条项目符号, 内容不是占位符。"""
-    r = AccResult(code="L4", name="AC 内容非空", passed=False)
+    """Each AC has at least 1 bullet, and the content is not a placeholder."""
+    r = AccResult(code="L4", name="AC content non-empty", passed=False)
     bad: list[str] = []
     for fr_id, acs in acc_sections.items():
         for ac_num in acs:
             bullets = extract_ac_body(acceptance_text, fr_id, ac_num)
             if not bullets:
-                bad.append(f"{fr_id} / AC-{ac_num}: 缺少项目符号内容")
+                bad.append(f"{fr_id} / AC-{ac_num}: missing bullet content")
                 continue
-            # 检查是否全是占位符
+            # Check whether all bullets are placeholders
             for b in bullets:
                 if any(p.search(b) for p in PLACEHOLDER_PATTERNS):
                     bad.append(
-                        f"{fr_id} / AC-{ac_num}: 项目符号 '{b[:40]}...' 是占位符, 应替换为真实条件"
+                        f"{fr_id} / AC-{ac_num}: bullet '{b[:40]}...' is a placeholder, should be replaced with real conditions"
                     )
                     break
     if bad:
-        r.failures.append("AC 内容不合格: " + "; ".join(bad))
+        r.failures.append("AC content invalid: " + "; ".join(bad))
         return r
     r.passed = True
     total_ac = sum(len(acs) for acs in acc_sections.values())
-    r.message = f"全部 {total_ac} 条 AC 都有项目符号内容, 无占位符残留"
+    r.message = f"all {total_ac} ACs have bullet content, no placeholder residue"
     return r
 
 
 def check_L5_reverse_cover(spec_frs: list[SpecFRSpec], acc_sections: dict[str, list[int]]) -> AccResult:
-    """acceptance.md 中的 ## FR/NFR 节都对应 spec.md 中存在的 FR/NFR (防幽灵 FR)。"""
-    r = AccResult(code="L5", name="反向覆盖", passed=False)
+    """Every ## FR/NFR section in acceptance.md corresponds to an FR/NFR in spec.md (prevents ghost FRs)."""
+    r = AccResult(code="L5", name="Reverse coverage", passed=False)
     spec_ids = {f.fr_id for f in spec_frs}
     acc_ids = set(acc_sections.keys())
     ghost = acc_ids - spec_ids
     if ghost:
         r.failures.append(
-            f"acceptance.md 引用了 spec.md 中不存在的 FR/NFR: {sorted(ghost)}"
+            f"acceptance.md references FR/NFR not present in spec.md: {sorted(ghost)}"
         )
         return r
     r.passed = True
-    r.message = f"acceptance.md 中 {len(acc_ids)} 个 FR/NFR 都在 spec.md 中存在"
+    r.message = f"all {len(acc_ids)} FR/NFR in acceptance.md exist in spec.md"
     return r
 
 
-# ---------- 主流程 ----------
+# ---------- Main flow ----------
 
 def run_checks(
     spec_text: str,
@@ -343,40 +343,40 @@ def report(results: list[AccResult]) -> int:
     passed = [r for r in results if r.passed]
 
     for r in results:
-        status = "[通过]" if r.passed else "[拒绝]"
+        status = "[PASS]" if r.passed else "[REJECT]"
         print(f"{r.code} {status} {r.name}: {r.message}")
         for f in r.failures:
             print(f"   - {f}")
 
     print()
     if failed:
-        print(f"[拒绝] {len(failed)} 项校验失败, {len(passed)} 项通过")
-        print("Sage 须修复 acceptance.md 后再通知 Lex 重审")
+        print(f"[REJECT] {len(failed)} checks failed, {len(passed)} checks passed")
+        print("Sage must fix acceptance.md before asking Lex to re-review")
         return 1
-    print(f"[通过] {len(passed)} 项校验全部通过")
+    print(f"[PASS] all {len(passed)} checks passed")
     return 0
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="验证 acceptance.md 是否合格 (Lex 阶段一)")
-    p.add_argument("--spec", required=True, help="spec-id, 例如 v0.1-001-louke")
-    p.add_argument("--repo", default='', help="owner/repo, 如 my-org/my-project (运行 louke 的项目, 不是 louke 框架本身)")
-    p.add_argument("--branch", default="", help="spec 所在分支, 默认读取 project-info Release Branch")
-    p.add_argument("--offline", action="store_true", help="离线模式: 直接用 --spec-file/--acceptance-file")
-    p.add_argument("--spec-file", help="离线模式: spec.md 路径")
-    p.add_argument("--acceptance-file", help="离线模式: acceptance.md 路径")
+    p = argparse.ArgumentParser(description="validate whether acceptance.md is compliant (Lex stage one)")
+    p.add_argument("--spec", required=True, help="spec-id, e.g. v0.1-001-louke")
+    p.add_argument("--repo", default='', help="owner/repo, e.g. my-org/my-project (the project running louke, not the louke framework itself)")
+    p.add_argument("--branch", default="", help="branch where the spec lives; defaults to project-info Release Branch")
+    p.add_argument("--offline", action="store_true", help="offline mode: use --spec-file/--acceptance-file directly")
+    p.add_argument("--spec-file", help="offline mode: path to spec.md")
+    p.add_argument("--acceptance-file", help="offline mode: path to acceptance.md")
     args = p.parse_args()
 
     if args.offline:
         if not args.spec_file:
-            print("--offline 必须配合 --spec-file", file=sys.stderr)
+            print("--offline requires --spec-file", file=sys.stderr)
             return 1
         spec_path = Path(args.spec_file)
         if not spec_path.exists():
-            print(f"找不到 {spec_path}", file=sys.stderr)
+            print(f"not found: {spec_path}", file=sys.stderr)
             return 1
         spec_text = spec_path.read_text(encoding="utf-8")
-        # acceptance 文件缺失不算 hard error: 让 L1 检查统一报告
+        # A missing acceptance file is not a hard error: let the L1 check report uniformly
         if args.acceptance_file:
             acc_path = Path(args.acceptance_file)
             acceptance_text = acc_path.read_text(encoding="utf-8") if acc_path.exists() else None
@@ -384,16 +384,16 @@ def main() -> int:
             acceptance_text = None
     else:
         if not args.spec:
-            print("非离线模式必须 --spec SPEC_ID", file=sys.stderr)
+            print("non-offline mode requires --spec SPEC_ID", file=sys.stderr)
             return 1
         spec_text = fetch_spec_text(args.spec, repo=args.repo, branch=args.branch)
         acceptance_text = fetch_acceptance_text(args.spec, repo=args.repo, branch=args.branch)
         if spec_text is None:
             branch = args.branch or _project_info_value('Release Branch') or 'main'
-            print(f"无法读取 {branch} 分支上的 .louke/project/specs/{args.spec}/spec.md", file=sys.stderr)
+            print(f"unable to read .louke/project/specs/{args.spec}/spec.md on branch {branch}", file=sys.stderr)
             return 1
         if acceptance_text is None:
-            # 不报错, 走 L1 检查
+            # Do not error out, fall through to L1 check
             pass
 
     results = run_checks(spec_text or "", acceptance_text)

@@ -1,34 +1,34 @@
 # Session Save Protocol (louke raw session notes)
 
-## 1. 用途
+## 1. Purpose
 
-保存 agent 工作会话的原始记录，供 Librarian 后续蒸馏为 wiki 知识。
+Save raw records of agent work sessions for the Librarian to later distill into wiki knowledge.
 
-**raw 与 wiki 不可混用**：
-- raw =  episodic 记忆，保留试错与未决
-- wiki = 蒸馏后的知识
-- raw **不进入 git**，仅本地维护
+**raw and wiki must not be mixed**:
+- raw = episodic memory, preserving trial-and-error and open items
+- wiki = distilled knowledge
+- raw **does not enter git**, maintained locally only
 
-## 2. 何时使用
+## 2. When to Use
 
-- 任何 agent 工作会话结束时
-- 会话产生了非平凡决策
-- 会话尝试过被推翻的方案
-- 会话留下开放问题给下一轮
+- At the end of any agent work session
+- The session produced non-trivial decisions
+- The session tried options that were rejected
+- The session left open questions for the next round
 
-## 3. 文件路径
+## 3. File Path
 
 ```
 .louke/raw/{yy-mm-dd}/{session-id}.md
 ```
 
-- `yy-mm-dd` = 会话日期
-- `session-id` = `{agent}-{spec-id 或 phase}-{议题}`
-  - 例：`devon-v0.1-001-task-impl`
+- `yy-mm-dd` = session date
+- `session-id` = `{agent}-{spec-id or phase}-{topic}`
+  - e.g. `devon-v0.1-001-task-impl`
 
-## 4. 格式
+## 4. Format
 
-必带 frontmatter：
+Frontmatter is required:
 
 ```markdown
 ---
@@ -37,18 +37,18 @@ session: devon-v0.1-001-task-impl
 agents: [Devon, Prism]
 spec: v0.1-001-init-adopt-mode
 related_issues: [#142, #143]
-status: resolved | superseded | open     # 必填
+status: resolved | superseded | open     # required
 supersedes: []
 ---
 
-## 议题 {在协调/决定什么}
-## 决定 {结论，命令/文件/规范形式}
-## 试过但放弃 {被推翻方案及理由——wiki 蒸馏关键输入}
-## 开放问题 {留给下轮}
+## Topic {what is being coordinated/decided}
+## Decision {conclusion, in command/file/spec form}
+## Tried but abandoned {rejected options and reasons — key input for wiki distillation}
+## Open questions {left for the next round}
 ```
 
-## 5. 约束
+## 5. Constraints
 
-- `status` 必填（未填视为 `open`，Librarian 拒绝蒸馏）
-- `supersedes` 引用时，被引用条目应在 frontmatter 加 `superseded-by` 双向追溯
-- 返回结果前写入，但不阻塞流程
+- `status` is required (if omitted, treated as `open`; the Librarian refuses to distill)
+- When referenced via `supersedes`, the referenced entry should add `superseded-by` in its frontmatter for bidirectional traceability
+- Write before returning the result, but do not block the flow

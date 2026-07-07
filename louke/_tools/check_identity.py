@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 """
-check_identity.py — 检测 gh CLI 身份 vs git 身份的一致性
+check_identity.py — detect consistency between gh CLI identity and git identity.
 
-为什么需要这个检查:
-  specforge 的工作流混合使用 gh API (issues/PRs/labels) 和 git (push/clone)。
-  如果两个通道用了不同 GitHub 账号,会出现:
-    - git push 成功 (用 aaronyang 的 SSH key)
-    - gh issue create 失败 403 (用 quantclaws 的 token, 没权限)
+Why this check is needed:
+  Louke's workflow mixes gh API (issues/PRs/labels) with git (push/clone).
+  If the two channels use different GitHub accounts, you get:
+    - git push succeeds (using account A's SSH key)
+    - gh issue create fails 403 (using account B's token, no permission)
 
-  这种不统一在两个账号都有权时不会暴露,一旦任一降权就炸。
-  本脚本在每次流程启动时显式检测,提前报警。
+  This inconsistency stays hidden when both accounts have access, but breaks
+  as soon as either is downgraded. This script explicitly checks at workflow
+  startup to catch issues early.
 
-检查项 (L1-L5):
-  L1 gh 已认证           gh api user 返回非空
-  L2 gh 对目标 repo 有写权 viewerPermission ∈ {ADMIN, MAINTAIN, WRITE}
-  L3 git user.name/email 已设置
-  L4 git 最近 commit 的 author email 属于 gh 用户的已知邮箱
-  L5 git remote origin 的 owner 与 gh user 同属一个 org (或就是本人)
+Check items (L1-L5):
+  L1 gh authenticated       gh api user returns non-empty
+  L2 gh has write access    viewerPermission ∈ {ADMIN, MAINTAIN, WRITE}
+  L3 git user.name/email    are set
+  L4 last commit author     email belongs to gh user's known emails
+  L5 remote origin owner    belongs to same org as gh user (or is the user)
 
-L4/L5 是关键 — 它们就是"两个身份"的检测器。
+L4/L5 are the critical ones — they detect "two identities".
 
-使用:
+Usage:
   python louke/_tools/check_identity.py --repo OWNER/REPO
   python louke/_tools/check_identity.py --repo OWNER/REPO --offline \\
       --gh-user aaronyang --gh-emails "aaron@x.com aaron@y.com" \\
@@ -51,19 +52,19 @@ class Identity:
     last_commit_author: str = ""  # "Name <email>"
     remote_url: str = ""
     repo_role: str = ""  # ADMIN/MAINTAIN/WRITE/READ/NONE
-    failures: list[str] = field(default_factory=list)   # 阻塞:任一存在即拒绝
-    warnings: list[str] = field(default_factory=list)   # 提示:不阻塞,需用户确认
+    failures: list[str] = field(default_factory=list)   # blocking: any present → reject
+    warnings: list[str] = field(default_factory=list)   # advisory: non-blocking, needs user confirmation
 
     @property
     def ok(self) -> bool:
         return not self.failures
 
 
-# ---------- 收集各源信息 ----------
+# ---------- Collect source info ----------
 
 
 def collect_gh() -> tuple[str, list[str]]:
-    """返回 (gh_login, [gh 用户已知邮箱列表])"""
+    """Return (gh_login, [list of gh user's known emails])"""
     user = ""
     emails: list[str] = []
     try:
@@ -73,7 +74,7 @@ def collect_gh() -> tuple[str, list[str]]:
     except Exception as e:
         return "", []
 
-    # 公开邮箱 (PAT `repo` scope 即可)
+    # Public email (PAT `repo` scope is enough)
     try:
         out = subprocess.check_output(
             ["gh", "api", "user", "-q", ".email"]
@@ -83,7 +84,7 @@ def collect_gh() -> tuple[str, list[str]]:
     except Exception:
         pass
 
-    # 全部邮箱 (需要 `user` scope,失败就跳过)
+    # All emails (needs `user` scope; skip on failure)
     try:
         out = subprocess.check_output(
             ["gh", "api", "user/emails", "-q", ".[].email"]
@@ -95,7 +96,7 @@ def collect_gh() -> tuple[str, list[str]]:
     except Exception:
         pass
 
-    # 去重保序
+    # Deduplicate, preserving order
     seen = set()
     deduped = []
     for e in emails:
@@ -106,7 +107,7 @@ def collect_gh() -> tuple[str, list[str]]:
 
 
 def collect_git() -> tuple[str, str, str, str]:
-    """返回 (user.name, user.email, last_commit_author, remote_url)"""
+    """Return (user.name, user.email, last_commit_author, remote_url)"""
     def _git(*args: str) -> str:
         try:
             return subprocess.check_output(
@@ -136,142 +137,142 @@ def collect_repo_role(repo: str) -> str:
         return ""
 
 
-# ---------- 检查 ----------
+# ---------- Check ----------
 
 
 def check(ident: Identity, repo: str) -> Identity:
-    # L1: gh 已认证
+    # L1: gh authenticated
     if not ident.gh_user:
         ident.failures.append(
-            "L1 gh 未认证 — 请运行 'gh auth login' 或 'gh auth refresh'"
+            "L1 gh not authenticated — run 'gh auth login' or 'gh auth refresh'"
         )
 
-    # L2: 对目标 repo 有写权
+    # L2: has write access to target repo
     if not ident.repo_role:
         ident.failures.append(
-            f"L2 无法读取 {repo} 的 viewerPermission (token 缺 scope? 或 repo 不存在?)"
+            f"L2 cannot read viewerPermission for {repo} (token missing scope? or repo does not exist?)"
         )
     elif ident.repo_role not in WRITE_ROLES:
         ident.failures.append(
-            f"L2 gh 账号 {ident.gh_user or '?'} 在 {repo} 上只有 {ident.repo_role} 权限,"
-            f"无法创建/编辑 issue、PR、label。需要 WRITE/MAINTAIN/ADMIN。"
+            f"L2 gh account {ident.gh_user or '?'} only has {ident.repo_role} permission on {repo}, "
+            f"cannot create/edit issues, PRs, or labels. Need WRITE/MAINTAIN/ADMIN."
         )
 
-    # L3: git user.name + user.email 已设置
+    # L3: git user.name + user.email are set
     if not ident.git_name or not ident.git_email:
         ident.failures.append(
-            f"L3 git user.name/email 未设置 (当前 name={ident.git_name!r}, "
-            f"email={ident.git_email!r}) — 'git config user.name/email' 后再继续"
+            f"L3 git user.name/email not set (current name={ident.git_name!r}, "
+            f"email={ident.git_email!r}) — run 'git config user.name/email' before continuing"
         )
 
-    # L4: 最近 commit 的 author email 属于 gh 用户
+    # L4: last commit's author email belongs to gh user
     if ident.last_commit_author and ident.gh_emails:
         m = re.search(r"<([^>]+)>", ident.last_commit_author)
         if m:
             last_email = m.group(1).strip()
             if last_email and last_email not in ident.gh_emails:
                 ident.failures.append(
-                    f"L4 最近 commit 作者 {ident.last_commit_author!r} 的 email "
-                    f"{last_email!r} 不在 gh 账号 {ident.gh_user!r} 的已知邮箱中 "
-                    f"{ident.gh_emails}。这意味着 git 和 gh 用了不同身份 — "
-                    f"git push 成功但 gh 操作会失败,或反之。"
+                    f"L4 last commit author {ident.last_commit_author!r} email "
+                    f"{last_email!r} is not in gh account {ident.gh_user!r}'s known emails "
+                    f"{ident.gh_emails}. This means git and gh are using different identities — "
+                    f"git push will succeed but gh operations will fail, or vice versa."
                 )
 
-    # L5: remote URL 的 owner 与 gh user 不一致 → 仅警告 (不阻塞)
-    # 原因: 个人 token 操作 org repo 是合法场景,只要 token 已被授予访问权。
-    #       但值得提示用户确认。
+    # L5: remote URL owner differs from gh user → warning only (non-blocking)
+    # Reason: personal token operating on org repo is a valid scenario, as long as
+    #         the token has been granted access. But worth prompting user to confirm.
     if ident.remote_url and ident.gh_user:
         m = re.search(r"github\.com[:/]([\w.-]+)/", ident.remote_url)
         if m:
             remote_owner = m.group(1)
             if remote_owner != ident.gh_user:
                 ident.warnings.append(
-                    f"L5 提示: git remote owner={remote_owner!r} 与 gh user={ident.gh_user!r} 不同。"
-                    f"如属正常 (个人 token 操作 org repo),可忽略;"
-                    f"否则请用 'gh auth switch' 切换到 {remote_owner} 账号。"
+                    f"L5 note: git remote owner={remote_owner!r} differs from gh user={ident.gh_user!r}. "
+                    f"If this is expected (personal token operating on org repo), ignore; "
+                    f"otherwise use 'gh auth switch' to switch to the {remote_owner} account."
                 )
 
-    # L6: agent 在 {repo} 上的角色必须是 OWNER 或 collaborator
-    # 允许两种协作模式:
-    #   - agent == owner: 一切权限天然
-    #   - agent == collaborator (WRITE 级别): 需被 repo owner 邀请,Project 创建在
-    #     agent 名下,然后调 updateProjectV2Collaborators 把 owner 设为 READER
-    # L2 已经验证了 WRITE/MAINTAIN/ADMIN 才能跑流程;此处加一条信息性提示
-    # 帮助用户理解两种模式
+    # L6: agent's role on {repo} must be OWNER or collaborator
+    # Two collaboration modes are allowed:
+    #   - agent == owner: all permissions are inherent
+    #   - agent == collaborator (WRITE level): must be invited by repo owner, Project is
+    #     created under agent's account, then call updateProjectV2Collaborators to set owner as READER
+    # L2 already verified WRITE/MAINTAIN/ADMIN to run the workflow; this adds an informational
+    # note to help users understand the two modes
     if ident.repo_role and ident.remote_url and ident.gh_user:
         m = re.search(r"github\.com[:/]([\w.-]+)/", ident.remote_url)
         if m:
             remote_owner = m.group(1)
             if remote_owner == ident.gh_user:
-                # Agent 身份 = repo owner
+                # Agent identity = repo owner
                 ident.warnings.append(
-                    f"L6 协作模式: agent 是 {remote_owner} 的 owner — Project 创建在 {remote_owner} 名下,无需额外邀请"
+                    f"L6 collaboration mode: agent is owner of {remote_owner} — Project will be created under {remote_owner}, no additional invite needed"
                 )
             elif ident.repo_role in WRITE_ROLES:
-                # Agent 身份 = collaborator (有 WRITE)
+                # Agent identity = collaborator (has WRITE)
                 ident.warnings.append(
-                    f"L6 协作模式: agent {ident.gh_user} 是 {remote_owner} 的 collaborator — "
-                    f"Project 将创建在 {ident.gh_user} 名下,完成后用 gh api "
-                    f"updateProjectV2Collaborators 把 {remote_owner} 设为 Project READER"
+                    f"L6 collaboration mode: agent {ident.gh_user} is a collaborator on {remote_owner} — "
+                    f"Project will be created under {ident.gh_user}'s account, then use gh api "
+                    f"updateProjectV2Collaborators to set {remote_owner} as Project READER"
                 )
-            # L2 失败的情况已经在前面记录到 failures,这里不再重复
+            # L2 failure case already recorded in failures above, not repeated here
 
     return ident
 
 
-# ---------- 报告 ----------
+# ---------- Report ----------
 
 
 def report(ident: Identity, repo: str) -> int:
-    print(f"\n身份一致性检查 — target repo: {repo}\n")
-    print(f"  gh user:           {ident.gh_user or '(未认证)'}")
-    print(f"  gh 已知邮箱:       {ident.gh_emails or '(无)'}")
-    print(f"  git user.name:     {ident.git_name or '(未设置)'}")
-    print(f"  git user.email:    {ident.git_email or '(未设置)'}")
-    print(f"  最近 commit 作者:  {ident.last_commit_author or '(无)'}")
-    print(f"  remote origin:     {ident.remote_url or '(无)'}")
-    print(f"  {repo} viewerPermission: {ident.repo_role or '(未读取)'}")
+    print(f"\nIdentity consistency check — target repo: {repo}\n")
+    print(f"  gh user:           {ident.gh_user or '(not authenticated)'}")
+    print(f"  gh known emails:  {ident.gh_emails or '(none)'}")
+    print(f"  git user.name:    {ident.git_name or '(not set)'}")
+    print(f"  git user.email:   {ident.git_email or '(not set)'}")
+    print(f"  last commit author: {ident.last_commit_author or '(none)'}")
+    print(f"  remote origin:    {ident.remote_url or '(none)'}")
+    print(f"  {repo} viewerPermission: {ident.repo_role or '(not read)'}")
     print()
 
-    # 阻塞项
+    # Blocking failures
     if ident.failures:
-        print("[拒绝] 身份不一致或权限不足\n")
+        print("[REJECT] Identity inconsistent or permissions insufficient\n")
         for f in ident.failures:
             print(f"  - {f}")
         print()
-        print("建议:")
-        print("  1. 用 'gh auth status' 查看当前 token 账号")
-        print("  2. 切换 token: 'gh auth login' 或 'gh auth switch'")
-        print("  3. 或修改 git config: 'git config user.email <gh 账号关联邮箱>'")
-        print("  4. 重新跑本脚本确认\n")
+        print("Suggestions:")
+        print("  1. Check current token account with 'gh auth status'")
+        print("  2. Switch token: 'gh auth login' or 'gh auth switch'")
+        print("  3. Or update git config: 'git config user.email <email linked to gh account>'")
+        print("  4. Re-run this script to confirm\n")
         return 1
 
-    # 仅警告
+    # Warnings only
     if ident.warnings:
-        print("[通过+警告] 主体一致,但有提示项需确认\n")
+        print("[PASS+warning] Identity consistent, but there are items to confirm\n")
         for w in ident.warnings:
             print(f"  ! {w}")
         print()
         return 0
 
-    print("[通过] gh 与 git 身份完全一致,token 权限足够\n")
+    print("[PASS] gh and git identities are fully consistent, token permissions sufficient\n")
     return 0
 
 
-# ---------- 入口 ----------
+# ---------- Entry ----------
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--repo", required=True, help="OWNER/REPO,如 zillionare/louke")
-    p.add_argument("--offline", action="store_true", help="离线模式 (给 bats 用)")
-    p.add_argument("--gh-user", help="离线: gh login")
-    p.add_argument("--gh-emails", help="离线: 空格分隔的 gh 邮箱列表")
-    p.add_argument("--git-name", help="离线: git user.name")
-    p.add_argument("--git-email", help="离线: git user.email")
-    p.add_argument("--last-commit-author", dest="last_commit_author", help="离线: 'Name <email>'")
-    p.add_argument("--remote-url", dest="remote_url", help="离线: remote URL")
-    p.add_argument("--repo-role", dest="repo_role", help="离线: viewerPermission")
+    p.add_argument("--repo", required=True, help="OWNER/REPO, e.g. zillionare/louke")
+    p.add_argument("--offline", action="store_true", help="offline mode (for bats tests)")
+    p.add_argument("--gh-user", help="offline: gh login")
+    p.add_argument("--gh-emails", help="offline: space-separated gh email list")
+    p.add_argument("--git-name", help="offline: git user.name")
+    p.add_argument("--git-email", help="offline: git user.email")
+    p.add_argument("--last-commit-author", dest="last_commit_author", help="offline: 'Name <email>'")
+    p.add_argument("--remote-url", dest="remote_url", help="offline: remote URL")
+    p.add_argument("--repo-role", dest="repo_role", help="offline: viewerPermission")
     args = p.parse_args()
 
     if args.offline:

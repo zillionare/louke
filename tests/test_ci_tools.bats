@@ -59,9 +59,9 @@ setup() {
 }
 
 @test "CI_TOOLS_T09_test_plan_template: strategy doc, no coverage matrix table" {
-    TEMPLATE="$REPO_ROOT/templates/test-plan.md"
-    grep -q "测试策略" "$TEMPLATE"
-    grep -qE "AC (强制溯源|追溯约定)" "$TEMPLATE"
+    TEMPLATE="$REPO_ROOT/louke/templates/test-plan.md"
+    grep -qi "test strategy" "$TEMPLATE"
+    grep -qE "AC mandatory tracing" "$TEMPLATE"
     grep -q "lk archer ci-scan" "$TEMPLATE"
-    grep -q "不维护具体测试清单/覆盖矩阵" "$TEMPLATE"
+    grep -q "does not maintain specific test lists" "$TEMPLATE"
 }

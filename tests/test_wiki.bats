@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
+AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
 @test "WIKI-001: Librarian mentions .louke/wiki/pages/ directory" {
     run grep -qE "\.louke/wiki/pages/" "$AGENTS_DIR/Librarian.md"
@@ -27,7 +27,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 }
 
 @test "WIKI-004: Librarian mentions Lint/health check" {
-    run grep -qE "(Lint|健康检查|孤立页面|死链接)" "$AGENTS_DIR/Librarian.md"
+    run grep -qE "(Lint|health check|orphan|dead link)" "$AGENTS_DIR/Librarian.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Librarian.md does not mention Lint or health check"
         false
@@ -62,7 +62,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
         case "$filename" in
             Librarian.md) continue ;;
         esac
-        if grep -q "会话保存" "$file"; then
+        if grep -qE "Session [Ss]av(e|ing)" "$file"; then
             grep -q "\.louke/raw/" "$file" || {
                 echo "FAIL: $filename has session save but does not reference .louke/raw/"
                 return 1
@@ -77,7 +77,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
         case "$filename" in
             Librarian.md) continue ;;
         esac
-        if grep -q "会话保存" "$file"; then
+        if grep -qE "Session [Ss]av(e|ing)" "$file"; then
             grep -q "status:" "$file" || {
                 echo "FAIL: $filename session save does not include 'status:' frontmatter field"
                 return 1

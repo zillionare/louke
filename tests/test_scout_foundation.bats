@@ -73,5 +73,5 @@ setup() {
         > .louke/project/project-info.md
     run python3 "$REPO_ROOT/louke/_tools/check_foundation.py" --repo foo/bar --version v0.6 --spec-id v0.6-008-x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"F6"* ]] || [[ "$output" == *"缺少字段"* ]] || true
+    [[ "$output" == *"F6"* ]] || [[ "$output" == *"missing fields"* ]] || true
 }

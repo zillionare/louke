@@ -1,25 +1,25 @@
-# {Feature 标题} — Acceptance Criteria
+# {Feature Title} — Acceptance Criteria
 
 - **Spec ID**: {SPEC-ID}
-- **创建日期**: {YYYY-MM-DD}
+- **Created**: {YYYY-MM-DD}
 
-> 验收标准集中处。spec.md 仅保留 FR/NFR 的需求描述与元数据（testability/resolved/valid）,
-> 详细的可观察、可断言的通过条件放在本表里。
+> Central registry of acceptance criteria. spec.md only keeps FR/NFR requirement descriptions and metadata (testability/resolved/valid);
+> detailed observable, assertable pass conditions live in this table.
 >
-> 编号约定:
-> - 每个 FR/NFR 单元内, AC-N 从 1 开始连续递增, 不可跨单元复用
-> - 完整 AC 引用: **AC-FRXXXX-YY**（4 位 FR + 2 位 AC 序号）, 与 test-plan/issue schema 一致
+> Numbering convention:
+> - Within each FR/NFR unit, AC-N starts from 1 and increments sequentially; cannot be reused across units
+> - Full AC reference: **AC-FRXXXX-YY** (4-digit FR + 2-digit AC sequence), consistent with test-plan/issue schema
 >
-> Lex 阶段一/二审核时, 校验: (1) 本表存在; (2) spec.md 中出现的每个 FR/NFR 在本表都有对应节; (3) 每条 AC 都可被测试断言。
+> During Lex phase 1/2 review, verify: (1) this table exists; (2) every FR/NFR in spec.md has a corresponding section here; (3) each AC can be tested/asserted.
 
 ## FR-0010 {title}
 
 ### AC-1
-- {可观察、可断言的成功条件}
-- {可观察、可断言的成功条件}
+- {Observable, assertable success condition}
+- {Observable, assertable success condition}
 ### AC-2
-- {边界条件 / 异常路径 / 错误处理}
-- {边界条件 / 异常路径 / 错误处理}
+- {Boundary condition / exception path / error handling}
+- {Boundary condition / exception path / error handling}
 
 ## FR-0020 {title}
 
@@ -31,5 +31,5 @@
 ## NFR-0010 {title}
 
 ### AC-1
-- {性能 / 安全 / 兼容性 / 可维护性 等可量化指标}
+- {Performance / security / compatibility / maintainability - quantifiable metric}
 - ...

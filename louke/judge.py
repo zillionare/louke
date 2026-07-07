@@ -1,8 +1,10 @@
-"""Judge commands - 安全审计 (S 级).
+"""Judge commands - security audit (S level).
 
-Judge 职责: per-milestone 深度安全审计。S 级 agent, 慢/深/贵。
-lk 提供工具支持: diff + pattern scan + 结构化报告。
-S 级 Judge 在 lk 输出基础上做语义层深度分析（理解攻击向量、信任边界）。
+Judge responsibilities: per-milestone deep security audit. S-level agent,
+slow/deep/expensive.
+lk provides tooling support: diff + pattern scan + structured report.
+S-level Judge performs semantic deep analysis on top of lk output
+(understanding attack vectors, trust boundaries).
 """
 import argparse
 import json
@@ -16,19 +18,19 @@ from ._security import scan_file
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('judge', help='安全审计 (Judge, S 级)')
+    parser = subparsers.add_parser('judge', help='security audit (Judge, S level)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('security-audit', help='per-milestone 深度安全审计 (FR-0610 两阶段)')
-    p.add_argument('--release', required=True, help='release 分支, 例 releases/v0.1')
-    p.add_argument('--baseline', default='main', help='基线 (默认 main)')
+    p = sub.add_parser('security-audit', help='per-milestone deep security audit (FR-0610 two-stage)')
+    p.add_argument('--release', required=True, help='release branch, e.g. releases/v0.1')
+    p.add_argument('--baseline', default='main', help='baseline (default main)')
     p.add_argument('--checklist', default='.louke/templates/security-checklist.md',
-                   help='审计基线 (默认 security-checklist.md)')
-    p.add_argument('--use-llm', action='store_true', help='阶段二: agent 语义审查（需配置模型）')
-    p.add_argument('--model', default='', help='覆盖默认 review model (LOUKE_OPENCODE_REVIEW_MODEL)')
+                   help='audit baseline (default security-checklist.md)')
+    p.add_argument('--use-llm', action='store_true', help='stage 2: agent semantic review (requires configured model)')
+    p.add_argument('--model', default='', help='override default review model (LOUKE_OPENCODE_REVIEW_MODEL)')
 
-    p = sub.add_parser('quick-scan', help='浅层安全 quick scan (per-PR 用)')
-    p.add_argument('--diff', default='HEAD', help='要扫描的 ref/branch/commit')
+    p = sub.add_parser('quick-scan', help='shallow security quick scan (per-PR)')
+    p.add_argument('--diff', default='HEAD', help='ref/branch/commit to scan')
 
 
 def run(args):
@@ -40,14 +42,15 @@ def run(args):
 
 
 def cmd_security_audit(args):
-    """Per-milestone 安全审计: pattern scan + S 级语义分析框架.
+    """Per-milestone security audit: pattern scan + S-level semantic analysis frame.
 
-    命令输出结构化 findings, S 级 Judge 在此基础上做深度分析:
-    - 业务逻辑漏洞 (race condition / atomicity / state machine)
-    - 上下文推理 (隐式信任链 / 攻击向量)
-    - 复杂控制流 (callback 注入 / 重入)
+    The command emits structured findings; S-level Judge performs deep
+    analysis on top of this output:
+    - business-logic bugs (race condition / atomicity / state machine)
+    - context reasoning (implicit trust chain / attack vectors)
+    - complex control flow (callback injection / reentrancy)
 
-    退出码: 任一 critical/high → 1 (block release); 否则 0.
+    Exit code: any critical/high -> 1 (block release); otherwise 0.
     """
     cwd = Path.cwd()
     print(f"=== Security Audit (lk judge) ===")
@@ -105,7 +108,7 @@ def cmd_security_audit(args):
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
             print(f'warn: --use-llm but no model configured (set LOUKE_OPENCODE_REVIEW_MODEL)', file=sys.stderr)
             print(f'      stage 2 skipped; report written: {report_path}', file=sys.stderr)
-            print(f'→ 判定: {verdict} (stage 2 skipped)')
+            print(f'-> verdict: {verdict} (stage 2 skipped)')
             return 0 if verdict != 'fail' else 1
         # Stage 2 placeholder: model invocation deferred to integration w/ OpenCode agent.
         print(f'Stage 2: model={model} (placeholder; integrate with OpenCode review agent)')
@@ -120,21 +123,21 @@ def cmd_security_audit(args):
     print(f'report written: {report_path}')
 
     if verdict == 'fail':
-        print(f"→ 判定: 拒绝 (存在 critical/high pattern)")
+        print(f"-> verdict: REJECT (critical/high patterns present)")
         return 1
     if verdict == 'needs-human-review':
-        print(f"→ 判定: needs-human-review (medium/low 未阻塞，需 S 级 Judge 复审)")
+        print(f"-> verdict: needs-human-review (medium/low non-blocking; needs S-level Judge review)")
         return 2
-    print(f"→ 判定: 通过 (stage 1 无 blocking findings)")
+    print(f"-> verdict: PASS (stage 1 has no blocking findings)")
     return 0
 
 
 def cmd_quick_scan(args):
-    """浅层 quick scan - 任何 critical 即 fail."""
+    """Shallow quick scan - any critical finding fails."""
     cwd = Path.cwd()
     changed_files = get_diff_files('HEAD~1', args.diff, cwd=cwd)
     if not changed_files:
-        # 尝试 git diff --cached
+        # try git diff --cached
         changed_files = get_diff_files('--cached', args.diff, cwd=cwd)
 
     print(f"=== Quick Scan ===")
@@ -150,9 +153,9 @@ def cmd_quick_scan(args):
 
     print_findings(all_findings, header='Findings')
 
-    # quick scan 只对 critical 失败
+    # quick scan only fails on critical
     if any(f['severity'] == 'critical' for f in all_findings):
-        print("\n→ Quick scan 拒绝 (有 critical pattern)")
+        print("\n-> Quick scan REJECT (critical pattern found)")
         return 1
-    print(f"\n→ Quick scan 通过 ({len(all_findings)} non-critical findings)")
+    print(f"\n-> Quick scan PASS ({len(all_findings)} non-critical findings)")
     return 0

@@ -1,7 +1,7 @@
-"""Devon commands - R-G-R 编码.
+"""Devon commands - R-G-R coding.
 
-Devon 职责: Red → Green → Refactor 循环, 单元测试驱动。
-lk 提供: 运行测试 + 按 R-G-R 规范 commit。
+Devon responsibilities: Red -> Green -> Refactor loop, unit-test driven.
+lk provides: run tests + commit per R-G-R standard.
 """
 import argparse
 import json
@@ -21,15 +21,15 @@ RGR_PREFIX = {
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('devon', help='R-G-R 编码 (Devon)')
+    parser = subparsers.add_parser('devon', help='R-G-R coding (Devon)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('commit-rgr', help='按 R-G-R 规范 commit (FR-0580 默认 no-push)')
-    p.add_argument('--phase', required=True, help='R-G-R 阶段 (green/refactor); red 阶段已废弃')
-    p.add_argument('--message', required=True, help='commit message 主体')
-    p.add_argument('--issue', required=True, help='当前处理的 GitHub issue 编号')
-    p.add_argument('--label', default='', help='强制指定 issue 类型 (feature/fix); 默认读取 issue labels')
-    p.add_argument('--push', action='store_true', help='显式 push（默认 no-push）')
+    p = sub.add_parser('commit-rgr', help='commit per R-G-R standard (FR-0580 default no-push)')
+    p.add_argument('--phase', required=True, help='R-G-R phase (green/refactor); red phase deprecated')
+    p.add_argument('--message', required=True, help='commit message body')
+    p.add_argument('--issue', required=True, help='GitHub issue number currently being handled')
+    p.add_argument('--label', default='', help='force issue type (feature/fix); default reads issue labels')
+    p.add_argument('--push', action='store_true', help='explicit push (default no-push)')
 
 
 def run(args):
@@ -40,9 +40,10 @@ def run(args):
 
 
 def _infer_issue_label(issue: str) -> str:
-    """读取 GitHub issue labels，推断是 feature 还是 fix。
+    """Read GitHub issue labels and infer whether it is feature or fix.
 
-    未找到 label 或读取失败时默认返回 'feature'（louke 主流程以 FR 为主）。
+    Defaults to 'feature' when no label is found or reading fails
+    (louke main flow is primarily FR-driven).
     """
     try:
         out = subprocess.check_output(
@@ -60,14 +61,14 @@ def _infer_issue_label(issue: str) -> str:
         return 'fix'
     if 'feature' in labels or 'fr' in labels or 'enhancement' in labels:
         return 'feature'
-    # 无明确 label 时默认 FR，不阻塞流程
+    # default to FR when no explicit label; do not block flow
     return 'feature'
 
 
 def cmd_commit_rgr(args):
-    """FR-0580: 默认 no-push；--push 才 push；自动从 issue label 推断前缀。"""
+    """FR-0580: default no-push; --push to push; auto-infer prefix from issue label."""
     if args.phase == 'red':
-        print('error: --phase red 已废弃 (v0.7-001); Red 阶段不再 commit', file=sys.stderr)
+        print('error: --phase red deprecated (v0.7-001); Red phase no longer commits', file=sys.stderr)
         return 1
     if args.phase not in ('green', 'refactor'):
         print(f"error: --phase must be 'green' or 'refactor', got {args.phase!r}", file=sys.stderr)

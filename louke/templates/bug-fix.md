@@ -1,43 +1,43 @@
-# BUG-{编号} — Bug Report & Fix
+# BUG-{Number} — Bug Report & Fix
 
-- **Bug ID**: BUG-{编号}
-- **发现日期**: {YYYY-MM-DD}
-- **严重程度**: {P0 阻塞 / P1 严重 / P2 一般 / P3 轻微}
+- **Bug ID**: BUG-{Number}
+- **Date discovered**: {YYYY-MM-DD}
+- **Severity**: {P0 blocker / P1 critical / P2 normal / P3 minor}
 
-## 复现步骤
+## Reproduction Steps
 
 1. ...
 2. ...
-3. 观察到的行为: ...
-4. 期望的行为: ...
+3. Observed behavior: ...
+4. Expected behavior: ...
 
 ## Root Cause
 
-<!-- Devon 定位到的根因 -->
+<!-- Root cause located by Devon -->
 
-## 修复方案
+## Fix Plan
 
-<!-- 修复策略 -->
+<!-- Fix strategy -->
 
-## Phase 1: Red（Bug 复现测试）
+## Phase 1: Red (Bug reproduction test)
 
-- **测试文件**: ...
-- **CI 状态**: Red ✅（确认 Bug 可被测试捕获）
-- **Commit**: `fix: green – BUG-{编号} {描述}` 或 `refactor: BUG-{编号} {描述}`
+- **Test file**: ...
+- **CI status**: Red OK (confirmed the bug can be captured by the test)
+- **Commit**: `fix: green – BUG-{Number} {description}` or `refactor: BUG-{Number} {description}`
 
-## Phase 2: Green（修复）
+## Phase 2: Green (Fix)
 
-- **修复文件**: ...
-- **测试结果**: 通过 ✅
-- **Commit**: `fix: green – BUG-{编号} {描述}`
+- **Fixed files**: ...
+- **Test result**: PASS OK
+- **Commit**: `fix: green – BUG-{Number} {description}`
 
 ## Phase 3: Refactor
 
-- **重构内容**: ...
-- **Commit**: `refactor: BUG-{编号} {描述}`
+- **Refactor scope**: ...
+- **Commit**: `refactor: BUG-{Number} {description}`
 
-## Shield 回归检查
+## Shield Regression Check
 
-- [ ] 全量测试通过
-- [ ] 无新 Bug 引入
-- [ ] 原始 Bug 已确认修复
+- [ ] Full test suite passes
+- [ ] No new bugs introduced
+- [ ] Original bug confirmed fixed

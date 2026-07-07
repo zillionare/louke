@@ -1,7 +1,8 @@
-"""Scout commands - 项目奠基.
+"""Scout commands - project foundation.
 
-Scout 职责: 收集项目信息、创建 repo、创建 project、验证权限。
-所有命令通过本模块暴露。
+Scout responsibilities: gather project info, create repo, create project,
+validate permissions.
+All commands are exposed via this module.
 """
 import argparse
 import glob
@@ -17,46 +18,46 @@ from ._common import package_root
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('scout', help='项目奠基 (Scout)')
+    parser = subparsers.add_parser('scout', help='project foundation (Scout)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    # identity-check: 验证 gh 与 git 账号一致 (Step 4a, 防止 PR push 成功但 issue create 403)
-    p = sub.add_parser('identity-check', help='验证 gh/git 账号一致 (Step 4a)')
-    p.add_argument('--repo', required=True, help='owner/repo 格式')
+    # identity-check: validate gh and git account consistency (Step 4a, prevents PR push success but issue create 403)
+    p = sub.add_parser('identity-check', help='validate gh/git account consistency (Step 4a)')
+    p.add_argument('--repo', required=True, help='owner/repo format')
 
-    # foundation: 完整奠基流程 (MVP + 完整 P0)
-    p = sub.add_parser('foundation', help='完整奠基流程 (Steps 1-8)')
-    p.add_argument('--repo', default='', help='owner/repo (空则自动从 git remote origin 推断)')
+    # foundation: full foundation flow (MVP + full P0)
+    p = sub.add_parser('foundation', help='full foundation flow (Steps 1-8)')
+    p.add_argument('--repo', default='', help='owner/repo (auto-inferred from git remote origin if empty)')
     p.add_argument('--version', required=True)
-    p.add_argument('--spec-id', default='', help='v{version}-NNN-{keyword}; 空则自动从 --keyword + .louke/project/specs/ 推断下一个 NNN')
-    p.add_argument('--keyword', required=True, help='spec keyword (≤3 词, - 连接, 如 knowledge-distillation-karpathy); agent 必须从 story 提取')
+    p.add_argument('--spec-id', default='', help='v{version}-NNN-{keyword}; auto-infers next NNN from --keyword + .louke/project/specs/ if empty')
+    p.add_argument('--keyword', required=True, help='spec keyword (<=3 words, joined by -, e.g. knowledge-distillation-karpathy); agent must extract from story')
     p.add_argument('--upstream', default='main')
     p.add_argument('--story', default='')
     p.add_argument('--story-file', default='')
-    p.add_argument('--dod', default='e2e 全通过 + 单元测试覆盖率 ≥95% + 安全审查 (M-SECURITY)')
+    p.add_argument('--dod', default='e2e all pass + unit test coverage >=95% + security review (M-SECURITY)')
     p.add_argument('--security-audit', choices=['enabled', 'disabled'], default='',
-                  help='显式指定；空则从 --dod 推断 (向后兼容)')
+                  help='explicit; inferred from --dod if empty (backward compatible)')
     p.add_argument('--no-commit', action='store_true')
-    p.add_argument('--no-repo', action='store_true', help='MVP 模式：跳过创建 GitHub repo / Project / Smoke')
+    p.add_argument('--no-repo', action='store_true', help='MVP mode: skip creating GitHub repo / Project / Smoke')
     p.add_argument('--dry-run', action='store_true')
-    p.add_argument('--public', action='store_true', help='创建 public repo（默认 private）')
+    p.add_argument('--public', action='store_true', help='create public repo (default private)')
 
-    p = sub.add_parser('invite-owner', help='把 repo owner 加入 GitHub Project collaborator')
+    p = sub.add_parser('invite-owner', help='add repo owner as GitHub Project collaborator')
     p.add_argument('repo', help='owner/repo')
     p.add_argument('--version', required=True)
-    p.add_argument('--project-id', default='', help='直接提供 Project URL/ID（跳过 list 步骤）')
+    p.add_argument('--project-id', default='', help='provide Project URL/ID directly (skip list step)')
     p.add_argument('--role', default='READER')
     p.add_argument('--dry-run', action='store_true')
 
-    # commit-foundation: Step 8 多步 git 操作封装
-    p = sub.add_parser('commit-foundation', help='提交奠基产物 (Step 8: git add + commit + push)')
+    # commit-foundation: Step 8 multi-step git ops wrapper
+    p = sub.add_parser('commit-foundation', help='commit foundation artifacts (Step 8: git add + commit + push)')
     p.add_argument('--spec-id', required=True)
     p.add_argument('--message', required=True, help='commit message')
-    p.add_argument('--version', required=True, help='release 分支名, 例 v0.1')
-    p.add_argument('--no-push', action='store_true', help='默认会 push；--no-push 跳过 push（FR-0580 默认）')
+    p.add_argument('--version', required=True, help='release branch name, e.g. v0.1')
+    p.add_argument('--no-push', action='store_true', help='pushes by default; --no-push skips push (FR-0580 default)')
 
-    p = sub.add_parser('install-precommit', help='安装 pre-commit hook (Step 5)')
-    p.add_argument('--force', action='store_true', help='覆盖已存在的 .pre-commit-config.yaml')
+    p = sub.add_parser('install-precommit', help='install pre-commit hook (Step 5)')
+    p.add_argument('--force', action='store_true', help='overwrite existing .pre-commit-config.yaml')
 
 
 def run(args):
@@ -71,7 +72,7 @@ def run(args):
 
 
 def cmd_identity_check(args):
-    """调用 louke._tools.check_identity."""
+    """Invoke louke._tools.check_identity."""
     result = subprocess.run(
         [sys.executable, '-m', 'louke._tools.check_identity', '--repo', args.repo],
         cwd=Path.cwd(),
@@ -84,14 +85,14 @@ def _gh_run(args, *cmd, check=False, capture=False):
 
 
 def _read_project_info(path: Path) -> str:
-    """读 project.toml (fix-002 后). 保留旧签名 (返回完整文件内容) 给 _render_project_info_13_fields 使用."""
+    """Read project.toml (after fix-002). Keep old signature (returns full file content) for _render_project_info_13_fields."""
     if not path.exists():
         return ''
     return path.read_text(encoding='utf-8', errors='replace')
 
 
 def _render_project_info_13_fields(*, version, repo, owner, repo_name, spec_id, release_branch, dod, security, test_framework='pytest', project_id='', smoke_issue='TODO', smoke_pr='TODO', current_stage='M-FOUND', created='TODO', backlog_project='') -> str:
-    """生成 project.toml 13 字段 (fix-002: 替换原 Markdown 模板)."""
+    """Generate 13 project.toml fields (fix-002: replaces original Markdown template)."""
     return f"""[project]
 version = "{version}"
 repo = "github.com/{repo}"
@@ -113,10 +114,11 @@ backlog_project = "{backlog_project or 'TODO'}"
 
 
 def _update_project_info_fields(path: Path, *, project_id='', smoke_issue='', smoke_pr='', backlog_url='') -> None:
-    """更新 project.toml 的特定字段 (只替换匹配行, 保留其他内容不变).
+    """Update specific fields of project.toml (replaces only matching lines, leaves others intact).
 
-    fix-002: 用 targeted regex 替换替代整文件重写, 避免损坏 list/nested-table/其他段.
-    只处理单行字符串字段; 不触碰 list/dict/multi-line string 等复杂类型.
+    fix-002: targeted regex replacement instead of full-file rewrite, to avoid
+    corrupting list/nested-table/other sections.
+    Only handles single-line string fields; does not touch list/dict/multi-line string types.
     """
     if not path.exists():
         return
@@ -258,7 +260,7 @@ def _ensure_backlog_project(args, owner, repo_name):
 
 def _gh_smoke_issue(args, repo, version):
     title = f'Good First Issue: {repo.split("/",1)[1]}-{version}'
-    body = 'Scout 权限冒烟测试'
+    body = 'Scout permission smoke test'
     try:
         out = subprocess.check_output(['gh', 'issue', 'create', '--repo', repo, '--title', title,
                                        '--body', body, '--label', 'good first issue'],
@@ -266,7 +268,7 @@ def _gh_smoke_issue(args, repo, version):
         m = re.search(r'/issues/(\d+)', out)
         if m:
             num = m.group(1)
-            subprocess.run(['gh', 'issue', 'close', num, '--comment', 'Scout 权限验证完成'],
+            subprocess.run(['gh', 'issue', 'close', num, '--comment', 'Scout permission validation done'],
                            cwd=Path.cwd(), capture_output=True, text=True)
             return num
     except subprocess.CalledProcessError as e:
@@ -276,7 +278,7 @@ def _gh_smoke_issue(args, repo, version):
 
 def _gh_smoke_pr(args, repo, version):
     title = f'Good First PR: {repo.split("/",1)[1]}-{version}'
-    body = 'Scout 权限冒烟测试'
+    body = 'Scout permission smoke test'
     try:
         out = subprocess.check_output(['gh', 'pr', 'create', '--repo', repo,
                                        '--base', 'main', '--head', f'releases/{version}',
@@ -285,7 +287,7 @@ def _gh_smoke_pr(args, repo, version):
         m = re.search(r'/pull/(\d+)', out)
         if m:
             num = m.group(1)
-            subprocess.run(['gh', 'pr', 'close', num, '--comment', 'Scout 权限验证完成', '--delete-branch=false'],
+            subprocess.run(['gh', 'pr', 'close', num, '--comment', 'Scout permission validation done', '--delete-branch=false'],
                            cwd=Path.cwd(), capture_output=True, text=True)
             return num
     except subprocess.CalledProcessError as e:
@@ -390,7 +392,7 @@ def cmd_install_precommit(args):
 
 
 def cmd_foundation(args):
-    """Scout foundation: MVP (FR-0400) + 完整 P0 (FR-0401) + backlog (FR-0402)."""
+    """Scout foundation: MVP (FR-0400) + full P0 (FR-0401) + backlog (FR-0402)."""
     cwd = Path.cwd()
 
     # Auto-infer --repo from git remote if not provided
@@ -398,15 +400,15 @@ def cmd_foundation(args):
         repo_inferred = _infer_repo_from_git_remote(cwd)
         if repo_inferred is None:
             print(
-                'error: --repo 未提供且无法从 git remote origin 推断。\n'
-                '  → agent: 用 question 工具向用户询问 owner/repo, 然后用 --repo owner/repo 重试。\n'
-                '  → 例: lk scout foundation --repo zillionare/louke --keyword init-foundation --version 0.7 ...',
+                'error: --repo not provided and cannot be inferred from git remote origin.\n'
+                '  -> agent: use the question tool to ask the user for owner/repo, then retry with --repo owner/repo.\n'
+                '  -> example: lk scout foundation --repo zillionare/louke --keyword init-foundation --version 0.7 ...',
                 file=sys.stderr,
             )
             return 1
         args.repo = repo_inferred
 
-    # Auto-infer --spec-id: 扫 .louke/project/specs/v{version}-*.md 取最大 NNN + 1, 用 --keyword 拼接
+    # Auto-infer --spec-id: scan .louke/project/specs/v{version}-*.md, take max NNN + 1, join with --keyword
     if not args.spec_id:
         specs_dir = cwd / '.louke/project/specs'
         if specs_dir.exists():
@@ -418,7 +420,7 @@ def cmd_foundation(args):
             next_nnn = max(existing) + 1 if existing else 1
         else:
             next_nnn = 1
-        # --keyword 已 required=True, 此处必有
+        # --keyword is required=True, so it is present here
         args.spec_id = f'v{args.version}-{next_nnn:03d}-{args.keyword}'
 
     spec_dir = cwd / '.louke/project/specs' / args.spec_id
@@ -479,7 +481,7 @@ def cmd_foundation(args):
     if full_p0:
         login = _gh_api_login(args)
         if login is None:
-            print('gh 未认证；请运行 gh auth login 或使用 --no-repo 仅做 MVP', file=sys.stderr)
+            print('gh not authenticated; please run gh auth login or use --no-repo for MVP-only', file=sys.stderr)
             return 1
         owner_to_use = login
         # Step 2: ensure repo
@@ -537,12 +539,12 @@ def cmd_foundation(args):
             version=args.version,
             no_push=False,
         ))
-    print('[项目奠基完成]')
+    print('[foundation complete]')
     return 0
 
 
 def cmd_invite_owner(args):
-    """FR-0120: GraphQL updateProjectV2Collaborators 把 repo owner 加入 Project READER."""
+    """FR-0120: GraphQL updateProjectV2Collaborators adds repo owner to Project as READER."""
     if not args.version:
         print('--version required', file=sys.stderr)
         return 1
@@ -550,7 +552,7 @@ def cmd_invite_owner(args):
     title = f'{repo_name}-{args.version}'
     login = _gh_api_login(args)
     if login is None:
-        print('gh 未认证；请运行 gh auth login', file=sys.stderr)
+        print('gh not authenticated; please run gh auth login', file=sys.stderr)
         return 1
     project_url = args.project_id
     if not project_url:
@@ -588,12 +590,12 @@ def cmd_invite_owner(args):
     except subprocess.CalledProcessError as e:
         print(f'GraphQL mutation failed: {(e.stderr or e.stdout)[:200]}', file=sys.stderr)
         return 1
-    print(f'{owner} 已加入 project \'{title}\' 为 {args.role}')
+    print(f'{owner} added to project \'{title}\' as {args.role}')
     return 0
 
 
 def cmd_commit_foundation(args):
-    """Step 8 多步 git 操作封装 (FR-0530 glob fix + FR-0580 默认 no-push)."""
+    """Step 8 multi-step git ops wrapper (FR-0530 glob fix + FR-0580 default no-push)."""
     spec_path = f".louke/project/specs/{args.spec_id}"
     spec_files = sorted(glob.glob(f"{spec_path}/*.md"))
     if not spec_files:

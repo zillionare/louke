@@ -1,17 +1,17 @@
 #!/usr/bin/env bats
-# 测试 v0.6-009 agent frontmatter 合规性:
-#   FR-0020: 5 个 agent (Warden/Judge/Archer/Librarian/Maestro) 必填 permission 块
-#   FR-0030: board.py 透传 permission 字段
-#   FR-0040: lk agent lint 校验 + 单一 primary 约束
-#   FR-0060.2: 11 个 subagent mode: subagent
-#   FR-0060.1: Maestro mode: primary
-#   FR-0070.2: 4 交互式 subagent permission.question: allow; 7 非交互式 deny; Maestro deny
+# Test v0.6-009 agent frontmatter compliance:
+#   FR-0020: 5 agents (Warden/Judge/Archer/Librarian/Maestro) must have permission block
+#   FR-0030: board.py passes through permission field
+#   FR-0040: lk agent lint validation + single primary constraint
+#   FR-0060.2: 11 subagents have mode: subagent
+#   FR-0060.1: Maestro has mode: primary
+#   FR-0070.2: 4 interactive subagents have permission.question: allow; 7 non-interactive have deny; Maestro has deny
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-AGENTS_DIR="$REPO_ROOT/agents"
+AGENTS_DIR="$REPO_ROOT/louke/agents"
 
 setup() {
-    # Snapshot 一个 agent 用于恢复 (per-test 改动)
+    # Snapshot one agent for restoration (per-test modifications)
     export SNAP_BACKUP=""
     export SNAP_TARGET=""
 }
@@ -21,7 +21,7 @@ teardown() {
         cp "$SNAP_BACKUP" "$SNAP_TARGET"
         rm -f "$SNAP_BACKUP"
     fi
-    # 清理临时文件
+    # Clean up temp files
     rm -f /tmp/louke_test_parse.py /tmp/louke_inject_debug.py /tmp/louke_inject_unknown.py
 }
 
@@ -33,10 +33,10 @@ snapshot_agent() {
 }
 
 # ───────────────────────────────────────────────────────────────────
-# FR-0020 + FR-0040: 5 个 agent 必填 permission 块
+# FR-0020 + FR-0040: 5 agents must have permission block
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0020: 4 角色 + Maestro 必含 permission 块" {
+@test "FR-0020: 4 role agents + Maestro must contain permission block" {
     for agent in warden judge archer librarian maestro; do
         run grep -q "^permission:" "$AGENTS_DIR/${agent}.md"
         [ "$status" -eq 0 ] || {
@@ -46,18 +46,18 @@ snapshot_agent() {
     done
 }
 
-@test "FR-0020: 其余 7 subagent 不强制 permission 块" {
-    # 7 subagent: sage lex devon scout shield keeper prism
-    # 它们有 permission.question 块 (FR-0070) 但不需要完整的 11 键块
+@test "FR-0020: remaining 7 subagents do not require permission block" {
+    # 7 subagents: sage lex devon scout shield keeper prism
+    # They have permission.question block (FR-0070) but don't need the full 11-key block
     for agent in sage lex devon scout shield keeper prism; do
-        # 至少 mode 必须是 subagent (下面有专门测试)
+        # At least mode must be subagent (tested separately below)
         run grep -q "^mode: subagent" "$AGENTS_DIR/${agent}.md"
         [ "$status" -eq 0 ]
     done
 }
 
 # ───────────────────────────────────────────────────────────────────
-# FR-0060.1 + FR-0060.2: mode 字段
+# FR-0060.1 + FR-0060.2: mode field
 # ───────────────────────────────────────────────────────────────────
 
 @test "FR-0060.1: Maestro mode: primary" {
@@ -68,7 +68,7 @@ snapshot_agent() {
     }
 }
 
-@test "FR-0060.2: 11 个非 Maestro agent mode: subagent" {
+@test "FR-0060.2: 11 non-Maestro agents have mode: subagent" {
     for agent in sage lex devon scout archer shield keeper prism warden judge librarian; do
         run grep -E "^mode: subagent" "$AGENTS_DIR/${agent}.md"
         [ "$status" -eq 0 ] || {
@@ -78,7 +78,7 @@ snapshot_agent() {
     done
 }
 
-@test "NFR-0050: 没有 mode: all 残留" {
+@test "NFR-0050: no mode: all remnants" {
     for agent in maestro sage lex devon scout archer shield keeper prism warden judge librarian; do
         run grep -E "^mode: all" "$AGENTS_DIR/${agent}.md"
         [ "$status" -ne 0 ] || {
@@ -89,10 +89,10 @@ snapshot_agent() {
 }
 
 # ───────────────────────────────────────────────────────────────────
-# FR-0010: 4 角色 permission 块完整性 (11 键)
+# FR-0010: 4 role agents permission block completeness (11 keys)
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0010.1: Warden 11 键 permission (4 allow + 7 deny)" {
+@test "FR-0010.1: Warden has 11 permission keys (4 allow + 7 deny)" {
     local f="$AGENTS_DIR/Warden.md"
     for key in bash read edit grep glob task question webfetch websearch external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
@@ -103,18 +103,18 @@ snapshot_agent() {
     done
 }
 
-@test "FR-0010.2: Judge 11 键 (含 question: allow)" {
+@test "FR-0010.2: Judge has 11 keys (including question: allow)" {
     local f="$AGENTS_DIR/Judge.md"
     for key in bash read edit grep glob task question webfetch websearch external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
         [ "$status" -eq 0 ] || { echo "FAIL: Judge missing $key"; false; }
     done
-    # Judge 特有: question: allow
+    # Judge-specific: question: allow
     run grep -E "^  question: allow" "$f"
     [ "$status" -eq 0 ] || { echo "FAIL: Judge.question must be allow"; false; }
 }
 
-@test "FR-0010.3: Archer 11 键 (含 edit: allow + question: allow)" {
+@test "FR-0010.3: Archer has 11 keys (including edit: allow + question: allow)" {
     local f="$AGENTS_DIR/Archer.md"
     for key in bash read edit grep glob task question webfetch websearch external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
@@ -126,7 +126,7 @@ snapshot_agent() {
     [ "$status" -eq 0 ] || { echo "FAIL: Archer.question must be allow"; false; }
 }
 
-@test "FR-0010.4: Librarian 11 键 (含 edit: allow, question: deny)" {
+@test "FR-0010.4: Librarian has 11 keys (including edit: allow, question: deny)" {
     local f="$AGENTS_DIR/Librarian.md"
     for key in bash read edit grep glob task question webfetch websearch external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
@@ -138,7 +138,7 @@ snapshot_agent() {
     [ "$status" -eq 0 ] || { echo "FAIL: Librarian.question must be deny"; false; }
 }
 
-@test "FR-0060.1: Maestro 13 键 permission" {
+@test "FR-0060.1: Maestro has 13 permission keys" {
     local f="$AGENTS_DIR/Maestro.md"
     for key in bash read edit grep glob task question webfetch websearch skill lsp external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
@@ -151,17 +151,17 @@ snapshot_agent() {
 }
 
 # ───────────────────────────────────────────────────────────────────
-# FR-0070: 4 交互式 subagent + 7 非交互式
+# FR-0070: 4 interactive subagents + 7 non-interactive
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0070.2: 4 交互式 subagent permission.question: allow" {
+@test "FR-0070.2: 4 interactive subagents have permission.question: allow" {
     for agent in scout sage archer judge; do
-        # 4 角色 (archer judge) 已有 permission 块含 question: allow
-        # 2 非角色 (scout sage) 单独的 permission 块也含 question: allow
+        # 4 role agents (archer judge) already have permission block with question: allow
+        # 2 non-role agents (scout sage) have separate permission block with question: allow
         if [ "$agent" = "archer" ] || [ "$agent" = "judge" ]; then
             run grep -E "^  question: allow" "$AGENTS_DIR/${agent}.md"
         else
-            # scout / sage 单独 permission 块
+            # scout / sage separate permission block
             run grep -E "^  question: allow" "$AGENTS_DIR/${agent}.md"
         fi
         [ "$status" -eq 0 ] || {
@@ -171,7 +171,7 @@ snapshot_agent() {
     done
 }
 
-@test "FR-0070.2: 5 个非交互式 subagent permission.question: deny" {
+@test "FR-0070.2: 5 non-interactive subagents have permission.question: deny" {
     for agent in lex devon shield keeper prism; do
         run grep -E "^  question: deny" "$AGENTS_DIR/${agent}.md"
         [ "$status" -eq 0 ] || {
@@ -182,10 +182,10 @@ snapshot_agent() {
 }
 
 # ───────────────────────────────────────────────────────────────────
-# FR-0030: board.py 透传 permission + mode
+# FR-0030: board.py passes through permission + mode
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0030: board.py parse_frontmatter 解析 permission 块为 dict" {
+@test "FR-0030: board.py parse_frontmatter parses permission block as dict" {
     cat > /tmp/louke_test_parse.py <<'PYEOF'
 import sys
 sys.path.insert(0, "REPO_ROOT_PLACEHOLDER")
@@ -204,7 +204,7 @@ PYEOF
     rm -f /tmp/louke_test_parse.py
 }
 
-@test "FR-0030: board.py 生成的 .opencode/agents/*.md 含 permission 块" {
+@test "FR-0030: board.py generates .opencode/agents/*.md with permission block" {
     cd "$REPO_ROOT"
     rm -rf .opencode
     python3 -m louke board opencode --quiet
@@ -218,15 +218,15 @@ PYEOF
     [ "$status" -eq 0 ] || { echo "FAIL: maestro.md mode must be primary in generated"; false; }
 }
 
-@test "FR-0030: board.py dry-run 警告未白名单字段" {
+@test "FR-0030: board.py dry-run warns on non-whitelisted fields" {
     cd "$REPO_ROOT"
     snapshot_agent warden
-    # 临时注入一个顶层未知字段 _debug (在 permission 块之前)
+    # Temporarily inject a top-level unknown field _debug (before permission block)
     cat > /tmp/louke_inject_debug.py <<'PYEOF'
-text = open("agents/Warden.md").read()
-# 在 name: warden 之后插入 _debug: true (顶层字段)
+text = open("louke/agents/Warden.md").read()
+# Insert _debug: true after name: warden (top-level field)
 text = text.replace("name: warden\n", "name: warden\n_debug: true\n", 1)
-open("agents/Warden.md", "w").write(text)
+open("louke/agents/Warden.md", "w").write(text)
 PYEOF
     python3 /tmp/louke_inject_debug.py
     run python3 -m louke board opencode --dry-run
@@ -259,7 +259,7 @@ PYEOF
     }
 }
 
-@test "FR-0040: 删 Warden permission 块 → lint fail" {
+@test "FR-0040: removing Warden permission block → lint fail" {
     cd "$REPO_ROOT"
     snapshot_agent warden
     # Remove permission block
@@ -285,13 +285,13 @@ open('$AGENTS_DIR/Warden.md', 'w').write('\\n'.join(new))
     [[ "$output" == *"missing permission block for warden"* ]]
 }
 
-@test "FR-0040: 注入未知键 todowrite → lint fail" {
+@test "FR-0040: injecting unknown key todowrite → lint fail" {
     cd "$REPO_ROOT"
     snapshot_agent warden
     cat > /tmp/louke_inject_unknown.py <<'PYEOF'
-text = open("agents/Warden.md").read()
+text = open("louke/agents/Warden.md").read()
 text = text.replace("  bash: allow", "  bash: allow\n  todowrite: allow", 1)
-open("agents/Warden.md", "w").write(text)
+open("louke/agents/Warden.md", "w").write(text)
 PYEOF
     python3 /tmp/louke_inject_unknown.py
     run python3 -m louke agent lint
@@ -300,7 +300,7 @@ PYEOF
     rm -f /tmp/louke_inject_unknown.py
 }
 
-@test "NFR-0050: 多 primary → lint fail" {
+@test "NFR-0050: multiple primary → lint fail" {
     cd "$REPO_ROOT"
     snapshot_agent sage
     # Make Sage primary (duplicate of Maestro)
@@ -312,13 +312,13 @@ PYEOF
     # teardown will restore Sage via snapshot_agent
 }
 
-# === v0.6.14 GLM review: subagent permission 完整性 ===
+# === v0.6.14 GLM review: subagent permission completeness ===
 
-@test "v0.6.14: 11 个 subagent 必须有 task: deny (防 question tool 幻觉回归)" {
+@test "v0.6.14: 11 subagents must have task: deny (prevents question tool hallucination regression)" {
     for agent in sage scout devon keeper lex archer judge librarian warden keeper prism shield; do
         # Skip if file doesn't exist
         [ -f "$AGENTS_DIR/${agent}.md" ] || continue
-        # 11 subagent must have task: deny (excludes Maestro which is primary)
+        # 11 subagents must have task: deny (excludes Maestro which is primary)
         run grep -q "^  task: deny" "$AGENTS_DIR/${agent}.md"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent missing 'task: deny' in permission block"
@@ -330,7 +330,7 @@ PYEOF
     done
 }
 
-@test "v0.6.14: 4 交互式 subagent (Scout/Sage/Archer/Judge) 必须有 question: allow" {
+@test "v0.6.14: 4 interactive subagents (Scout/Sage/Archer/Judge) must have question: allow" {
     for agent in scout sage archer judge; do
         [ -f "$AGENTS_DIR/${agent}.md" ] || continue
         run grep -q "^  question: allow" "$AGENTS_DIR/${agent}.md"
@@ -341,7 +341,7 @@ PYEOF
     done
 }
 
-@test "v0.6.14: 7 非交互式 subagent 必须有 question: deny" {
+@test "v0.6.14: 7 non-interactive subagents must have question: deny" {
     for agent in devon keeper librarian warden prism shield; do
         # 6 non-interactive (excludes Lex which is spec review, not interactive)
         # actually Lex IS spec-stage but the question test is about the 4-question-tool subagents only
@@ -355,7 +355,7 @@ PYEOF
     done
 }
 
-@test "v0.6.14: Maestro 是唯一 task: allow 的 agent" {
+@test "v0.6.14: Maestro is the only agent with task: allow" {
     run grep -E "^  task: allow" "$AGENTS_DIR/Maestro.md"
     [ "$status" -eq 0 ] || { echo "FAIL: Maestro must have task: allow (sole orchestrator)"; false; }
 }

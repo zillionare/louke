@@ -14,29 +14,29 @@ from .models import resolve_model
 
 SKIP = {'README.md', 'ROSTER.md'}
 
-# v0.6-009 FR-0030: 透传白名单 (除 description / mode / model 已单独处理).
-# 来源: OpenCode 官方 frontmatter 字段 + permission.
+# v0.6-009 FR-0030: passthrough allowlist (besides description / mode / model, which are handled separately).
+# Source: OpenCode official frontmatter fields + permission.
 PASSTHROUGH_KEYS = {
-    'permission',   # v0.6-009 FR-0010/0060/0070 落地
-    'hidden',       # OpenCode 支持
-    'color',        # OpenCode 支持
-    'temperature',  # OpenCode 支持
-    'top_p',        # OpenCode 支持
-    'steps',        # OpenCode 支持
-    'disable',      # OpenCode 支持
+    'permission',   # v0.6-009 FR-0010/0060/0070 implementation
+    'hidden',       # OpenCode supported
+    'color',        # OpenCode supported
+    'temperature',  # OpenCode supported
+    'top_p',        # OpenCode supported
+    'steps',        # OpenCode supported
+    'disable',      # OpenCode supported
 }
 
 
 def register(parser):
     """Register board subcommands on the given parser."""
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
-    p = sub.add_parser('opencode', help='生成 OpenCode agents')
+    p = sub.add_parser('opencode', help='generate OpenCode agents')
     p.add_argument('--dry-run', action='store_true')
-    p.add_argument('--quiet', action='store_true', help='不打印每步进度 (只输出最终汇总)')
-    p.add_argument('--root', help='显式指定项目根目录 (默认: 当前 git 仓库根)')
-    p = sub.add_parser('status', help='查看 board 状态')
-    p.add_argument('--root', default='', help='显式指定项目根目录 (默认: 当前 git 仓库根)')
-    p = sub.add_parser('vscode', help='VS Code board 当前不支持')
+    p.add_argument('--quiet', action='store_true', help='do not print per-step progress (only the final summary)')
+    p.add_argument('--root', help='explicitly specify the project root directory (default: current git repo root)')
+    p = sub.add_parser('status', help='show board status')
+    p.add_argument('--root', default='', help='explicitly specify the project root directory (default: current git repo root)')
+    p = sub.add_parser('vscode', help='VS Code board is currently unsupported')
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--root', default='')
 
@@ -49,18 +49,19 @@ def run(args):
 def parse_frontmatter(text: str) -> tuple[dict, str]:
     """Parse YAML-like frontmatter into a dict.
 
-    louke agent 风格: `---\\nkey: value\\n\\nbody...` (无 closing `---`,
-    以首个空行结尾). body 中的 `---` (markdown 水平线) 不影响 frontmatter 识别.
+    louke agent style: `---\\nkey: value\\n\\nbody...` (no closing `---`,
+    ends at the first blank line). `---` in the body (a markdown horizontal rule)
+    does not affect frontmatter detection.
 
-    嵌套结构支持:
-    - `key: value` (字符串)
-    - `key:` + 缩进的 `  - item` (列表, 用于 `models:`)
-    - `key:` + 缩进的 `  subkey: value` (字典, 用于 `permission:`)
+    Nested structures supported:
+    - `key: value` (string)
+    - `key:` + indented `  - item` (list, used for `models:`)
+    - `key:` + indented `  subkey: value` (dict, used for `permission:`)
     """
     if not text.startswith('---\n'):
         return {}, text
-    # louke agent 风格: 第一个空行就是 frontmatter 结束
-    # (不能依赖 `\n---\n` 因为 body 可能含 markdown 水平线)
+    # louke agent style: the first blank line ends the frontmatter
+    # (cannot rely on `\n---\n` because the body may contain markdown horizontal rules)
     lines = text[4:].splitlines()
     end_idx = 0
     while end_idx < len(lines) and lines[end_idx].strip():
@@ -128,8 +129,8 @@ def agent_source(root: Path) -> Path:
 def _render_passthrough_block(fm: dict, exclude: set[str]) -> str:
     """Render passthrough keys as YAML lines.
 
-    `exclude` 应该包含 `description` / `mode` / `model` (已单独处理).
-    返回的字符串以换行结尾, 如 'hidden: true\ncolor: blue\n'.
+    `exclude` should contain `description` / `mode` / `model` (handled separately).
+    The returned string ends with a newline, e.g. 'hidden: true\ncolor: blue\n'.
     """
     lines = []
     for key in PASSTHROUGH_KEYS:
@@ -155,7 +156,7 @@ def _require_project_root(args, command: str):
     """Resolve and validate the project root.
 
     Priority: --root arg > git_root() > error.
-    Errors out (exit 1) if neither available, with hint about lk init.
+    Errors out (exit 1) if neither is available, with a hint about lk init.
     """
     from ._color import red, cyan
     explicit = getattr(args, 'root', None)
@@ -165,11 +166,11 @@ def _require_project_root(args, command: str):
         root = git_root()
     if root is None:
         print(
-            f'{red("error:")} {command} 需要 git 仓库 (或显式 --root).',
+            f'{red("error:")} {command} requires a git repo (or explicit --root).',
             file=sys.stderr,
         )
         print(
-            f'  {cyan("hint:")} 在 louke 项目根目录 (有 .git/) 跑, 或 --root <path>',
+            f'  {cyan("hint:")} run from the louke project root (the one with .git/), or pass --root <path>',
             file=sys.stderr,
         )
         return None
@@ -191,18 +192,18 @@ def cmd_opencode(args):
     )
 
     if not quiet:
-        print(f'{cyan("[1/5]")} 读取 source agents: {src}', flush=True)
+        print(f'{cyan("[1/5]")} reading source agents: {src}', flush=True)
 
-    # 1. 收集 source agents
+    # 1. Collect source agents
     source_files = []
     for fp in sorted(src.glob('*.md')):
         if fp.name in SKIP:
             continue
         source_files.append(fp)
     if not quiet:
-        print(f'      发现 {len(source_files)} 个 agent prompt', flush=True)
+        print(f'      found {len(source_files)} agent prompts', flush=True)
 
-    # 2. 解析 frontmatter, 收集所有 abstract model names
+    # 2. Parse frontmatter, collect all abstract model names
     from .models import opencode_models, auth_providers, model_costs
     parsed = []  # [(fp, fm, body)]
     abstract_models = set()
@@ -218,42 +219,42 @@ def cmd_opencode(args):
                 abstract_models.add(m)
 
     if not quiet:
-        print(f'{cyan("[2/5]")} 查询 opencode models + 解析 provider/model bind', flush=True)
+        print(f'{cyan("[2/5]")} querying opencode models + resolving provider/model bindings', flush=True)
     if not quiet:
         alias_user = (Path.home() / '.louke/models.json')
         alias_proj = root / '.louke/models.json'
-        print(f'      用户级 alias: {alias_user}', flush=True)
-        print(f'      项目级 alias: {alias_proj}', flush=True)
-    # opencode models (subprocess, 可能慢) — spinner
+        print(f'      user-level aliases: {alias_user}', flush=True)
+        print(f'      project-level aliases: {alias_proj}', flush=True)
+    # opencode models (subprocess, may be slow) -> spinner
     available: list[str] = []
     if abstract_models:
         if not quiet:
-            print(f'      调用 opencode models (N={len(abstract_models)} abstract names)...',
+            print(f'      calling opencode models (N={len(abstract_models)} abstract names)...',
                   flush=True)
-        with Spinner('查询 opencode models'):
+        with Spinner('querying opencode models'):
             try:
                 available = opencode_models()
             except Exception as e:
                 if not quiet:
-                    print(f'      {warn(f"opencode models 失败: {e}")}', flush=True)
+                    print(f'      {warn(f"opencode models failed: {e}")}', flush=True)
         if not quiet:
-            print(f'      opencode models 返回 {len(available)} 个 model', flush=True)
+            print(f'      opencode models returned {len(available)} models', flush=True)
     # auth providers + model costs
     if not quiet:
-        print(f'{cyan("[3/5]")} 读取 auth providers + cost index', flush=True)
-    with Spinner('读取 auth.json + cost index'):
+        print(f'{cyan("[3/5]")} reading auth providers + cost index', flush=True)
+    with Spinner('reading auth.json + cost index'):
         auth = auth_providers()
         costs = model_costs()
     if not quiet:
         sample = sorted(auth)[:3]
         more = '...' if len(auth) > 3 else ''
-        print(f'      auth providers: {len(auth)} 个 ({sample}{more})', flush=True)
+        print(f'      auth providers: {len(auth)} ({sample}{more})', flush=True)
         free_count = sum(1 for v in costs.values() if v == (0, 0))
-        print(f'      model costs: {len(costs)} 个, 其中 free {free_count} 个', flush=True)
+        print(f'      model costs: {len(costs)}, of which {free_count} are free', flush=True)
 
-    # 4. 解析每个 source 的 model, 写文件
+    # 4. Resolve each source's model and write the file
     if not quiet:
-        print(f'{cyan("[4/5]")} 解析 model bind + 写入 .opencode/agents/', flush=True)
+        print(f'{cyan("[4/5]")} resolving model bindings + writing .opencode/agents/', flush=True)
     generated = []
     unbound_abstracts: list[tuple[str, str]] = []  # (agent_name, abstract)
     for fp, fm, body in parsed:
@@ -264,7 +265,7 @@ def cmd_opencode(args):
         if isinstance(models, str):
             models = [models]
         model = resolve_model(models[0], root=root, models=available) if models else ''
-        # 探测 unbound: 名字没 '/' (即仍是 abstract) + 没 alias
+        # Detect unbound: no '/' in the name (still abstract) + no alias
         if model and '/' not in model and not quiet:
             unbound_abstracts.append((name, model))
         passthrough = _render_passthrough_block(fm, exclude={'description', 'mode', 'model'})
@@ -297,18 +298,18 @@ def cmd_opencode(args):
                       flush=True)
 
     if not dry_run and not quiet:
-        print(f'{cyan("[5/5]")} 完成: 生成 {len(generated)} 个 OpenCode agent -> {dest_dir}',
+        print(f'{cyan("[5/5]")} done: generated {len(generated)} OpenCode agents -> {dest_dir}',
               flush=True)
-    # unbound 提示
+    # Unbound hint
     if unbound_abstracts and not quiet:
-        print(f'\n{warn(f"{len(unbound_abstracts)} 个 abstract 未绑定 (output model 没 provider 前缀, OpenCode 用不起来):")}')
+        print(f'\n{warn(f"{len(unbound_abstracts)} abstract(s) unbound (output model has no provider prefix; OpenCode cannot use it):")}')
         for n, a in unbound_abstracts:
             print(f'  {dim("-")} {n}: {a}')
-        print(f'\n{info("修复:")} {cyan("lk models bind <abstract> <provider>/<model>")} '
-              f'或 {cyan("lk models bind <abstract>")} (交互式)')
-        # 建议交互式
+        print(f'\n{info("fix:")} {cyan("lk models bind <abstract> <provider>/<model>")} '
+              f'or {cyan("lk models bind <abstract>")} (interactive)')
+        # Suggest the interactive mode
         if available:
-            print(f'      交互式会列出 {len(available)} 个 opencode model 供选择')
+            print(f'      interactive mode will list {len(available)} opencode models to choose from')
     return 0
 
 

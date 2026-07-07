@@ -1,228 +1,228 @@
-# {Feature 标题} — Test Plan
+# {Feature Title} — Test Plan
 
 - **Spec ID**: {SPEC-ID}
-- **创建日期**: {YYYY-MM-DD}
-- **关联 acceptance**: `.louke/project/specs/{SPEC-ID}/acceptance.md`
-- **关联 interfaces**: `.louke/project/specs/{SPEC-ID}/interfaces.md`（断言依据——见 §6.5）
+- **Created**: {YYYY-MM-DD}
+- **Related acceptance**: `.louke/project/specs/{SPEC-ID}/acceptance.md`
+- **Related interfaces**: `.louke/project/specs/{SPEC-ID}/interfaces.md` (assertion basis — see §6.5)
 
-## 1. 立场与边界
+## 1. Stance and Boundaries
 
-### 1.1. 黑盒声明
+### 1.1. Black-box Statement
 
-本 test plan 仅声明**从系统外部可观测**的测试方法。可观测对象限于:
+This test plan only declares test methods that are **observable from outside the system**. Observable objects are limited to:
 
-- 暴露的外部 API / SDK 接口
-- Web service / CLI 端点
-- UI 入口（测试**观测**行为，不验证渲染）
-- 结构化日志条目
-- 数据存盘文件（JSON/parquet/...）
-- 数据库表
+- Exposed external API / SDK interfaces
+- Web service / CLI endpoints
+- UI entry points (test **observed** behavior, not verify rendering)
+- Structured log entries
+- Persisted data files (JSON/parquet/...)
+- Database tables
 
-### 1.2. 不可观测对象（测试不直接依赖）
+### 1.2. Non-observable Objects (tests do not directly depend on)
 
-- 内部类层次、调度状态机
-- 中间数据结构
-- 实现细节（内部队列、注册表、状态变量）
+- Internal class hierarchies, scheduling state machines
+- Intermediate data structures
+- Implementation details (internal queues, registries, state variables)
 
-> **可观测契约**: 凡 acceptance 验证需要的内部状态，实现层必须提供 dump/log/DB 可观测点。这是 **interfaces.md** 的责任——若某 AC 需观测内部状态，interfaces.md 必须有对应出口（见 §6.5）。
+> **Observable contract**: Any internal state that acceptance validation needs must be provided by the implementation layer via dump/log/DB observation points. This is the responsibility of **interfaces.md** — if an AC needs to observe internal state, interfaces.md must have a corresponding outlet (see §6.5).
 
-### 1.3. 作伪模式（CI 强制拦截）
+### 1.3. Cheating Patterns (CI enforced interception)
 
-| #   | 作伪模式             | 典型表现                                |
-| --- | -------------------- | --------------------------------------- |
-| 1   | 改断言迁就实现       | spec 说"抛异常"，测试改成"返回 False"  |
-| 2   | 用 skip 逃避验证     | `pytest.skip("see e2e")` 但 e2e 永远没写 |
-| 3   | 断言退化             | `assert issubclass(X, Exception)` 替代真正提交并捕获 |
-| 4   | try/except: pass     | 异常路径被吞掉                          |
-| 5   | mock 过度            | mock 掉框架核心，测出来是 mock 的行为   |
-| 6   | ground truth 用 impl | 期望值 = impl 输出                     |
-| 7   | 硬编码期望值         | `assert result == 0.15` 只因当前 impl 输出 0.15 |
-| 8   | trivial pass         | `assert True` / `assert 1 == 1`        |
+| #   | Cheating Pattern                | Typical Symptom                                |
+| --- | -------------------------------- | ---------------------------------------------- |
+| 1   | Change assertions to fit impl    | spec says "throw exception", test changes to "return False" |
+| 2   | Use skip to evade validation     | `pytest.skip("see e2e")` but e2e is never written |
+| 3   | Assertion degradation            | `assert issubclass(X, Exception)` instead of actually submitting and catching |
+| 4   | try/except: pass                 | Exception path is swallowed                     |
+| 5   | Over-mocking                     | Mock the framework core, testing mock behavior instead |
+| 6   | Ground truth uses impl           | Expected value = impl output                   |
+| 7   | Hardcoded expected values        | `assert result == 0.15` only because current impl outputs 0.15 |
+| 8   | Trivial pass                     | `assert True` / `assert 1 == 1`                |
 
-### 1.4. 防护机制（CI 校验 + PR 流程）
+### 1.4. Safeguards (CI checks + PR process)
 
-1. **AC 强制溯源**
-   - 每个测试函数的 docstring/comment 第一行必须含 `AC-FRXXXX-YY`（4 位 FR 编号 + 2 位 AC 编号）
-   - CI 扫描 `tests/`，校验：每个测试至少引用一个 AC；每个 AC 至少被一个测试引用
-   - 任一校验失败阻塞 merge
+1. **AC mandatory tracing**
+   - The first line of each test function's docstring/comment must contain `AC-FRXXXX-YY` (4-digit FR number + 2-digit AC number)
+   - CI scans `tests/`, verifying: each test references at least one AC; each AC is referenced by at least one test
+   - Any check failure blocks merge
 
-2. **断言禁忌**（CI 静态检查，违反阻塞 merge）
-   - 禁止 `assert True` / `assert 1` / `assert <obj> is not None` 单独作为断言
-   - 禁止 `try: ... except: pass` 包裹被测代码
-   - 禁止 `pytest.skip(...)` / `@pytest.mark.skip` 不附带 GitHub issue 链接
+2. **Assertion taboos** (CI static checks, violations block merge)
+   - No `assert True` / `assert 1` / `assert <obj> is not None` as the sole assertion
+   - No `try: ... except: pass` wrapping the code under test
+   - No `pytest.skip(...)` / `@pytest.mark.skip` without a GitHub issue link
 
-3. **测试改动归类**（PR description 必填）
-   - [ ] 新增 AC（关联 acceptance.md commit）
-   - [ ] spec 变更（关联 spec commit）
-   - [ ] 修复 flake / 环境问题（关联 issue）
+3. **Test change classification** (required in PR description)
+   - [ ] New AC (link to acceptance.md commit)
+   - [ ] Spec change (link to spec commit)
+   - [ ] Fix flake / environment issue (link to issue)
 
-   **禁止类别**：「impl 行为与 spec 不一致 → 改测试」。Review 阶段直接 reject。
+   **Prohibited category**: "impl behavior inconsistent with spec → change test". Reject directly during review.
 
-4. **可测试性回退**（若某 AC 测不了）
-   - 不得 mock 内部强行打通
-   - 应作为框架侧的可测试性需求登记，要求实现层补公开装配点
-   - 补齐前，AC 标记为「受阻于可测试性缺口」
+4. **Testability fallback** (if an AC cannot be tested)
+   - Do not mock internals to force it through
+   - Register it as a framework-side testability requirement, requesting the implementation layer to add a public assembly point
+   - Until resolved, mark the AC as "blocked by testability gap"
 
-### 1.5. 测试分工
+### 1.5. Test Division of Labor
 
-- **单元测试 / 集成测试**: 功能的**实施者**编写（与 impl 同步提交）
-- **E2E 测试**: 测试**负责人**或专项测试工程师编写
-- **Ground Truth（§3）**: 由未参与被测实现的**独立开发者**或**第三方库**提供
-- **审查归口**: 所有测试改动由测试负责人 review；Ground Truth 脚本变更需重点审查与对应 AC 的语义一致性
+- **Unit tests / Integration tests**: Written by the **implementer** of the feature (committed alongside impl)
+- **E2E tests**: Written by the **test lead** or dedicated test engineer
+- **Ground Truth (§3)**: Provided by an **independent developer** not involved in the implementation under test, or a **third-party library**
+- **Review ownership**: All test changes are reviewed by the test lead; Ground Truth script changes require focused review of semantic consistency with the corresponding AC
 
 ---
 
-## 2. 测试环境
+## 2. Test Environment
 
-### 2.1. 目录组织（推荐）
+### 2.1. Directory Layout (recommended)
 
 ```
 tests/
-├── unit/          # 单元测试；按源文件目录镜像
-├── e2e/           # 端到端场景测试
-├── assets/        # 离线、可复现测试数据
-└── ground_truth/  # 可选：纯实现/参考实现；不得 import 被测系统（见 §3.2）
+├── unit/          # Unit tests; mirror source file directory structure
+├── e2e/           # End-to-end scenario tests
+├── assets/        # Offline, reproducible test data
+└── ground_truth/  # Optional: pure/reference implementation; must not import the system under test (see §3.2)
 ```
 
-> - 单元测试与 E2E 用不同数据（按时间/场景分开），防止过拟合
-> - E2E **不允许** mock 框架内部实现（若必须 mock，AC 应改写）
-> - E2E **不依赖** 框架私有 API
+> - Unit tests and E2E use different data (separated by time/scenario) to prevent overfitting
+> - E2E **must not** mock internal framework implementation (if mocking is necessary, the AC should be rewritten)
+> - E2E **must not** depend on framework private APIs
 
-### 2.2. 命名约定
+### 2.2. Naming Conventions
 
-- 文件：`test_<场景>__<子场景>.py`
-- 函数：`test_ac_<id>_<子场景>`，例 `test_ac_020_08_empty_directory`
+- File: `test_<scenario>__<subscenario>.py`
+- Function: `test_ac_<id>_<subscenario>`, e.g. `test_ac_020_08_empty_directory`
 
-### 2.3. 执行
+### 2.3. Execution
 
-- **离线运行**：测试不依赖网络（数据已固化）
-- **执行顺序**：unit（快）→ integration → e2e（慢）
-- **CI**：每次 push 跑完整套
-- **隔离**：E2E 用独立 marker（如 `@pytest.mark.e2e`），避免与 unit 混跑
+- **Offline**: Tests do not depend on network (data is pinned)
+- **Execution order**: unit (fast) → integration → e2e (slow)
+- **CI**: Run the full suite on every push
+- **Isolation**: E2E uses a dedicated marker (e.g. `@pytest.mark.e2e`) to avoid mixing with unit tests
 
-### 2.4. 测试数据（项目可选）
+### 2.4. Test Data (project optional)
 
-> **何时需要**: 项目有外部数据依赖（历史数据、第三方 API、硬件输入等）时必填；纯算法/纯内部逻辑可省略。
+> **When needed**: Required when the project has external data dependencies (historical data, third-party APIs, hardware input, etc.); pure algorithm / pure internal logic may omit.
 
-- **来源**: 内置 / 远程 API 拉取 / 合成生成
-- **可复现**: 每次 CI 跑出的结果应一致
-- **小数据入仓**: 建议 `tests/assets/`
-- **敏感数据**: 不得入库，必须 mock 或用合成数据
-- **版本快照**（若适用）: 用 manifest 记录数据版本与生成时间，CI 校验 manifest
-
----
-
-## 3. Ground Truth 方法
-
-> **何时需要**: 项目有"算法正确性 / 规则正确性 / 计算结果正确性"需要验证时（金融计算、规则引擎、解析器、序列化等）必填；纯 CRUD / UI 渲染可省略。
-
-### 3.1. 总则
-
-**不硬编码期望值**。所有 ground truth 由**独立来源**在测试运行时计算:
-
-| 类型                                       | 独立来源                                       |
-| ------------------------------------------ | ---------------------------------------------- |
-| 算法正确（交叉、触发、撮合、约束）         | **手算**: 编写显式的小脚本                     |
-| 评估指标（Sharpe / 胜率 / 年化等）          | **第三方库**（项目选定的指标库）               |
-| 简单规则（是否节假日、是否满足某条件）     | **数据本身**: 测试数据集作为单一真相源         |
-
-> 关键设计: ground truth 是**可重算的脚本**，不是文档化的固定值。测试运行时调用同一份数据 + ground truth 脚本，与框架输出对比。
-
-### 3.2. Ground Truth 隔离（强制规则）
-
-为防止"期望值 = 被测实现的输出"导致的循环验证（§1.3 作伪模式 #6），ground truth 脚本必须满足:
-
-1. **代码位置**: 所有 ground truth 脚本统一存放于 `tests/ground_truth/` 目录（unit/e2e 共享）
-2. **导入禁忌**: `tests/ground_truth/**/*.py` **禁止** `import {project}.*`（含子模块）；CI 静态检查违反则阻塞 merge
-3. **允许依赖**: 仅可使用标准库 + 测试数据文件 + 约定的第三方库（算法参考实现）
-4. **数据访问**: 直接读 `tests/assets/*/fixtures/data/` 中的数据文件，**不**经由被测框架的 SDK
-5. **审查归口**: ground truth 脚本变更需由测试负责人审查；与对应 AC 的语义一致性是审查重点
+- **Source**: Built-in / remote API fetch / synthetic generation
+- **Reproducible**: Each CI run should produce consistent results
+- **Small data in-repo**: Recommend `tests/assets/`
+- **Sensitive data**: Must not be committed; must be mocked or use synthetic data
+- **Version snapshot** (if applicable): Use a manifest to record data version and generation time; CI validates the manifest
 
 ---
 
-## 4. 测试范围
+## 3. Ground Truth Method
 
-本测试计划覆盖同级目录下 spec.md 文档以及它导入的其它同级 spec 文档中，所有『有效需求 / 可测试性 / 是否已决定』均为绿灯的需求。
+> **When needed**: Required when the project has "algorithm correctness / rule correctness / computation result correctness" to verify (financial computation, rule engines, parsers, serialization, etc.); pure CRUD / UI rendering may omit.
 
-| 有效需求 | 可测性 | 是否已决定 |
-| -------- | ------ | ---------- |
-| ✅        | ✅      | ✅          |
+### 3.1. General Principle
+
+**Do not hardcode expected values**. All ground truth is computed by **independent sources** at test runtime:
+
+| Type                                                       | Independent Source                             |
+| ---------------------------------------------------------- | ---------------------------------------------- |
+| Algorithm correctness (intersection, trigger, matching, constraints) | **Manual calculation**: Write explicit small scripts |
+| Evaluation metrics (Sharpe / win rate / annualized, etc.) | **Third-party library** (the project's chosen metrics library) |
+| Simple rules (is it a holiday, does it satisfy a condition) | **The data itself**: Test dataset as the single source of truth |
+
+> Key design: ground truth is a **recomputable script**, not a documented fixed value. At test runtime, the same data + ground truth script is called and compared with the framework output.
+
+### 3.2. Ground Truth Isolation (mandatory rule)
+
+To prevent circular validation where "expected value = output of the implementation under test" (§1.3 cheating pattern #6), ground truth scripts must satisfy:
+
+1. **Code location**: All ground truth scripts are stored in the `tests/ground_truth/` directory (shared by unit/e2e)
+2. **Import taboo**: `tests/ground_truth/**/*.py` **must not** `import {project}.*` (including submodules); CI static check blocks merge on violation
+3. **Allowed dependencies**: Only standard library + test data files + agreed-upon third-party libraries (algorithm reference implementations)
+4. **Data access**: Read data files directly from `tests/assets/*/fixtures/data/`, **not** through the framework's SDK
+5. **Review ownership**: Ground truth script changes must be reviewed by the test lead; semantic consistency with the corresponding AC is the review focus
 
 ---
 
-## 5. 验收标准
+## 4. Test Scope
 
-1. 单元测试覆盖率 ≥95%（具体工具由项目语言决定）
-2. Story 和 Spec 中的用户场景全覆盖且通过
-3. 所有 FR 都有对应测试覆盖（AC 引用闭合）
-4. 如启用 §6 外部依赖分层测试：L1/L2 默认 CI 通过；L3 在对应环境可运行
+This test plan covers all requirements in spec.md in the same directory (and any other sibling spec documents it imports) where Valid / Testable / Decided are all green.
+
+| Valid | Testable | Decided |
+| ----- | -------- | ------- |
+| ✅    | ✅       | ✅      |
 
 ---
 
-## 6. 外部依赖分层测试（项目可选）
+## 5. Acceptance Criteria
 
-> **何时需要**: 项目有外部依赖（数据库、第三方 API、硬件、真实时间、远程服务等）时必填；纯内部逻辑可省略。
+1. Unit test coverage ≥95% (specific tooling depends on project language)
+2. User scenarios in Stories and Spec are fully covered and pass
+3. All FRs have corresponding test coverage (AC reference closure)
+4. If §6 external dependency layered testing is enabled: L1/L2 pass by default in CI; L3 is runnable in the corresponding environment
+
+---
+
+## 6. External Dependency Layered Testing (project optional)
+
+> **When needed**: Required when the project has external dependencies (databases, third-party APIs, hardware, real time, remote services, etc.); pure internal logic may omit.
 >
-> 本节是**§1 黑盒立场的延伸**: 当系统与外部世界交互时，测试如何处理这些外部依赖。
+> This section is an **extension of §1's black-box stance**: when the system interacts with the external world, how tests handle these external dependencies.
 
-### 6.1. 三个不可回避的约束
+### 6.1. Three Unavoidable Constraints
 
-| #   | 约束                          | 后果                                                |
-| --- | ----------------------------- | --------------------------------------------------- |
-| C1  | 测试环境不能连生产依赖        | CI / 跨平台开发机无法跑生产路径                     |
-| C2  | 不能等真实时间                | 跨日 / 跨周的策略周期测试不可承受                   |
-| C3  | 不能 mock 框架内部            | 替换/打补丁会绕过被测行为，违反黑盒立场            |
+| #   | Constraint                                | Consequence                                                |
+| --- | ----------------------------------------- | ----------------------------------------------------------- |
+| C1  | Test environment cannot connect to production dependencies | CI / cross-platform dev machines cannot run production paths |
+| C2  | Cannot wait for real time                 | Cross-day / cross-week strategy cycle tests are infeasible  |
+| C3  | Cannot mock framework internals           | Replacing/patching bypasses the behavior under test, violating the black-box stance |
 
-> 仅靠 §2 的离线数据环境，无法让有外部依赖的路径跑起来——本节即为此而设。
+> §2's offline data environment alone cannot make paths with external dependencies run — this section exists for that purpose.
 
-### 6.2. 立场: 可控化 vs mock
+### 6.2. Stance: Controllable vs Mock
 
-- **替换外部依赖**（可控化）: 墙钟、外部服务、远程 API、硬件——这些是被测框架的**外部依赖**，可替换为确定性替身
-- **不可 mock 内部实现**: 框架自身的撮合、调度、规则——这些是**被测对象**，不得 mock
+- **Replace external dependencies** (controllable): Wall clock, external services, remote APIs, hardware — these are **external dependencies** of the framework under test and can be replaced with deterministic stand-ins
+- **Cannot mock internal implementation**: The framework's own matching, scheduling, rules — these are **the object under test** and must not be mocked
 
-> **边界铁律**: 任何情况下，**不得**为"让测试通过"而替换或绕过框架自身的关键实施。若测试发现必须绕过才能跑通，说明 AC 的可观测性设计有误，应回退修订 interfaces/acceptance，而非在测试侧打补丁。
+> **Boundary iron rule**: Under no circumstances may you replace or bypass the framework's own critical implementation to "make the test pass". If a test finds it must bypass to pass, it means the AC's observability design is wrong; revise interfaces/acceptance instead of patching the test side.
 
-### 6.3. 三层测试金字塔
+### 6.3. Three-Layer Test Pyramid
 
-按真实度/代价/速度分三层。各层覆盖的 AC 互不重叠，由 test marker 严格区分运行时机。
+Divided into three layers by fidelity/cost/speed. The ACs covered by each layer do not overlap; test markers strictly distinguish run timing.
 
-| 层   | 名称             | 时间     | 速度   | 覆盖范围               | 默认运行       |
-| ---- | ---------------- | -------- | ------ | ---------------------- | -------------- |
-| L1   | 确定性仿真       | 虚拟时钟 | 秒级   | 绝大部分业务 AC        | ✅ CI 默认     |
-| L2   | 契约仿真         | 虚拟时钟 | 秒级   | 协议/接口契约 AC       | ✅ CI 默认     |
-| L3   | 真实环境冒烟     | 真实日历 | 真实   | 跨模式运行 / 最小冒烟  | ❌ nightly/手动 |
+| Layer | Name                | Time          | Speed  | Coverage               | Default Run       |
+| ----- | ------------------- | ------------- | ------ | ---------------------- | ----------------- |
+| L1    | Deterministic sim   | Virtual clock | Seconds | Most business ACs     | ✅ CI default     |
+| L2    | Contract sim        | Virtual clock | Seconds | Protocol/interface contract ACs | ✅ CI default |
+| L3    | Real env smoke      | Real calendar | Real   | Cross-mode run / minimal smoke | ❌ nightly/manual |
 
-- **L1 确定性仿真**: 把"时间推进"和"外部数据源"换成确定性替身，跑完数日的业务周期
-- **L2 契约仿真**: 起一个遵守同一协议的替身服务（数据库/网关/外部 API），框架与替身交互
-- **L3 真实环境冒烟**: 真实日历 + 真实依赖，单次往返冒烟（≤1 笔）；默认 deselect，仅在有真实依赖的环境运行
+- **L1 Deterministic sim**: Replace "time advancement" and "external data sources" with deterministic stand-ins, running through several days of business cycles
+- **L2 Contract sim**: Start a stand-in service that follows the same protocol (database/gateway/external API); the framework interacts with the stand-in
+- **L3 Real env smoke**: Real calendar + real dependencies, single round-trip smoke (≤1 transaction); deselected by default, only runs in environments with real dependencies
 
-> 任何 L3 测试**必须**标注对应 marker（替代 §1.4 中的 `pytest.skip`），不得以无 issue 的 skip 逃避 L3。
+> Any L3 test **must** be tagged with the corresponding marker (replacing the `pytest.skip` in §1.4); it must not evade L3 with a skip that has no issue link.
 
-### 6.4. 测试基础设施的职责契约
+### 6.4. Responsibility Contract of Test Infrastructure
 
-> 定义替身组件的**职责 + 外部可观测边界**，供测试工程师实现。**不规定内部实现细节**（具体类名、方法签名由实现层决定）。
+> Defines the **responsibilities + external observable boundaries** of stand-in components, for test engineers to implement. **Does not prescribe internal implementation details** (specific class names, method signatures are determined by the implementation layer).
 
-| 组件         | 职责（对外）                          | 边界（不实现什么）        |
-| ------------ | ------------------------------------- | ------------------------- |
-| 虚拟时钟     | 给定"当前时刻" + 可快进              | 不实现跨日结算逻辑        |
-| 数据回放源   | 按时间推进喂出固化数据                | 不实现业务规则            |
-| 替身服务     | 实现外部协议                          | 不实现被测框架的业务      |
-| 编排器       | 组装替身 + 推进时间                   | 不代框架执行业务          |
+| Component        | Responsibility (external)              | Boundary (what it does not implement) |
+| ---------------- | --------------------------------------- | -------------------------------------- |
+| Virtual clock    | Given "current time" + can fast-forward | Does not implement cross-day settlement logic |
+| Data replay source | Feed pinned data as time advances    | Does not implement business rules      |
+| Stand-in service | Implement external protocol            | Does not implement the framework's business |
+| Orchestrator     | Assemble stand-ins + advance time      | Does not execute business on behalf of the framework |
 
-### 6.5. 断言依据 — 与 interfaces.md 闭合
+### 6.5. Assertion Basis — Closure with interfaces.md
 
-测试断言**只能**落在 **interfaces.md** 已定义的外部可观测出口上:
+Test assertions **may only** land on the external observable outlets defined in **interfaces.md**:
 
-- 数据库表 schema
-- API 响应字段
-- 结构化日志条目
-- 文件 schema
+- Database table schema
+- API response fields
+- Structured log entries
+- File schema
 
-> 若某 AC 需要的状态在 interfaces.md 中**没有**对应可观测出口，这是可观测性缺口，应回退修订 interfaces/acceptance 补齐出口，而**非**在测试中窥探内部状态。
+> If a state needed by an AC has **no** corresponding observable outlet in interfaces.md, this is an observability gap; revise interfaces/acceptance to add the outlet, rather than snooping internal state in the test.
 
 ---
 
-## 7. CI 门禁
+## 7. CI Gate
 
 ```bash
 lk archer ci-scan \
@@ -230,22 +230,22 @@ lk archer ci-scan \
   --tests tests/
 ```
 
-校验项:
-- AC 引用闭合（每个 AC ≥1 测试，每个测试 ≥1 AC）
-- 反模式静态扫描（见 §1.3）
-- 覆盖率 ≥95%
-- §3.2 ground truth 隔离（若启用 ground_truth/）
+Validation items:
+- AC reference closure (each AC ≥1 test, each test ≥1 AC)
+- Anti-pattern static scan (see §1.3)
+- Coverage ≥95%
+- §3.2 ground truth isolation (if ground_truth/ is enabled)
 
 ---
 
-## 8. Judge 评审清单
+## 8. Judge Review Checklist
 
-- [ ] 测试策略覆盖主要风险
-- [ ] 每个 AC 都能反向追踪到测试代码
-- [ ] test-plan 不维护具体测试清单/覆盖矩阵
-- [ ] 反模式 CI 门禁已启用或有明确豁免
-- [ ] 测试数据来源可复现（若有数据依赖）
-- [ ] tests/ 布局已说明（使用推荐布局或说明项目自定义）
-- [ ] §3 Ground Truth 方法已说明（若项目需要）
-- [ ] §6 外部依赖分层测试已说明（若项目有外部依赖）
-- [ ] interfaces.md 与 test-plan 闭合（每个外部出口都有测试覆盖）
+- [ ] Test strategy covers main risks
+- [ ] Each AC can be traced back to test code
+- [ ] test-plan does not maintain specific test lists / coverage matrices
+- [ ] Anti-pattern CI gate is enabled or explicitly exempted
+- [ ] Test data source is reproducible (if there are data dependencies)
+- [ ] tests/ layout is documented (using recommended layout or explaining project customization)
+- [ ] §3 Ground Truth method is documented (if the project needs it)
+- [ ] §6 External dependency layered testing is documented (if the project has external dependencies)
+- [ ] interfaces.md is closed with test-plan (every external outlet has test coverage)

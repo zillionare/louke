@@ -3,7 +3,7 @@
 Usage:
     lk agent <name> <subcommand> [options]   # per-agent commands
     lk agent lint [options]                   # v0.6-009 FR-0040: validate agent frontmatter
-    lk agent set-model <name> <abstract>      # v0.6-006: 改 model + 绑 + probe
+    lk agent set-model <name> <abstract>      # v0.6-006: change model + bind + probe
 
 All agent commands are dispatched through this module.
 `lk agent lint` and `lk agent set-model` are special commands (not agents) for cross-agent operations.
@@ -50,25 +50,26 @@ AGENTS = {
 
 from ._common import git_root
 
-# v0.6-009 FR-0010.5: OpenCode permission 键白名单
-# (Qwen A-003-3 校准: todowrite 不在; external_directory + doom_loop 加入)
+# v0.6-009 FR-0010.5: OpenCode permission key allowlist
+# (Qwen A-003-3 calibration: todowrite not included; external_directory + doom_loop added)
 PERMISSION_KEYS = {
     'read', 'edit', 'glob', 'grep', 'bash', 'task', 'skill', 'lsp',
     'question', 'webfetch', 'websearch', 'external_directory', 'doom_loop',
 }
 
-# v0.6-009 FR-0010: 5 个 agent 必填 permission 块
+# v0.6-009 FR-0010: 5 agents require a permission block
 PERMISSION_REQUIRED = {
     'warden', 'judge', 'archer', 'librarian', 'maestro',
 }
 
 VALID_MODES = {'primary', 'subagent', 'all'}
 
-# v0.6-009 NFR-0050: 单一 primary agent 白名单
+# v0.6-009 NFR-0050: single primary agent allowlist
 SINGLE_PRIMARY = {'maestro'}
 
-# v0.6-009 NFR-0040: 最低 OpenCode 版本 (Qwen A-8.4 校准)
-# 常量定义在 louke/__init__.py MIN_OPENCODE_VERSION, 此处 re-export 方便内部引用
+# v0.6-009 NFR-0040: minimum OpenCode version (Qwen A-8.4 calibration)
+# The constant is defined in louke/__init__.py as MIN_OPENCODE_VERSION;
+# re-exported here for convenient internal reference
 from . import MIN_OPENCODE_VERSION
 
 
@@ -77,31 +78,32 @@ def register(parser):
     sub = parser.add_subparsers(dest='agent_command', required=True, metavar='<command>')
 
     # v0.6-009 FR-0040: lk agent lint
-    p = sub.add_parser('lint', help='校验 source agents/*.md 的 frontmatter 合规')
+    p = sub.add_parser('lint', help='validate frontmatter of source agents/*.md for compliance')
     p.add_argument('--check-opencode-version', action='store_true',
-                   help='同时检查 opencode --version 是否 >= MIN_OPENCODE_VERSION')
+                   help='also check that opencode --version >= MIN_OPENCODE_VERSION')
     p.add_argument('--strict', action='store_true',
-                   help='严格模式: 白名单外字段也报错 (默认仅 warning)')
+                   help='strict mode: error on fields outside the allowlist (default: warning only)')
 
     # v0.6-009: lk agent set-model <name> <abstract>
-    # 临时直接改 .opencode/agents/<name>.md 的 model: 字段, 不持久
+    # Temporarily edits the model: field of .opencode/agents/<name>.md; not persistent
     p = sub.add_parser('set-model',
-                       help='临时改 <name>.md (output) 的 model 字段. 直接生效, '
-                            '下次 lk board opencode 会覆盖. 用于 model 临时不可用 (费用/busy).')
-    p.add_argument('name', help='agent 名字 (e.g. archer)')
-    p.add_argument('model', help='abstract 模型名 (e.g. glm-5.2)')
-    p.add_argument('--no-probe', action='store_true', help='跳过 probe 检查')
-    p.add_argument('--root', help='项目根目录 (默认: 当前 git 仓库)')
-    p.add_argument('--dry-run', action='store_true', help='只打印会做什么, 不实际改')
+                       help='temporarily change the model field of <name>.md (output). Takes effect '
+                            'immediately; the next lk board opencode will overwrite it. Use when a model '
+                            'is temporarily unavailable (cost/busy).')
+    p.add_argument('name', help='agent name (e.g. archer)')
+    p.add_argument('model', help='abstract model name (e.g. glm-5.2)')
+    p.add_argument('--no-probe', action='store_true', help='skip probe check')
+    p.add_argument('--root', help='project root directory (default: current git repo)')
+    p.add_argument('--dry-run', action='store_true', help='only print what would be done; do not modify')
 
     # v0.6-007: lk agent list-models
     p = sub.add_parser('list-models',
-                       help='列出所有 agent 的 models: chain + 当前 resolved')
-    p.add_argument('--root', help='项目根目录 (默认: 当前 git 仓库)')
+                       help='list the models: chain and current resolved value for every agent')
+    p.add_argument('--root', help='project root directory (default: current git repo)')
     p.add_argument('--unbound-only', action='store_true',
-                   help='只显示当前未 resolve 的 agent (即有 unresolved abstract 的)')
+                   help='only show agents that currently fail to resolve (i.e. have an unresolved abstract)')
 
-    # 12 个 agent 子命令
+    # 12 agent subcommands
     for name, module in AGENTS.items():
         if hasattr(module, 'register'):
             module.register(sub)
@@ -122,7 +124,7 @@ def run(args):
 
 
 def agent_source(root: Path) -> Path:
-    """Reuse board.py 的 agent 源目录查找逻辑."""
+    """Reuse board.py's agent source directory lookup logic."""
     for candidate in (root / '.louke/agents', root / 'agents'):
         if candidate.exists():
             return candidate
@@ -131,7 +133,7 @@ def agent_source(root: Path) -> Path:
 
 
 def _check_permission_block(name: str, perm, errors: list[str]) -> None:
-    """v0.6-009 FR-0040 AC-2: permission 内容校验."""
+    """v0.6-009 FR-0040 AC-2: validate permission contents."""
     if not isinstance(perm, dict):
         errors.append(f'{name}: permission must be a YAML dict, got {type(perm).__name__}')
         return
@@ -151,7 +153,7 @@ def _check_permission_block(name: str, perm, errors: list[str]) -> None:
 
 
 def _check_mode_uniqueness(agents_fm: dict, errors: list[str]) -> None:
-    """v0.6-009 NFR-0050: mode: primary 数量 = 1 (白名单 = maestro)."""
+    """v0.6-009 NFR-0050: count of mode: primary must be 1 (allowlist = maestro)."""
     primaries = [n for n, fm in agents_fm.items() if fm.get('mode') == 'primary']
     if len(primaries) != 1:
         errors.append(f'only maestro can be primary; found {len(primaries)} '
@@ -166,15 +168,16 @@ def _check_mode_uniqueness(agents_fm: dict, errors: list[str]) -> None:
 
 
 def _check_subagent_task_deny(agents_fm: dict, warnings: list[str]) -> None:
-    """v0.6.14 (GLM review): 所有 subagent 必须显式 task: deny.
+    """v0.6.14 (GLM review): all subagents must explicitly set task: deny.
 
-    OpenCode 默认 task: allow (未指定 = allow). 如果 subagent 漏 task: deny,
-    M3 等 small 模型会在 task/question 工具间混淆 / 幻觉 "没有 question tool".
+    OpenCode defaults task: allow (unspecified = allow). If a subagent omits
+    task: deny, small models like M3 will get confused between task/question
+    tools / hallucinate "no question tool".
 
     See .louke/review-sage-question-tool.md §6.2.
     """
     for name, fm in agents_fm.items():
-        if name == 'maestro':  # maestro 是 primary, 唯一该有 task: allow
+        if name == 'maestro':  # maestro is the primary, the only one that should have task: allow
             continue
         if fm.get('mode') != 'subagent':
             continue
@@ -183,9 +186,10 @@ def _check_subagent_task_deny(agents_fm: dict, warnings: list[str]) -> None:
             continue
         if perm.get('task') != 'deny':
             warnings.append(
-                f'{name}: subagent 缺 task: deny (OpenCode 默认 task: allow, '
-                f'会允许 subagent 调 task 工具, 违反 "Maestro 是唯一编排者" 设计. '
-                f'加 task: deny 强制 subagent 只能用 question 等直接工具)'
+                f'{name}: subagent missing task: deny (OpenCode defaults task: allow, '
+                f'which would let the subagent call the task tool, violating the '
+                f'"Maestro is the sole orchestrator" design. Add task: deny to force '
+                f'the subagent to use only direct tools such as question)'
             )
 
 
@@ -224,31 +228,31 @@ def cmd_lint(args):
         name = fm.get('name') or fp.stem
         agents_fm[name] = fm
 
-        # FR-0040 AC-2: 5 个 agent 必填 permission
+        # FR-0040 AC-2: 5 agents require a permission block
         if name in PERMISSION_REQUIRED:
             if 'permission' not in fm:
                 errors.append(f'missing permission block for {name}')
                 continue
             _check_permission_block(name, fm['permission'], errors)
 
-        # FR-0040 AC-2: mode 字段必填且合法
+        # FR-0040 AC-2: mode field is required and must be valid
         mode = fm.get('mode')
         if not mode:
             errors.append(f'{name}: missing mode field')
         elif mode not in VALID_MODES:
             errors.append(f'{name}: mode {mode!r} not in {sorted(VALID_MODES)}')
 
-    # NFR-0050: 单一 primary 约束
+    # NFR-0050: single primary constraint
     _check_mode_uniqueness(agents_fm, errors)
 
-    # v0.6.14 GLM review: subagent 必须 task: deny
+    # v0.6.14 GLM review: subagents must have task: deny
     from ._color import yellow
     warnings: list[str] = []
     _check_subagent_task_deny(agents_fm, warnings)
     for w in warnings:
         print(f'  {yellow("⚠")} {w}', flush=True)
 
-    # NFR-0040: OpenCode 版本检查 (optional)
+    # NFR-0040: OpenCode version check (optional)
     if args.check_opencode_version:
         actual = _get_opencode_version()
         if actual is None:
@@ -285,10 +289,10 @@ def _resolve_root(args) -> Path | None:
         root = git_root()
     if root is None:
         print(
-            f'{red("error:")} lk agent set-model 需要 git 仓库 (或显式 --root).',
+            f'{red("error:")} lk agent set-model requires a git repo (or explicit --root).',
             file=sys.stderr,
         )
-        print(f'  {cyan("hint:")} 在 louke 项目根目录 (有 .git/) 跑, 或 --root <path>',
+        print(f'  {cyan("hint:")} run from the louke project root (the one with .git/), or pass --root <path>',
               file=sys.stderr)
         return None
     return Path(root)
@@ -297,16 +301,16 @@ def _resolve_root(args) -> Path | None:
 def cmd_set_model(args):
     """v0.6-009: lk agent set-model <name> <abstract>
 
-    临时改 .opencode/agents/<name>.md 的 model: 字段 (不持久, 直接生效).
+    Temporarily edits the model: field of .opencode/agents/<name>.md (not persistent, takes effect immediately).
 
-    适用: 某个 model 临时不可用 (费用/busy), 切到别的 model 用一次.
-    注意: 下次 lk board opencode 会用 source 重生, 覆盖此修改.
+    Use case: a model is temporarily unavailable (cost/busy); switch to another model for one run.
+    Note: the next `lk board opencode` regenerates from source and overwrites this change.
 
-    流程:
-    1. 找 .opencode/agents/<name>.md (output, 不是 source)
-    2. resolve abstract → real model (alias / interactive bind)
-    3. probe 验证 (v0.6.5 流程)
-    4. regex 替换 output 文件的 model: 行
+    Flow:
+    1. Find .opencode/agents/<name>.md (the output, not the source)
+    2. resolve abstract -> real model (alias / interactive bind)
+    3. probe validation (v0.6.5 flow)
+    4. regex-replace the model: line of the output file
     """
     from ._color import ok, fail, warn, info, cyan, dim, red
     from .models import (
@@ -323,7 +327,7 @@ def cmd_set_model(args):
     else:
         root = git_root()
     if root is None:
-        print(f'{red("error:")} lk agent set-model 需要 git 仓库 (或显式 --root).',
+        print(f'{red("error:")} lk agent set-model requires a git repo (or explicit --root).',
               file=sys.stderr)
         return 1
 
@@ -335,7 +339,7 @@ def cmd_set_model(args):
                       if f.stem.lower() == name.lower()]
         if not candidates:
             print(f'{fail(f"output file not found: {out_file}")}', file=sys.stderr)
-            print(f'  {cyan("hint:")} 先跑 lk board opencode 生成 output',
+            print(f'  {cyan("hint:")} run lk board opencode first to generate the output',
                   file=sys.stderr)
             return 1
         if len(candidates) > 1:
@@ -348,23 +352,23 @@ def cmd_set_model(args):
     # 3. Resolve abstract
     resolved = resolve_model(abstract)
     if not args.dry_run and resolved == abstract:
-        # 未绑 — 交互式
-        print(f'{warn(f"{abstract} 未绑定, 进入交互式...")}')
+        # Unbound -> interactive
+        print(f'{warn(f"{abstract} unbound, entering interactive mode...")}')
         if args.no_probe:
-            print(f'{info("提示: 跑 lk models bind <abstract> <full> 设 alias")}')
+            print(f'{info("hint: run lk models bind <abstract> <full> to set an alias")}')
             return 0
         result = _interactive_bind_one(abstract, False)
         if result != 0:
             return result
         resolved = resolve_model(abstract)
     elif not args.dry_run and not args.no_probe:
-        # 已绑 — probe 验证
+        # Bound -> probe validation
         probed = _probe_or_skip(resolved, False, allow_skip=True)
         if not probed:
-            print(f'{warn(f"{resolved} probe 失败但已绑, 继续 (可能运行时失败)")}')
+            print(f'{warn(f"{resolved} probe failed but already bound, continuing (may fail at runtime)")}')
 
     if args.dry_run:
-        print(f'{info(f"[dry-run] {out_file.name}: model -> {resolved} (临时)")}')
+        print(f'{info(f"[dry-run] {out_file.name}: model -> {resolved} (temporary)")}')
         return 0
 
     # 4. Update output file's model: line (regex replace)
@@ -372,17 +376,17 @@ def cmd_set_model(args):
     pattern = re.compile(r'(^model:\s*)\S+', re.MULTILINE)
     new_text, n = pattern.subn(rf'\g<1>{resolved}', text, count=1)
     if n == 0:
-        # 没 model: 行 (异常). 尝试在 frontmatter 第二行插入
-        print(f'{warn(f"{out_file.name} 无 model: 行, 尝试插入...")}')
+        # No model: line (anomaly). Try to insert on the second frontmatter line.
+        print(f'{warn(f"{out_file.name} has no model: line, attempting to insert...")}')
         new_text = re.sub(r'^(---.*?\n)', rf'\1model: {resolved}\n', text,
                           count=1, flags=re.DOTALL)
     out_file.write_text(new_text, encoding='utf-8')
-    print(f'{ok(f"{out_file.name}: model -> {resolved} (临时, 下次 lk board opencode 会覆盖)")}')
+    print(f'{ok(f"{out_file.name}: model -> {resolved} (temporary; the next lk board opencode will overwrite it)")}')
     return 0
 
 
 def cmd_list_models(args):
-    """v0.6-007: lk agent list-models — 显示每个 agent 的 models: chain + 当前 resolved."""
+    """v0.6-007: lk agent list-models -- show each agent's models: chain and current resolved value."""
     from ._color import cyan, dim, yellow as y, red, green, bold
     from .board import agent_source, parse_frontmatter
     from .models import resolve_model
@@ -394,7 +398,7 @@ def cmd_list_models(args):
     else:
         root = git_root()
     if root is None:
-        print(f'{red("error:")} lk agent list-models 需要 git 仓库 (或显式 --root).',
+        print(f'{red("error:")} lk agent list-models requires a git repo (or explicit --root).',
               file=sys.stderr)
         return 1
 
@@ -403,7 +407,7 @@ def cmd_list_models(args):
         print(f'{red(f"agent source not found: {src}")}', file=sys.stderr)
         return 1
 
-    # 2. 收集每个 agent 的 models: chain
+    # 2. Collect each agent's models: chain
     rows = []  # [(name, models_chain, resolved_or_None)]
     for fp in sorted(src.glob('*.md')):
         if fp.name in {'README.md', 'ROSTER.md'}:
@@ -414,24 +418,24 @@ def cmd_list_models(args):
         models = fm.get('models') or []
         if isinstance(models, str):
             models = [models]
-        # 当前 resolved = chain 中第一个能 resolve 的
+        # Current resolved = the first entry in the chain that resolves
         resolved = None
         for m in models:
             r_real = resolve_model(m)
-            if r_real != m:  # 不等于 abstract (说明 resolve 成功)
+            if r_real != m:  # not equal to the abstract (means resolution succeeded)
                 resolved = r_real
                 break
         rows.append((name, models, resolved))
 
-    # 3. 过滤
+    # 3. Filter
     if getattr(args, 'unbound_only', False):
         rows = [r for r in rows if r[2] is None]
 
     if not rows:
-        print(f'{green("✓")} 所有 agent 都已 resolve')
+        print(f'{green("✓")} all agents are resolved')
         return 0
 
-    # 4. 输出表格
+    # 4. Print the table
     name_w = max(len(r[0]) for r in rows)
     print(f'{bold("agent")}      | {bold("models: chain")}'
           f'{" " * max(0, 30 - 12)} | {bold("current resolved")}')
@@ -443,6 +447,6 @@ def cmd_list_models(args):
         if resolved:
             res_str = f'{cyan(resolved)}'
         else:
-            res_str = f'{y("(未绑)")} ← 跑 lk models bind'
+            res_str = f'{y("(unbound)")} <- run lk models bind'
         print(f'{name:<{name_w}} | {chain:<32} | {res_str}')
     return 0

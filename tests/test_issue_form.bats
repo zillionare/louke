@@ -1,14 +1,14 @@
 #!/usr/bin/env bats
-# 测试 .github/ISSUE_TEMPLATE/feature.yml 和 louke/_tools/verify_issue_schema.py
+# Tests .github/ISSUE_TEMPLATE/feature.yml and louke/_tools/verify_issue_schema.py
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 FORM="$REPO_ROOT/.github/ISSUE_TEMPLATE/feature.yml"
 SCRIPT="$REPO_ROOT/louke/_tools/verify_issue_schema.py"
 
-# ---------- 公共 helper: 生成 acceptance.md fixture ----------
+# ---------- Shared helper: generate acceptance.md fixture ----------
 
 make_acceptance_fixture() {
-    # $1 = 路径, $2..$N = FR 列表, 如 "0001" "002"
+    # $1 = path, $2..$N = FR list, e.g. "0001" "0002"
     local path="$1"; shift
     {
         echo "# Demo acceptance"
@@ -19,15 +19,15 @@ make_acceptance_fixture() {
             echo "## FR-${n}"
             echo
             echo "### AC-1"
-            echo "- 条件 1"
+            echo "- Condition 1"
             echo
             echo "### AC-2"
-            echo "- 条件 2"
+            echo "- Condition 2"
         done
     } > "$path"
 }
 
-# ---------- Issue Form 存在性和基本结构 ----------
+# ---------- Issue Form existence and basic structure ----------
 
 @test "FORM-001: feature_yml_exists" {
     [ -f "$FORM" ]
@@ -49,8 +49,8 @@ make_acceptance_fixture() {
 }
 
 @test "FORM-005: feature_yml_contains_3_required_fields" {
-    # 需求 ID / Spec 链接 / 验收标准
-    for field in "需求 ID" "Spec 链接" "验收标准"; do
+    # Requirement ID / Spec Link / Acceptance Criteria
+    for field in "Requirement ID" "Spec Link" "Acceptance Criteria"; do
         run grep -q "label: $field" "$FORM"
         [ "$status" -eq 0 ] || { echo "Missing form field: $field" >&2; false; }
     done
@@ -62,14 +62,14 @@ make_acceptance_fixture() {
 }
 
 @test "FORM-007: spec_url_field_regex_github_spec_md_fr_anchor" {
-    # Spec 链接字段的 regex 中, 同时含 spec.md (含多分册 spec-{name}.md) 和 (fr|nfr)-
+    # Spec URL field regex must include spec.md (with multi-volume spec-{name}.md) and (fr|nfr)-
     run python3 -c "
 import yaml, sys
 y = yaml.safe_load(open('$FORM'))
 for f in y['body']:
     if f.get('id') == 'spec_url':
         r = f['validations']['regex']
-        # 支持单文件 spec.md 与多分册 spec(-\w+)?\.md
+        # Support single-file spec.md and multi-volume spec(-\w+)?\.md
         assert 'spec(-\\\\w+)?\\\\.md' in r or 'spec(-\\w+)?\\.md' in r, f'spec(-\\w+)?\\.md missing in {r}'
         assert 'fr|nfr' in r, f'fr|nfr missing in {r}'
         assert r.endswith(r'-\d{4}\$'), f'd4 anchor missing in {r}'
@@ -80,7 +80,7 @@ sys.exit(1)
 }
 
 @test "FORM-008: acceptance_field_input_with_acceptance_md_anchor" {
-    # 验收标准字段必须是 input(不是 textarea), regex 含 acceptance.md + ac-(fr|nfr)-
+    # Acceptance field must be input (not textarea), regex includes acceptance.md + ac-(fr|nfr)-
     run python3 -c "
 import yaml, sys
 y = yaml.safe_load(open('$FORM'))
@@ -94,7 +94,7 @@ for f in y['body']:
 sys.exit(1)
 "
     [ "$status" -eq 0 ]
-    # 关键: 不应再含 "AC-N: " 占位符(老 schema)
+    # Key: must not contain "AC-N: " placeholder (old schema)
     run grep -F "AC-N: " "$FORM"
     [ "$status" -ne 0 ]
 }
@@ -104,7 +104,7 @@ sys.exit(1)
     [ "$status" -eq 0 ]
 }
 
-# ---------- 验证器脚本存在性和语法 ----------
+# ---------- Validator script existence and syntax ----------
 
 @test "VERIFY-001: verify_issue_schema_py_exists" {
     [ -f "$SCRIPT" ]
@@ -131,10 +131,10 @@ sys.exit(1)
     [[ "$output" == *"--acceptance-file"* ]]
 }
 
-# ---------- 验证器离线模式: 正常路径 ----------
+# ---------- Validator offline mode: happy path ----------
 
 @test "VERIFY-100: offline_all_compliant_issues_pass" {
-    # 用一个最小 spec fixture(只含 FR-0001),避免 L8 双向覆盖干扰
+    # Use minimal spec fixture (only FR-0001) to avoid L8 bidirectional coverage interference
     SPEC_FIX="$BATS_TEST_TMPDIR/min_spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min Spec
@@ -148,8 +148,8 @@ EOF
 [
   {
     "number": 42,
-    "title": "[FR-0001] 用户登录",
-    "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n",
+    "title": "[FR-0001] User Login",
+    "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n",
     "state": "open"
   }
 ]
@@ -159,12 +159,12 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
-# ---------- 验证器离线模式: 异常路径 ----------
+# ---------- Validator offline mode: error paths ----------
 
-# 公共 acceptance fixture (含 fr-0001 和 fr-0005),供异常测试复用避免 L7 干扰
+# Shared acceptance fixture (contains fr-0001 and fr-0005) for error-path tests to reuse, avoiding L7 interference
 setup_acc_with_001_005() {
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
     make_acceptance_fixture "$ACC_FIX" "0001" "0005"
@@ -176,7 +176,7 @@ setup_acc_with_001_005() {
     FIXTURE="$BATS_TEST_TMPDIR/bad_title.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "FR-1 用户登录 (无方括号)", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 1, "title": "FR-1 User Login (no brackets)", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -192,7 +192,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/missing_url.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 2, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 2, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -208,7 +208,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/upper_fragment.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 3, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#FR-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 3, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#FR-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -224,7 +224,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/missing_ac.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 4, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n", "state": "open"}
+  {"number": 4, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -240,7 +240,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/old_ac_text.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 5, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### 验收标准\nAC-1: x\nAC-2: y\n", "state": "open"}
+  {"number": 5, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### Acceptance Criteria\nAC-1: x\nAC-2: y\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -252,12 +252,12 @@ EOF
 }
 
 @test "VERIFY-206: ac_anchor_missing_in_acceptance_md_L7" {
-    # 验收标准 URL 引用了 ac-fr-9999 但 acceptance.md 中没有该锚点
+    # Acceptance URL references ac-fr-9999 but acceptance.md has no such anchor
     setup_acc_with_001_005
     FIXTURE="$BATS_TEST_TMPDIR/bad_ac_anchor.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 6, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-9999\n", "state": "open"}
+  {"number": 6, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/0001-test/acceptance.md#ac-fr-9999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -270,15 +270,15 @@ EOF
 }
 
 @test "VERIFY-207: fr_999_anchor_not_in_spec_L5" {
-    # 用同一份真实 spec.md,但 issue 引用 fr-9999(不存在)
+    # Use the real spec.md, but issue references fr-9999 (non-existent)
     setup_acc_with_001_005
-    # 准备一份 acceptance.md,含 ac-fr-9999 但 L5 仍要失败
+    # Prepare acceptance.md with ac-fr-9999, but L5 must still fail
     ACC_FULL="$BATS_TEST_TMPDIR/acc_full.md"
     make_acceptance_fixture "$ACC_FULL" "0001" "0005" "9999"
     FIXTURE="$BATS_TEST_TMPDIR/bad_anchor.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 6, "title": "[FR-9999] x", "body": "### 需求 ID\nFR-9999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-9999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-9999\n", "state": "open"}
+  {"number": 6, "title": "[FR-9999] x", "body": "### Requirement ID\nFR-9999\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-9999\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-9999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -289,12 +289,12 @@ EOF
     [[ "$output" == *"L5"* ]]
 }
 
-# ---------- 验证器在 spec 实例上跑通 ----------
+# ---------- Validator on real spec instance ----------
 
 @test "VERIFY-300: v0_1_001_spec_md_contains_5_a_id_anchors" {
-    # v0.6+ 修订: 实际 spec (v0.1-001-louke) 现含 5 个 FR 锚点 (FR-0001..FR-0005)
-    # 原测试假定 11 个但 spec 已在 v0.5+ 阶段多次重写, 锚点数量变化是预期的。
-    # 锚点本身的存在性是核心契约 (而不是具体数字), 数字作为 sanity check 保留。
+    # v0.6+ revision: the actual spec (v0.1-001-louke) now contains 5 FR anchors (FR-0001..FR-0005)
+    # Original test assumed 11 but spec has been rewritten multiple times in v0.5+ phase, anchor count changes are expected.
+    # The existence of anchors themselves is the core contract (not the specific number), the number is kept as sanity check.
     run grep -cE '<a id="fr-[0-9]+"></a>' "$REPO_ROOT/.louke/project/specs/v0.1-001-louke/spec.md"
     [ "$status" -eq 0 ]
     [ "$output" -eq 5 ]
@@ -311,7 +311,7 @@ for i in range(1, 6):
     issues.append({
         'number': 100 + i,
         'title': f'[FR-{i:04d}] test',
-        'body': f'### 需求 ID\nFR-{i:04d}\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-{i:04d}\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-{i:04d}\n',
+        'body': f'### Requirement ID\nFR-{i:04d}\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/spec.md#fr-{i:04d}\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.1-001-louke/acceptance.md#ac-fr-{i:04d}\n',
         'state': 'open',
     })
 print(json.dumps(issues, ensure_ascii=False))
@@ -321,19 +321,19 @@ print(json.dumps(issues, ensure_ascii=False))
         --acceptance-file "$SPEC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
-    [[ "$output" == *"5 个"* ]]
+    [[ "$output" == *"[PASS]"* ]]
+    [[ "$output" == *"5 PASS"* ]]
 }
 
-# ---------- 多分册 spec (issue #69 场景) ----------
+# ---------- Multi-volume spec (issue #69 scenario) ----------
 
 @test "VERIFY-400: multi_volume_spec_offline_pass" {
-    # 模拟 millionaire 项目: spec_id=v0.2-001, 文件名 spec-strategy.md
+    # Simulate millionaire project: spec_id=v0.2-001, filename spec-strategy.md
     SPEC_FIX="$BATS_TEST_TMPDIR/multi_spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Strategy Spec
 <a id="fr-0010"></a>
-**FR-0010**: 策略一
+**FR-0010**: Strategy One
 EOF
     ACC_FIX="$BATS_TEST_TMPDIR/multi_acc.md"
     make_acceptance_fixture "$ACC_FIX" "0010"
@@ -342,8 +342,8 @@ EOF
 [
   {
     "number": 7,
-    "title": "[FR-0010] 策略一",
-    "body": "### 需求 ID\nFR-0010\n\n### Spec 链接\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.louke/project/v0.2-001-strategy-framework/spec-strategy.md#fr-0010\n\n### 验收标准\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.louke/project/v0.2-001-strategy-framework/acceptance.md#ac-fr-0010\n",
+    "title": "[FR-0010] Strategy One",
+    "body": "### Requirement ID\nFR-0010\n\n### Spec Link\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.louke/project/v0.2-001-strategy-framework/spec-strategy.md#fr-0010\n\n### Acceptance Criteria\nhttps://github.com/zillionare/millionaire/blob/release/v0.2/.louke/project/v0.2-001-strategy-framework/acceptance.md#ac-fr-0010\n",
     "state": "open"
   }
 ]
@@ -353,11 +353,11 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
 @test "VERIFY-401: multi_volume_filename_without_vol_suffix_allowed" {
-    # spec.md (无 -vol) 走 /specs/{id}/ 路径 (spec 004+ 默认)
+    # spec.md (no -vol suffix) uses /specs/{id}/ path (spec 004+ default)
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # spec
@@ -369,7 +369,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -377,11 +377,11 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
 @test "VERIFY-402: specs_path_and_bare_id_path_both_allowed" {
-    # /specs/{id}/ (spec 004+) 与 /{id}/ (millionaire 等) 都要支持
+    # Both /specs/{id}/ (spec 004+) and /{id}/ (millionaire etc.) must be supported
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # x
@@ -393,7 +393,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.louke/project/v0.2-001/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.louke/project/v0.2-001/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/x/y/blob/main/.louke/project/v0.2-001/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/x/y/blob/main/.louke/project/v0.2-001/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -401,7 +401,7 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
 @test "VERIFY-403: L3_rejects_non_spec_md_filename" {
@@ -416,7 +416,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/bad_filename.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/requirements.md#fr-0001\n\n### 验收标准\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/requirements.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/x/y/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -427,10 +427,10 @@ EOF
     [[ "$output" == *"L3"* ]]
 }
 
-# ---------- v0.5-006: L7 三模式 (无 / spec-fragment / acceptance URL) ----------
+# ---------- v0.5-006: L7 three modes (None / spec-fragment / acceptance URL) ----------
 
-# 公共 helper: 生成含 No Acceptance 列表的 acceptance.md
-# 接受 3 位数字 (如 "0050"),输出 FR-0050 (3 位零填充, 与 RE_FR_ID 一致)
+# Shared helper: generate acceptance.md with No Acceptance list
+# Accepts 3-digit numbers (e.g. "0050"), outputs FR-0050 (3-digit zero-padded, consistent with RE_FR_ID)
 make_acceptance_with_no_acc() {
     local path="$1"; shift
     {
@@ -442,33 +442,33 @@ make_acceptance_with_no_acc() {
             echo "## FR-${n}"
             echo
             echo "### AC-1"
-            echo "- 条件 1"
+            echo "- Condition 1"
         done
         echo
         echo "## No Acceptance"
         echo
-        echo "以下 FR 无专属 acceptance (AC 在 test-plan 中描述):"
+        echo "The following FRs have no dedicated acceptance (AC described in test-plan):"
         echo
         for n in "$@"; do
-            echo "- FR-${n} (no AC, ground truth 覆盖)"
+            echo "- FR-${n} (no AC, ground truth covered)"
         done
     } > "$path"
 }
 
 @test "VERIFY-500: L7_form_c_none_in_no_acceptance_list_pass" {
-    # acceptance.md 含 FR-0001 的 ac 锚 + No Acceptance 列表含 FR-0050/060
+    # acceptance.md has ac anchor for FR-0001 + No Acceptance list containing FR-0050/060
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
 <a id="fr-0050"></a>
-**FR-0050**: 撮合 ground truth
+**FR-0050**: Matching ground truth
 EOF
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
     make_acceptance_with_no_acc "$ACC_FIX" "0050"
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0050] 撮合", "body": "### 需求 ID\nFR-0050\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0050\n\n### 验收标准\n无\n", "state": "open"}
+  {"number": 1, "title": "[FR-0050] Matching", "body": "### Requirement ID\nFR-0050\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0050\n\n### Acceptance Criteria\nNone\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -476,7 +476,7 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
 @test "VERIFY-501: L7_form_c_none_not_in_no_acceptance_list_fail" {
@@ -486,13 +486,13 @@ EOF
 <a id="fr-0001"></a>
 **FR-0001**: x
 EOF
-    # No Acceptance 列表里只有 FR-0050, 不含 FR-0001
+    # No Acceptance list only has FR-0050, not FR-0001
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
     make_acceptance_with_no_acc "$ACC_FIX" "0050"
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### 验收标准\n无\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### Acceptance Criteria\nNone\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -512,13 +512,13 @@ EOF
 <a id="fr-0001"></a>
 **FR-0001**: x
 EOF
-    # 走默认的 make_acceptance_fixture, 没有 No Acceptance 节
+    # Use default make_acceptance_fixture, no No Acceptance section
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
     make_acceptance_fixture "$ACC_FIX" "0001"
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### 验收标准\n无\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### Acceptance Criteria\nNone\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -536,17 +536,17 @@ EOF
 # Min
 <a id="fr-0185"></a>
 
-### FR-0185 加权均价经典方案 A
+### FR-0185 Weighted Average Classic Scheme A
 
-公式 F-CB-1: ...
+Formula F-CB-1: ...
 EOF
-    # spec-fragment 不需要 acceptance.md 提供 ac-fr-0185 锚
+    # spec-fragment does not need acceptance.md to provide ac-fr-0185 anchor
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
-    echo "# 无 acceptance" > "$ACC_FIX"
+    echo "# No acceptance" > "$ACC_FIX"
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0185] 加权均价", "body": "### 需求 ID\nFR-0185\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0185\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0185\n", "state": "open"}
+  {"number": 1, "title": "[FR-0185] Weighted Average", "body": "### Requirement ID\nFR-0185\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0185\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0185\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -554,7 +554,7 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
 @test "VERIFY-504: L7_form_b_spec_fragment_anchor_missing_fail" {
@@ -565,11 +565,11 @@ EOF
 **FR-0001**: x
 EOF
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
-    echo "# 无" > "$ACC_FIX"
+    echo "# None" > "$ACC_FIX"
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-9999] 不存在", "body": "### 需求 ID\nFR-9999\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-9999\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-9999\n", "state": "open"}
+  {"number": 1, "title": "[FR-9999] Non-existent", "body": "### Requirement ID\nFR-9999\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-9999\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-9999\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -577,25 +577,25 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
-    # L5 在前面会先 fail (因为 spec_url 也引用了 fr-9999, 锚点不存在)
+    # L5 fails first (because spec_url also references fr-9999, anchor doesn't exist)
     [[ "$output" == *"L5"* || "$output" == *"L7"* ]]
     [[ "$output" == *"fr-9999"* ]]
 }
 
 @test "VERIFY-505: L7_form_b_spec_fragment_no_FR_in_context_fail" {
-    # 锚点存在但上下文不含 FR-XXX (锚点误复用)
+    # Anchor exists but context doesn't contain FR-XXX (anchor misuse)
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
 <a id="fr-0001"></a>
-# 这是锚点 fr-0001 但周围是别的东西
+# This is anchor fr-0001 but surrounded by other content
 EOF
     ACC_FIX="$BATS_TEST_TMPDIR/acc.md"
-    echo "# 无" > "$ACC_FIX"
+    echo "# None" > "$ACC_FIX"
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -603,13 +603,13 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
-    # L6 (来自 spec_url 检查) 也会 fail, 选其一
+    # L6 (from spec_url check) also fails, either is acceptable
     [[ "$output" == *"L6"* || "$output" == *"L7"* ]]
     [[ "$output" == *"FR-0001"* ]]
 }
 
 @test "VERIFY-506: L7_form_a_old_url_still_works_backcompat" {
-    # 用现有 VERIFY-100 的同等 fixture, 确认 acceptance.md#ac-fr-XXX 形式仍 pass
+    # Use same fixture as VERIFY-100, confirm acceptance.md#ac-fr-XXX form still passes
     SPEC_FIX="$BATS_TEST_TMPDIR/spec.md"
     cat > "$SPEC_FIX" <<'EOF'
 # Min
@@ -621,7 +621,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### 验收标准\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-0001\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/acceptance.md#ac-fr-0001\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -629,7 +629,7 @@ EOF
         --acceptance-file "$ACC_FIX" \
         --issues-json "$FIXTURE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[通过]"* ]]
+    [[ "$output" == *"[PASS]"* ]]
 }
 
 @test "VERIFY-507: L7_field_other_text_not_three_valid_forms_fail" {
@@ -644,7 +644,7 @@ EOF
     FIXTURE="$BATS_TEST_TMPDIR/issue.json"
     cat > "$FIXTURE" <<'EOF'
 [
-  {"number": 1, "title": "[FR-0001] x", "body": "### 需求 ID\nFR-0001\n\n### Spec 链接\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### 验收标准\n随便写点啥\n", "state": "open"}
+  {"number": 1, "title": "[FR-0001] x", "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.4-004/spec.md#fr-0001\n\n### Acceptance Criteria\nsome random text\n", "state": "open"}
 ]
 EOF
     run python3 "$SCRIPT" --offline \
@@ -653,10 +653,10 @@ EOF
         --issues-json "$FIXTURE"
     [ "$status" -ne 0 ]
     [[ "$output" == *"L7"* ]]
-    [[ "$output" == *"三种"* ]]  # 提示用户有三种合法形式
+    [[ "$output" == *"expected one of"* ]]  # Hint: three valid forms
 }
 
-# ---------- v0.5-006: form 模板 regex 接受三种形式 ----------
+# ---------- v0.5-006: form template regex accepts three forms ----------
 
 @test "FORM-010: acceptance_field_regex_accepts_three_forms" {
     run python3 -c "
@@ -665,15 +665,15 @@ y = yaml.safe_load(open('$FORM'))
 for f in y['body']:
     if f.get('id') == 'acceptance_criteria':
         r = f['validations']['regex']
-        # 必须包含三种形式的特征
-        assert '无' in r, f'无 missing in regex: {r}'
+        # Must include all three form signatures
+        assert 'None' in r, f'None missing in regex: {r}'
         assert 'spec(-\\\\w+)?\\\\.md' in r or 'spec(-\\w+)?\\.md' in r, f'spec-fragment form missing in {r}'
         assert 'acceptance\\\\.md' in r or 'acceptance.md' in r, f'acceptance-fragment form missing in {r}'
-        # 字段 description 应该说明三种形式
+        # Field description should explain all three forms
         desc = f['attributes']['description']
-        assert 'acceptance.md#ac-fr-XXXX' in desc or 'ac-fr-XXXX' in desc or 'ac-fr-0001' in desc, f'description missing acceptance URL 示例'
-        assert 'spec' in desc and ('fr-XXXX' in desc or 'fr-0001' in desc), f'description missing spec-fragment 说明'
-        assert '无' in desc, f'description missing \"无\" 模式说明'
+        assert 'acceptance.md#ac-fr-XXXX' in desc or 'ac-fr-XXXX' in desc or 'ac-fr-0001' in desc, f'description missing acceptance URL example'
+        assert 'spec' in desc and ('fr-XXXX' in desc or 'fr-0001' in desc), f'description missing spec-fragment explanation'
+        assert 'None' in desc, f'description missing "None" mode explanation'
         sys.exit(0)
 sys.exit(1)
 "

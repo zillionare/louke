@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-给 agents/*.md 加 YAML frontmatter, 使 VS Code 能识别为 custom agent.
-幂等: 已有 frontmatter 的文件跳过.
+Add YAML frontmatter to agents/*.md so VS Code recognizes them as custom agents.
+Idempotent: files that already have frontmatter are skipped.
 """
 import re
 from pathlib import Path
 
 AGENTS_DIR = Path(__file__).parent.parent / "agents"
 DESCRIPTIONS = {
-    "Scout": "项目奠基 — 执行 §2.1 初始化流程",
-    "Sage": "需求澄清与 spec 撰写 — 把 story 翻译为可追踪的 spec",
-    "Lex": "spec 审查与 issue 组织者",
-    "Archer": "测试计划 + 架构 — 设计 test-plan / architecture / interfaces",
-    "Maestro": "Pipeline 编排者 — 管理开发工作流",
-    "Devon": "编码实施 — 按 spec 实现功能（R-G-R）",
-    "Prism": "多视角 — 同时考虑用户、安全、性能、可维护性等维度",
-    "Keeper": "质量门禁 — commit 格式 + 测试 + lint gate",
-    "Shield": "e2e 测试编写 — 按 test-plan 写 e2e（B 级）",
-    "Judge": "S 级安全审计 — 深度审查敏感信息泄露风险",
-    "Warden": "审核人 — 检查 foundation 是否达标并同意推进",
-    "Librarian": "知识库 — 管理 wiki、决策记录和项目记忆",
+    "Scout": "Project foundation — runs the §2.1 initialization flow",
+    "Sage": "Requirement clarification and spec authoring — translates story into traceable spec",
+    "Lex": "Spec review and issue organizer",
+    "Archer": "Test plan + architecture — designs test-plan / architecture / interfaces",
+    "Maestro": "Pipeline orchestrator — manages the development workflow",
+    "Devon": "Coding implementation — implements features per spec (R-G-R)",
+    "Prism": "Multi-perspective — considers user, security, performance, maintainability dimensions",
+    "Keeper": "Quality gate — commit format + tests + lint gate",
+    "Shield": "e2e test authoring — writes e2e tests per test-plan (B-tier)",
+    "Judge": "S-tier security audit — deep review of sensitive information leakage risks",
+    "Warden": "Reviewer — checks whether the foundation meets the bar and approves moving forward",
+    "Librarian": "Knowledge base — manages wiki, decision records and project memory",
 }
 
 for md_file in sorted(AGENTS_DIR.glob("*.md")):
@@ -28,7 +28,7 @@ for md_file in sorted(AGENTS_DIR.glob("*.md")):
 
     # Skip if already has frontmatter
     if text.startswith("---\n"):
-        print(f"  ⏭️  {md_file.name} (已有 frontmatter)")
+        print(f"  ⏭️  {md_file.name} (already has frontmatter)")
         continue
 
     desc = DESCRIPTIONS.get(name, name)
@@ -37,4 +37,4 @@ for md_file in sorted(AGENTS_DIR.glob("*.md")):
     md_file.write_text(frontmatter + text, encoding="utf-8")
     print(f"  ✅ {md_file.name} ({desc})")
 
-print(f"\n完成: {len(list(AGENTS_DIR.glob('*.md')))} 个文件处理")
+print(f"\nDone: {len(list(AGENTS_DIR.glob('*.md')))} files processed")

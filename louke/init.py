@@ -21,7 +21,7 @@ def register(parser):
 
 
 def _add_arguments(parser):
-    parser.add_argument('target', help='新项目名或既存项目路径')
+    parser.add_argument('target', help='new project name or existing project path')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--backup', action='store_true')
     parser.add_argument('--force', action='store_true')
@@ -32,8 +32,8 @@ def _add_arguments(parser):
     parser.add_argument('--no-issue-template', action='store_true')
     parser.add_argument('--no-default-agent', action='store_true')
     parser.add_argument('--force-default-agent', action='store_true')
-    parser.add_argument('--no-cron', action='store_true', help='跳过安装每日 wiki 蒸馏 cron')
-    parser.add_argument('--cron-time', default='0 4', help='cron 触发时间 (默认 "0 4" = 每日 04:00)')
+    parser.add_argument('--no-cron', action='store_true', help='skip installing the daily wiki distillation cron')
+    parser.add_argument('--cron-time', default='0 4', help='cron trigger time (default "0 4" = daily at 04:00)')
     parser.add_argument('--json', action='store_true')
     parser.set_defaults(command='run')
 
@@ -133,13 +133,13 @@ def _write_default_agent(root: Path, args, report: dict[str, list[str]]) -> int:
 
 
 def _install_cron(root: Path, cron_time: str, report: dict[str, list[str]]) -> int:
-    """幂等安装每日 wiki 蒸馏 cron 到当前用户的 crontab.
+    """Idempotently install the daily wiki distillation cron into the current user's crontab.
 
-    标记注释: # louke:wiki-distill:<absolute-project-path>
-    已存在则跳过 (跳过前报告)。
+    Marker comment: # louke:wiki-distill:<absolute-project-path>
+    Skipped (and reported) if it already exists.
     """
     if sys.platform == 'win32':
-        print('cron 安装不支持 Windows (请用 WSL 或手动任务计划)', file=sys.stderr)
+        print('cron install is not supported on Windows (use WSL or a manual scheduled task)', file=sys.stderr)
         return 0
 
     project_path = str(root.resolve())
@@ -150,13 +150,13 @@ def _install_cron(root: Path, cron_time: str, report: dict[str, list[str]]) -> i
             ['crontab', '-l'], capture_output=True, text=True, check=False
         )
     except FileNotFoundError:
-        print('crontab 命令不可用 (cron 未安装?)', file=sys.stderr)
+        print('crontab command unavailable (cron not installed?)', file=sys.stderr)
         return 0
 
     existing_text = existing.stdout if existing.returncode == 0 else ''
 
     if marker in existing_text:
-        report['skipped'].append(f'crontab: {marker} (已存在)')
+        report['skipped'].append(f'crontab: {marker} (already exists)')
         return 0
 
     lk_path = shutil.which('lk') or sys.argv[0] or 'lk'
@@ -174,7 +174,7 @@ def _install_cron(root: Path, cron_time: str, report: dict[str, list[str]]) -> i
         ['crontab', '-'], input=new_text, capture_output=True, text=True, check=False
     )
     if proc.returncode != 0:
-        print(f'crontab 安装失败: {proc.stderr}', file=sys.stderr)
+        print(f'crontab install failed: {proc.stderr}', file=sys.stderr)
         return 1
 
     report['added'].append(f'crontab: {cron_line}')

@@ -13,8 +13,8 @@ setup() {
     git config user.name "bot"
 }
 
-@test "FR-0100 AC-2: Scout.md contains Step 5 install pre-commit hook" {
-    run grep -q "Step 5: 安装 pre-commit hook" "$REPO_ROOT/louke/agents/Scout.md"
+@test "FR-0100 AC-2: Scout.md contains Step 4 install pre-commit hook" {
+    run grep -qE "Step 4.*install-precommit" "$REPO_ROOT/louke/agents/Scout.md"
     [ "$status" -eq 0 ]
 }
 

@@ -1,31 +1,31 @@
 #!/usr/bin/env bats
-# Sage / Lex 在 spec 004 之后改为 IDE-based quote dialogue 流程
-# (取代旧 PR-based review)。仅保留与当前流程 + 新架构相关的断言。
+# Sage / Lex switched to IDE-based inline discussion flow after spec 004
+# (replaces old PR-based review). Only assertions related to the current flow + new architecture are kept.
 
-AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
+AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
-# ---------- 新架构:issue form + schema 验证器 ----------
+# ---------- New architecture: issue form + schema validator ----------
 
 @test "SAGE-FORM-001: sage_knows_issue_form_path" {
     run grep -q "ISSUE_TEMPLATE" "$AGENTS_DIR/Sage.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Sage.md 不引用 .github/ISSUE_TEMPLATE"
+        echo "FAIL: Sage.md does not reference .github/ISSUE_TEMPLATE"
         false
     }
 }
 
 @test "SAGE-FORM-002: sage_uses_form_fields_to_construct_body" {
-    for field in "需求 ID" "Spec 链接" "验收标准"; do
+    for field in "Requirement ID" "Spec Link" "Acceptance Criteria"; do
         run grep -q "$field" "$AGENTS_DIR/Sage.md"
-        [ "$status" -eq 0 ] || { echo "FAIL: Sage.md 缺字段 $field" >&2; false; }
+        [ "$status" -eq 0 ] || { echo "FAIL: Sage.md missing field $field" >&2; false; }
     done
 }
 
 @test "SAGE-FORM-003: sage_uses_lowercase_fr_XXX_anchor" {
-    # 用 fr-NNN 字面占位符即可, 不再要求精确的 \d{3} 写法
+    # A literal fr-NNN placeholder is sufficient; no longer requires exact \d{3} format
     run grep -qE "fr-[0-9]{3}" "$AGENTS_DIR/Sage.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Sage.md 未使用小写 fr-NNN 锚点"
+        echo "FAIL: Sage.md does not use lowercase fr-NNN anchor"
         false
     }
 }
@@ -33,7 +33,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 @test "LEX-SCHEMA-001: lex_runs_verify_issue_schema_py" {
     run grep -q "verify_issue_schema.py" "$AGENTS_DIR/Lex.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Lex.md 未引用 verify_issue_schema.py"
+        echo "FAIL: Lex.md does not reference verify_issue_schema.py"
         false
     }
 }
@@ -41,7 +41,7 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
 @test "LEX-SCHEMA-002: lex_lists_L1_to_L8_validation_items" {
     for level in L1 L2 L3 L4 L5 L6 L7 L8; do
         run grep -q "$level " "$AGENTS_DIR/Lex.md"
-        [ "$status" -eq 0 ] || { echo "FAIL: Lex.md 未列 $level" >&2; false; }
+        [ "$status" -eq 0 ] || { echo "FAIL: Lex.md does not list $level" >&2; false; }
     done
 }
 
@@ -67,4 +67,3 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/agents"
         false
     }
 }
-

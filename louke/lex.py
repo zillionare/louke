@@ -1,6 +1,7 @@
-"""Lex commands - spec + issue 审核.
+"""Lex commands - spec + issue review.
 
-Lex 职责: 阶段一/二/三（spec 语义审核 / issue 覆盖验证 / schema 验证）。
+Lex responsibilities: stage 1/2/3 (spec semantic review / issue coverage
+validation / schema validation).
 """
 import argparse
 import json
@@ -11,32 +12,32 @@ from pathlib import Path
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('lex', help='spec + issue 审核 (Lex)')
+    parser = subparsers.add_parser('lex', help='spec + issue review (Lex)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    # verify-acceptance: L1-L5 结构化校验 (Stage 1)
-    p = sub.add_parser('verify-acceptance', help='运行 L1-L5 结构化校验 (Stage 1)')
+    # verify-acceptance: L1-L5 structural validation (Stage 1)
+    p = sub.add_parser('verify-acceptance', help='run L1-L5 structural validation (Stage 1)')
     p.add_argument('--spec', required=True)
-    p.add_argument('--repo', default='', help='owner/repo (默认从 project-info 或 gh repo view 推断)')
-    p.add_argument('--branch', default='', help='覆盖默认 release 分支')
+    p.add_argument('--repo', default='', help='owner/repo (default inferred from project-info or gh repo view)')
+    p.add_argument('--branch', default='', help='override default release branch')
     p.add_argument('--spec-file', default='')
     p.add_argument('--acceptance-file', default='')
 
-    # verify-issue: L1-L8 schema 验证 (Stage 3)
-    p = sub.add_parser('verify-issue', help='运行 L1-L8 schema 验证 (Stage 3)')
+    # verify-issue: L1-L8 schema validation (Stage 3)
+    p = sub.add_parser('verify-issue', help='run L1-L8 schema validation (Stage 3)')
     p.add_argument('--spec', required=True)
     p.add_argument('--repo', default='')
 
-    p = sub.add_parser('verify-project', help='验证 Feature issues 已关联 Project (FR-0740)')
+    p = sub.add_parser('verify-project', help='validate Feature issues linked to Project (FR-0740)')
     p.add_argument('--spec', required=True)
     p.add_argument('--repo', default='')
     p.add_argument('--dry-run', action='store_true')
 
-    # quote-check: 复用 discuss.py (v0.7-003 inline-discussion, 同 Sage quote-check)
-    p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 thread 都 resolved')
-    p.add_argument('--check-ready', action='store_true', help='exit 0 if ready (Maestro gate; 不输出 JSON)')
-    p.add_argument('--check-violations', action='store_true', help='检测嵌套回复行上的 status marker')
-    p.add_argument('--format', choices=['text', 'json'], default='text', help='输出格式 (默认 text)')
+    # quote-check: reuses discuss.py (v0.7-003 inline-discussion, same as Sage quote-check)
+    p = sub.add_parser('quote-check', help='check whether all threads in spec.md are resolved')
+    p.add_argument('--check-ready', action='store_true', help='exit 0 if ready (Maestro gate; no JSON output)')
+    p.add_argument('--check-violations', action='store_true', help='detect status markers on nested reply lines')
+    p.add_argument('--format', choices=['text', 'json'], default='text', help='output format (default text)')
     p.add_argument('--spec', required=True)
 
 
@@ -54,7 +55,7 @@ from ._common import resolve_existing_path
 
 
 def _read_project_info(label: str) -> str:
-    # fix-002: 委托给 _common. project.toml 取代 project-info.md.
+    # fix-002: delegate to _common. project.toml replaces project-info.md.
     from ._common import _read_project_info_field
     return _read_project_info_field(label)
 
@@ -118,7 +119,7 @@ def _extract_frs_from_spec(spec_id: str):
 
 
 def cmd_verify_project(args):
-    """FR-0740: 验证 spec 中所有 FR issue 已关联 Project."""
+    """FR-0740: validate that all FR issues in the spec are linked to the Project."""
     project_url = _read_project_info('Project ID')
     if not project_url or not project_url.startswith('https://'):
         print('Project URL missing in project.toml; run lk scout foundation first', file=sys.stderr)
@@ -172,12 +173,12 @@ def cmd_verify_project(args):
 
 
 def cmd_quote_check(args):
-    """调用 louke._tools.discuss (同 Sage quote-check + FR-0450 resolve_spec_path, v0.7-003).
+    """Invoke louke._tools.discuss (same as Sage quote-check + FR-0450 resolve_spec_path, v0.7-003).
 
-    3 个 flag 互斥:
-    --check-ready: exit 0 if is_ready (Maestro gate; 输出 blockers 到 stderr)
-    --check-violations: 检测嵌套回复行上的 status marker
-    --format text|json (默认 text): 列出所有 thread + 状态
+    3 mutually-exclusive flags:
+    --check-ready: exit 0 if is_ready (Maestro gate; emits blockers to stderr)
+    --check-violations: detect status markers on nested reply lines
+    --format text|json (default text): list all threads + status
     """
     spec_arg = args.spec
     if not spec_arg:

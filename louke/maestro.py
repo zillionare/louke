@@ -1,7 +1,8 @@
-"""Maestro commands - 流程推进控制.
+"""Maestro commands - flow advancement control.
 
-Maestro 职责: 协调所有 agent, 监控退出条件, 决策推进/退回/上报。
-lk 提供: status 查询 + advance/regress/escalate 操作。
+Maestro responsibilities: coordinate all agents, monitor exit conditions,
+decide advance/regress/escalate.
+lk provides: status query + advance/regress/escalate operations.
 """
 import argparse
 import json
@@ -15,43 +16,43 @@ from ._common import git, raw_path
 
 
 STAGES = [
-    ('M-FULL', '全程', None, None),
-    ('M-FOUND', '项目奠基', 'Scout', 'Warden'),
-    ('M-SPEC', '定需求', 'Sage', 'Lex'),
-    ('M-TESTPLAN', '定测试计划', 'Archer', 'Sage'),
-    ('M-ARCH', '架构设计', 'Archer', 'Prism'),
-    ('M-LOCK', '需求锁定', 'Maestro', '人类'),
-    ('M-DEV', '开发执行', 'Devon', 'Prism → Keeper'),
-    ('M-E2E', 'e2e 开发', 'Shield', 'Prism → Keeper'),
-    ('M-BUGFIX', 'Bug 修复', 'Devon', 'Keeper'),
-    ('M-SECURITY', '安全审计', 'Judge (S级)', '用户'),
-    ('M-MILESTONE', 'milestone 结束', 'Maestro', '人类'),
+    ('M-FULL', 'full', None, None),
+    ('M-FOUND', 'foundation', 'Scout', 'Warden'),
+    ('M-SPEC', 'define requirements', 'Sage', 'Lex'),
+    ('M-TESTPLAN', 'define test plan', 'Archer', 'Sage'),
+    ('M-ARCH', 'architecture design', 'Archer', 'Prism'),
+    ('M-LOCK', 'requirement lock', 'Maestro', 'human'),
+    ('M-DEV', 'development execution', 'Devon', 'Prism -> Keeper'),
+    ('M-E2E', 'e2e development', 'Shield', 'Prism -> Keeper'),
+    ('M-BUGFIX', 'bug fix', 'Devon', 'Keeper'),
+    ('M-SECURITY', 'security audit', 'Judge (S level)', 'user'),
+    ('M-MILESTONE', 'milestone close', 'Maestro', 'human'),
 ]
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('maestro', help='流程推进控制 (Maestro)')
+    parser = subparsers.add_parser('maestro', help='flow advancement control (Maestro)')
     sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
 
-    p = sub.add_parser('status', help='查看当前 spec/milestone 阶段进度')
-    p.add_argument('--spec', default='', help='spec-id (留空看全表)')
+    p = sub.add_parser('status', help='view current spec/milestone stage progress')
+    p.add_argument('--spec', default='', help='spec-id (empty for full table)')
 
-    p = sub.add_parser('advance', help='推进到下一阶段 (FR-0700 自动 holdpoint)')
-    p.add_argument('--stage', required=True, help='当前阶段代码, 例 M-DEV')
-    p.add_argument('--spec-id', default='', help='目标 spec-id (某些阶段需要)')
-    p.add_argument('--commit-range', default='HEAD~1..HEAD', help='M-DEV / M-E2E gate 使用')
-    p.add_argument('--release', default='releases/v0.1', help='M-SECURITY 使用')
-    p.add_argument('--confirm', action='store_true', help='M-LOCK 用户确认')
-    p.add_argument('--force', action='store_true', help='跳过退出条件自动检查 (手动确认场景)')
+    p = sub.add_parser('advance', help='advance to next stage (FR-0700 auto holdpoint)')
+    p.add_argument('--stage', required=True, help='current stage code, e.g. M-DEV')
+    p.add_argument('--spec-id', default='', help='target spec-id (required by some stages)')
+    p.add_argument('--commit-range', default='HEAD~1..HEAD', help='used by M-DEV / M-E2E gate')
+    p.add_argument('--release', default='releases/v0.1', help='used by M-SECURITY')
+    p.add_argument('--confirm', action='store_true', help='M-LOCK user confirmation')
+    p.add_argument('--force', action='store_true', help='skip automated exit-condition checks (manual confirmation scenario)')
 
-    p = sub.add_parser('regress', help='退回当前阶段')
+    p = sub.add_parser('regress', help='regress current stage')
     p.add_argument('--stage', required=True)
     p.add_argument('--reason', required=True)
     p.add_argument('--spec-id', default='')
 
-    p = sub.add_parser('escalate', help='上报用户 (连续失响应 / 需求根本矛盾)')
+    p = sub.add_parser('escalate', help='escalate to user (repeated no-response / fundamental requirement conflict)')
     p.add_argument('--reason', required=True)
-    p.add_argument('--agent', default='', help='哪个 agent 触发上报')
+    p.add_argument('--agent', default='', help='which agent triggered escalation')
 
 
 def run(args):
@@ -65,7 +66,7 @@ def run(args):
 
 
 def _read_project_info(label):
-    # fix-002: 委托给 _common. project.toml 取代 project-info.md.
+    # fix-002: delegate to _common. project.toml replaces project-info.md.
     from ._common import _read_project_info_field
     return _read_project_info_field(label)
 
@@ -101,8 +102,8 @@ def _record_raw_event(stage, event, status='open', extra=None):
         f'status: {status}\n'
         'supersedes: []\n'
         '---\n\n'
-        f'## 议题\nMaestro {event} {stage}\n\n'
-        f'## 决定\n{extra or ""}\n'
+        f'## Topic\nMaestro {event} {stage}\n\n'
+        f'## Decision\n{extra or ""}\n'
     )
     fp.write_text(fm, encoding='utf-8')
 
@@ -140,7 +141,7 @@ def _holdpoint(stage, args):
         rc = _run_lk('sage', 'quote-check', '--spec', spec)
         if rc != 0:
             return False, f'sage quote-check failed (rc={rc})'
-        # Lex verify (两信号齐才可 advance)
+        # Lex verify (both signals required to advance)
         for lex_cmd in (['lex', 'verify-acceptance', '--spec', spec],
                         ['lex', 'verify-issue', '--spec', spec],
                         ['lex', 'verify-project', '--spec', spec]):
@@ -220,20 +221,20 @@ def _read_current_spec():
 
 
 def cmd_advance(args):
-    """推进到下一阶段 (FR-0700 自动 holdpoint + FR-0710 state update)."""
+    """Advance to next stage (FR-0700 auto holdpoint + FR-0710 state update)."""
     cwd = Path.cwd()
     print(f"=== Advance ===")
     print(f"From: {args.stage}")
     idx = next((i for i, t in enumerate(STAGES) if t[0] == args.stage), None)
     if idx is None:
-        print(f'未知阶段: {args.stage}', file=sys.stderr)
+        print(f'unknown stage: {args.stage}', file=sys.stderr)
         return 1
 
     if args.stage == 'M-MILESTONE':
         print('M-MILESTONE is the final stage; advance marks milestone close.')
         _set_project_info_current_stage('M-MILESTONE')
         _record_raw_event(args.stage, 'closed', status='resolved', extra='milestone closed')
-        print('→ milestone closed')
+        print('-> milestone closed')
         return 0
     if idx + 1 >= len(STAGES):
         print(f'unknown tail stage {args.stage}', file=sys.stderr)
@@ -245,23 +246,23 @@ def cmd_advance(args):
         print(f'[--force] skipping automated checks')
         _set_project_info_current_stage(next_code)
         _record_raw_event(args.stage, 'advance-force', extra=f'forced advance to {next_code}')
-        print(f'→ forced advance to {next_code}')
+        print(f'-> forced advance to {next_code}')
         return 0
 
     ok, msg = _holdpoint(args.stage, args)
     print(f'[{ "ok" if ok else "high" }] {msg}')
     if not ok:
-        print(f'\n→ 拒绝 ({msg})')
-        print(f'  提示: 人工核对后用 "lk agent maestro advance --stage {args.stage} --force" 强制推进')
+        print(f'\n-> REJECT ({msg})')
+        print(f'  hint: after manual review, run "lk agent maestro advance --stage {args.stage} --force" to force advance')
         return 1
     _set_project_info_current_stage(next_code)
     _record_raw_event(args.stage, 'advance', extra=f'advanced to {next_code}')
-    print(f'→ 推进到 {next_code}')
+    print(f'-> advanced to {next_code}')
     return 0
 
 
 def cmd_regress(args):
-    """退回当前阶段."""
+    """Regress current stage."""
     cwd = Path.cwd()
     print(f"=== Regress ===")
     print(f"Stage: {args.stage}")
@@ -280,12 +281,12 @@ def cmd_regress(args):
         'status: open\n'
         'supersedes: []\n'
         '---\n\n'
-        '## 议题\n'
-        f'阶段 {args.stage} 被退回\n\n'
-        '## 决定\n'
-        f'退回原因: {args.reason}\n\n'
-        '## 开放问题\n'
-        f'{args.stage} 阶段的实施者需修复, 然后重新申请 advance\n'
+        '## Topic\n'
+        f'Stage {args.stage} regressed\n\n'
+        '## Decision\n'
+        f'Reason for regression: {args.reason}\n\n'
+        '## Open Questions\n'
+        f'Implementer of stage {args.stage} must fix, then re-apply advance\n'
     )
     fp.write_text(fm, encoding='utf-8')
     print(f'✓ Recorded in {fp}')
@@ -293,16 +294,16 @@ def cmd_regress(args):
 
 
 def cmd_escalate(args):
-    """上报用户 - 生成给用户的告警."""
+    """Escalate to user - generate alert for user."""
     print(f"=== Escalate to User ===")
     print(f"Reason: {args.reason}")
     print(f"Agent: {args.agent or '(not specified)'}")
     alert = (
-        '@user **需要人工介入**\n\n'
+        '@user **human intervention required**\n\n'
         f'Agent: {args.agent or "(unknown)"}\n'
         f'Reason: {args.reason}\n\n'
-        '请介入处理。\n'
+        'Please intervene.\n'
     )
     print(alert)
-    print(f'→ 在 chat 中发送上述告警给用户')
+    print(f'-> send the above alert to the user in chat')
     return 0

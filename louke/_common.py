@@ -1,4 +1,4 @@
-"""lk 共享工具."""
+"""lk shared utilities."""
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +9,7 @@ PROJECT_HISTORY_PATH = Path('.louke/project/history.md')
 
 
 def _toml_load(path: Path) -> dict:
-    """tomllib / tomli fallback (Py3.9 兼容)."""
+    """tomllib / tomli fallback (Py3.9 compatible)."""
     try:
         import tomllib  # type: ignore
     except ImportError:
@@ -29,30 +29,30 @@ def package_root() -> Path:
 
 
 def _read_project_info_field(label: str, path: Path = PROJECT_INFO_PATH) -> str:
-    """读 project.toml 中嵌套 key 的 string value. 例如 `Repo` → `[project].repo`.
+    """Read a nested-key string value from project.toml. e.g. `Repo` → `[project].repo`.
 
-    fix-002: 从 Markdown 行级 regex 改为 tomllib 直接 load.
-    支持 `Repo` / `Spec ID` / `Pre-commit` 等带空格或连字符的旧 label (向后兼容).
-    兼容逻辑: 标准化 label 为 snake_case, 尝试 `[project].<snake>` / `[meta].<snake>` / 顶层.
+    fix-002: switched from Markdown line-level regex to tomllib direct load.
+    Supports legacy labels with spaces or hyphens like `Repo` / `Spec ID` / `Pre-commit` (backward compatible).
+    Compatibility logic: normalize the label to snake_case, then try `[project].<snake>` / `[meta].<snake>` / top-level.
     """
     data = _toml_load(path)
     if not data:
         return ''
 
-    # 标准化 label: 'Spec ID' → 'spec_id', 'Pre-commit' → 'pre_commit', 'Repo' → 'repo'
+    # Normalize label: 'Spec ID' → 'spec_id', 'Pre-commit' → 'pre_commit', 'Repo' → 'repo'
     snake = label.lower().replace(' ', '_').replace('-', '_')
 
-    # 优先 [project].<snake>
+    # Prefer [project].<snake>
     proj = data.get('project', {})
     if snake in proj:
         return str(proj[snake])
 
-    # 再 [meta].<snake>
+    # Then [meta].<snake>
     meta = data.get('meta', {})
     if snake in meta:
         return str(meta[snake])
 
-    # 兼容: 顶层 key (Scout 早期字段, 例如 [pre_commit])
+    # Compatibility: top-level key (Scout legacy fields, e.g. [pre_commit])
     if snake in data:
         return str(data[snake])
 
@@ -60,22 +60,22 @@ def _read_project_info_field(label: str, path: Path = PROJECT_INFO_PATH) -> str:
 
 
 def _read_project_info_all(path: Path = PROJECT_INFO_PATH) -> dict:
-    """读 project.toml 全部字段为 flat dict {label: value}. 兼容旧 caller."""
+    """Read all project.toml fields as a flat dict {label: value}. Backward compatible with legacy callers."""
     data = _toml_load(path)
     if not data:
         return {}
     flat: dict[str, str] = {}
-    # 优先 [project] 段
+    # Prefer [project] section
     for k, v in (data.get('project') or {}).items():
         flat[k] = str(v)
-    # [meta] 段 (覆盖重名)
+    # [meta] section (overrides duplicates)
     for k, v in (data.get('meta') or {}).items():
         flat[k] = str(v)
     return flat
 
 
 def _archive_current_to_history(version_label: str = '', path: Path = PROJECT_INFO_PATH, history_path: Path = PROJECT_HISTORY_PATH) -> bool:
-    """M-MILESTONE 收尾调用: 把 project.toml 当前内容追加到 history.md (Markdown), 然后清空 project.toml.
+    """Called at M-MILESTONE wrap-up: append the current project.toml content to history.md (Markdown), then clear project.toml.
 
     Returns: True if migration performed, False if no content to migrate.
     """
@@ -88,19 +88,19 @@ def _archive_current_to_history(version_label: str = '', path: Path = PROJECT_IN
     body = current.strip()
     if not body or len(body.splitlines()) < 3:
         return False
-    # 把 TOML 转成 Markdown 段追加到 history.md
+    # Convert TOML to a Markdown block and append to history.md
     history_path.parent.mkdir(parents=True, exist_ok=True)
     existing = ''
     if history_path.exists():
         existing = history_path.read_text(encoding='utf-8', errors='replace')
     md_lines = []
-    md_lines.append(f'\n\n## {version_label or "(无版本标签)"}\n')
+    md_lines.append(f'\n\n## {version_label or "(no version label)"}\n')
     md_lines.append('```toml')
     md_lines.append(body)
     md_lines.append('```')
     history_path.write_text(existing + '\n'.join(md_lines) + '\n', encoding='utf-8')
-    # 清空 project.toml (等 Scout 重新初始化)
-    path.write_text('# 当前活跃版本: 等待 Scout M-FOUND 初始化\n', encoding='utf-8')
+    # Clear project.toml (waiting for Scout to re-initialize)
+    path.write_text('# Active version: waiting for Scout M-FOUND initialization\n', encoding='utf-8')
     return True
 
 
@@ -206,7 +206,7 @@ def git(*args, cwd: Path = None):
 
 
 def get_diff_files(base: str, target: str, cwd: Path = None):
-    """返回 base..target 之间变更的文件列表. 支持 'A..B' range 或单 ref."""
+    """Return the list of files changed between base..target. Supports 'A..B' range or single ref."""
     if cwd is None:
         cwd = Path.cwd()
     if '..' in target and '..' not in base:
@@ -224,7 +224,7 @@ def get_diff_files(base: str, target: str, cwd: Path = None):
 
 
 def get_diff_content(base: str, target: str, cwd: Path = None):
-    """返回 base..target 之间变更的 diff 内容."""
+    """Return the diff content between base..target."""
     rc, out, _ = git('diff', base, target, cwd=cwd)
     if rc != 0:
         return ''

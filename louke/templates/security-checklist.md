@@ -1,114 +1,114 @@
 # Security Checklist
 
-代码安全检查清单。被以下角色引用：
+Code security checklist. Referenced by the following roles:
 
-| 角色 | 使用方式 |
+| Role | Usage |
 | --- | --- |
-| **Devon** | 写代码时避开清单中的 pattern（不要求掌握，重点是常见 pattern 主动避免） |
-| **Prism** | 浅层 quick scan（识别明显 pattern，比如 `eval()`/`exec()`/硬编码密钥） |
-| **Judge** | 深度审计基线（S 级，per-milestone；语义层漏洞 + 上下文推理） |
+| **Devon** | Avoid patterns listed here while writing code (mastery not required; focus on proactively avoiding common patterns) |
+| **Prism** | Shallow quick scan (identify obvious patterns, e.g. `eval()`/`exec()`/hardcoded secrets) |
+| **Judge** | Deep audit baseline (S-tier, per-milestone; semantic-layer vulnerabilities + contextual reasoning) |
 
-> **更新机制**: 新漏洞类型 → 项目 owner 加条目 → 触发 Judge 重审。
-> **范围**: 此清单是默认基线（适用所有项目）；项目可在末尾追加专属条目。
+> **Update mechanism**: New vulnerability type → project owner adds an entry → triggers Judge re-audit.
+> **Scope**: This checklist is the default baseline (applies to all projects); projects may append project-specific entries at the end.
 
 ---
 
-## 输入验证
+## Input Validation
 
-- [ ] 用户输入全部经过验证（白名单优于黑名单）
-- [ ] SQL 查询使用参数化（防 SQL 注入）
-- [ ] HTML 输出经过转义（防 XSS）
-- [ ] 文件路径不接受用户输入（防路径遍历）
-- [ ] URL/重定向目标用白名单（防开放重定向）
-- [ ] 命令执行不接受拼接用户输入（防命令注入）
-- [ ] 反序列化使用可信格式（防反序列化漏洞）
+- [ ] All user input is validated (whitelist preferred over blacklist)
+- [ ] SQL queries use parameterization (prevent SQL injection)
+- [ ] HTML output is escaped (prevent XSS)
+- [ ] File paths do not accept user input (prevent path traversal)
+- [ ] URL/redirect targets use a whitelist (prevent open redirect)
+- [ ] Command execution does not accept concatenated user input (prevent command injection)
+- [ ] Deserialization uses trusted formats (prevent deserialization vulnerabilities)
 
-## 认证与授权
+## Authentication & Authorization
 
-- [ ] 密码使用 bcrypt/argon2/scrypt 存储（不存明文、不用 MD5/SHA1）
-- [ ] Session token 随机且不可预测（用 `secrets` 模块，不用 `random`）
-- [ ] 每个 endpoint 都有权限检查（不仅 UI 层）
-- [ ] JWT/session 有过期时间（不长不过期）
-- [ ] API 密钥/密码不在代码或日志中
-- [ ] 失败登录有 rate limit
-- [ ] 密码重置 token 一次性使用且有过期
-- [ ] 多因素认证用于敏感操作
+- [ ] Passwords are stored with bcrypt/argon2/scrypt (no plaintext, no MD5/SHA1)
+- [ ] Session tokens are random and unpredictable (use the `secrets` module, not `random`)
+- [ ] Every endpoint has an authorization check (not just at the UI layer)
+- [ ] JWT/session has an expiration time (no long-lived or non-expiring tokens)
+- [ ] API keys/passwords are not in code or logs
+- [ ] Failed logins have a rate limit
+- [ ] Password reset tokens are single-use and expire
+- [ ] Multi-factor authentication is used for sensitive operations
 
-## 数据保护
+## Data Protection
 
-- [ ] 敏感数据 (PII / 金融 / 健康) 加密存储
-- [ ] 所有外部通信使用 HTTPS
-- [ ] 数据库连接使用 TLS（不是明文）
-- [ ] 备份加密且离线存储
-- [ ] 密钥管理使用专门服务（AWS KMS / Vault / ...），不写在 config 文件中
-- [ ] 日志中不打印敏感数据（密码、token、信用卡号、SSN）
+- [ ] Sensitive data (PII / financial / health) is encrypted at rest
+- [ ] All external communication uses HTTPS
+- [ ] Database connections use TLS (not plaintext)
+- [ ] Backups are encrypted and stored offline
+- [ ] Key management uses a dedicated service (AWS KMS / Vault / ...), not written into config files
+- [ ] Logs do not print sensitive data (passwords, tokens, credit card numbers, SSNs)
 
-## 错误处理
+## Error Handling
 
-- [ ] 错误信息不泄露内部细节（stack trace、内部路径、库版本）
-- [ ] 异常被记录但不暴露给最终用户
-- [ ] 失败默认安全（fail closed）：权限检查失败 = 拒绝，不是放行
-- [ ] 输入验证失败不返回详细错误（避免攻击者探测系统）
+- [ ] Error messages do not leak internal details (stack traces, internal paths, library versions)
+- [ ] Exceptions are logged but not exposed to end users
+- [ ] Fail secure by default (fail closed): authorization check failure = deny, not allow
+- [ ] Input validation failures do not return detailed errors (avoid attackers probing the system)
 
-## 依赖与配置
+## Dependencies & Configuration
 
-- [ ] 依赖版本固定（不 ^/~，避免自动升级引入漏洞）
-- [ ] 定期审计依赖漏洞（`npm audit` / `pip-audit` / `cargo audit`）
-- [ ] 配置文件不在 git 中（`.gitignore` secrets）
-- [ ] 生产环境不开 debug 模式（不暴露 traceback）
-- [ ] CORS 配置严格（不 wildcard 允许任何 origin）
-- [ ] CSP headers 设置（如适用）
+- [ ] Dependency versions are pinned (no ^/~, avoid auto-upgrades introducing vulnerabilities)
+- [ ] Regularly audit dependencies for vulnerabilities (`npm audit` / `pip-audit` / `cargo audit`)
+- [ ] Config files are not in git (`.gitignore` secrets)
+- [ ] Production environment does not enable debug mode (no exposed tracebacks)
+- [ ] CORS configuration is strict (no wildcard allowing any origin)
+- [ ] CSP headers are set (if applicable)
 
-## 日志与监控
+## Logging & Monitoring
 
-- [ ] 安全事件可审计（登录、权限变更、敏感操作）
-- [ ] 异常登录有告警（异地、频繁失败）
-- [ ] 日志不包含 PII（除非必要且加密）
-- [ ] 日志有 retention policy（不永久保留敏感数据）
+- [ ] Security events are auditable (login, permission changes, sensitive operations)
+- [ ] Anomalous logins trigger alerts (different locations, frequent failures)
+- [ ] Logs do not contain PII (unless necessary and encrypted)
+- [ ] Logs have a retention policy (no permanent retention of sensitive data)
 
-## 业务逻辑
+## Business Logic
 
-- [ ] 资金/数量操作有原子性（不部分提交）
-- [ ] 状态机转换有合法性检查（不能从终态跳回初态）
-- [ ] 关键操作有 idempotency key（防止重复执行）
-- [ ] 时间窗口 / 时区逻辑明确（避免 TOCTOU 漏洞）
-- [ ] 排序 / 优先级逻辑不暴露内部信息
+- [ ] Fund/quantity operations are atomic (no partial commits)
+- [ ] State machine transitions have legality checks (cannot jump from a terminal state back to the initial state)
+- [ ] Critical operations have an idempotency key (prevent duplicate execution)
+- [ ] Time window / timezone logic is explicit (avoid TOCTOU vulnerabilities)
+- [ ] Sorting / priority logic does not leak internal information
 
-## 框架 / 语言特定
+## Framework / Language Specific
 
 - Web: [ ] CSRF token, [ ] SameSite cookie, [ ] HttpOnly cookie
-- SQL: [ ] 参数化（见输入验证），[ ] ORM 优先
-- 容器: [ ] 非 root 用户, [ ] 最小化基础镜像, [ ] 镜像扫描
+- SQL: [ ] parameterized (see Input Validation), [ ] ORM preferred
+- Containers: [ ] non-root user, [ ] minimal base image, [ ] image scanning
 - Kubernetes: [ ] RBAC, [ ] NetworkPolicy, [ ] Pod Security Standards
-- AI/LLM: [ ] 输入 sanitization（防 prompt injection）, [ ] 输出过滤（防信息泄露）, [ ] token 限制
+- AI/LLM: [ ] input sanitization (prevent prompt injection), [ ] output filtering (prevent information leakage), [ ] token limits
 
 ---
 
-## 项目特定扩展
+## Project-Specific Extensions
 
-在下方追加项目专属条目（按 vulnerability 类别）：
+Append project-specific entries below (grouped by vulnerability category):
 
 ```markdown
-### <项目名> 特定
+### <Project Name> Specific
 
-#### <类别 1>
-- [ ] <具体检查>
+#### <Category 1>
+- [ ] <Specific check>
 
-#### <类别 2>
-- [ ] <具体检查>
+#### <Category 2>
+- [ ] <Specific check>
 ```
 
-**示例**：
+**Example**:
 
 ```markdown
-### louke 特定
+### louke Specific
 
-#### 金融交易
-- [ ] 订单价格用整数（避免浮点精度）
-- [ ] 资金操作有幂等键
-- [ ] 不允许透支（账户余额检查必须在事务内）
+#### Financial Transactions
+- [ ] Order prices use integers (avoid floating-point precision issues)
+- [ ] Fund operations have an idempotency key
+- [ ] No overdraft allowed (account balance check must be inside the transaction)
 
-#### 实时数据
-- [ ] tick 数据有序列号（防重放）
-- [ ] 时钟同步检查（防时间序列攻击）
+#### Real-time Data
+- [ ] Tick data has sequence numbers (prevent replay)
+- [ ] Clock sync check (prevent time-series attacks)
 ```

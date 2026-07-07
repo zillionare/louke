@@ -1,33 +1,33 @@
-# {Feature 标题} — Task Execution Log
+# {Feature Title} — Task Execution Log
 
 - **Spec ID**: {SPEC-ID}
 - **Task ID**: {T-XXX}
 
 ## Phase 1: Red
 
-- **测试文件**: ...
-- **测试用例编号**: ...
-- **CI 状态**: Red ✅
-- **失败原因**: 指向待实现功能（非测试本身 Bug）
-- **Commit**: `feat: green – {编号} {描述}` 或 `refactor: {描述}`
+- **Test file**: ...
+- **Test case ID**: ...
+- **CI status**: Red OK
+- **Failure reason**: points to a feature yet to be implemented (not a bug in the test itself)
+- **Commit**: `feat: green – {Number} {description}` or `refactor: {description}`
 
 ## Phase 2: Green
 
-- **实现文件**: ...
-- **实现策略**: ...
-- **测试结果**: 全部通过 ✅
-- **Commit**: `feat: green – {编号} {描述}`
+- **Implementation files**: ...
+- **Implementation strategy**: ...
+- **Test result**: all PASS OK
+- **Commit**: `feat: green – {Number} {description}`
 
 ## Phase 3: Refactor
 
-- **重构内容**: ...
-- **测试结果**: 仍全部通过 ✅
-- **Lint/类型检查**: 无错误 ✅
-- **Commit**: `refactor: {描述}`
+- **Refactor scope**: ...
+- **Test result**: still all PASS OK
+- **Lint/type check**: no errors OK
+- **Commit**: `refactor: {description}`
 
-## Keeper 门禁
+## Keeper Gate
 
-- [ ] Red 阶段完成（测试先失败）
-- [ ] Green 阶段完成（关联测试通过）
-- [ ] Refactor 阶段完成（无 lint/类型错误）
-- [ ] 代码已提交
+- [ ] Red phase complete (test failed first)
+- [ ] Green phase complete (associated tests pass)
+- [ ] Refactor phase complete (no lint/type errors)
+- [ ] Code committed

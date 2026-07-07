@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Regression tests for lk models doctor (v0.6-009 + v0.6.13)
-# 关键: 覆盖 GLM v0.6.13 review 找到的 ok 遮蔽 bug
+# Key: covers the ok-shadowing bug found in GLM v0.6.13 review
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 setup() {
     export TEST_HOME="$(mktemp -d)"
-    export HOME="$TEST_HOME"  # 关键: 让 resolve_model 读 TEST_HOME/.louke/models.json
+    export HOME="$TEST_HOME"  # Key: make resolve_model read TEST_HOME/.louke/models.json
     export LOUKE_HOME="$TEST_HOME/.louke"
     mkdir -p "$LOUKE_HOME/agents" "$TEST_HOME/bin"
     export PATH="$TEST_HOME/bin:$PATH"
@@ -22,7 +22,7 @@ teardown() {
     rm -rf "$TEST_HOME"
 }
 
-@test "doctor 在 alias 存在时不 crash (v0.6.13 修复)" {
+@test "doctor does not crash when alias exists (v0.6.13 fix)" {
     cat > "$LOUKE_HOME/agents/Archer.md" <<'AGENT_EOF'
 ---
 name: archer
@@ -55,7 +55,7 @@ CFG_EOF
     [[ "$output" == *"ark/glm-5.2"* ]]
 }
 
-@test "doctor 多 alias 时不 crash (回归测试)" {
+@test "doctor does not crash with multiple aliases (regression test)" {
     cat > "$LOUKE_HOME/agents/Archer.md" <<'AGENT_EOF'
 ---
 name: archer
@@ -89,7 +89,7 @@ CFG_EOF
     [[ "$output" == *"ark/kimi-k2.7-code"* ]]
 }
 
-@test "doctor 全部 unresolved 时不 crash (边界)" {
+@test "doctor does not crash when all unresolved (boundary)" {
     cat > "$LOUKE_HOME/agents/Archer.md" <<'AGENT_EOF'
 ---
 name: archer
