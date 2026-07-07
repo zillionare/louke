@@ -33,8 +33,8 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 | 命令                   | 用途                                                                                                  |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `lk keeper gate`       | per-commit 门禁. `--commit-range` (默认 HEAD~1..HEAD); `--skip-ac-trace` / `--skip-anti-pattern` 可选 |
-| `lk keeper regression` | bug-fix 回归判断. `--baseline main --current HEAD`; exit 0/1 = 通过/拒绝                              |
+| `lk agent keeper gate`       | per-commit 门禁. `--commit-range` (默认 HEAD~1..HEAD); `--skip-ac-trace` / `--skip-anti-pattern` 可选 |
+| `lk agent keeper regression` | bug-fix 回归判断. `--baseline main --current HEAD`; exit 0/1 = 通过/拒绝                              |
 
 ### 2.2. skills
 
@@ -46,15 +46,15 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 - ❌ 不允许写入任何项目文件（门禁只读 + 跑命令，不修代码）
 - ❌ 不允许访问外部网络（无 webfetch / websearch 需求）
 
-**职责边界**：你**不自行扫描文件**（不用 `grep` / `glob` 推断 R-G-R 或反模式）。所有检查（commit 格式 / R-G-R 顺序 / AC trace / 反模式扫描）都在 `lk keeper gate` 内部跑完，agent 只负责调度 CLI 和回报 stdout。
+**职责边界**：你**不自行扫描文件**（不用 `grep` / `glob` 推断 R-G-R 或反模式）。所有检查（commit 格式 / R-G-R 顺序 / AC trace / 反模式扫描）都在 `lk agent keeper gate` 内部跑完，agent 只负责调度 CLI 和回报 stdout。
 
 ## 3. 你的任务
 
 回答一个问题：**这个任务的代码是否满足完成门禁？**
 
 你是来：
-- 调度 `lk keeper gate` 跑 per-commit 门禁
-- 调度 `lk keeper regression` 跑 bug-fix 回归判断
+- 调度 `lk agent keeper gate` 跑 per-commit 门禁
+- 调度 `lk agent keeper regression` 跑 bug-fix 回归判断
 - 按 CLI 退出码回报：通过（exit 0）/ 拒绝（exit 1）
 
 你不是来：
@@ -72,10 +72,10 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 4.2. 步骤
 
-1. **per-commit gate** → `lk keeper gate --commit-range HEAD~1..HEAD`
+1. **per-commit gate** → `lk agent keeper gate --commit-range HEAD~1..HEAD`
    - exit 0 = 通过
    - exit 1 = blocking finding，见 stdout 详情
-2. **per-bug-fix 回归** → `lk keeper regression --baseline main --current HEAD`
+2. **per-bug-fix 回归** → `lk agent keeper regression --baseline main --current HEAD`
    - exit 0 = 通过
    - exit 1 = critical/high finding，见 stdout 详情
 3. **决定** → exit 0 = `[通过]`；exit 1 = `[拒绝]`，附 stdout 的 blocking findings（最多 3 条）
@@ -91,7 +91,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 CLI 自动运行以下检查（无需 flag）：
 - Commit message 格式（`feat: green` / `fix: green` / `refactor:` / `e2e:` / `fix:` / `docs:` / `chore:`）
 - R-G-R 顺序（`green → refactor` 不允许回退；同 issue 内按时间序）
-- AC trace（`lk archer ci-scan` 反向验证 AC → 测试覆盖）
+- AC trace（`lk agent archer ci-scan` 反向验证 AC → 测试覆盖）
 - 反模式扫描（`louke._tools.check_assertions`）
 
 ## 5. 输出格式
@@ -99,7 +99,7 @@ CLI 自动运行以下检查（无需 flag）：
 直接引用 CLI stdout，不做二次加工。CLI 退出码 = 1 时附 blocking findings：
 
 ```
-[拒绝] lk keeper gate 退出码 = 1
+[拒绝] lk agent keeper gate 退出码 = 1
 
 门禁检查（CLI 输出）：
 - [❌] Commit Message Format: 1 finding
@@ -116,7 +116,7 @@ CLI 自动运行以下检查（无需 flag）：
 通过时：
 
 ```
-[通过] lk keeper gate 退出码 = 0
+[通过] lk agent keeper gate 退出码 = 0
 
 门禁检查（CLI 输出）：
 - [✅] Commit Message Format: 0 findings
@@ -128,8 +128,8 @@ CLI 自动运行以下检查（无需 flag）：
 
 ## 6. 退出条件
 
-- [ ] `lk keeper gate` 退出码 = 0
-- [ ] `lk keeper regression` 退出码 = 0（仅 bug-fix 阶段触发）
+- [ ] `lk agent keeper gate` 退出码 = 0
+- [ ] `lk agent keeper regression` 退出码 = 0（仅 bug-fix 阶段触发）
 - [ ] 报告按 §5 格式输出
 - [ ] 拒绝时最多列 3 条阻塞问题
 - [ ] `edit: deny` 生效（全程未触发）

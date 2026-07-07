@@ -50,10 +50,14 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 
 | 命令                                                             | 用途                                                       | Step    |
 | ---------------------------------------------------------------- | ---------------------------------------------------------- | ------- |
-| `lk sage commit-spec --spec {id} --message "..." [--no-push]`    | add spec.md + acceptance.md + commit + push                | 2, 3, 4 |
-| `lk sage quote-check --spec {id}`                                | quote 全部 resolved? exit 0 = 是                           | 6       |
-| `lk sage create-issues --spec {id} [--dry-run] [--skip-project]` | 从 spec FR 锚点建 GitHub issues + 关联 Project             | 5       |
-| `lk sage record-lock --spec {id} --confirm`                      | 三信号锁定（quote-check + Lex verify ×3 + 写 locked:true） | 6       |
+| `lk agent sage commit-spec --spec {id} --message "..." [--no-push]`    | add spec.md + acceptance.md + commit + push                | 2, 3, 4 |
+| `lk agent sage quote-check --spec {id}`                                | quote 全部 resolved? exit 0 = 是                           | 6       |
+| `lk agent sage create-issues --spec {id} [--dry-run] [--skip-project]` | 从 spec FR 锚点建 GitHub issues + 关联 Project             | 5       |
+| `lk agent sage record-lock --spec {id} --confirm`                      | 三信号锁定（quote-check + Lex verify ×3 + 写 locked:true） | 6       |
+| `lk discuss query`                                               | 找会话断点 (底层 API). `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` | 2, 3, 4 |
+| `lk discuss start`                                               | 新建 thread (追问用户). `--file <path> --anchor-line <N> --speaker Sage <msg>` | 2, 3, 4 |
+| `lk discuss reply`                                               | 追加回复 (响应用户/Lex). `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Sage <msg>` | 3, 4 |
+| `lk discuss set-status`                                          | 标本人起的 thread 为 resolved. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Sage>` | 3, 4 |
 
 ### 2.2. skills
 
@@ -96,7 +100,7 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 禁止: 用户未回复就标 ✅ / 回复未涉及该 FR 就批量标 ✅ / 用户提新问题就标 ✅ / 以"没时间回"为由标 ✅。
 
 ```bash
-lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
+lk agent sage commit-spec --spec {spec-id} --message "spec: initial draft"
 ```
 
 提醒用户在 IDE 中 review spec.md，等待用户回到对话通知已完成。
@@ -107,7 +111,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
 
 1. **commit 用户改动**（用户经常忘 commit）:
    ```bash
-   lk sage commit-spec --spec {spec-id} --message "spec: user review (pre-sage-response)"
+   lk agent sage commit-spec --spec {spec-id} --message "spec: user review (pre-sage-response)"
    ```
 2. **定位 open thread** —— 用 `lk discuss query` 工具列出所有 open thread:
    ```bash
@@ -121,7 +125,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
    - 用户满意 → 改 `是否已决定` 为 ✅（遵守严禁沉默即同意）
 4. commit + push:
    ```bash
-   lk sage commit-spec --spec {spec-id} --message "spec: sage response (round N)"
+   lk agent sage commit-spec --spec {spec-id} --message "spec: sage response (round N)"
    ```
 5. 请用户新一轮 review
 
@@ -136,7 +140,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: initial draft"
 给 spec.md 每个 FR/NFR/US 加 HTML 锚 `<a id="fr-XXXX">`（ID 小写），acceptance.md 每个 FR 加 `<a id="ac-fr-XXXX">`，均在对应章节**上方**。
 
 ```bash
-lk sage commit-spec --spec {spec-id} --message "spec: add anchors"
+lk agent sage commit-spec --spec {spec-id} --message "spec: add anchors"
 ```
 
 ### 3.5. Step 5: 创建 GitHub Issue
@@ -146,7 +150,7 @@ lk sage commit-spec --spec {spec-id} --message "spec: add anchors"
 **创建前检查**: 读 acceptance.md，确认每个 FR 有 `## FR-XXXX` 节或已列入 `## No Acceptance`。缺失的先补上并 commit。
 
 ```bash
-lk sage create-issues --spec {spec-id}
+lk agent sage create-issues --spec {spec-id}
 ```
 
 工具自动: 提取 FR 锚点 → 每个 FR 建一个 issue（标题 `[FR-XXXX] {标题}`，标签 Feature）→ body 含需求 ID / Spec 链接 / 验收标准 → 关联 Project。
@@ -163,11 +167,11 @@ lk sage create-issues --spec {spec-id}
 ### 3.6. Step 6: 锁定
 
 ```bash
-lk sage record-lock --spec {spec-id} --confirm
+lk agent sage record-lock --spec {spec-id} --confirm
 ```
 
 工具执行三信号:
-1. Sage: `lk sage quote-check` exit 0（所有 thread resolved; ✓ 向后兼容）
+1. Sage: `lk agent sage quote-check` exit 0（所有 thread resolved; ✓ 向后兼容）
 2. Lex: `verify-acceptance` + `verify-issue` + `verify-project`
 3. 写入 `locked: true` + `locked-at` + `locked-by`
 

@@ -30,7 +30,7 @@ models:
 运行以下命令进行自动化检查：
 
 ```bash
-lk warden foundation-check --repo {owner}/{repo} --version {version} --spec-id {Spec-ID} [--upstream main]
+lk agent warden foundation-check --repo {owner}/{repo} --version {version} --spec-id {Spec-ID} [--upstream main]
 ```
 
 > `--upstream` 启用 F8 检查；Warden 应**显式传 main**。
@@ -67,7 +67,7 @@ Foundation 工具检查的是**存在性、格式、合规**——这些是机�
 
 ## 2. 评审流程
 
-1. **运行 `lk warden foundation-check`** → 自动化检查 F1-F11，获取通过/拒绝结果
+1. **运行 `lk agent warden foundation-check`** → 自动化检查 F1-F11，获取通过/拒绝结果
    - 输出 [拒绝] → 直接输出拒绝原因，不进入人工检查
    - 输出 [通过+警告] → 警告信息（如 F10 orphan、F11 身份漂移提示）需在 Warden 输出中透传
    - 输出 [通过] → 进入步骤 2

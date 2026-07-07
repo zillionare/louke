@@ -149,18 +149,18 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
 2. 迭代 N 轮:
    a. spawn Lex   Stage 1: verify-acceptance + 追加 quotes 到 spec.md
    b. spawn Sage  Step 3: 响应 quotes, 更新 spec
-   循环条件: lk sage quote-check --spec {spec-id}
+   循环条件: lk agent sage quote-check --spec {spec-id}
              exit 0 → 退出 / exit 1 → 继续（1-5+ 轮）
 
-3. spawn Sage    Step 4: lk sage record-lock（需用户 --confirm）
-4. spawn Sage    Step 5: lk sage create-issues
+3. spawn Sage    Step 4: lk agent sage record-lock（需用户 --confirm）
+4. spawn Sage    Step 5: lk agent sage create-issues
 5. spawn Lex     Stage 2+3: verify-issue + verify-project（L1-L8）
 ```
 
-**门禁**: `advance --stage M-SPEC`（`lk sage quote-check` exit 0）
+**门禁**: `advance --stage M-SPEC`（`lk agent sage quote-check` exit 0）
 
 **两信号齐才可 advance**:
-1. Sage: `lk sage quote-check` exit 0
+1. Sage: `lk agent sage quote-check` exit 0
 2. Lex: `verify-acceptance` + `verify-issue` 全通过
 
 ---
@@ -195,7 +195,7 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
    Sage [通过] → advance
 ```
 
-**门禁**: `advance --stage M-TESTPLAN`（`lk archer validate-test-plan` exit 0）
+**门禁**: `advance --stage M-TESTPLAN`（`lk agent archer validate-test-plan` exit 0）
 
 ---
 
@@ -213,7 +213,7 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
    Prism [通过] → advance
 ```
 
-**门禁**: `advance --stage M-ARCH`（`lk archer validate-arch` exit 0）
+**门禁**: `advance --stage M-ARCH`（`lk agent archer validate-arch` exit 0）
 
 ---
 
@@ -223,16 +223,16 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
 1. spawn Devon   R-G-R（逐 issue 顺序）
                  传: issue #, FR/AC, test_framework, architecture, interfaces, 分支
 
-2. spawn Prism   M-DEV: lk prism review（test-patterns + security-quick-scan）
+2. spawn Prism   M-DEV: lk agent prism review（test-patterns + security-quick-scan）
                  传: commit range, architecture, interfaces
    [拒绝] → Devon 修正 → 重新 Prism
 
-3. spawn Keeper  lk keeper gate --commit-range {range}
+3. spawn Keeper  lk agent keeper gate --commit-range {range}
    exit 1 → Devon 修正 → 重新 Prism → Keeper
    exit 0 → advance
 ```
 
-**门禁**: `advance --stage M-DEV --commit-range HEAD~1..HEAD`（`lk keeper gate` exit 0）
+**门禁**: `advance --stage M-DEV --commit-range HEAD~1..HEAD`（`lk agent keeper gate` exit 0）
 
 ---
 
@@ -246,12 +246,12 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
                  传: commit diff, test-plan §6, acceptance, [e2e]
    [拒绝] → Shield 修正 → 重新 Prism
 
-3. spawn Keeper  lk keeper gate --tests
+3. spawn Keeper  lk agent keeper gate --tests
    exit 1 → Shield 修正 → 重新 Prism → Keeper
    exit 0 → advance
 ```
 
-**门禁**: `advance --stage M-E2E`（`lk shield run-e2e` + `lk keeper gate --tests` exit 0）
+**门禁**: `advance --stage M-E2E`（`lk agent shield run-e2e` + `lk agent keeper gate --tests` exit 0）
 
 ---
 
@@ -261,12 +261,12 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
 1. spawn Devon   修 bug（复用 R-G-R）
                  分支: fix/{issue} → 合 main + release
 
-2. spawn Keeper  lk keeper regression --baseline main --current HEAD
+2. spawn Keeper  lk agent keeper regression --baseline main --current HEAD
    exit 1 → Devon 修正 → 重新 Keeper
    exit 0 → advance
 ```
 
-**门禁**: `advance --stage M-BUGFIX`（`lk keeper regression` exit 0）
+**门禁**: `advance --stage M-BUGFIX`（`lk agent keeper regression` exit 0）
 
 注: 不经过 Prism，直接 Devon → Keeper 回归。
 
@@ -277,7 +277,7 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
 ```
 1. 若 DoD 禁用 Security Audit → auto-pass
 
-2. spawn Judge   lk judge security-audit --release releases/{version} --baseline main
+2. spawn Judge   lk agent judge security-audit --release releases/{version} --baseline main
                  传: release 分支, checklist, spec, interfaces, 前次报告
                  critical/high = [拒绝] → Devon 修复 → 重新 Judge
                  通过 → advance

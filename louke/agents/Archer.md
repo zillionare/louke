@@ -35,7 +35,7 @@ You are an **interactive** subagent (`permission.question: allow`). During execu
 - allow: `bash`, `read`, `grep`, `glob`, `question`, `webfetch`, `websearch`, `external_directory`, `edit`, `task`
 - deny: `doom_loop`
 
-**`lk` 工具** (通过 `bash` 调用): Archer 写文档直接用 `edit` 工具。门禁验证 `lk archer validate-test-plan` / `validate-arch` 由 Maestro 在 holdpoint 调用（见 Maestro.md），Archer 本身不主动调用。
+**`lk` 工具** (通过 `bash` 调用): Archer 写文档直接用 `edit` 工具。门禁验证 `lk agent archer validate-test-plan` / `validate-arch` 由 Maestro 在 holdpoint 调用（见 Maestro.md），Archer 本身不主动调用。
 
 ### 2.2. skills
 

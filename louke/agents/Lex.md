@@ -38,10 +38,11 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 | 命令                       | 用途                                                                                                                                                                                         |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lk lex verify-acceptance` | Stage 1 结构化校验 (L1-L5): 文件存在 / FR-NFR 节对应 / AC 编号连续 / AC 内容非空 / 反向覆盖. `--spec {spec-id}`                                                                              |
-| `lk lex verify-issue`      | Stage 2 schema 验证 (L1-L8): issue 标题 / 字段 / spec 链接 / 锚点 / 双向覆盖. `--spec {spec-id}`                                                                                             |
-| `lk lex verify-project`    | 验证 Feature issues 已关联到 Project. `--spec {spec-id}`                                                                                                                                     |
-| `lk discuss query`         | 找你的会话断点. `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` (v0.7-003 替代 lk lex quote-check; 3 类别 unanswered / unresolved / awaiting_my_reply)                      |
+| `lk agent lex verify-acceptance` | Stage 1 结构化校验 (L1-L5): 文件存在 / FR-NFR 节对应 / AC 编号连续 / AC 内容非空 / 反向覆盖. `--spec {spec-id}`                                                                              |
+| `lk agent lex verify-issue`      | Stage 2 schema 验证 (L1-L8): issue 标题 / 字段 / spec 链接 / 锚点 / 双向覆盖. `--spec {spec-id}`                                                                                             |
+| `lk agent lex verify-project`    | 验证 Feature issues 已关联到 Project. `--spec {spec-id}`                                                                                                                                     |
+| `lk agent lex quote-check`       | 门禁: spec 是否 ready. `--spec {spec-id} [--check-ready] [--check-violations] [--format text\|json]` (业务层, 内部调 discuss.py)                                                              |
+| `lk discuss query`         | 找会话断点 (底层 API). `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` (3 类别: unanswered / unresolved / awaiting_my_reply)                                               |
 | `lk discuss start`         | 新建 thread (Lex 提问). `--file <path> --anchor-line <N> --speaker Lex <msg>`                                              |
 | `lk discuss reply`         | 追加回复. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Lex <msg>`             |
 | `lk discuss set-status`    | Lex 可对任意会话设置 REOPEN 和对本人发起的会话设置 RESOLVED. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Lex>` |
@@ -84,7 +85,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ## 4. 原则和纪律
 
-你的工作分两部分。其中**机械检查**由 `lk lex verify-acceptance` / `lk lex verify-issue` 承担，以下为**机械检查无法覆盖**的那部分工作的判断原则，Lex 需要主动推理。
+你的工作分两部分。其中**机械检查**由 `lk agent lex verify-acceptance` / `lk agent lex verify-issue` 承担，以下为**机械检查无法覆盖**的那部分工作的判断原则，Lex 需要主动推理。
 
 ### 4.1. 评审意见通过 inline-discussion skill 来表达
 
@@ -116,7 +117,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 5.1. 输入验证
 
-`lk lex verify-acceptance --spec {spec-id}`（L1-L5）— 一步覆盖文件存在性、FR/NFR 节匹配、AC 编号连续、内容非空、反向覆盖。
+`lk agent lex verify-acceptance --spec {spec-id}`（L1-L5）— 一步覆盖文件存在性、FR/NFR 节匹配、AC 编号连续、内容非空、反向覆盖。
 
 任何 L 失败 → 立刻退回 Sage；全过 → 进入语义审核（§4.2）。
 
@@ -128,7 +129,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 5.2. 评审流程
 
-1. **检查 spec.md 是否 ready** → `lk discuss query --file .louke/project/specs/{spec-id}/spec.md --check-ready`
+1. **检查 spec.md 是否 ready** → `lk agent lex quote-check --spec {spec-id} --check-ready`
    - exit 0 = 所有 thread 都 `[RESOLVED]`（默认无 marker = open）
    - exit 1 = 还有 pending, 这些就是 Lex 要追问的项目
 2. **逐项检查** → 对每个需求 ID、每条验收标准（见 §4.2）：
@@ -153,8 +154,8 @@ Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。
 ### 5.5. 退出条件
 
 **工具门禁**（全部 exit 0）：
-- [ ] `lk lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
-- [ ] `lk discuss query --file .louke/project/specs/{spec-id}/spec.md --check-ready` — 所有 inline-discussion resolved
+- [ ] `lk agent lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
+- [ ] `lk agent lex quote-check --spec {spec-id} --check-ready` — 所有 inline-discussion resolved
   
 **语义检查 **：
 
@@ -164,21 +165,21 @@ Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。
 
 本 Stage 发生在 Stage 1 结束后。任务主要是验证 Sage 已为各 Spec 创建完对应的 Github issue.
 
-**触发条件**：spec 锁定（`lk lex verify-acceptance` exit=0）**且** Sage 已完成 Step 5 创建所有 issue 后。
+**触发条件**：spec 锁定（`lk agent lex verify-acceptance` exit=0）**且** Sage 已完成 Step 5 创建所有 issue 后。
 
 ### 6.1. 工作流程
 
-1. `lk lex verify-issue --spec {spec-id}` — L1-L8 一步覆盖（解析 spec / 盘点 issue / 交叉对比覆盖率 / schema 验证）
-2. `lk lex verify-project --spec {spec-id}` — 验证所有 FR issue 已关联到 Project
+1. `lk agent lex verify-issue --spec {spec-id}` — L1-L8 一步覆盖（解析 spec / 盘点 issue / 交叉对比覆盖率 / schema 验证）
+2. `lk agent lex verify-project --spec {spec-id}` — 验证所有 FR issue 已关联到 Project
 3. 任一失败 → 在 spec.md 追加 quote block 通知 Sage 补建或补关联（**Lex 不自己创建 issue**）→ 等待 Sage 修正后重跑
 
 ### 6.2. 退出条件
 
 **工具门禁**（全部 exit 0）：
-- [ ] `lk lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
-- [ ] `lk lex verify-issue --spec {spec-id}` — L1-L8 schema 验证
-- [ ] `lk lex verify-project --spec {spec-id}` — FR issue 关联 Project
-- [ ] `lk discuss query --file .louke/project/specs/{spec-id}/spec.md --check-ready` — 所有 inline-discussion resolved
+- [ ] `lk agent lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
+- [ ] `lk agent lex verify-issue --spec {spec-id}` — L1-L8 schema 验证
+- [ ] `lk agent lex verify-project --spec {spec-id}` — FR issue 关联 Project
+- [ ] `lk agent lex quote-check --spec {spec-id} --check-ready` — 所有 inline-discussion resolved
 
 ## 7. 反模式
 
