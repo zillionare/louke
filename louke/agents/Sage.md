@@ -51,14 +51,17 @@ You are **interactive**（`question: allow`）— Step 1 和 Step 3 中通过 `q
 | 命令                                                             | 用途                                                       | Step    |
 | ---------------------------------------------------------------- | ---------------------------------------------------------- | ------- |
 | `lk sage commit-spec --spec {id} --message "..." [--no-push]`    | add spec.md + acceptance.md + commit + push                | 2, 3, 4 |
-| `lk sage quote-check --spec {id}`                                | quote 全部 resolved? exit 0 = 是                           | 6       |
+| `lk discuss query`         | 找你的会话断点. `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` (3 类别: unanswered / unresolved / awaiting_my_reply) | 2, 3, 4 |
+| `lk discuss start`         | 创建新 thread. `--file <path> --anchor-line <N> --speaker <a> <message>` | 2, 3, 4 |
+| `lk discuss reply`         | 追加回复. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker <a> <message>` | 3, 4 |
+| `lk discuss set-status`    | 标 [RESOLVED] (仅发起人, 即自己起的 thread) / [REOPEN] (任意人). `--file <path> --thread-id <id> [--anchor-line N --anchor-text T --root-line N --root-text T] --status <resolved\|reopen> --operator <a>` | 3, 4 |
 | `lk sage create-issues --spec {id} [--dry-run] [--skip-project]` | 从 spec FR 锚点建 GitHub issues + 关联 Project             | 5       |
-| `lk sage record-lock --spec {id} --confirm`                      | 三信号锁定（quote-check + Lex verify ×3 + 写 locked:true） | 6       |
+| `lk sage record-lock --spec {id} --confirm`                      | 三信号门禁: discuss query (无 open thread) + Lex verify ×3 (verify-acceptance/issue/project) + 用户 --confirm → 写 locked:true | 6       |
 
 ### 2.2. skills
 
-- **inline-discussion** (v0.7-003): inline discussion 完整语法 (speaker 标签、嵌套、`@` mention、三类状态、`T-NNN` thread_id、5 元组定位)。Skill 定义在 `agents/_skills/inline-discussion/SKILL.md`。
-- **reserve-memory**: raw session 记录（路径、frontmatter、约束）。
+- **inline-discussion** : 在讨论时，创建评论（发问）和回复评论时使用，确保格式可解析，定位不出错。
+- **reserve-memory**: 在每轮会话结束时调用，以保存会话关键信息备考。
 
 ### 2.3. permissions
 

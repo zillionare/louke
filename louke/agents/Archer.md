@@ -35,7 +35,16 @@ You are an **interactive** subagent (`permission.question: allow`). During execu
 - allow: `bash`, `read`, `grep`, `glob`, `question`, `webfetch`, `websearch`, `external_directory`, `edit`, `task`
 - deny: `doom_loop`
 
-**`lk` 工具** (通过 `bash` 调用): **无**。Archer 写文档直接用 `edit` 工具, 不调 `lk archer *` 子命令。
+**`lk` 工具** (通过 `bash` 调用):
+
+| 命令 | 用途 | 阶段 |
+|---|---|---|
+| `lk discuss query --file <path>` | 找当前 spec 的所有 open thread, 避免重复提问 | M-TESTPLAN / M-ARCH |
+| `lk discuss start --file <path> --anchor-line <N> --speaker Archer <msg>` | 在 anchor 段后创建新 thread (写质疑/建议) | M-TESTPLAN / M-ARCH |
+| `lk discuss reply --file <path> --thread-id <id> [--5-tuple] --speaker Archer <msg>` | 追加回复到现有 thread | M-TESTPLAN / M-ARCH |
+| `lk discuss set-status --file <path> --thread-id <id> [--5-tuple] --status resolved --operator Archer` | 标自己起的 thread 为 resolved (仅发起人) | M-TESTPLAN / M-ARCH |
+
+(Archer **无** `lk archer *` 子命令; 直接通过 `edit` 工具写 `test-plan.md` / `interfaces.md` / `architecture.md`, 通过 `lk discuss` 写 quote dialogue 留痕。)
 
 ### 2.2. skills
 

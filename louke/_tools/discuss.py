@@ -10,9 +10,10 @@ inline-discussion 协议 (v0.7-003) 替代 v0.6-016 的 quote-dialogue 协议.
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
@@ -23,8 +24,10 @@ STATUS_RESOLVED = "resolved"
 STATUS_REOPEN = "reopen"
 
 # Status marker 匹配 (仅根评论行有效)
+# ✓ (U+2713) 作为向后兼容标识, 映射到 resolved (旧 spec 使用 ✓)
 RE_STATUS_MARKER = re.compile(
-    r"\s*\[(?P<status>open|resolved|reopen)\]\s*$",
+    r"\s*(?:\[(?P<bracket_status>open|resolved|reopen)\]"
+    r"|\u2713\s*(?:resolved)?)\s*$",
     re.IGNORECASE,
 )
 
@@ -36,7 +39,7 @@ RE_STATUS_MARKER = re.compile(
 RE_QUOTE_LINE = re.compile(
     r"^(?P<depth>\s*(?:>\s*)+)"
     r"(?P<speaker>[*][*]@?[^*\s][^*]*?[*][*]|[*][*]@?[A-Za-z][A-Za-z0-9_\-]*[*][*])"
-    r"(?:\s*\[(?P<status>open|resolved|reopen)\])?"
+    r"(?:\s*(?:\[(?P<status>open|resolved|reopen)\]|(?P<check>\u2713\s*(?:resolved)?)))?"
     r"\s*:\s*"
     r"(?P<body>.*?)\s*$",
     re.IGNORECASE,
@@ -60,16 +63,6 @@ RE_TABLE_ROW = re.compile(r"^\s*\|\s*(.+?)\s*\|\s*$")
 RE_TABLE_SEP = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
 RE_TOP_HEADING = re.compile(r"^##\s+\S")
 RE_FENCE = re.compile(r"^\s*(```|~~~)")
-
-# Status 大小写归一化 (AC-8): 解析时归一, 显示保留原大小写
-STATUS_NORMALIZE = {
-    "OPEN": STATUS_OPEN,
-    "OPEN": STATUS_OPEN,
-    "RESOLVED": STATUS_RESOLVED,
-    "RESOLVED": STATUS_RESOLVED,
-    "REOPEN": STATUS_REOPEN,
-    "REOPEN": STATUS_REOPEN,
-}
 
 
 def normalize_text(s: str) -> str:
@@ -179,7 +172,13 @@ class DiscussParser:
             # 提取 @mention 列表
             mentioned = re.findall(r"@([A-Za-z][A-Za-z0-9_\-]*)", m.group("speaker"))
             body = m.group("body").strip()
-            status_raw = (m.group("status") or "").lower()
+            # ✓ (U+2713) 兼容: 旧 spec 用 ✓ 标 resolved
+            if m.group("status"):
+                status_raw = m.group("status").lower()
+            elif m.group("check") is not None or m.group("check") == "":
+                status_raw = STATUS_RESOLVED
+            else:
+                status_raw = ""
             # 根评论 depth=1 才识别 status
             if depth == 1:
                 self._thread_counter += 1
@@ -340,6 +339,7 @@ class DiscussParser:
         anchor_text: str | None = None,
         root_line: int | None = None,
         root_text: str | None = None,
+        total_lines: int | None = None,
     ) -> Thread | None:
         """4 级降级查找 thread.
 
@@ -372,14 +372,24 @@ class DiscussParser:
                         return t2
             return None
 
+        # Step 0: 计算行号漂移 (FR-0050)
+        # delta = current_total - stored_total_lines
+        # adjusted_anchor = anchor_line + delta
+        if total_lines is not None:
+            delta = current_total - total_lines
+            adjusted_anchor = max(1, anchor_line + delta)
+        else:
+            delta = 0
+            adjusted_anchor = anchor_line
+
         # Level 0: 精确命中 - 调整 anchor_line + 检查内容
-        # (此分支在第一遍 parse 之前, 不知道 candidates, 所以直接查 anchor 行内容)
+        # 搜索窗口: adjusted_anchor ± max(|delta|+5, 5) (容错小漂移 + delta 估算误差)
         if anchor_text:
-            delta = current_total - 999  # placeholder, 实际应从 stored 算
-            # 这里需要 stored 的 total_lines. 但 find_thread 调用者没传.
-            # 简化: 试多个 delta 值 (假设原 anchor_line 附近的行就是 anchor)
-            # 实际做法: 试 anchor_line 本身 + ±5
-            for try_anchor in range(max(1, anchor_line - 5), min(current_total, anchor_line + 5) + 1):
+            search_radius = max(abs(delta) + 5, 5)
+            for try_anchor in range(
+                max(1, adjusted_anchor - search_radius),
+                min(current_total, adjusted_anchor + search_radius) + 1,
+            ):
                 actual = normalize_text(lines[try_anchor - 1])
                 if actual == anchor_text:
                     # 找到 anchor 行. 在其下方扫 blockquote 找根评论
@@ -407,7 +417,6 @@ class DiscussParser:
 
         # Level 1: Levenshtein 窗口 (anchor_text 找近似行)
         if anchor_text:
-            window = 10  # 默认 +/- 10 行
             best_anchor_line = None
             best_anchor_dist = 10**9
             for i in range(1, current_total + 1):
@@ -607,28 +616,24 @@ class DiscussParser:
             status_str = f" [{status_marker.upper()}]"
         else:
             status_str = ""
-        # 处理多行 new_body: 每行加 depth + 1 个 `>` 前缀
+        # 处理多行 new_body: 续行使用与 speaker 行相同的 depth_prefix (CommonMark 同段)
         body_lines = new_body.split("\n")
-        new_lines = [old_line]  # 暂时
         first = f"{depth_prefix} {speaker_tag}{status_str}: {body_lines[0]}"
         new_lines = [first]
         for bl in body_lines[1:]:
-            # 续行: depth + 1 个 `>` (与 root comment 一样)
-            cont_depth = ">" * (len(depth_prefix.replace(">", "").replace(" ", "")) + 1) + " "
-            new_lines.append(f"{depth_prefix}{cont_depth}{bl}")
+            new_lines.append(f"{depth_prefix}{bl}")
         lines[target_line_no - 1:target_line_no] = new_lines
         new_text = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
         self._atomic_write(file_path, new_text)
 
-    def is_ready(self) -> tuple[bool, list[str]]:
-        """返回 (ready, blockers). 等同 ParseResult.is_ready + ready_blockers.
+    def is_ready(self, file_path: Path) -> tuple[bool, list[str]]:
+        """返回 (ready, blockers). 便捷 API, 等同 parse_file(file_path) 后访问 result.is_ready.
 
-        用法: cmd_record_lock 内部调 self.parse_file 后 is_ready().
+        用法: cmd_record_lock 内部调 self.is_ready(spec_path).
+        与 quote_parser 兼容: 返回 (bool, list[str]) 元组.
         """
-        # 重新 parse (可能 stale)
-        # 实际使用时, 已在 parse_file 拿到 ParseResult
-        # 这里作为便捷 API
-        raise NotImplementedError("use parse_file().is_ready instead")
+        result = self.parse_file(file_path)
+        return (result.is_ready, result.ready_blockers)
 
     # ===== 辅助方法 =====
 
@@ -667,7 +672,7 @@ class DiscussParser:
         import fcntl
         import tempfile
         lock_path = file_path.with_suffix(file_path.suffix + ".lock")
-        with open(lock_path, "w") as lock_fd:
+        with open(lock_path, "w", encoding="utf-8") as lock_fd:
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
             try:
                 fd, tmp_path = tempfile.mkstemp(
@@ -679,3 +684,116 @@ class DiscussParser:
                 Path(tmp_path).replace(file_path)
             finally:
                 fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
+# ===== 模块级辅助函数 (Layer 1 共用) =====
+
+def format_ready(spec_path: Path, fmt: str = "text") -> tuple[int, str]:
+    """格式化 quote-check 输出. 返回 (exit_code, output_text).
+
+    exit_code: 0 if ready, 1 if not ready.
+    供 sage.py / lex.py cmd_quote_check 共用, 替代 subprocess 调 quote_parser.
+    """
+    parser = DiscussParser()
+    result = parser.parse_file(spec_path)
+    exit_code = 0 if result.is_ready else 1
+
+    open_count = sum(1 for t in result.threads if t.status == STATUS_OPEN)
+    resolved_count = sum(1 for t in result.threads if t.status == STATUS_RESOLVED)
+    reopen_count = sum(1 for t in result.threads if t.status == STATUS_REOPEN)
+
+    if fmt == "json":
+        data = {
+            "total_threads": len(result.threads),
+            "open_count": open_count,
+            "resolved_count": resolved_count,
+            "reopen_count": reopen_count,
+            "is_ready": result.is_ready,
+            "ready_blockers": result.ready_blockers,
+            "threads": [
+                {
+                    "thread_id": t.thread_id,
+                    "initiator": t.initiator,
+                    "status": t.status,
+                    "last_speaker": t.last_speaker,
+                    "reply_count": t.reply_count,
+                    "snippet": t.snippet,
+                    "total_lines": t.total_lines,
+                    "anchor_line": t.anchor_line,
+                    "root_line": t.root_line,
+                    "mentioned_agents": t.mentioned_agents,
+                }
+                for t in result.threads
+            ],
+            "units": [
+                {
+                    "id": u["id"],
+                    "kind": u["kind"],
+                    "yaml_resolved": u["yaml_resolved"],
+                    "yaml_valid": u["yaml_valid"],
+                    "yaml_testability": u["yaml_testability"],
+                    "thread_ids": u["thread_ids"],
+                }
+                for u in result.units
+            ],
+        }
+        return (exit_code, json.dumps(data, ensure_ascii=False, indent=2))
+
+    # text format
+    lines = [f"spec: {spec_path}"]
+    lines.append(f"  total threads: {len(result.threads)}")
+    lines.append(f"  open: {open_count}")
+    lines.append(f"  resolved: {resolved_count}")
+    if reopen_count:
+        lines.append(f"  reopen: {reopen_count}")
+    lines.append(f"  units: {len(result.units)}")
+    lines.append(f"  is_ready: {result.is_ready}")
+    if result.ready_blockers:
+        lines.append("")
+        lines.append("[ready] blockers:")
+        for b in result.ready_blockers:
+            lines.append(f"  {b}")
+    if open_count or reopen_count:
+        lines.append("")
+        lines.append("[open/reopen] threads:")
+        for t in result.threads:
+            if t.status in (STATUS_OPEN, STATUS_REOPEN):
+                lines.append(
+                    f"  [{t.status.upper():8}] {t.thread_id} {t.initiator}: {t.snippet}"
+                )
+    if resolved_count:
+        lines.append(f"\n[resolved] threads: {resolved_count} total")
+    return (exit_code, "\n".join(lines))
+
+
+def check_violations(spec_path: Path) -> tuple[int, str]:
+    """检测 inline-discussion 协议违规.
+
+    新协议 (v0.7-003) 中, RESOLVED 仅 initiator 可标 (set_status 在写入时强制).
+    因此本函数主要检测: 嵌套回复 (depth > 1) 行是否含 status marker (会被 parser 忽略, 但 writer 意图错误).
+
+    返回 (exit_code, output_text). exit_code: 0 无违规, 1 有违规.
+    """
+    text = spec_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    violations: list[str] = []
+    in_code_block = False
+    for line_no, raw in enumerate(lines, start=1):
+        if RE_FENCE.match(raw):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        m = RE_QUOTE_LINE.match(raw)
+        if not m:
+            continue
+        depth = m.group("depth").count(">")
+        if depth > 1 and (m.group("status") or m.group("check") is not None or m.group("check") == ""):
+            speaker = m.group("speaker").strip("*").lstrip("@")
+            violations.append(
+                f"  L{line_no} d{depth} {speaker}: status marker on nested reply is ignored"
+            )
+    if not violations:
+        return (0, f"no violations in {spec_path} (inline-discussion enforces RESOLVED at write time)")
+    msg = f"VIOLATIONS: {len(violations)} reply line(s) with ignored status marker:\n" + "\n".join(violations)
+    return (1, msg)

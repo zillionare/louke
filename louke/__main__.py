@@ -218,6 +218,8 @@ def _build_discuss_parser() -> argparse.ArgumentParser:
     p_query.add_argument('--blocker', help='按 blocker 过滤 (e.g. Aaron)')
     p_query.add_argument('--status', choices=['open', 'resolved', 'reopen'],
                         help='按状态过滤')
+    p_query.add_argument('--check-ready', action='store_true',
+                        help='输出 is_ready + ready_blockers (FR-0060 门禁, 与 --initiator/--blocker 互斥)')
 
     # 2. start
     p_start = sub.add_parser('start', help='创建新 thread (插在 anchor_line 后)')
@@ -276,6 +278,15 @@ def _cmd_discuss(argv: list) -> int:
     try:
         if args.discuss_command == 'query':
             result = discuss.DiscussParser().parse_file(Path(args.file))
+            # FR-0060 AC-2: --check-ready 输出 is_ready + ready_blockers
+            if args.check_ready:
+                import json as _json
+                out = {
+                    'is_ready': result.is_ready,
+                    'ready_blockers': result.ready_blockers,
+                }
+                print(_json.dumps(out, ensure_ascii=False, indent=2))
+                return 0 if result.is_ready else 1
             threads = result.threads
             # Apply filters
             if args.initiator:
