@@ -34,6 +34,8 @@ def register(subparsers):
     p.add_argument('--story', default='')
     p.add_argument('--story-file', default='')
     p.add_argument('--dod', default='e2e 全通过 + 单元测试覆盖率 ≥95% + 安全审查 (M-SECURITY)')
+    p.add_argument('--security-audit', choices=['enabled', 'disabled'], default='',
+                  help='显式指定；空则从 --dod 推断 (向后兼容)')
     p.add_argument('--no-commit', action='store_true')
     p.add_argument('--no-repo', action='store_true', help='MVP 模式：跳过创建 GitHub repo / Project / Smoke')
     p.add_argument('--dry-run', action='store_true')
@@ -429,7 +431,10 @@ def cmd_foundation(args):
     if not story_text:
         story_text = f'Story for {args.spec_id}'
     owner, repo_name = args.repo.split('/', 1)
-    security = 'disabled' if ('关闭安全' in args.dod or 'no security' in args.dod.lower()) else 'enabled'
+    if args.security_audit:
+        security = args.security_audit
+    else:
+        security = 'disabled' if ('关闭安全' in args.dod or 'no security' in args.dod.lower()) else 'enabled'
     release_branch = f'releases/{args.version}'
 
     full_p0 = not args.no_repo

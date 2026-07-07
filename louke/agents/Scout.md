@@ -114,10 +114,12 @@ lk agent scout foundation \
 - 创建 GitHub repo（如不存在）
 - 创建 GitHub Project + 调 `lk agent scout invite-owner` 加 owner 为 collaborator
 - 创建 `releases/{version}` 分支
-- 写 `project.toml`（12 必填字段，TOML）
+- 写 `project.toml`（13 字段，TOML）
 - 写 `story.md`
 - 写 `.gitignore`（排除 raw/）
 - 创建 Test Issue + Test PR 验证 gh 权限（冒烟测试）
+- `--security-audit` 显式指定 security 状态；空则从 `--dod` 推断（含"关闭安全"/"no security" → disabled）
+- **自动 commit + push**（除非 `--no-commit`）
 
 退出码 0 → 继续；非 0 → 检查 stdout 报错并提示用户。
 
@@ -131,18 +133,7 @@ lk agent scout install-precommit [--force]
 
 退出码 0 → 继续；非 0 → 检查 stderr（通常 `pre-commit` 没装）。
 
-### 5.6. Step 5: 调 `lk agent scout commit-foundation`
-
-```bash
-lk agent scout commit-foundation --spec-id {SPEC-ID} --version {version} \
-  --message "story/prd: initial draft from user conversation for {SPEC-ID}"
-```
-
-封装多步 git 操作（add 多个文件 + commit + push）。不在 `releases/{version}` 则内部 `git checkout` 切换。
-
-退出码 0 → 提交成功；非 0 → 检查 stderr。
-
-### 5.7. Step 6: 验证 + 收尾
+### 5.6. Step 5: 验证 + 收尾
 
 ```bash
 # 验证 project.toml 12 必填字段都在
@@ -175,17 +166,16 @@ Security Audit: {enabled/disabled}
 Repo: {已存在 / 新创建}    Project: {已创建 / 已存在}    owner 已加为 collaborator: {是/否}
 身份一致: {通过/失败}（lk agent scout identity-check）  gh 权限: {通过/失败}（Step 3 Smoke Test Issue）
 工作区: {目录路径}    Agent 可用性: {数量} prompt 文件
-→ 结论: {通过/拒绝}（通过要求: 身份一致 + gh 权限通过 + owner 已加为 collaborator + 6 个 lk agent scout 命令全部 exit 0）
+→ 结论: {通过/拒绝}（通过要求: 身份一致 + gh 权限通过 + owner 已加为 collaborator + 5 个 lk agent scout 命令全部 exit 0）
 ```
 
 ## 7. 退出条件
 
 - [ ] Step 1: 用户提供完整项目元信息（story / 版本 / repo / spec-id / DoD）
 - [ ] Step 2: `lk agent scout identity-check` 退出码 = 0
-- [ ] Step 3: `lk agent scout foundation` 退出码 = 0（repo + Project + branch + project.toml + story.md + Test Issue/PR 全部完成）
+- [ ] Step 3: `lk agent scout foundation` 退出码 = 0（repo + Project + branch + project.toml + story.md + Test Issue/PR + commit + push 全部完成）
 - [ ] Step 4: `lk agent scout install-precommit` 退出码 = 0（`.pre-commit-config.yaml` 写入 + `[meta].pre_commit` 字段更新）
-- [ ] Step 5: `lk agent scout commit-foundation` 退出码 = 0（提交到 `releases/{version}` 并 push）
-- [ ] Step 6: `python _common._read_project_info_field()` 能读出 12 必填字段（Project ID 已写入）
+- [ ] Step 5: `python _common._read_project_info_field()` 能读出 13 必填字段（Project ID 已写入）
 - [ ] 当前在 `releases/{version}` 分支
 
 

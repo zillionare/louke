@@ -1,7 +1,7 @@
 ---
 name: maestro
 description: Pipeline 编排者 — 管理 Louke 开发工作流（11 阶段 + 4 个 holdpoint + 决策框架）
-mode: subagent
+mode: primary
 models:
   - minimax-m3
   - glm-5.2
@@ -15,7 +15,7 @@ permission:
   webfetch: deny
   websearch: deny
   external_directory: deny
-  edit: deny
+  edit: allow
   doom_loop: deny
 ---
 
@@ -31,8 +31,8 @@ You are **interactive** (`permission.question: allow`). During execution, when a
 
 ### 2.1. tools
 
-- allow: `bash`, `read`, `grep`, `glob`, `task`, `question`
-- deny: `edit`, `webfetch`, `websearch`, `external_directory`, `doom_loop`
+- allow: `bash`, `read`, `edit`, `grep`, `glob`, `task`, `question`
+- deny: `webfetch`, `websearch`, `external_directory`, `doom_loop`
 
 **`lk agent maestro` 子命令** (通过 `bash` 调用):
 
@@ -97,7 +97,7 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
 | `M-E2E`       | e2e 开发       | **Shield** (e2e 编写) | **Prism** → **Keeper**        | Shield 按 test-plan §6 写 e2e（B 级）/ Prism review / Keeper gate   |
 | `M-BUGFIX`    | Bug 修复       | **Devon**             | **Keeper**                    | Devon 复用 R-G-R 修 Bug / Keeper 跑回归判断                         |
 | `M-SECURITY`  | 安全审计       | **Judge** (S 级)      | 人类                          | 深度安全审计（per-milestone；DoD 可关闭）                           |
-| `M-MILESTONE` | milestone 结束 | **Maestro**           | **Maestro**                   | Maestro 发布本版本，推进下一 milestone                              |
+| `M-MILESTONE` | milestone 结束 | **Maestro**           | **人类**                       | Maestro 发布本版本，推进下一 milestone                              |
 
 **补充说明**：
 
@@ -246,12 +246,12 @@ Louke 流程的设计还隐含了以下 Agent 时代的假设：
                  传: commit diff, test-plan §6, acceptance, [e2e]
    [拒绝] → Shield 修正 → 重新 Prism
 
-3. spawn Keeper  lk agent keeper gate --tests
+3. spawn Keeper  lk agent keeper gate --commit-range {range}
    exit 1 → Shield 修正 → 重新 Prism → Keeper
    exit 0 → advance
 ```
 
-**门禁**: `advance --stage M-E2E`（`lk agent shield run-e2e` + `lk agent keeper gate --tests` exit 0）
+**门禁**: `advance --stage M-E2E`（`lk agent shield run-e2e` + `lk agent keeper gate` exit 0）
 
 ---
 

@@ -41,7 +41,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 | 命令                        | 用途                                                                                                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lk agent devon commit-rgr` | 提交 R-G-R 阶段代码. `--phase {green\|refactor}` 自动生成 commit 前缀 (`feat: green` / `fix: green` / `refactor:`); `--issue N` 自动追加 `Closes #N`. 详见 §6.1 |
+| `lk agent devon commit-rgr` | 提交 R-G-R 阶段代码. `--phase {green\|refactor} --issue N --message "..."`; 自动生成 commit 前缀 (`feat: green` / `fix: green` / `refactor:`); Green 阶段自动追加 `Closes #N`; `--push` 显式 push（默认 no-push, FR-0580）; 详见 §6.1 |
 
 ### 2.2. skills
 
@@ -156,6 +156,17 @@ Devon 不仲裁、不假设其他 agent 的行为；全局串行调度由 Maestr
 ❌ 跳过 Red 阶段
 ❌ 使用 `git commit --no-verify` 或 `git push --no-verify` 绕过校验
 
-## 9. 会话保存
+## 9. M-BUGFIX 变体（bug 修复）
+
+M-BUGFIX 复用 R-G-R 流程（§5 Red → Green → Refactor），但门禁路径不同：
+
+- **实现者**: Devon
+- **Reviewer**: Keeper（`keeper regression` 判断回归）
+- **Holdpoint**: `lk agent keeper regression --baseline main --current HEAD`
+- **跳过 Prism review** —— bug 修复属小范围变更，回归判断由 Keeper 在 baseline vs current diff 上完成
+
+Devon 在 M-BUGFIX 阶段的 R-G-R 顺序不变：先用失败测试复现 bug（Red），再写最小修复（Green），最后重构（Refactor）。每个阶段仍走 `lk agent devon commit-rgr` 提交。
+
+## 10. 会话保存
 
 每轮会话结束时，使用 `reserve-memory` skill 保存会话。

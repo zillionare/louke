@@ -25,7 +25,7 @@ STAGES = [
     ('M-E2E', 'e2e 开发', 'Shield', 'Prism → Keeper'),
     ('M-BUGFIX', 'Bug 修复', 'Devon', 'Keeper'),
     ('M-SECURITY', '安全审计', 'Judge (S级)', '用户'),
-    ('M-MILESTONE', 'milestone 结束', 'Librarian', 'Maestro'),
+    ('M-MILESTONE', 'milestone 结束', 'Maestro', '人类'),
 ]
 
 
@@ -140,7 +140,14 @@ def _holdpoint(stage, args):
         rc = _run_lk('sage', 'quote-check', '--spec', spec)
         if rc != 0:
             return False, f'sage quote-check failed (rc={rc})'
-        return True, 'quote-check exit 0'
+        # Lex verify (两信号齐才可 advance)
+        for lex_cmd in (['lex', 'verify-acceptance', '--spec', spec],
+                        ['lex', 'verify-issue', '--spec', spec],
+                        ['lex', 'verify-project', '--spec', spec]):
+            rc = _run_lk(*lex_cmd)
+            if rc != 0:
+                return False, f'lex {lex_cmd[1]} failed (rc={rc})'
+        return True, 'quote-check + lex verify exit 0'
     if stage == 'M-TESTPLAN':
         # FR-0700: lk archer validate-test-plan
         if not spec:
@@ -175,9 +182,9 @@ def _holdpoint(stage, args):
         rc = _run_lk('shield', 'run-e2e', '--spec', spec or '')
         if rc != 0:
             return False, f'shield run-e2e failed (rc={rc})'
-        rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range, '--tests')
+        rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range)
         if rc != 0:
-            return False, f'keeper gate --tests failed (rc={rc})'
+            return False, f'keeper gate failed (rc={rc})'
         return True, 'shield run-e2e + keeper gate exit 0'
     if stage == 'M-BUGFIX':
         rc = _run_lk('keeper', 'regression', '--baseline', 'main', '--current', 'HEAD')

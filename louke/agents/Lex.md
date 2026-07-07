@@ -139,7 +139,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
    - 无阻塞项 → 在 chat 通知 Sage: "Lex 阶段完成, spec.md is_ready=True, 进入下一阶段"
    - 有阻塞项 → 在 chat 通知 Sage: "Lex 发现 N 个问题, 在 spec.md Lxx-Lyy, 继续追问"
 
-### 5.4. 反馈格式
+### 5.3. 反馈格式
 
 Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。该 skill 将确保格式一致性。
 
@@ -151,7 +151,7 @@ Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。
 | 写 acceptance.md / story.md                  | 改 quote 状态行（无 marker → `[RESOLVED]`） |
 | 整段重写 quote（破坏审计历史）               | —                                           |
 
-### 5.5. 退出条件
+### 5.4. 退出条件
 
 **工具门禁**（全部 exit 0）：
 - [ ] `lk agent lex verify-acceptance --spec {spec-id}` — L1-L5 结构化校验
@@ -159,7 +159,7 @@ Lex 的反馈使用 inline-discussion skill 来新建、追加和回复评论。
   
 **语义检查 **：
 
-未出现 §5.3中第2项的问题。
+未出现 §5.2 中第 2 项的问题。
 
 ## 6. Stage 2: Issue 验证流程
 

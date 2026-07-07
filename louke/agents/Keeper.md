@@ -96,34 +96,43 @@ CLI 自动运行以下检查（无需 flag）：
 
 ## 5. 输出格式
 
-直接引用 CLI stdout，不做二次加工。CLI 退出码 = 1 时附 blocking findings：
+直接引用 CLI stdout，不做二次加工。在报告开头加 `[通过]` / `[拒绝]` 标签 + 退出码，后附 CLI 原始输出。
+
+拒绝时（exit 1）：
 
 ```
 [拒绝] lk agent keeper gate 退出码 = 1
 
-门禁检查（CLI 输出）：
-- [❌] Commit Message Format: 1 finding
-- [✅] R-G-R Order: 0 findings
-- [✅] Test Before Impl: 0 findings
-- [❌] AC Trace: FAIL
-- [✅] Anti-Pattern: PASS
+=== Keeper Gate ===
+Commit range: HEAD~1..HEAD
 
-阻塞问题（CLI stdout，最多 3 条）：
+--- Commit Message Format (1 findings) ---
+[high] a1b2c3d - feat: green – FR-0001 foo
+--- R-G-R Order (0 findings) ---
+--- AC Trace: FAIL ---
+--- Anti-Pattern: PASS ---
+
+→ 拒绝 (1 blocking findings)
+
+阻塞问题（最多 3 条）：
 1. [high] a1b2c3d - feat: green – FR-0001 foo (commit 格式: 缺少 feat: green 前缀)
 2. [high] AC Trace 失败: spec 中存在 FR 无对应测试覆盖
 ```
 
-通过时：
+通过时（exit 0）：
 
 ```
 [通过] lk agent keeper gate 退出码 = 0
 
-门禁检查（CLI 输出）：
-- [✅] Commit Message Format: 0 findings
-- [✅] R-G-R Order: 0 findings
-- [✅] Test Before Impl: 0 findings
-- [✅] AC Trace: PASS
-- [✅] Anti-Pattern: PASS
+=== Keeper Gate ===
+Commit range: HEAD~1..HEAD
+
+--- Commit Message Format (0 findings) ---
+--- R-G-R Order (0 findings) ---
+--- AC Trace: PASS ---
+--- Anti-Pattern: PASS ---
+
+→ gate 通过 (0 non-blocking findings)
 ```
 
 ## 6. 退出条件

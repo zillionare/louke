@@ -1,7 +1,7 @@
 ---
 name: librarian
 description: 知识蒸馏 — 读 raw bundle 整体重写 wiki pages/
-mode: all
+mode: subagent
 models:
   - minimax-cn-coding-plan/MiniMax-M2.7
 permission:
@@ -40,7 +40,7 @@ permission:
 - ❌ 不调用 `question` 工具（CLI 无 UI, permission 阻止）
 - ✅ 只写 `.louke/wiki/pages/*.md` + `index.md` + `log.md` + `overview.md`
 
-**bundle 写入权属澄清**：`.louke/wiki/.compact-bundle*.md` 由 python 脚本（`cmd_compact`）写入, **不**经 `edit` 工具。你不应触碰 bundle 文件（不读不写）, bundle 是 rewrite 的输入。
+**bundle 写入权属澄清**：`.louke/wiki/.compact-bundle*.md` 由 python 脚本（`cmd_compact`）写入, **不**经 `edit` 工具。bundle 文件是 rewrite 的输入, 你**只读不写**（读 bundle 提取待蒸馏内容, 但不修改 bundle 自身）。
 
 ## 3. 上下文窗口策略
 
