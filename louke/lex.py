@@ -32,9 +32,10 @@ def register(subparsers):
     p.add_argument('--repo', default='')
     p.add_argument('--dry-run', action='store_true')
 
-    # quote-check: 复用 Sage 的 quote-check (同 louke/_tools/quote_parser.py)
-    p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 quote 都 ✓ resolved')
-    p.add_argument('--check-violations', action='store_true', help='检测 ownership violations (谁关了不是自己的 quote)')
+    # quote-check: 复用 discuss.py (v0.7-003 inline-discussion, 同 Sage quote-check)
+    p = sub.add_parser('quote-check', help='检查 spec.md 是否所有 thread 都 resolved')
+    p.add_argument('--check-ready', action='store_true', help='exit 0 if ready (Maestro gate; 不输出 JSON)')
+    p.add_argument('--check-violations', action='store_true', help='检测嵌套回复行上的 status marker')
     p.add_argument('--format', choices=['text', 'json'], default='text', help='输出格式 (默认 text)')
     p.add_argument('--spec', required=True)
 
@@ -171,12 +172,12 @@ def cmd_verify_project(args):
 
 
 def cmd_quote_check(args):
-    """调用 louke._tools.quote_parser (同 Sage quote-check + FR-0450 resolve_spec_path).
+    """调用 louke._tools.discuss (同 Sage quote-check + FR-0450 resolve_spec_path, v0.7-003).
 
     3 个 flag 互斥:
-    --check-ready: exit 0 if 0 [open] quotes (Maestro gate; 不输出 JSON)
-    --check-violations: 检测谁关了不是自己的 quote (不输出 JSON)
-    --format text|json (默认 text): 列出所有 quote + 状态; 拿 JSON 时**不要**同时加 --check-ready
+    --check-ready: exit 0 if is_ready (Maestro gate; 输出 blockers 到 stderr)
+    --check-violations: 检测嵌套回复行上的 status marker
+    --format text|json (默认 text): 列出所有 thread + 状态
     """
     spec_arg = args.spec
     if not spec_arg:
@@ -185,13 +186,22 @@ def cmd_quote_check(args):
     if not candidate.exists():
         default = Path(f'.louke/project/specs/{args.spec}/spec.md')
         spec_arg = str(default if default.exists() else resolve_existing_path(spec_arg))
-    cmd = [sys.executable, '-m', 'louke._tools.quote_parser', spec_arg]
+    spec_path = Path(spec_arg)
+    if not spec_path.exists():
+        print(f'lex quote-check: {spec_path} not found', file=sys.stderr)
+        return 2
+    from ._tools import discuss
+    if args.check_ready:
+        ready, blockers = discuss.DiscussParser().is_ready(spec_path)
+        if not ready:
+            print(f'spec not ready: {len(blockers)} blocker(s)', file=sys.stderr)
+            for b in blockers:
+                print(f'  {b}', file=sys.stderr)
+        return 0 if ready else 1
     if args.check_violations:
-        cmd.append('--check-violations')
-    elif args.check_ready:
-        cmd.append('--check-ready')
-    # else: 默认行为, --format 控制输出 (text/json)
-    if args.format != 'text':
-        cmd += ['--format', args.format]
-    result = subprocess.run(cmd, cwd=Path.cwd())
-    return result.returncode
+        exit_code, msg = discuss.check_violations(spec_path)
+        print(msg)
+        return exit_code
+    exit_code, output = discuss.format_ready(spec_path, args.format)
+    print(output)
+    return exit_code

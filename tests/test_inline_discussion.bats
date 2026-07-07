@@ -48,11 +48,56 @@ EOF
     ! echo "$output" | grep -q '"status": "resolved"'
 }
 
-@test "query: --blocker filter (unanswered)" {
-    run $PY discuss query --file .louke/project/specs/test/spec.md --blocker Sage
+@test "query: --blocker returns 3 categories (unanswered/unresolved/awaiting)" {
+    # Fixture with 4 threads covering all 3 blocker categories + 1 non-match:
+    #   T-001: Sage initiated, no replies, open          → unanswered (Sage is blocker)
+    #   T-002: Sage initiated, Aaron replied, open       → unresolved (Sage is blocker)
+    #   T-003: Aaron initiated, @Sage mentioned, open    → awaiting_my_reply (Sage is blocker)
+    #   T-004: Aaron initiated, no mentions, open       → should NOT appear for --blocker Sage
+    cat > .louke/project/specs/test/blocker_spec.md <<'EOF'
+# Blocker Test Spec
+
+### FR-0001 unanswered
+
+> **Sage**: should use bcrypt or argon2?
+
+### FR-0002 unresolved
+
+> **Sage**: email or SMS for 2FA?
+>> **Aaron**: email is simpler.
+
+### FR-0003 awaiting
+
+> **Aaron**: @Sage what about rate limiting?
+
+### FR-0004 not-for-sage
+
+> **Aaron**: lex should review this.
+EOF
+    run $PY discuss query --file .louke/project/specs/test/blocker_spec.md --blocker Sage
     [ "$status" -eq 0 ]
-    # Sage has T-002 unanswered (initiated by Sage, 0 replies)
-    echo "$output" | grep -q '"thread_id"'
+    # Should return 3 threads: T-001 (unanswered), T-002 (unresolved), T-003 (awaiting)
+    COUNT=$(echo "$output" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+    [ "$COUNT" -eq 3 ]
+    # T-001: unanswered (Sage initiated, 0 replies)
+    echo "$output" | grep -q '"initiator": "sage"'
+    # T-002: unresolved (Sage initiated, 1 reply)
+    echo "$output" | python3 -c "
+import sys, json
+threads = json.load(sys.stdin)
+sage_threads = [t for t in threads if t['initiator'] == 'sage']
+assert any(t['reply_count'] == 0 for t in sage_threads), 'missing unanswered'
+assert any(t['reply_count'] > 0 for t in sage_threads), 'missing unresolved'
+"
+    # T-003: awaiting (Aaron initiated, @Sage mentioned)
+    echo "$output" | python3 -c "
+import sys, json
+threads = json.load(sys.stdin)
+awaiting = [t for t in threads if 'sage' in t.get('mentioned_agents', [])]
+assert len(awaiting) >= 1, 'missing awaiting_my_reply'
+"
+    # T-004: should NOT appear (Aaron initiated, no mention of Sage)
+    ! echo "$output" | grep -q 'not-for-sage'
 }
 
 @test "query: --check-ready returns is_ready + blockers" {

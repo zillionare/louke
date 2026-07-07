@@ -323,16 +323,17 @@ def check_L5_reverse_cover(spec_frs: list[SpecFRSpec], acc_sections: dict[str, l
 
 def run_checks(
     spec_text: str,
-    acceptance_text: str,
+    acceptance_text: str | None,
 ) -> list[AccResult]:
     spec_frs = parse_fr_sections(spec_text)
-    acc_sections = parse_acc_sections(acceptance_text)
+    norm_acc = acceptance_text or ""
+    acc_sections = parse_acc_sections(norm_acc)
 
     return [
         check_L1_exists(acceptance_text),
         check_L2_fr_sections(spec_frs, acc_sections),
         check_L3_ac_sequential(acc_sections),
-        check_L4_ac_content(acceptance_text, acc_sections),
+        check_L4_ac_content(norm_acc, acc_sections),
         check_L5_reverse_cover(spec_frs, acc_sections),
     ]
 
@@ -395,7 +396,7 @@ def main() -> int:
             # 不报错, 走 L1 检查
             pass
 
-    results = run_checks(spec_text or "", acceptance_text or "")
+    results = run_checks(spec_text or "", acceptance_text)
     return report(results)
 
 

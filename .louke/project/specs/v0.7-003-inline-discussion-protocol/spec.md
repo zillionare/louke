@@ -169,7 +169,26 @@ class DiscussParser:
 #   - unanswered: 我 (--blocker 给的 agent) 起的对话, 无回复
 #   - unresolved: 我起的对话, 最后一层回复未置 resolved
 #   - awaiting_my_reply: @提及我的 thread, 最后一层既不是我也不是 resolved
-lk discuss query --file <path> [--initiator <agent>] [--blocker <agent>] [--status <s>]
+lk discuss query --file <path> [--initiator <agent>] [--blocker <agent>] [--status <s>] [--check-ready]
+
+# 2. start — 创建新 thread（插在 anchor 段落后的空行之后）
+lk discuss start --file <path> --anchor-line <N> --speaker <agent> <message>
+
+# 3. reply — 追加回复到 thread 末尾
+# 5 元组定位字段 (anchor-line/anchor-text/root-line/root-text) 用于在行号漂移后定位 thread
+lk discuss reply --file <path> --thread-id <id> \
+    --anchor-line <N> --anchor-text <t> --root-line <N> --root-text <t> \
+    --speaker <agent> <message>
+
+# 4. edit — 修改自己某条评论（仅原作者; 多行内容保持 > 缩进）
+lk discuss edit --file <path> --thread-id <id> \
+    --anchor-line <N> --anchor-text <t> --root-line <N> --root-text <t> \
+    --depth <N> --speaker <agent> <new_body>
+
+# 5. set-status — 修改 thread 状态（RESOLVED 仅 initiator; REOPEN 任意人）
+lk discuss set-status --file <path> --thread-id <id> \
+    --anchor-line <N> --anchor-text <t> --root-line <N> --root-text <t> \
+    --status <resolved|reopen> --operator <agent>
 ```
 
 **4 级降级查找**（QoderWork P0-2，在 start/reply/edit/set-status 命令里共用）：
@@ -236,8 +255,8 @@ Level 3 — 未找到：
 | **Librarian** | L28 `quote_dialogue` 引用 | 引用 `inline-discussion` skill |
 | **Scout** | （在 `.opencode/agents/` 中引用 quote）| 引用 `inline-discussion` skill |
 | **Devon** | （在 `.opencode/agents/` 中引用 quote）| 引用 `inline-discussion` skill |
-| **Maestro** | L113, L153, L160 quote 引用 | `lk discuss` holdpoint + `lk sage record-lock` |
-| **Keeper** | （间接依赖）| `lk discuss` holdpoint |
+| **Maestro** | L113, L153, L160 quote 引用 | `lk discuss` louke + `lk sage record-lock` |
+| **Keeper** | （间接依赖）| `lk discuss` louke |
 | **Shield** | （e2e 报告引 spec）| `lk discuss` |
 | **Judge** | （审计报告引 spec）| `lk discuss` |
 | **Warden** | （spec/acceptance 留 quote）| `lk discuss` |

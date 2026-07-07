@@ -38,7 +38,7 @@ RE_STATUS_MARKER = re.compile(
 #       要表达字面 `**` 必须用 `[*][*]` 或 `\*\*` 需在非 raw string 中
 RE_QUOTE_LINE = re.compile(
     r"^(?P<depth>\s*(?:>\s*)+)"
-    r"(?P<speaker>[*][*]@?[^*\s][^*]*?[*][*]|[*][*]@?[A-Za-z][A-Za-z0-9_\-]*[*][*])"
+    r"(?P<speaker>[*][*]@?[A-Za-z][^*]*?[*][*])"
     r"(?:\s*(?:\[(?P<status>open|resolved|reopen)\]|(?P<check>\u2713\s*(?:resolved)?)))?"
     r"\s*:\s*"
     r"(?P<body>.*?)\s*$",
@@ -169,8 +169,8 @@ class DiscussParser:
             depth_prefix = m.group("depth")
             depth = depth_prefix.count(">")
             speaker_raw = m.group("speaker").strip("*").lstrip("@")
-            # 提取 @mention 列表
-            mentioned = re.findall(r"@([A-Za-z][A-Za-z0-9_\-]*)", m.group("speaker"))
+            # 提取 @mention 列表 (speaker tag + body, FR-0020 AC-8)
+            mentioned = re.findall(r"@([A-Za-z][A-Za-z0-9_\-]*)", m.group("speaker") + " " + m.group("body"))
             body = m.group("body").strip()
             # ✓ (U+2713) 兼容: 旧 spec 用 ✓ 标 resolved
             if m.group("status"):
@@ -479,7 +479,7 @@ class DiscussParser:
         insert_at = self._find_insert_line(lines, anchor_line)
         # 构造根评论
         status_marker = f" [{status.upper()}]" if status != STATUS_OPEN else ""
-        new_line = f"> **{initiator}{status_marker}:** {body}"
+        new_line = f"> **{initiator}**{status_marker}: {body}"
         # 写操作: 插入 + 后补空行 (blockquote 间 CommonMark 要求空行)
         new_lines = lines[:insert_at] + ["", new_line, ""] + lines[insert_at:]
         new_text = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
@@ -526,7 +526,7 @@ class DiscussParser:
         # 在 last_line 之后插 `> {speaker}: {body}`
         depth = self._line_depth(lines, last_line)
         new_depth_marker = ">" * (depth + 1)
-        new_line = f"{new_depth_marker} **{speaker}:** {body}"
+        new_line = f"{new_depth_marker} **{speaker}**: {body}"
         insert_at = last_line + 1
         # 加空行 (与下一个 `>` block 分隔)
         new_lines = lines[:insert_at] + ["", new_line, ""] + lines[insert_at:]
