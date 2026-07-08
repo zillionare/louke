@@ -90,29 +90,21 @@ jobs:
         run: cp pyproject.toml pyproject.toml.original
 
       - name: Sync package data + build wheel/sdist
-        # The repo no longer ships a Makefile (it was removed in the
-        # v0.7-003 commit-batch on 2026-07-06); the previous `make build`
-        # step failed with "No rule to make target 'build'". Inline the
-        # two things the Makefile used to do: copy agents/, templates/
-        # and .github resources into the package tree, then build.
-        # Mirrors the old Makefile targets exactly so wheel contents
-        # don't drift.
+        # The repo no longer ships a root-level agents/ or templates/
+        # directory (they were inlined into louke/agents/ and
+        # louke/templates/ during the v0.7 refactor on 2026-07-07), and
+        # the Makefile that used to copy root -> louke/ was removed in
+        # the v0.7-003 commit-batch on 2026-07-06. The package data is
+        # already where the wheel expects it (louke/agents/, louke/
+        # templates/, louke/.github/), so the build step is just
+        # `python3 -m build`.
         run: |
           set -euo pipefail
-          echo "== syncing agents/ -> louke/agents/"
-          rm -rf louke/agents
-          cp -r agents louke/agents
-          echo "== syncing templates/ -> louke/templates/"
-          rm -rf louke/templates
-          cp -r templates louke/templates
-          echo "== syncing .github resources -> louke/.github/"
-          rm -rf louke/.github
-          mkdir -p louke/.github
-          cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
-          if [ -d .github/workflows ]; then
-            cp -r .github/workflows louke/.github/workflows
-          fi
-          echo "synced: $(ls louke/agents | wc -l) agents, $(ls louke/templates | wc -l) templates"
+          echo "== verifying wheel data is in place"
+          test -d louke/agents  || { echo "::error::louke/agents missing"; exit 1; }
+          test -d louke/templates || { echo "::error::louke/templates missing"; exit 1; }
+          echo "agents:    $(ls louke/agents | wc -l) entries"
+          echo "templates: $(ls louke/templates | wc -l) entries"
           echo "== building wheel + sdist"
           rm -rf dist build
           python3 -m build
