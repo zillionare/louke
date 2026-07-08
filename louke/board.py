@@ -26,6 +26,12 @@ PASSTHROUGH_KEYS = {
     'disable',      # OpenCode supported
 }
 
+SKILL_PREFIX = 'lk-'
+AGENT_SKILL_REFERENCE_NAMES = {
+    'inline-discussion': f'{SKILL_PREFIX}inline-discussion',
+    'reserve-memory': f'{SKILL_PREFIX}reserve-memory',
+}
+
 
 def register(parser):
     """Register board subcommands on the given parser."""
@@ -126,6 +132,33 @@ def agent_source(root: Path) -> Path:
     return package_root() / 'agents'
 
 
+def skill_source(root: Path) -> Path:
+    return agent_source(root) / '_skills'
+
+
+def prefixed_skill_name(name: str) -> str:
+    text = str(name).strip()
+    if not text:
+        return text
+    if text.startswith(SKILL_PREFIX):
+        return text
+    return f'{SKILL_PREFIX}{text}'
+
+
+def _rewrite_agent_skill_references(text: str) -> str:
+    out = text
+    for old, new in AGENT_SKILL_REFERENCE_NAMES.items():
+        out = re.sub(rf'(?<!{re.escape(SKILL_PREFIX)})`{re.escape(old)}`', f'`{new}`', out)
+        out = re.sub(rf'(?<!{re.escape(SKILL_PREFIX)})\*\*{re.escape(old)}\*\*', f'**{new}**', out)
+        out = re.sub(rf'(?<!{re.escape(SKILL_PREFIX)}){re.escape(old)} skill', f'{new} skill', out)
+        out = out.replace(f'agents/_skills/{old}/SKILL.md', f'.opencode/skill/{new}.md')
+    return out
+
+
+def _rewrite_skill_frontmatter_name(text: str, new_name: str) -> str:
+    return re.sub(r'(?m)^name:\s*.+$', f'name: {new_name}', text, count=1)
+
+
 def _render_passthrough_block(fm: dict, exclude: set[str]) -> str:
     """Render passthrough keys as YAML lines.
 
@@ -184,7 +217,9 @@ def cmd_opencode(args):
     quiet = getattr(args, 'quiet', False)
     dry_run = getattr(args, 'dry_run', False)
     src = agent_source(root)
+    skill_src = skill_source(root)
     dest_dir = root / '.opencode/agents'
+    skill_dest_dir = root / '.opencode/skill'
 
     from ._color import (
         cyan, dim, yellow, green as g, red as r, bold, ok, fail, warn, info,
@@ -192,7 +227,7 @@ def cmd_opencode(args):
     )
 
     if not quiet:
-        print(f'{cyan("[1/5]")} reading source agents: {src}', flush=True)
+        print(f'{cyan("[1/6]")} reading source agents + skills: {src}', flush=True)
 
     # 1. Collect source agents
     source_files = []
@@ -200,8 +235,10 @@ def cmd_opencode(args):
         if fp.name in SKIP:
             continue
         source_files.append(fp)
+    source_skills = [fp for fp in sorted(skill_src.glob('*/SKILL.md')) if fp.is_file()]
     if not quiet:
         print(f'      found {len(source_files)} agent prompts', flush=True)
+        print(f'      found {len(source_skills)} skills', flush=True)
 
     # 2. Parse frontmatter, collect all abstract model names
     from .models import opencode_models, auth_providers, model_costs
@@ -219,7 +256,7 @@ def cmd_opencode(args):
                 abstract_models.add(m)
 
     if not quiet:
-        print(f'{cyan("[2/5]")} querying opencode models + resolving provider/model bindings', flush=True)
+        print(f'{cyan("[2/6]")} querying opencode models + resolving provider/model bindings', flush=True)
     if not quiet:
         alias_user = (Path.home() / '.louke/models.json')
         alias_proj = root / '.louke/models.json'
@@ -241,7 +278,7 @@ def cmd_opencode(args):
             print(f'      opencode models returned {len(available)} models', flush=True)
     # auth providers + model costs
     if not quiet:
-        print(f'{cyan("[3/5]")} reading auth providers + cost index', flush=True)
+        print(f'{cyan("[3/6]")} reading auth providers + cost index', flush=True)
     with Spinner('reading auth.json + cost index'):
         auth = auth_providers()
         costs = model_costs()
@@ -254,7 +291,7 @@ def cmd_opencode(args):
 
     # 4. Resolve each source's model and write the file
     if not quiet:
-        print(f'{cyan("[4/5]")} resolving model bindings + writing .opencode/agents/', flush=True)
+        print(f'{cyan("[4/6]")} resolving model bindings + writing .opencode/agents/', flush=True)
     generated = []
     unbound_abstracts: list[tuple[str, str]] = []  # (agent_name, abstract)
     for fp, fm, body in parsed:
@@ -270,6 +307,7 @@ def cmd_opencode(args):
         if model and '/' not in model and not quiet:
             unbound_abstracts.append((name, model))
         passthrough = _render_passthrough_block(fm, exclude={'description', 'mode', 'model'})
+        body = _rewrite_agent_skill_references(body)
 
         unknown_keys = set(fm.keys()) - {'name', 'description', 'mode', 'model', 'models'} - PASSTHROUGH_KEYS
         if unknown_keys and dry_run:
@@ -298,9 +336,34 @@ def cmd_opencode(args):
                 print(f'      {marker} {name:<12} {mode:<10} {dim("->")} {model}',
                       flush=True)
 
+    if not quiet:
+        print(f'{cyan("[5/6]")} installing bundled skills into .opencode/skill/', flush=True)
+    generated_skills = []
+    for fp in source_skills:
+        skill_text = fp.read_text(encoding='utf-8')
+        fm, _ = parse_frontmatter(skill_text)
+        raw_name = str(fm.get('name') or fp.parent.name).strip() or fp.parent.name
+        skill_name = prefixed_skill_name(raw_name)
+        out = _rewrite_skill_frontmatter_name(skill_text, skill_name)
+        dest = skill_dest_dir / f'{skill_name}.md'
+        generated_skills.append(dest)
+        if dry_run:
+            if not quiet:
+                marker = cyan('+')
+                print(f'      {marker} {skill_name}', flush=True)
+        else:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(out, encoding='utf-8')
+            if not quiet:
+                marker = g('✓')
+                print(f'      {marker} {skill_name}', flush=True)
+
     if not dry_run and not quiet:
-        print(f'{cyan("[5/5]")} done: generated {len(generated)} OpenCode agents -> {dest_dir}',
-              flush=True)
+        print(
+            f'{cyan("[6/6]")} done: generated {len(generated)} OpenCode agents -> {dest_dir}; '
+            f'installed {len(generated_skills)} skills -> {skill_dest_dir}',
+            flush=True,
+        )
     # Unbound hint
     if unbound_abstracts and not quiet:
         print(f'\n{warn(f"{len(unbound_abstracts)} abstract(s) unbound (output model has no provider prefix; OpenCode cannot use it):")}')
@@ -337,9 +400,10 @@ def cmd_status(args):
     if root is None:
         return 1
     files = list((root / '.opencode/agents').glob('*.md')) if (root / '.opencode/agents').exists() else []
+    skills = list((root / '.opencode/skill').glob('*.md')) if (root / '.opencode/skill').exists() else []
     ok = any('model:' in f.read_text(encoding='utf-8', errors='replace').split('---', 2)[1] for f in files if f.exists())
     mark = '✓' if ok else '-'
-    print(f'opencode    {mark}  (.opencode/agents/ — {len(files)} agents)')
+    print(f'opencode    {mark}  (.opencode/agents/ — {len(files)} agents; .opencode/skill/ — {len(skills)} skills)')
     print(f'default_agent: {_default_agent_status(root)}')
     return 0
 

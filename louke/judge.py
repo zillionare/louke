@@ -53,7 +53,7 @@ def cmd_security_audit(args):
     Exit code: any critical/high -> 1 (block release); otherwise 0.
     """
     cwd = Path.cwd()
-    print(f"=== Security Audit (lk judge) ===")
+    print(f"=== Security Audit (lk agent judge) ===")
     print(f"Release:  {args.release}")
     print(f"Baseline: {args.baseline}")
     print(f"Checklist: {args.checklist}")

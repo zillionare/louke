@@ -38,9 +38,9 @@ Lòukè turns the contract's three principles into five observable things. Each 
 
 - **spec → GitHub issue, commits must reference issue** — Lex converts each FR into an issue; Devon's commit message enforces `#NNN` format. Requirement to code, one-way trace, never lost
 
-- **test ↔ AC-FRXXXX-YY auto-association, CI static validation closes both directions** — every test docstring must carry an `AC-FRXXXX-YY` ID. `lk archer ci-scan` validates at commit-time: every AC must be referenced by a test, every test must reference an AC. If the loop doesn't close, merge is blocked
+- **test ↔ AC-FRXXXX-YY auto-association, CI static validation closes both directions** — every test docstring must carry an `AC-FRXXXX-YY` ID. `lk agent archer ci-scan` validates at commit-time: every AC must be referenced by a test, every test must reference an AC. If the loop doesn't close, merge is blocked
 
-- **Anti-pattern CI gate + identity consistency check** — `lk keeper gate` statically scans 8 anti-patterns (`assert True` / `try/except: pass` / no-issue skip / mock framework core / ...). `lk scout identity-check` locks gh/git identity consistency before workflow start. Violations block
+- **Anti-pattern CI gate + identity consistency check** — `lk agent keeper gate` statically scans 8 anti-patterns (`assert True` / `try/except: pass` / no-issue skip / mock framework core / ...). `lk agent scout identity-check` locks gh/git identity consistency before workflow start. Violations block
 
 - **Project wiki auto-distillation** — based on LLM compounding engineering, `.louke/raw/` (each agent's session records) → `.louke/wiki/` (structured knowledge). Facts, decisions, current state at a glance, lint-checkable
 
@@ -55,7 +55,7 @@ Lòukè defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI — 
 | **spec-kit** (GitHub)                     | spec.md is the source, but no MECE / granularity / traceability constraints | No review                                                                     | None                                        | Manual + social                                             |
 | **superpowers** (obra, 240k★)             | plan.md is plain text, no AC numbering, no commit-time validation            | subagent review (same model reviewing itself)                                 | prompt-level self-discipline               | TDD indirect guarantee (no ID binding between test and spec) |
 | **oh-my-openagent** (code-yeongyu, 64k★)  | agents digest spec themselves                                                | team of agents (same LLM, different prompts)                                  | hooks / middleware                          | task self-defined, no FR ↔ test binding                      |
-| **Lòukè**                                 | FR-XXXX / AC-FRXXXX-YY + `lk archer ci-scan`                                  | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint)  | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end                   |
+| **Lòukè**                                 | FR-XXXX / AC-FRXXXX-YY + `lk agent archer ci-scan`                                  | 12 different personas (implementer ≠ reviewer, cross-stage context disjoint)  | `lk` CLI exit 0/1 (OS process return value) | FR ↔ issue ↔ commit ↔ AC ↔ test end-to-end                   |
 
 ## 4. Architecture
 
@@ -247,15 +247,15 @@ From here on, Maestro orchestrates the entire pipeline. You don't need to switch
 
 Using "add user authentication" as an example, the timeline unfolds linearly:
 
-1. **M-FOUND** — `lk scout foundation` creates repo, GitHub Project, Test Issue to verify permissions
-2. **M-SPEC** — Sage asks follow-ups in chat (MFA? session timeout? rate limiting?); Lex finds 3 structural issues; Sage fixes them. Locked when **3 signals align**: `lk sage quote-check` exit 0 + Lex 3 stages pass + your IDE confirmation
+1. **M-FOUND** — `lk agent scout foundation` creates repo, GitHub Project, Test Issue to verify permissions
+2. **M-SPEC** — Sage asks follow-ups in chat (MFA? session timeout? rate limiting?); Lex finds 3 structural issues; Sage fixes them. Locked when **3 signals align**: `lk agent sage quote-check` exit 0 + Lex 3 stages pass + your IDE confirmation
 3. **M-TESTPLAN** — Archer writes `test-plan.md` (3-layer strategy + AC traceability + anti-pattern rules); Sage reviews (holds M-SPEC's unique context)
 4. **M-ARCH** — Archer writes `architecture.md` + `interfaces.md`; Prism checks spec/code consistency
 5. **M-LOCK** — Spec locked. Implementation begins
-6. **M-DEV** — Devon codes R-G-R. Each commit prefixed `test: red` / `feat: green` / `refactor`. Prism reviews (anti-patterns + security quick scan); `lk keeper gate` checks commit format + tests
+6. **M-DEV** — Devon codes R-G-R. Each commit prefixed `test: red` / `feat: green` / `refactor`. Prism reviews (anti-patterns + security quick scan); `lk agent keeper gate` checks commit format + tests
 7. **M-E2E** — Shield writes e2e (B-level, fixed methods: Playwright/testclient/DB); same Prism + Keeper
-8. **M-SECURITY** — `lk judge security-audit` does pattern scan + S-level semantic review. **You** make the final call
-9. **M-MILESTONE** — `lk librarian from-raw` distills the session to wiki; `lk maestro advance --stage M-MILESTONE` closes the milestone
+8. **M-SECURITY** — `lk agent judge security-audit` does pattern scan + S-level semantic review. **You** make the final call
+9. **M-MILESTONE** — `lk agent librarian from-raw` distills the session to wiki; `lk agent maestro advance --stage M-MILESTONE` closes the milestone
 
 Each step is a different agent; each hold point is tool-enforced; each handoff is an explicit trace.
 
@@ -313,7 +313,7 @@ Lòukè uses GitHub Projects to manage releases. A release starts with a Story. 
 
 We also throw in a small gift — by creating a project named `{repo}-backlog`, we give you an idea collection box. If you have an inspiration that can't fit into the current release, you'll find this project surprisingly useful. Future releases start their planning from here.
 
-`lk scout foundation` creates two Projects per repo:
+`lk agent scout foundation` creates two Projects per repo:
 
 - **`{repo}-{version}`** — per-release, tracks the current milestone's issues
 - **`{repo}-backlog`** — per-repo (permanent), holds unscheduled ideas
@@ -329,20 +329,20 @@ Lint, format, typecheck, and tests run automatically at commit time via the proj
 ### 8.1. Project Initialization
 lk init my-project                         # New project
 lk init .                                  # Adopt existing repo
-lk scout foundation --repo owner/repo --version v0.1 --spec-id v0.1-001-init
-lk scout identity-check --repo owner/repo
-lk scout invite-owner owner/repo --version v0.1
+lk agent scout foundation --repo owner/repo --version v0.1 --spec-id v0.1-001-init
+lk agent scout identity-check --repo owner/repo
+lk agent scout invite-owner owner/repo --version v0.1
 
 ### 8.2. Pipeline Advancement
-lk maestro status                          # View current stage
-lk maestro advance --stage M-DEV           # Advance to next stage
-lk maestro regress --stage M-SPEC --reason "spec missing NFR"
-lk maestro escalate --reason "user unresponsive for 3 rounds"
+lk agent maestro status                          # View current stage
+lk agent maestro advance --stage M-DEV           # Advance to next stage
+lk agent maestro regress --stage M-SPEC --reason "spec missing NFR"
+lk agent maestro escalate --reason "user unresponsive for 3 rounds"
 
 ### 8.3. Code Quality
-lk archer ci-scan --spec ID                # AC traceability validation
-lk keeper gate                             # commit format + R-G-R order + anti-pattern scan
-lk judge security-audit --release releases/v0.1
+lk agent archer ci-scan --spec ID                # AC traceability validation
+lk agent keeper gate                             # commit format + R-G-R order + anti-pattern scan
+lk agent judge security-audit --release releases/v0.1
 
 ### 8.4. Model Management
 lk models list                             # View agent→model bindings
@@ -351,20 +351,20 @@ lk models bind devon kimi-2.7-code         # Temporary override
 lk models unbind devon
 
 ### 8.5. Wiki
-lk librarian lint                          # Health check
-lk librarian from-raw                      # Distill raw sessions to wiki pages
+lk agent librarian lint                          # Health check
+lk agent librarian from-raw                      # Distill raw sessions to wiki pages
 
 ## 9. Troubleshooting
 
 **`lk: command not found`** — `~/.local/bin` is not in PATH. Add `export PATH=$HOME/.local/bin:$PATH` to your shell rc and `source` it (or restart your terminal).
 
-**`lk scout foundation` fails with `gh not authenticated`** — Run `gh auth login` first, then `lk scout identity-check` to verify.
+**`lk agent scout foundation` fails with `gh not authenticated`** — Run `gh auth login` first, then `lk agent scout identity-check` to verify.
 
 **Sage keeps asking about the same requirement** — Possible causes:
 - Your reply didn't use an extra level of `>` indentation, so Sage didn't recognize it as a new reply
 - You directly edited the text — Sage will discover the change through git diff and ask for confirmation. Reply with "✓ resolved" on the changed section
 
-**Commit blocked by `lk keeper gate`** — The terminal prints which anti-pattern was hit. Common causes:
+**Commit blocked by `lk agent keeper gate`** — The terminal prints which anti-pattern was hit. Common causes:
 
 - Commit message doesn't follow R-G-R prefix conventions (e.g., wrote `feat: add login` instead of `feat: green add login`)
 - `feat: green` appears before `test: red` (R-G-R order violation)
@@ -373,7 +373,7 @@ lk librarian from-raw                      # Distill raw sessions to wiki pages
 
 **OpenCode doesn't show the 12 agents after launch** — Check the `.opencode/agents/` directory and `opencode.json`'s `default_agent` field; rerun `lk init --force` if needed.
 
-**Wondering "where are we now"** — `lk maestro status` tells you in one line.
+**Wondering "where are we now"** — `lk agent maestro status` tells you in one line.
 
 ## 10. Future Enhancements (Not in v0.6-008 Scope)
 
@@ -409,7 +409,7 @@ Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`)
 
 ### v0.3.0 (2026-06-29) — Initial public release
 
-12 specialized agents, 10-stage pipeline (M-FOUND → M-MILESTONE), `lk init` / `lk scout foundation` / `lk archer ci-scan` / `lk keeper gate`, OpenSpec-style YAML issue template, 129 bats tests.
+12 specialized agents, 10-stage pipeline (M-FOUND → M-MILESTONE), `lk init` / `lk agent scout foundation` / `lk agent archer ci-scan` / `lk agent keeper gate`, OpenSpec-style YAML issue template, 129 bats tests.
 
 ---
 

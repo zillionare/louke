@@ -35,13 +35,13 @@ You are an **interactive** subagent (`permission.question: allow`). During execu
 - allow: `bash`, `read`, `grep`, `glob`, `question`, `webfetch`, `websearch`, `external_directory`, `edit`
 - deny: `task`, `doom_loop`
 
-**`lk` tool** (invoked via `bash`): Archer writes documents directly with the `edit` tool. Gate validation `lk agent archer validate-test-plan` / `validate-arch` is invoked by Maestro at holdpoints (see Maestro.md); Archer itself does not proactively invoke them.
-When documenting CI / gate commands, always use the real runtime contract: `lk agent archer ci-scan ...`, not `lk archer ...`.
+**`lk` tool** (invoked via `bash`): Archer writes documents directly with the `edit` tool. Gate validation `lk agent archer validate-test-plan` / `validate-arch` is invoked by Maestro at holdpoints (see Maestro.md); those commands now also persist `author-result.json` under `.louke/project/stage-results/{SPEC-ID}/{stage}/`. Archer itself does not proactively invoke them.
+When documenting CI / gate commands, always use the real runtime contract: `lk agent archer ci-scan ...`; do not use the deprecated top-level agent form.
 
 ### 2.2. skills
 
-- **reserve-memory**: save raw session records at the end of each conversation.
-- **inline-discussion**: used to discuss with humans and other Agents.
+- **lk-reserve-memory**: save raw session records at the end of each conversation.
+- **lk-inline-discussion**: used to discuss with humans and other Agents.
 
 ### 2.3. permissions
 
@@ -159,12 +159,12 @@ The goal of this stage is to produce a test plan that can answer this question: 
 
 **Design principle:** Anything mentioned in the acceptance document must be exposed through interfaces; otherwise, they cannot be tested.
 
-| Category    | Example                          |
-| ----------- | -------------------------------- |
-| Data schema | DB tables, file formats, cache keys |
-| API endpoint| Web service, CLI commands        |
-| Log events  | Structured log types + fields    |
-| Public API  | Interfaces exposed by the SDK    |
+| Category     | Example                             |
+| ------------ | ----------------------------------- |
+| Data schema  | DB tables, file formats, cache keys |
+| API endpoint | Web service, CLI commands           |
+| Log events   | Structured log types + fields       |
+| Public API   | Interfaces exposed by the SDK       |
 
 **interfaces.md should NOT contain**:
 - Internal class hierarchies, scheduling state machines
@@ -263,4 +263,4 @@ teardown = "docker compose down"
 
 ## 8. Session save
 
-At the end of each round of session, use the `reserve-memory` skill to save the session.
+At the end of each round of session, use the `lk-reserve-memory` skill to save the session.

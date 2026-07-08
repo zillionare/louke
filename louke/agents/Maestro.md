@@ -46,7 +46,7 @@ You are **interactive** (`permission.question: allow`). During execution, when a
 
 ### 2.2. skills
 
-- **reserve-memory**: Save raw session records at the end of each session
+- **lk-reserve-memory**: Save raw session records at the end of each session
 
 ### 2.3. permissions
 
@@ -190,12 +190,15 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 2. spawn Sage    review: AC closure / status fields / concern inheritance / spec consistency
                  pass: spec-id
                  note: Sage does not review test methodology (Prism's responsibility)
+                 artifact: `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/review-result.json`
 
 3. Sage [REJECT] → quote summary passed to Archer to revise → re-run Sage
    Sage [PASS] → advance
 ```
 
-**Gate**: `advance --stage M-TESTPLAN` (`lk agent archer validate-test-plan` exit 0)
+**Gate**: `advance --stage M-TESTPLAN` requires both:
+- `lk agent archer validate-test-plan` exit 0 + `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/author-result.json`
+- Sage `review-result.json` verdict = pass with current contract bundle hash
 
 ---
 
@@ -209,12 +212,15 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 
 2. spawn Prism   M-ARCH review (pure semantic, 6 consistency checks, no lk tool)
                  pass: spec-id, all doc paths
+                 artifact: `.louke/project/stage-results/{SPEC-ID}/M-ARCH/review-result.json`
 
 3. Prism [REJECT] → blockers passed to Archer to revise → re-run Prism
    Prism [PASS] → advance
 ```
 
-**Gate**: `advance --stage M-ARCH` (`lk agent archer validate-arch` exit 0)
+**Gate**: `advance --stage M-ARCH` requires both:
+- `lk agent archer validate-arch` exit 0 + `.louke/project/stage-results/{SPEC-ID}/M-ARCH/author-result.json`
+- Prism `review-result.json` verdict = pass with current contract bundle hash
 
 ---
 
@@ -226,14 +232,18 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 
 2. spawn Prism   M-DEV: lk agent prism review (test-patterns + security-quick-scan)
                  pass: commit range, architecture, interfaces
+                 artifact: `.louke/project/stage-results/{SPEC-ID}/M-DEV/review-result.json` (written by `prism review` itself)
    [REJECT] → Devon fixes → re-run Prism
 
-3. spawn Keeper  lk agent keeper gate --commit-range {range}
+3. spawn Keeper  lk agent keeper gate --commit-range {range} --stage M-DEV
+                 artifact: `.louke/project/stage-results/{SPEC-ID}/M-DEV/gate-result.json`
    exit 1 → Devon fixes → re-run Prism → Keeper
    exit 0 → advance
 ```
 
-**Gate**: `advance --stage M-DEV --commit-range HEAD~1..HEAD` (`lk agent keeper gate` exit 0)
+**Gate**: `advance --stage M-DEV --commit-range HEAD~1..HEAD` requires both:
+- Prism `review-result.json` verdict = pass, `commit_range` matches, and `source_command=review`
+- Keeper `gate-result.json` verdict = pass and `commit_range` matches
 
 ---
 
@@ -244,8 +254,9 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
                  pass: spec-id, test-plan §6, interfaces, architecture, [e2e]
                  note: Shield writes into host-project test dirs decided by Archer; never into .louke/
 
-2. spawn Prism   M-E2E: test-patterns --tests {host-project-e2e-dir}
+2. spawn Prism   M-E2E: lk agent prism review --stage M-E2E --spec-id {SPEC-ID} --commit-range {range}
                  pass: commit diff, test-plan §6, acceptance, [e2e]
+                 artifact: `.louke/project/stage-results/{SPEC-ID}/M-E2E/review-result.json` (written by `prism review` itself)
    [REJECT] → Shield fixes → re-run Prism
 
 3. spawn Keeper  lk agent keeper gate --commit-range {range}
@@ -253,7 +264,10 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
    exit 0 → advance
 ```
 
-**Gate**: `advance --stage M-E2E` (`lk agent shield run-e2e` + `lk agent keeper gate` exit 0)
+**Gate**: `advance --stage M-E2E --commit-range HEAD~1..HEAD` requires:
+- Prism `review-result.json` verdict = pass, `commit_range` matches, and `source_command=review`
+- Shield `author-result.json` verdict = pass
+- Keeper `gate-result.json` verdict = pass and `commit_range` matches
 
 ---
 
@@ -337,4 +351,4 @@ speak same language the user speak.
 
 ## 7. Session Saving
 
-Record every instruction from the human. At each stage advance, use the `reserve-memory` skill to save the session.
+Record every instruction from the human. At each stage advance, use the `lk-reserve-memory` skill to save the session.

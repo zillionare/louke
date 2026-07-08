@@ -119,4 +119,4 @@ Blocking issues:
 
 ## 5. Session save
 
-At the end of each session, use the `reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session.

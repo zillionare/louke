@@ -122,7 +122,7 @@ def cmd_verify_project(args):
     """FR-0740: validate that all FR issues in the spec are linked to the Project."""
     project_url = _read_project_info('Project ID')
     if not project_url or not project_url.startswith('https://'):
-        print('Project URL missing in project.toml; run lk scout foundation first', file=sys.stderr)
+        print('Project URL missing in project.toml; run lk agent scout foundation first', file=sys.stderr)
         return 1
     spec_text, frs = _extract_frs_from_spec(args.spec)
     if not frs:

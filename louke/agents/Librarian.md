@@ -58,7 +58,7 @@ You are only invoked via `opencode run --agent librarian -- <prompt>`, running a
 
 ## 5. Available tools
 
-- `bash`: invoke `lk librarian` CLI + shell file operations (`cat` / `mv` / `rm`)
+- `bash`: invoke `lk agent librarian` CLI + shell file operations (`cat` / `mv` / `rm`)
 - `read` / `edit` / `grep` / `glob`: read and write wiki files
 - On completion exit 0 (if lint fails and cannot self-heal, exit 1)
 
@@ -70,4 +70,4 @@ You are only invoked via `opencode run --agent librarian -- <prompt>`, running a
 
 ## 6. Session save
 
-At the end of each session, use the `reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session.

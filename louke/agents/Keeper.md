@@ -41,7 +41,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 2.2. Skills
 
-- **reserve-memory**: save raw session at the end of each session
+- **lk-reserve-memory**: save raw session at the end of each session
 
 ### 2.3. Permissions
 
@@ -80,6 +80,7 @@ You are NOT here to:
    - exit 1 = blocking finding, see stdout for details
    - `--spec-id` is required for AC trace unless it can be read from `.louke/project/project.toml`
    - `--tests-root` points to the host project's real test root (default `tests/`); use Archer's contract if the project uses a different layout
+   - On every run, the CLI writes `.louke/project/stage-results/{SPEC-ID}/{M-DEV|M-E2E}/gate-result.json` when `spec-id` is known
 2. **per-bug-fix regression** → `lk agent keeper regression --baseline main --current HEAD`
    - exit 0 = pass
    - exit 1 = critical/high finding, see stdout for details
@@ -161,4 +162,4 @@ Commit range: HEAD~1..HEAD
 
 ## 8. Session save
 
-At the end of each session, use the `reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session.

@@ -30,8 +30,8 @@ Checks (F1-F11):
   F11 Identity consistency: gh and git same identity (delegates to check_identity.py L1-L5)
 
 Usage:
-  lk warden foundation-check <owner/repo> --version <version> --spec-id <spec-id>
-  lk warden foundation-check zillionare/louke --version v0.1 --spec-id v0.1-001-louke
+  lk agent warden foundation-check <owner/repo> --version <version> --spec-id <spec-id>
+  lk agent warden foundation-check zillionare/louke --version v0.1 --spec-id v0.1-001-louke
 
 Optional flags:
   --project-id NUMBER   GitHub Project numeric ID (skip auto-lookup)

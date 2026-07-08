@@ -24,7 +24,8 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from ._common import _toml_load, git, PROJECT_INFO_PATH
+from ._common import _read_project_info_field, _toml_load, git, PROJECT_INFO_PATH
+from .stage_results import write_stage_result
 
 
 def register(subparsers):
@@ -53,7 +54,7 @@ def _read_e2e_config() -> dict:
 
     Schema:
         [e2e]
-        run = "pytest -q tests/e2e"                 # required for lk shield run-e2e
+        run = "pytest -q tests/e2e"                 # required for lk agent shield run-e2e
         paths = ["tests/e2e", "tests/fixtures"]    # optional default for commit-e2e
         cwd = "apps/api"                           # optional working directory, relative to repo root
         start = "docker compose up -d app db"      # optional
@@ -137,11 +138,22 @@ def cmd_run_e2e(args):
     """Run host-project e2e per the generic [e2e] contract."""
     env = _read_e2e_config()
     cwd = _resolve_e2e_cwd(env)
+    spec_id = _read_project_info_field('Spec ID').strip()
 
     run_cmd = str(env.get('run', '')).strip()
     if not run_cmd:
         print('[shield] missing [e2e].run in .louke/project/project.toml', file=sys.stderr)
         print('[shield] Archer must define the host-project e2e command (for example: pytest -q tests/e2e)', file=sys.stderr)
+        if spec_id:
+            write_stage_result(
+                spec_id=spec_id,
+                stage='M-E2E',
+                kind='author-result',
+                role='Shield',
+                verdict='fail',
+                reviewed_targets=_resolve_commit_paths(env, None),
+                blocking_findings=['missing [e2e].run in .louke/project/project.toml'],
+            )
         return 1
 
     start = '' if args.no_env else str(env.get('start', '')).strip()
@@ -165,6 +177,17 @@ def cmd_run_e2e(args):
         rc = _run_command(start, cwd)
         if rc != 0:
             print(f'[e2e] start failed (rc={rc})', file=sys.stderr)
+            if spec_id:
+                write_stage_result(
+                    spec_id=spec_id,
+                    stage='M-E2E',
+                    kind='author-result',
+                    role='Shield',
+                    verdict='fail',
+                    reviewed_targets=_resolve_commit_paths(env, None),
+                    blocking_findings=[f'e2e start failed (rc={rc})'],
+                    metadata={'run_command': run_cmd, 'cwd': str(cwd)},
+                )
             return rc
 
     # 2. Wait ready (poll the ready command until exit 0 or timeout)
@@ -175,6 +198,17 @@ def cmd_run_e2e(args):
             if teardown_cmd:
                 print(f'[e2e] teardown (after timeout): {teardown_cmd}')
                 _run_command(teardown_cmd, cwd)
+            if spec_id:
+                write_stage_result(
+                    spec_id=spec_id,
+                    stage='M-E2E',
+                    kind='author-result',
+                    role='Shield',
+                    verdict='fail',
+                    reviewed_targets=_resolve_commit_paths(env, None),
+                    blocking_findings=[f'timeout waiting ready ({ready_timeout}s)'],
+                    metadata={'run_command': run_cmd, 'cwd': str(cwd)},
+                )
             return 1
         print('[e2e] ready')
 
@@ -187,6 +221,18 @@ def cmd_run_e2e(args):
     if teardown_cmd:
         print(f"\n[e2e] teardown: {teardown_cmd}")
         _run_command(teardown_cmd, cwd)
+
+    if spec_id:
+        write_stage_result(
+            spec_id=spec_id,
+            stage='M-E2E',
+            kind='author-result',
+            role='Shield',
+            verdict='pass' if rc == 0 else 'fail',
+            reviewed_targets=_resolve_commit_paths(env, None),
+            blocking_findings=[] if rc == 0 else [f'e2e run failed (rc={rc})'],
+            metadata={'run_command': run_cmd, 'cwd': str(cwd)},
+        )
 
     return rc
 

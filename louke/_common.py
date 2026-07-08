@@ -2,6 +2,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterable, Optional
 
 
 PROJECT_INFO_PATH = Path('.louke/project/project.toml')  # fix-002: from project-info.md
@@ -22,6 +23,30 @@ def _toml_load(path: Path) -> dict:
             return tomllib.load(f)
     except Exception:
         return {}
+
+
+def normalize_repo_relative_roots(raw_roots: Optional[Iterable[object]], default: Optional[list[str]] = None) -> list[str]:
+    """Normalize repo-relative path-like strings for metadata and CLI reuse.
+
+    Behavior:
+    - trim surrounding whitespace
+    - normalize path separators via Path(...).as_posix()
+    - drop empty entries
+    - de-duplicate while preserving order
+    - fall back to `default` when nothing remains
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_roots or []:
+        text = str(raw).strip()
+        if not text:
+            continue
+        normalized = Path(text).as_posix()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out or list(default or [])
 
 
 def package_root() -> Path:

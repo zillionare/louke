@@ -45,7 +45,7 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 2.2. skills
 
-- **reserve-memory**: save raw session records at the end of each conversation
+- **lk-reserve-memory**: save raw session records at the end of each conversation
 
 ### 2.3. permissions
 
@@ -169,4 +169,4 @@ The R-G-R order in the M-BUGFIX stage remains unchanged for Devon: first reprodu
 
 ## 10. Session save
 
-At the end of each session, use the `reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session.

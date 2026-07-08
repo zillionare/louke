@@ -11,6 +11,7 @@ from pathlib import Path
 
 from ._common import get_diff_files, print_findings, has_blocking_severity
 from ._security import scan_file
+from .stage_results import write_stage_result
 from ._tests import scan_test_file, find_test_files
 
 
@@ -20,6 +21,14 @@ def register(subparsers):
 
     p = sub.add_parser('review', help='full review (production + test + security)')
     p.add_argument('--diff', default='HEAD', help='ref to review (default HEAD)')
+    p.add_argument('--stage', choices=['M-DEV', 'M-E2E'],
+                   help='optional stage; when set with --spec-id, persist review artifact automatically')
+    p.add_argument('--spec-id', default='',
+                   help='spec-id used when persisting stage artifact from review')
+    p.add_argument('--commit-range', default='',
+                   help='optional commit range for persisted review artifact')
+    p.add_argument('--reviewed-target', dest='reviewed_targets', action='append', default=[],
+                   help='repeatable path / contract target reviewed by Prism')
 
     p = sub.add_parser('test-patterns', help='test code anti-pattern scan (8 categories + AC reference)')
     p.add_argument('--tests', default='tests/', help='tests directory (default tests/)')
@@ -30,6 +39,19 @@ def register(subparsers):
     p = sub.add_parser('code-quality', help='code quality check (function length / nesting depth / DRY)')
     p.add_argument('--diff', default='HEAD', help='ref to scan')
 
+    p = sub.add_parser('record-review', help='persist Prism review verdict as a stage artifact')
+    p.add_argument('--stage', required=True, choices=['M-ARCH', 'M-DEV', 'M-E2E'])
+    p.add_argument('--spec-id', required=True)
+    p.add_argument('--verdict', required=True, choices=['pass', 'reject'])
+    p.add_argument('--reviewed-target', dest='reviewed_targets', action='append', default=[],
+                   help='repeatable path / contract target reviewed by Prism')
+    p.add_argument('--blocking-finding', action='append', default=[],
+                   help='repeatable blocking finding summary')
+    p.add_argument('--accepted-risk', action='append', default=[],
+                   help='repeatable accepted risk summary')
+    p.add_argument('--commit-range', default='',
+                   help='optional commit range for M-DEV / M-E2E reviews')
+
 
 def run(args):
     handlers = {
@@ -37,6 +59,7 @@ def run(args):
         'test-patterns': cmd_test_patterns,
         'security-quick-scan': cmd_security_quick_scan,
         'code-quality': cmd_code_quality,
+        'record-review': cmd_record_review,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -76,8 +99,28 @@ def cmd_review(args):
     all_findings = test_findings + security_findings
     if has_blocking_severity(all_findings):
         print("-> REJECT (critical/high found)")
+        _write_review_artifact(
+            stage=args.stage,
+            spec_id=args.spec_id,
+            verdict='fail',
+            reviewed_targets=args.reviewed_targets or changed,
+            blocking_findings=_summarize_findings(all_findings),
+            commit_range=args.commit_range,
+            source_command='review',
+            diff_ref=args.diff,
+        )
         return 1
     print("-> PASS (semantic review still required by Prism agent)")
+    _write_review_artifact(
+        stage=args.stage,
+        spec_id=args.spec_id,
+        verdict='pass',
+        reviewed_targets=args.reviewed_targets or changed,
+        blocking_findings=[],
+        commit_range=args.commit_range,
+        source_command='review',
+        diff_ref=args.diff,
+    )
     return 0
 
 
@@ -178,3 +221,67 @@ def cmd_code_quality(args):
     print_findings(findings, header='Code Quality Findings')
     print(f"\n=== Summary: {len(findings)} findings ===")
     return 1 if has_blocking_severity(findings) else 0
+
+
+def cmd_record_review(args):
+    """Persist Prism's verdict so Maestro can gate on a concrete artifact."""
+    if args.stage in {'M-DEV', 'M-E2E'} and args.verdict == 'pass':
+        print(
+            f'prism record-review: pass artifacts for {args.stage} must come from '
+            'lk agent prism review --stage ... --spec-id ...',
+            file=sys.stderr,
+        )
+        return 2
+    path = _write_review_artifact(
+        stage=args.stage,
+        spec_id=args.spec_id,
+        verdict='pass' if args.verdict == 'pass' else 'fail',
+        reviewed_targets=args.reviewed_targets,
+        blocking_findings=args.blocking_finding,
+        accepted_risks=args.accepted_risk,
+        commit_range=args.commit_range,
+        source_command='record-review',
+    )
+    print(f'✓ review artifact written: {path}')
+    return 0
+
+
+def _summarize_findings(findings):
+    summaries = []
+    for item in findings:
+        pattern = item.get('pattern_id') or item.get('severity') or 'finding'
+        desc = item.get('description') or ''
+        file_path = item.get('file') or ''
+        line = item.get('line')
+        location = f'{file_path}:{line}' if file_path and line else file_path
+        parts = [str(pattern).strip()]
+        if location:
+            parts.append(location)
+        if desc:
+            parts.append(str(desc).strip())
+        summaries.append(' - '.join(part for part in parts if part))
+    return summaries
+
+
+def _write_review_artifact(*, stage, spec_id, verdict, reviewed_targets, blocking_findings,
+                           accepted_risks=None, commit_range='', source_command='', diff_ref=''):
+    if not stage or not spec_id:
+        return None
+    metadata = {}
+    if commit_range:
+        metadata['commit_range'] = commit_range
+    if source_command:
+        metadata['source_command'] = source_command
+    if diff_ref:
+        metadata['diff'] = diff_ref
+    return write_stage_result(
+        spec_id=spec_id,
+        stage=stage,
+        kind='review-result',
+        role='Prism',
+        verdict=verdict,
+        reviewed_targets=reviewed_targets,
+        blocking_findings=blocking_findings,
+        accepted_risks=accepted_risks,
+        metadata=metadata,
+    )

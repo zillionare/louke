@@ -1,5 +1,5 @@
 ---
-name: reserve-memory
+name: lk-reserve-memory
 description: When finishing a louke agent work session that produced decisions, abandoned options, or open questions, save a raw session note for later distillation into wiki knowledge.
 license: MIT
 compatibility: opencode

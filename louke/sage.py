@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from ._common import resolve_existing_path
+from .stage_results import write_stage_result
 
 
 def register(subparsers):
@@ -43,6 +44,16 @@ def register(subparsers):
     p.add_argument('--spec', required=True)
     p.add_argument('--confirm', action='store_true')
 
+    p = sub.add_parser('record-testplan-review', help='persist Sage test-plan review verdict as a stage artifact')
+    p.add_argument('--spec', required=True)
+    p.add_argument('--verdict', required=True, choices=['pass', 'reject'])
+    p.add_argument('--reviewed-target', dest='reviewed_targets', action='append', default=[],
+                   help='repeatable path reviewed by Sage')
+    p.add_argument('--blocking-finding', action='append', default=[],
+                   help='repeatable blocking finding summary')
+    p.add_argument('--accepted-risk', action='append', default=[],
+                   help='repeatable accepted risk summary')
+
 
 def run(args):
     handlers = {
@@ -51,6 +62,7 @@ def run(args):
         'create-issues': cmd_create_issues,
         'lock-spec': cmd_lock_spec,
         'record-lock': cmd_record_lock,
+        'record-testplan-review': cmd_record_testplan_review,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -110,6 +122,23 @@ def cmd_commit_spec(args):
         if result.returncode != 0:
             print(f"failed: {' '.join(cmd)}", file=sys.stderr)
             return result.returncode
+    return 0
+
+
+def cmd_record_testplan_review(args):
+    """Persist Sage's M-TESTPLAN review verdict so Maestro can gate on a concrete artifact."""
+    targets = args.reviewed_targets or [f'.louke/project/specs/{args.spec}/test-plan.md']
+    path = write_stage_result(
+        spec_id=args.spec,
+        stage='M-TESTPLAN',
+        kind='review-result',
+        role='Sage',
+        verdict='pass' if args.verdict == 'pass' else 'fail',
+        reviewed_targets=targets,
+        blocking_findings=args.blocking_finding,
+        accepted_risks=args.accepted_risk,
+    )
+    print(f'✓ review artifact written: {path}')
     return 0
 
 
@@ -217,16 +246,16 @@ def cmd_create_issues(args):
     acc_text = _acceptance_spec_text(args.spec)
     repo = _read_project_info_value('Repo').replace('github.com/', '')
     if not repo:
-        print('Repo field missing in project.toml; run lk scout foundation first', file=sys.stderr)
+        print('Repo field missing in project.toml; run lk agent scout foundation first', file=sys.stderr)
         return 1
     branch = _read_project_info_value('Release Branch')
     if not branch:
-        print('Release Branch field missing in project.toml; run lk scout foundation first', file=sys.stderr)
+        print('Release Branch field missing in project.toml; run lk agent scout foundation first', file=sys.stderr)
         return 1
     project_url = _read_project_info_value('Project ID')
     if not project_url and not args.skip_project:
         print('Project URL field missing in project.toml; cannot link issues', file=sys.stderr)
-        print('  hint: lk scout foundation (writes Project ID) or pass --skip-project', file=sys.stderr)
+        print('  hint: lk agent scout foundation (writes Project ID) or pass --skip-project', file=sys.stderr)
         return 1
     repo_url = f'https://github.com/{repo}'
     created, skipped, linked = 0, 0, 0
@@ -307,11 +336,11 @@ def cmd_record_lock(args):
             if 'locked: true' in fm:
                 locked_already = True
             else:
-                text = text[:end] + f'\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk sage record-lock' + text[end:]
+                text = text[:end] + f'\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock' + text[end:]
         else:
-            text = f'---\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk sage record-lock\n---\n' + text
+            text = f'---\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock\n---\n' + text
     else:
-        text = f'---\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk sage record-lock\n---\n' + text
+        text = f'---\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock\n---\n' + text
     if locked_already:
         print(f'spec already locked; idempotent (spec={args.spec})')
         return 0

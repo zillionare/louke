@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from ._common import _read_project_info_field, git
+from ._common import _read_project_info_field, git, normalize_repo_relative_roots
+from .stage_results import write_stage_result
 
 
 def register(subparsers):
@@ -22,8 +23,11 @@ def register(subparsers):
     p.add_argument('--tests', action='store_true', help='deprecated (v0.7-001)')
     p.add_argument('--lint', action='store_true', help='deprecated (v0.7-001)')
     p.add_argument('--typecheck', action='store_true', help='deprecated (v0.7-001)')
+    p.add_argument('--stage', default='M-DEV', choices=['M-DEV', 'M-E2E'],
+                   help='stage that consumes this gate artifact')
     p.add_argument('--spec-id', default='', help='spec-id for AC trace validation (falls back to project.toml)')
-    p.add_argument('--tests-root', default='tests/', help='host-project test root used by AC trace and anti-pattern scans')
+    p.add_argument('--tests-root', action='append', default=[],
+                   help='repeatable host-project test root used by AC trace and anti-pattern scans')
     p.add_argument('--skip-ac-trace', action='store_true', help='skip AC trace validation')
     p.add_argument('--skip-anti-pattern', action='store_true', help='skip anti-pattern scan')
 
@@ -142,6 +146,10 @@ def _resolve_spec_id(cli_spec_id: str) -> str:
     return _read_project_info_field('Spec ID').strip()
 
 
+def _resolve_tests_roots(raw_roots) -> list[str]:
+    return normalize_repo_relative_roots(raw_roots, default=['tests/'])
+
+
 def cmd_gate(args):
     """per-commit gate check: commit format + R-G-R order + AC trace + anti-pattern scan."""
     if args.tests:
@@ -155,8 +163,10 @@ def cmd_gate(args):
         return 1
 
     cwd = Path.cwd()
+    tests_roots = _resolve_tests_roots(args.tests_root)
     print(f"=== Keeper Gate ===")
     print(f"Commit range: {args.commit_range}")
+    print(f"Tests roots: {', '.join(tests_roots)}")
     print()
 
     all_findings = []
@@ -184,19 +194,19 @@ def cmd_gate(args):
                 sys.executable, '-m', 'louke.__main__',
                 'agent', 'archer', 'ci-scan',
                 '--spec', spec_id,
-                '--tests', args.tests_root,
+                '--tests', *tests_roots,
             ], cwd=cwd).returncode
             if rc != 0:
                 all_findings.append({
                     'severity': 'high',
-                    'description': f'archer ci-scan failed (spec={spec_id}, tests={args.tests_root})',
+                    'description': f'archer ci-scan failed (spec={spec_id}, tests={tests_roots})',
                 })
                 print('--- AC Trace: FAIL ---')
             else:
                 print('--- AC Trace: PASS ---')
 
     if not args.skip_anti_pattern:
-        rc = subprocess.run([sys.executable, '-m', 'louke._tools.check_assertions', '--tests', args.tests_root],
+        rc = subprocess.run([sys.executable, '-m', 'louke._tools.check_assertions', '--tests', *tests_roots],
                             cwd=cwd).returncode
         if rc != 0:
             all_findings.append({'severity': 'high', 'description': 'anti-pattern scan failed'})
@@ -204,7 +214,22 @@ def cmd_gate(args):
         else:
             print('--- Anti-Pattern: PASS ---')
 
+    spec_id = _resolve_spec_id(args.spec_id)
     has_blocking = any(f.get('severity') in ('critical', 'high') for f in all_findings)
+    if spec_id:
+        write_stage_result(
+            spec_id=spec_id,
+            stage=args.stage,
+            kind='gate-result',
+            role='Keeper',
+            verdict='fail' if has_blocking else 'pass',
+            reviewed_targets=tests_roots,
+            blocking_findings=[f.get('description', '') for f in all_findings if f.get('severity') in ('critical', 'high')],
+            metadata={
+                'commit_range': args.commit_range,
+                'tests_roots': tests_roots,
+            },
+        )
     if has_blocking:
         print(f"\n→ REJECT ({sum(1 for f in all_findings if f.get('severity') in ('critical','high'))} blocking findings)")
         return 1

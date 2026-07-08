@@ -140,7 +140,7 @@ def cmd_distill(args):
     for fp in resolved:
         print(f"  - {fp.relative_to(cwd)}")
 
-    print(f"\nnext step: LLM reads these entries, distills, then writes via lk librarian write <wiki-page>")
+    print(f"\nnext step: LLM reads these entries, distills, then writes via lk agent librarian write <wiki-page>")
     return 0
 
 
@@ -444,7 +444,7 @@ def cmd_rewrite(args):
     bundle_merged = wiki_dir / '.compact-bundle-merged.md'
 
     if not bundle_main.exists() and not bundle_merged.exists():
-        print('error: .compact-bundle.md does not exist, please run lk librarian compact first', file=sys.stderr)
+        print('error: .compact-bundle.md does not exist, please run lk agent librarian compact first', file=sys.stderr)
         return 1
 
     # select bundle: M2 uses merged, others use main
@@ -495,8 +495,8 @@ Outputs:
    - Delete/merge outdated ones
    - Add newly emerged topics
    - Every wiki decision must be traceable to evidence in raw (quote dialogue syntax, see v0.4-004)
-2. Run `lk librarian rebuild-index` to rebuild index.md
-3. Run `lk librarian lint` for health check; self-heal broken links / missing frontmatter if any
+2. Run `lk agent librarian rebuild-index` to rebuild index.md
+3. Run `lk agent librarian lint` for health check; self-heal broken links / missing frontmatter if any
 
 Exit 0 when done. Exit 1 if lint fails and cannot self-heal.
 '''

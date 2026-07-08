@@ -12,7 +12,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from ._common import git, raw_path
+from ._common import git, raw_path, normalize_repo_relative_roots
+from .stage_results import (
+    artifact_path,
+    compute_contract_bundle_hash,
+    load_stage_result,
+    write_stage_result,
+    verify_stage_result_hash,
+)
 
 
 STAGES = [
@@ -54,6 +61,14 @@ def register(subparsers):
     p.add_argument('--reason', required=True)
     p.add_argument('--agent', default='', help='which agent triggered escalation')
 
+    p = sub.add_parser('waive', help='write a waiver artifact for a forced stage advance')
+    p.add_argument('--stage', required=True)
+    p.add_argument('--spec-id', required=True)
+    p.add_argument('--reason', required=True)
+    p.add_argument('--approved-by', required=True)
+    p.add_argument('--commit-range', default='')
+    p.add_argument('--accepted-risk', action='append', default=[])
+
 
 def run(args):
     handlers = {
@@ -61,6 +76,7 @@ def run(args):
         'advance': cmd_advance,
         'regress': cmd_regress,
         'escalate': cmd_escalate,
+        'waive': cmd_waive,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -86,6 +102,39 @@ def _set_project_info_current_stage(stage):
 def _run_lk(*args):
     return subprocess.run([sys.executable, '-m', 'louke.__main__', 'agent', *args],
                           cwd=Path.cwd()).returncode
+
+
+def _require_stage_artifact(spec_id, stage, kind, role, verdict, metadata=None):
+    path = artifact_path(spec_id, stage, kind)
+    data = load_stage_result(spec_id, stage, kind)
+    if not data:
+        return False, f'missing artifact: {path}'
+    if not verify_stage_result_hash(data):
+        return False, f'artifact hash mismatch: {path}'
+    if data.get('role') != role:
+        return False, f'artifact role mismatch in {path} (expected {role}, got {data.get("role")})'
+    if data.get('verdict') != verdict:
+        return False, f'artifact verdict mismatch in {path} (expected {verdict}, got {data.get("verdict")})'
+    current_bundle_hash = compute_contract_bundle_hash(spec_id)
+    if data.get('contract_bundle_hash') != current_bundle_hash:
+        return False, f'artifact contract bundle hash stale: {path}'
+    for key, expected in (metadata or {}).items():
+        actual = (data.get('metadata') or {}).get(key)
+        if actual != expected:
+            return False, f'artifact metadata mismatch in {path}: {key} expected {expected!r}, got {actual!r}'
+    return True, f'artifact OK: {path}'
+
+
+def _read_e2e_paths():
+    from ._common import _toml_load, PROJECT_INFO_PATH
+    data = _toml_load(PROJECT_INFO_PATH)
+    e2e = (data or {}).get('e2e') or {}
+    raw = e2e.get('paths')
+    if isinstance(raw, str):
+        return normalize_repo_relative_roots([raw])
+    if isinstance(raw, list):
+        return normalize_repo_relative_roots(raw)
+    return normalize_repo_relative_roots([])
 
 
 def _record_raw_event(stage, event, status='open', extra=None):
@@ -133,7 +182,7 @@ def _holdpoint(stage, args):
     spec = args.spec_id or _read_current_spec()
     if stage == 'M-FOUND':
         if not Path('.louke/project/project.toml').exists():
-            return False, 'project.toml missing; run lk scout foundation first'
+            return False, 'project.toml missing; run lk agent scout foundation first'
         return True, 'project.toml exists'
     if stage == 'M-SPEC':
         if not spec:
@@ -150,20 +199,32 @@ def _holdpoint(stage, args):
                 return False, f'lex {lex_cmd[1]} failed (rc={rc})'
         return True, 'quote-check + lex verify exit 0'
     if stage == 'M-TESTPLAN':
-        # FR-0700: lk archer validate-test-plan
+        # FR-0700: lk agent archer validate-test-plan
         if not spec:
             return False, 'spec-id required (--spec-id)'
         rc = _run_lk('archer', 'validate-test-plan', '--spec', spec)
         if rc != 0:
             return False, f'archer validate-test-plan failed (rc={rc})'
+        ok, msg = _require_stage_artifact(spec, 'M-TESTPLAN', 'author-result', 'Archer', 'pass')
+        if not ok:
+            return False, msg
+        ok, msg = _require_stage_artifact(spec, 'M-TESTPLAN', 'review-result', 'Sage', 'pass')
+        if not ok:
+            return False, msg
         return True, f'test-plan validated ({spec})'
     if stage == 'M-ARCH':
-        # FR-0700: lk archer validate-arch
+        # FR-0700: lk agent archer validate-arch
         if not spec:
             return False, 'spec-id required (--spec-id)'
         rc = _run_lk('archer', 'validate-arch', '--spec', spec)
         if rc != 0:
             return False, f'archer validate-arch failed (rc={rc})'
+        ok, msg = _require_stage_artifact(spec, 'M-ARCH', 'author-result', 'Archer', 'pass')
+        if not ok:
+            return False, msg
+        ok, msg = _require_stage_artifact(spec, 'M-ARCH', 'review-result', 'Prism', 'pass')
+        if not ok:
+            return False, msg
         return True, f'architecture validated ({spec})'
     if stage == 'M-LOCK':
         if not spec:
@@ -175,23 +236,57 @@ def _holdpoint(stage, args):
             return False, f'sage record-lock failed (rc={rc})'
         return True, 'record-lock exit 0 (Sage+Lex+User signals)'
     if stage == 'M-DEV':
+        if not spec:
+            return False, 'spec-id required (--spec-id)'
+        ok, msg = _require_stage_artifact(
+            spec, 'M-DEV', 'review-result', 'Prism', 'pass',
+            metadata={'commit_range': args.commit_range, 'source_command': 'review'},
+        )
+        if not ok:
+            return False, msg
         keeper_args = ['keeper', 'gate', '--commit-range', args.commit_range]
         if spec:
-            keeper_args.extend(['--spec-id', spec])
+            keeper_args.extend(['--spec-id', spec, '--stage', 'M-DEV'])
         rc = _run_lk(*keeper_args)
         if rc != 0:
             return False, f'keeper gate failed (rc={rc})'
+        ok, msg = _require_stage_artifact(
+            spec, 'M-DEV', 'gate-result', 'Keeper', 'pass',
+            metadata={'commit_range': args.commit_range},
+        )
+        if not ok:
+            return False, msg
         return True, 'keeper gate exit 0'
     if stage == 'M-E2E':
+        if not spec:
+            return False, 'spec-id required (--spec-id)'
+        ok, msg = _require_stage_artifact(
+            spec, 'M-E2E', 'review-result', 'Prism', 'pass',
+            metadata={'commit_range': args.commit_range, 'source_command': 'review'},
+        )
+        if not ok:
+            return False, msg
         rc = _run_lk('shield', 'run-e2e')
         if rc != 0:
             return False, f'shield run-e2e failed (rc={rc})'
+        ok, msg = _require_stage_artifact(spec, 'M-E2E', 'author-result', 'Shield', 'pass')
+        if not ok:
+            return False, msg
         keeper_args = ['keeper', 'gate', '--commit-range', args.commit_range]
+        tests_roots = _read_e2e_paths()
         if spec:
-            keeper_args.extend(['--spec-id', spec])
+            keeper_args.extend(['--spec-id', spec, '--stage', 'M-E2E'])
+        for test_root in tests_roots:
+            keeper_args.extend(['--tests-root', test_root])
         rc = _run_lk(*keeper_args)
         if rc != 0:
             return False, f'keeper gate failed (rc={rc})'
+        ok, msg = _require_stage_artifact(
+            spec, 'M-E2E', 'gate-result', 'Keeper', 'pass',
+            metadata={'commit_range': args.commit_range, 'tests_roots': tests_roots or ['tests/']},
+        )
+        if not ok:
+            return False, msg
         return True, 'shield run-e2e + keeper gate exit 0'
     if stage == 'M-BUGFIX':
         rc = _run_lk('keeper', 'regression', '--baseline', 'main', '--current', 'HEAD')
@@ -249,7 +344,20 @@ def cmd_advance(args):
     print(f'To:   {next_code}')
 
     if args.force:
-        print(f'[--force] skipping automated checks')
+        spec = args.spec_id or _read_current_spec()
+        if not spec:
+            print('[--force] requires --spec-id and a waiver artifact', file=sys.stderr)
+            return 1
+        metadata = {}
+        if args.stage in {'M-DEV', 'M-E2E'} and args.commit_range:
+            metadata['commit_range'] = args.commit_range
+        ok, msg = _require_stage_artifact(spec, args.stage, 'waiver', 'human', 'waived', metadata=metadata)
+        print(f'[{ "ok" if ok else "high" }] {msg}')
+        if not ok:
+            print('\n-> REJECT (missing or stale waiver artifact)')
+            print(f'  hint: run "lk agent maestro waive --stage {args.stage} --spec-id {spec} --approved-by <name> --reason <text>" first')
+            return 1
+        print(f'[--force] waiver accepted; skipping automated checks')
         _set_project_info_current_stage(next_code)
         _record_raw_event(args.stage, 'advance-force', extra=f'forced advance to {next_code}')
         print(f'-> forced advance to {next_code}')
@@ -312,4 +420,24 @@ def cmd_escalate(args):
     )
     print(alert)
     print(f'-> send the above alert to the user in chat')
+    return 0
+
+
+def cmd_waive(args):
+    """Write an explicit waiver artifact for a forced advance."""
+    metadata = {'approved_by': args.approved_by}
+    if args.commit_range:
+        metadata['commit_range'] = args.commit_range
+    path = write_stage_result(
+        spec_id=args.spec_id,
+        stage=args.stage,
+        kind='waiver',
+        role='human',
+        verdict='waived',
+        accepted_risks=args.accepted_risk or [args.reason],
+        metadata=metadata,
+        reviewed_targets=[],
+        blocking_findings=[args.reason],
+    )
+    print(f'✓ waiver written: {path}')
     return 0

@@ -1,6 +1,6 @@
 """lk shared-mode scanner — security pattern library.
 
-Shared by lk judge and lk prism. Patterns based on `.louke/templates/security-checklist.md`.
+Shared by `lk agent judge` and `lk agent prism`. Patterns based on `.louke/templates/security-checklist.md`.
 """
 import re
 from pathlib import Path

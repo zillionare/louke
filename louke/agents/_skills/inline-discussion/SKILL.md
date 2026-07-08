@@ -1,5 +1,5 @@
 ---
-name: inline-discussion
+name: lk-inline-discussion
 description: Defines inline-discussion format for structured discussion in spec files. Use when agents need to leave traceable multi-round comments and query discussion status via lk discuss.
 license: MIT
 compatibility: opencode

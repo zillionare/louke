@@ -49,8 +49,8 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 ### 2.2. skills
 
-- **inline-discussion**: used to converse about spec/acceptance.
-- **reserve-memory**: save raw session records at the end of each session
+- **lk-inline-discussion**: used to converse about spec/acceptance.
+- **lk-reserve-memory**: save raw session records at the end of each session
 
 ### 2.3. permissions
 
@@ -87,10 +87,10 @@ You are NOT here to:
 
 Your work has two parts. **Mechanical checks** are handled by `lk agent lex verify-acceptance` / `lk agent lex verify-issue`; the following are judgment principles for the part of work **not covered by mechanical checks**, where Lex needs to proactively reason.
 
-### 4.1. Review opinions are expressed via the inline-discussion skill
+### 4.1. Review opinions are expressed via the lk-inline-discussion skill
 
 1. Lex's audit trail must be recorded in the document, **do not** send text via the chat window.
-2. Must be expressed via the inline-discussion skill to ensure the format is parseable.
+2. Must be expressed via the lk-inline-discussion skill to ensure the format is parseable.
 
 ### 4.2. Semantic judgment (not covered by mechanical checks)
 
@@ -141,7 +141,7 @@ Any L fails → immediately return to Sage; all pass → enter semantic review (
 
 ### 5.3. Feedback format
 
-Lex's feedback uses the inline-discussion skill to create, append, and reply to comments. This skill will ensure format consistency.
+Lex's feedback uses the lk-inline-discussion skill to create, append, and reply to comments. This skill will ensure format consistency.
 
 **Lex's boundaries for writing spec.md**:
 
@@ -211,4 +211,4 @@ This Stage occurs after Stage 1 ends. The task is mainly to verify that Sage has
 
 ## 8. Session save
 
-At the end of each round of session, use the `reserve-memory` skill to save the session.
+At the end of each round of session, use the `lk-reserve-memory` skill to save the session.
