@@ -197,16 +197,22 @@ def used_models(root=None) -> list[str]:
     return sorted(set(result))
 
 
-def _rank(candidates: list[str], costs: dict[str, tuple[float, float]]) -> str:
-    """Pick best candidate: free > non-opencode > alphabetical."""
-    return sorted(
-        candidates,
-        key=lambda m: (
-            0 if is_free(m, costs) else 1,
-            1 if m.startswith('opencode/') else 0,
-            m,
-        ),
-    )[0]
+def _rank(candidates: list[str], costs: dict[str, tuple[float, float]],
+          auth: set[str] | None = None) -> str:
+    """Pick best candidate: free > user-auth'd non-opencode provider > opencode/Zen > alphabetical."""
+    def _key(m: str) -> tuple:
+        prov = m.split('/', 1)[0]
+        free_rank = 0 if is_free(m, costs) else 1
+        if prov == 'opencode':
+            provider_rank = 2
+        elif auth is not None and prov in auth:
+            provider_rank = 0
+        elif auth is not None:
+            provider_rank = 1
+        else:
+            provider_rank = 1
+        return (free_rank, provider_rank, m)
+    return sorted(candidates, key=_key)[0]
 
 
 def _filter_auth(candidates: list[str], auth: set[str] | None) -> list[str]:
@@ -236,19 +242,15 @@ def resolve_model(
     strong = [m for m in candidates if normalize(m.split('/')[-1]) == target]
     authed_strong = _filter_auth(strong, auth)
     if authed_strong:
-        return _rank(authed_strong, costs or {})
+        return _rank(authed_strong, costs or {}, auth)
     if strong and not auth:
-        return _rank(strong, costs or {})
-    weak = [
-        m for m in candidates
-        if target in normalize(m.split('/')[-1])
-        or normalize(m.split('/')[-1]) in target
-    ]
+        return _rank(strong, costs or {}, auth)
+    weak = _levenshtein_candidates(name, candidates)
     authed_weak = _filter_auth(weak, auth)
-    if len(authed_weak) == 1:
-        return authed_weak[0]
-    if len(weak) == 1 and not auth:
-        return weak[0]
+    if authed_weak:
+        return _rank(authed_weak, costs or {}, auth)
+    if weak and not auth:
+        return _rank(weak, costs or {}, auth)
     return name
 
 
@@ -270,10 +272,10 @@ def _classify(name: str, models: list[str], auth: set[str] | None,
     if strong:
         authed = _filter_auth(strong, auth)
         if authed:
-            return 'ok', _rank(authed, costs), ''
+            return 'ok', _rank(authed, costs, auth), ''
         if auth is not None:
-            return 'candidate', _rank(strong, costs), 'unauthenticated'
-        return 'ok', _rank(strong, costs), ''
+            return 'candidate', _rank(strong, costs, auth), 'unauthenticated'
+        return 'ok', _rank(strong, costs, auth), ''
     weak = [
         m for m in models
         if target in normalize(m.split('/')[-1])
@@ -284,7 +286,7 @@ def _classify(name: str, models: list[str], auth: set[str] | None,
         if len(authed) == 1:
             return 'ok', authed[0], 'weak'
         if auth is not None and weak and not authed:
-            return 'candidate', _rank(weak, costs), 'weak+unauthenticated'
+            return 'candidate', _rank(weak, costs, auth), 'weak+unauthenticated'
         if len(weak) == 1 and not auth:
             return 'ok', weak[0], 'weak'
     return 'unresolved', name, ''
@@ -425,6 +427,33 @@ def _probe_or_skip(model: str, project: bool, allow_skip: bool = True) -> bool:
             print(f'  {warn("force-saving; OpenCode may fail at runtime")}')
             return True
         print(f'  {dim("invalid")}')
+
+
+def _levenshtein_candidates(abstract: str, candidates: list[str],
+                             min_sim: float = 0.7) -> list[str]:
+    """Return candidates whose model-id is close to `abstract` by Levenshtein.
+
+    Uses `louke._common.similarity` (1 - lev/max_len). Keeps any candidate
+    within `min_sim` of the best score, so we don't accidentally drop ties
+    (e.g. `kimi-2.7-code` vs both `kimi-k2.6` and `kimi-k2.7-code`).
+    """
+    from ._common import similarity
+    target = normalize(abstract)
+    if not target:
+        return []
+    scored: list[tuple[str, float]] = []
+    for m in candidates:
+        mid = normalize(m.split('/')[-1])
+        if not mid:
+            continue
+        sim = similarity(target, mid)
+        if sim >= min_sim:
+            scored.append((m, sim))
+    if not scored:
+        return []
+    best = max(s for _, s in scored)
+    threshold = max(min_sim, best - 0.05)
+    return [m for m, s in scored if s >= threshold]
 
 
 def _rank_candidates(abstract: str, models: list[str]) -> list[str]:

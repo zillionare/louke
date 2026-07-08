@@ -215,7 +215,7 @@ def cmd_opencode(args):
         if isinstance(models, str):
             models = [models]
         for m in models:
-            if m and not m.startswith(('ark/', 'openrouter/', 'opencode/', 'kimi/', 'aliyun/', 'minimax/', 'glm', 'xfei', 'deepseek')):
+            if m and '/' not in m:
                 abstract_models.add(m)
 
     if not quiet:
@@ -264,7 +264,8 @@ def cmd_opencode(args):
         models = fm.get('models') or []
         if isinstance(models, str):
             models = [models]
-        model = resolve_model(models[0], root=root, models=available) if models else ''
+        model = resolve_model(models[0], root=root, models=available,
+                              auth=auth, costs=costs) if models else ''
         # Detect unbound: no '/' in the name (still abstract) + no alias
         if model and '/' not in model and not quiet:
             unbound_abstracts.append((name, model))
