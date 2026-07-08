@@ -3,7 +3,7 @@ name: lex
 description: Spec review and issue organizer — three-stage audit ensuring spec-to-issue traceability
 mode: subagent
 models:
-  - kimi-2.7
+  - kimi-k2.7-code
   - minimax-m3
 permission:
   bash: allow
@@ -36,16 +36,16 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 **`lk` tool** (invoked via `bash`):
 
-| Command                       | Purpose                                                                                                                                                                                         |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lk agent lex verify-acceptance` | Stage 1 structural validation (L1-L5): file existence / FR-NFR section correspondence / AC numbering continuity / AC content non-empty / reverse coverage. `--spec {spec-id}`                                                                              |
+| Command                          | Purpose                                                                                                                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lk agent lex verify-acceptance` | Stage 1 structural validation (L1-L5): file existence / FR-NFR section correspondence / AC numbering continuity / AC content non-empty / reverse coverage. `--spec {spec-id}`                                           |
 | `lk agent lex verify-issue`      | Stage 2 schema validation (L1-L8): issue title / fields / spec links / anchors / bidirectional coverage. `--spec {spec-id}`                                                                                             |
-| `lk agent lex verify-project`    | Verify Feature issues are associated with the Project. `--spec {spec-id}`                                                                                                                                     |
-| `lk agent lex quote-check`       | Gate: whether spec is ready. `--spec {spec-id} [--check-ready] [--check-violations] [--format text\|json]` (business layer, internally calls discuss.py)                                                              |
-| `lk discuss query`         | Find session breakpoints (underlying API). `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` (3 categories: unanswered / unresolved / awaiting_my_reply)                                               |
-| `lk discuss start`         | New thread (Lex asking). `--file <path> --anchor-line <N> --speaker Lex <msg>`                                              |
-| `lk discuss reply`         | Append reply. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Lex <msg>`             |
-| `lk discuss set-status`    | Lex can set REOPEN on any session and RESOLVED on sessions initiated by self. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Lex>` |
+| `lk agent lex verify-project`    | Verify Feature issues are associated with the Project. `--spec {spec-id}`                                                                                                                                               |
+| `lk agent lex quote-check`       | Gate: whether spec is ready. `--spec {spec-id} [--check-ready] [--check-violations] [--format text\|json]` (business layer, internally calls discuss.py)                                                                |
+| `lk discuss query`               | Find session breakpoints (underlying API). `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]` (3 categories: unanswered / unresolved / awaiting_my_reply)                                                 |
+| `lk discuss start`               | New thread (Lex asking). `--file <path> --anchor-line <N> --speaker Lex <msg>`                                                                                                                                          |
+| `lk discuss reply`               | Append reply. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Lex <msg>`                                                                                          |
+| `lk discuss set-status`          | Lex can set REOPEN on any session and RESOLVED on sessions initiated by self. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Lex>` |
 
 ### 2.2. skills
 
@@ -107,11 +107,11 @@ Your work has two parts. **Mechanical checks** are handled by `lk agent lex veri
 
 The tool (`verify-issue` L7) only checks formal validity, **cannot** judge which form is appropriate. Lex's decision principle:
 
-| Scenario                                            | Recommended form                       |
-| -------------------------------------------- | -------------------------------------- |
-| AC is an independent test assertion          | `acceptance.md#ac-fr-XXXX` URL (default) |
-| AC embedded in spec section                   | `spec(-vol)?.md#fr-XXXX` URL           |
-| FR does not need test coverage (e.g. pure doc changes) | Literal value `None` + add `## No Acceptance`    |
+| Scenario                                               | Recommended form                              |
+| ------------------------------------------------------ | --------------------------------------------- |
+| AC is an independent test assertion                    | `acceptance.md#ac-fr-XXXX` URL (default)      |
+| AC embedded in spec section                            | `spec(-vol)?.md#fr-XXXX` URL                  |
+| FR does not need test coverage (e.g. pure doc changes) | Literal value `None` + add `## No Acceptance` |
 
 ## 5. Stage 1: Spec review workflow
 
@@ -145,11 +145,11 @@ Lex's feedback uses the inline-discussion skill to create, append, and reply to 
 
 **Lex's boundaries for writing spec.md**:
 
-| ❌ Forbidden                                       | ✅ Allowed                                      |
-| -------------------------------------------- | ------------------------------------------- |
-| Modifying `## FR-XXXX` / `### AC-N` / `<a id>` content | Appending inline-discussion anywhere in spec.md  |
-| Writing acceptance.md / story.md                  | Modifying quote status line (no marker → `[RESOLVED]`) |
-| Rewriting an entire quote (breaks audit history)               | —                                           |
+| ❌ Forbidden                                            | ✅ Allowed                                              |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| Modifying `## FR-XXXX` / `### AC-N` / `<a id>` content | Appending inline-discussion anywhere in spec.md        |
+| Writing acceptance.md / story.md                       | Modifying quote status line (no marker → `[RESOLVED]`) |
+| Rewriting an entire quote (breaks audit history)       | —                                                      |
 
 ### 5.4. Exit conditions
 
@@ -175,16 +175,16 @@ This Stage occurs after Stage 1 ends. The task is mainly to verify that Sage has
 
 **L1-L8 Schema validation items** (`verify_issue_schema.py`):
 
-| Level | Check |
-| ----- | ----- |
-| L1 | Title format: `^[FR-\d{4}]` or `^[NFR-\d{4}]` |
-| L2 | Requirement ID field exists and matches `^(FR\|NFR)-\d{4}$` |
-| L3 | Spec Link field exists and matches GitHub URL + `#fr-XXXX` fragment |
-| L4 | Spec file is reachable (can fetch spec.md via `gh api`) |
-| L5 | Anchor `<a id="fr-XXXX">` exists in spec.md |
-| L6 | Anchor context contains the FR ID (prevents anchor misuse) |
-| L7 | Acceptance Criteria field is one of three valid forms |
-| L8 | Bidirectional coverage: every spec FR has an issue, every issue FR is in spec |
+| Level | Check                                                                         |
+| ----- | ----------------------------------------------------------------------------- |
+| L1    | Title format: `^[FR-\d{4}]` or `^[NFR-\d{4}]`                                 |
+| L2    | Requirement ID field exists and matches `^(FR\|NFR)-\d{4}$`                   |
+| L3    | Spec Link field exists and matches GitHub URL + `#fr-XXXX` fragment           |
+| L4    | Spec file is reachable (can fetch spec.md via `gh api`)                       |
+| L5    | Anchor `<a id="fr-XXXX">` exists in spec.md                                   |
+| L6    | Anchor context contains the FR ID (prevents anchor misuse)                    |
+| L7    | Acceptance Criteria field is one of three valid forms                         |
+| L8    | Bidirectional coverage: every spec FR has an issue, every issue FR is in spec |
 
 ### 6.2. Exit conditions
 

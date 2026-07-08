@@ -3,7 +3,7 @@ name: warden
 description: Reviewer — checks whether the foundation meets the bar and agrees to move forward
 mode: subagent
 models:
-  - glm-5
+  - deepseek-v4-flash
   - minimax-2.7
 permission:
   bash: allow

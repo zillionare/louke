@@ -194,7 +194,7 @@ def print_help_text():
     print('    judge      security-audit, quick-scan')
     print('    prism      review, test-patterns, security-quick-scan, code-quality')
     print('    devon      run-tests, commit-rgr')
-    print('    shield     run-e2e, commit-e2e, scaffold')
+    print('    shield     run-e2e, commit-e2e')
     print('    librarian  distill, lint, rebuild-index, compact, rewrite')
     print('    maestro    status, advance, regress, escalate')
     print()

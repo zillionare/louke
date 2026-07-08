@@ -180,7 +180,7 @@ def _holdpoint(stage, args):
             return False, f'keeper gate failed (rc={rc})'
         return True, 'keeper gate exit 0'
     if stage == 'M-E2E':
-        rc = _run_lk('shield', 'run-e2e', '--spec', spec or '')
+        rc = _run_lk('shield', 'run-e2e')
         if rc != 0:
             return False, f'shield run-e2e failed (rc={rc})'
         rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range)

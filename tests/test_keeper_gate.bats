@@ -60,13 +60,15 @@ commit() {
     }
 }
 
-@test "FR-0600 AC-4: shield.py retains _load_quality_gates, _load_e2e_config, cmd_run_e2e" {
-    run grep -Eq "^def _load_quality_gates\(" "$SHIELD_PY"
-    [ "$status" -eq 0 ] || { echo "FAIL: _load_quality_gates missing in shield.py" >&2; false; }
-    run grep -Eq "^def _load_e2e_config\(" "$SHIELD_PY"
-    [ "$status" -eq 0 ] || { echo "FAIL: _load_e2e_config missing in shield.py" >&2; false; }
+@test "FR-0600 AC-4: shield.py retains generic e2e runner helpers" {
+    run grep -Eq "^def _read_e2e_config\(" "$SHIELD_PY"
+    [ "$status" -eq 0 ] || { echo "FAIL: _read_e2e_config missing in shield.py" >&2; false; }
+    run grep -Eq "^def _resolve_commit_paths\(" "$SHIELD_PY"
+    [ "$status" -eq 0 ] || { echo "FAIL: _resolve_commit_paths missing in shield.py" >&2; false; }
     run grep -Eq "^def cmd_run_e2e\(" "$SHIELD_PY"
     [ "$status" -eq 0 ] || { echo "FAIL: cmd_run_e2e missing in shield.py" >&2; false; }
+    run grep -Eq "^def cmd_commit_e2e\(" "$SHIELD_PY"
+    [ "$status" -eq 0 ] || { echo "FAIL: cmd_commit_e2e missing in shield.py" >&2; false; }
 }
 
 @test "FR-0600 AC-9: --tests flag exits non-zero with deprecation message" {

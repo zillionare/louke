@@ -94,7 +94,7 @@ Full feature development follows the table below, advancing in order.
 | `M-ARCH`      | Architecture design | **Archer**            | **Prism**                      | Archer decides architecture and interface design / Prism content review     |
 | `M-LOCK`      | Lock requirements | **Maestro**           | Human                          | **Decide whether to enter the implementation stage**                       |
 | `M-DEV`       | Development execution | **Devon** (forge)     | **Prism** → **Keeper** (gatekeeper) | Devon R-G-R (incl. unit tests) / Prism multi-perspective + critical review / Keeper gate check |
-| `M-E2E`       | e2e development | **Shield** (e2e writer) | **Prism** → **Keeper**         | Shield writes e2e per test-plan §6 (grade B) / Prism review / Keeper gate   |
+| `M-E2E`       | e2e development | **Shield** (e2e writer) | **Prism** → **Keeper**         | Shield writes host-project e2e per test-plan §6 / Prism review / Keeper gate |
 | `M-BUGFIX`    | Bug fix        | **Devon**             | **Keeper**                     | Devon reuses R-G-R to fix bugs / Keeper runs regression to judge            |
 | `M-SECURITY`  | Security audit | **Judge** (grade S)   | Human                          | Deep security audit (per-milestone; DoD can disable)                       |
 | `M-MILESTONE` | Milestone end  | **Maestro**           | **Human**                      | Maestro releases this version and advances to the next milestone           |
@@ -205,6 +205,7 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 1. spawn Archer  Phase 2: architecture.md + interfaces.md + [e2e] section
                  pass: spec-id, spec.md, acceptance.md, test-plan.md
                  key: AC → interfaces → test-plan three-way closure
+                 key: decide host-project e2e paths + run contract (not a generic scaffold)
 
 2. spawn Prism   M-ARCH review (pure semantic, 6 consistency checks, no lk tool)
                  pass: spec-id, all doc paths
@@ -239,10 +240,11 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 #### M-E2E (Shield → Prism → Keeper)
 
 ```
-1. spawn Shield  e2e tests (per test-plan §6) + commit-e2e
-                 pass: spec-id, test-plan §6, interfaces, [e2e]
+1. spawn Shield  host-project e2e tests (per test-plan §6) + commit-e2e
+                 pass: spec-id, test-plan §6, interfaces, architecture, [e2e]
+                 note: Shield writes into host-project test dirs decided by Archer; never into .louke/
 
-2. spawn Prism   M-E2E: test-patterns --tests {e2e-dir}
+2. spawn Prism   M-E2E: test-patterns --tests {host-project-e2e-dir}
                  pass: commit diff, test-plan §6, acceptance, [e2e]
    [REJECT] → Shield fixes → re-run Prism
 

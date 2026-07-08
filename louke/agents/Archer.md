@@ -66,7 +66,7 @@ You are here to:
   - How to partition the boundaries between unit tests, integration tests, and e2e tests?
   - Which third-party libraries and versions should be used?
   - How to partition modules and define their boundaries and interfaces?
-- Decide the project's e2e environment startup method and write it into the `project.toml [e2e]` section
+- Decide the host project's e2e asset locations and execution contract, and write them into the `project.toml [e2e]` section
 
 You are NOT here to:
 - Write test code (Devon writes unit tests, Shield writes e2e tests)
@@ -198,14 +198,14 @@ If it is an existing project, generally the existing tech framework should be in
 - node: package.json
 - All languages: `.pre-commit-config.yaml` (lint / format / typecheck / test hook — Scout has installed the base template, Archer edits it per M-ARCH decisions)
 
-**step 3**: Decide the e2e environment startup method and write it into the `[e2e]` section of `.louke/project/project.toml` (**not a separate file**). See §6.1 E2E Environment contract.
+**step 3**: Decide the host project's e2e asset locations and execution contract, and write them into the `[e2e]` section of `.louke/project/project.toml` (**not a separate file**). See §6.1 E2E Environment contract.
 
 ## 6. Exit conditions
 
 - [ ] test-plan.md generated (per `.louke/templates/test-plan.md` structure)
 - [ ] architecture.md generated (modules/dependencies/trade-offs)
 - [ ] interfaces.md generated (externally observable contract list)
-- [ ] `[e2e]` section written into `project.toml` (see §6.5)
+- [ ] `[e2e]` section written into `project.toml` (host-project e2e paths + run contract)
 - [ ] `[meta].test_framework` written into `project.toml` (Devon reads this field to run unit tests)
 - [ ] Closure across all three: every interfaces exit has test coverage in test-plan
 
@@ -213,14 +213,23 @@ If it is an existing project, generally the existing tech framework should be in
 
 ### 6.1. E2E Environment contract
 
-During the M-ARCH stage, produce the `[e2e]` section of `.louke/project/project.toml` (e2e config and project meta info coexist in the same `project.toml`). **Shield / CI reads this section to auto start/stop the project**; when missing, it degrades to "sleep 30s waiting for ready + no teardown".
+During the M-ARCH stage, produce the `[e2e]` section of `.louke/project/project.toml` (e2e config and project meta info coexist in the same `project.toml`). **Shield / CI reads this section to run the host project's own e2e command**. This contract is intentionally generic: it describes *where the host project's e2e files live* and *how to run them*, but it does not try to generate project scaffolding or guess a universal template.
 
-**Schema** (TOML, all fields optional):
+**Schema** (TOML, `run` strongly recommended; others optional):
 
 ```toml
 [e2e]
+# Host-project working directory for e2e commands (optional, relative to repo root)
+cwd = "apps/api"
+
+# Host-project paths that Shield writes / Prism reviews / commit-e2e stages
+paths = ["tests/e2e", "tests/fixtures"]
+
+# Run the host project's own e2e command
+run = "pytest -q tests/e2e"
+
 # Start the project (run before CI / local e2e; must reuse commands already existing in the project)
-start = "make e2e-env-up"
+start = "docker compose up -d app db"
 
 # Detect project readiness (exit 0 = ready; non-0 retries until timeout)
 ready = "curl -sf http://localhost:8000/health"
@@ -228,22 +237,18 @@ ready = "curl -sf http://localhost:8000/health"
 # ready timeout (seconds, default 60)
 ready_timeout_seconds = 60
 
-# e2e framework (playwright | testclient | db; Shield selects scaffold template based on this)
-framework = "playwright"
-
-# Browsers (only valid for playwright framework)
-browsers = ["chromium"]
-
 # Cleanup (must run after e2e, regardless of success or failure; skipped if missing)
-teardown = "make e2e-env-down"
+teardown = "docker compose down"
 ```
 
 **Constraints**:
-- `start` / `teardown` must reference **existing** commands in the project (Makefile target / npm script / docker-compose file); do not invent project structure
+- `run` must reference the **host project's own runnable e2e command** (`pytest`, `playwright test`, `npm test`, `go test`, `cargo test`, wrapper scripts, etc.); do not hardcode Louke-specific assumptions unless the host project actually uses them
+- `paths` must point to **host-project code assets**, never to `.louke/`
+- `cwd`, `start`, `ready`, and `teardown` must reference **existing** host-project layout / commands (Makefile target / npm script / docker-compose file / shell script / subdir); do not invent project structure
 - If the project has no existing startup method, **do not** write `start` (let e2e skip start/stop by default, require the user to do it manually)
-- If the project has no ready detection method, **do not** write `ready` (compact defaults to sleep 30s then run e2e)
-- When `framework` is missing, Shield infers from deps (playwright in deps → playwright; fastapi/express in deps → testclient; others → db)
-- raw session leaves inline discussion: source = spec interfaces.md + project's existing Makefile/package.json
+- If the project has no ready detection method, **do not** write `ready`
+- If the host project has no stable one-command e2e entry yet, design that entry in the host project first; do **not** ask Shield to invent a generic scaffold
+- raw session leaves inline discussion: source = spec / interfaces.md / architecture.md + project's existing repo layout / build files
 
 
 ## 7. Anti-patterns

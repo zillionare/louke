@@ -3,8 +3,8 @@ name: keeper
 description: Quality gate — verifies R-G-R order / commit message format / AC trace / anti-pattern scanning
 mode: subagent
 models:
-  - minimax-2.7
   - deepseek-v4-flash
+  - minimax-2.7
 permission:
   bash: allow
   read: allow
@@ -34,10 +34,10 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 **`lk` tool** (invoked via `bash`):
 
-| Command               | Purpose                                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| Command                      | Purpose                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `lk agent keeper gate`       | per-commit gate. `--commit-range` (default HEAD~1..HEAD); `--skip-ac-trace` / `--skip-anti-pattern` optional |
-| `lk agent keeper regression` | bug-fix regression check. `--baseline main --current HEAD`; exit 0/1 = pass/reject                       |
+| `lk agent keeper regression` | bug-fix regression check. `--baseline main --current HEAD`; exit 0/1 = pass/reject                           |
 
 ### 2.2. Skills
 
@@ -85,11 +85,11 @@ You are NOT here to:
 
 ### 4.3. CLI subcommand reference
 
-| CLI flag              | Purpose                                | Default        |
-| --------------------- | -------------------------------------- | -------------- |
-| `--commit-range`      | commit range to check                  | `HEAD~1..HEAD` |
+| CLI flag              | Purpose                                               | Default        |
+| --------------------- | ----------------------------------------------------- | -------------- |
+| `--commit-range`      | commit range to check                                 | `HEAD~1..HEAD` |
 | `--skip-ac-trace`     | skip AC trace validation (AC → test reverse coverage) | no             |
-| `--skip-anti-pattern` | skip test anti-pattern scanning        | no             |
+| `--skip-anti-pattern` | skip test anti-pattern scanning                       | no             |
 
 The CLI automatically runs the following checks (no flag needed):
 - Commit message format (`feat: green` / `fix: green` / `refactor:` / `e2e:` / `fix:` / `docs:` / `chore:`)

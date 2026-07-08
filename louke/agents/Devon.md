@@ -15,7 +15,7 @@ permission:
   question: deny
   doom_loop: deny
 models:
-  - kimi-2.7-code
+  - kimi-k2.7-code
   - deepseek-v4-pro
   - minimax-m3
   - glm-5.2
@@ -39,8 +39,8 @@ You are **NOT** an interactive subagent (`permission.question: deny`). **DO NOT*
 
 **`lk` tool** (invoked via `bash`):
 
-| Command                     | Purpose                                                                                                                                                         |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command                     | Purpose                                                                                                                                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lk agent devon commit-rgr` | Commit R-G-R phase code. `--phase {green\|refactor} --issue N --message "..."`; auto-generates commit prefix (`feat: green` / `fix: green` / `refactor:`); Green phase auto-appends `Closes #N`; `--push` explicitly pushes (default no-push, FR-0580); see §6.1 |
 
 ### 2.2. skills
