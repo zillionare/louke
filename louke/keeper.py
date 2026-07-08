@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from ._common import git
+from ._common import _read_project_info_field, git
 
 
 def register(subparsers):
@@ -22,6 +22,8 @@ def register(subparsers):
     p.add_argument('--tests', action='store_true', help='deprecated (v0.7-001)')
     p.add_argument('--lint', action='store_true', help='deprecated (v0.7-001)')
     p.add_argument('--typecheck', action='store_true', help='deprecated (v0.7-001)')
+    p.add_argument('--spec-id', default='', help='spec-id for AC trace validation (falls back to project.toml)')
+    p.add_argument('--tests-root', default='tests/', help='host-project test root used by AC trace and anti-pattern scans')
     p.add_argument('--skip-ac-trace', action='store_true', help='skip AC trace validation')
     p.add_argument('--skip-anti-pattern', action='store_true', help='skip anti-pattern scan')
 
@@ -134,6 +136,12 @@ def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
     return findings
 
 
+def _resolve_spec_id(cli_spec_id: str) -> str:
+    if cli_spec_id.strip():
+        return cli_spec_id.strip()
+    return _read_project_info_field('Spec ID').strip()
+
+
 def cmd_gate(args):
     """per-commit gate check: commit format + R-G-R order + AC trace + anti-pattern scan."""
     if args.tests:
@@ -166,18 +174,35 @@ def cmd_gate(args):
     all_findings.extend(findings)
 
     if not args.skip_ac_trace:
-        rc = subprocess.run([sys.executable, '-m', 'louke.__main__', 'archer', 'ci-scan', '--spec', args.commit_range],
-                            cwd=cwd).returncode
-        if rc != 0:
+        spec_id = _resolve_spec_id(args.spec_id)
+        if not spec_id:
             all_findings.append({'severity': 'high', 'description': 'archer ci-scan failed (AC not referenced)'})
             print('--- AC Trace: FAIL ---')
+            print('missing spec-id: pass --spec-id or set project.toml [project]/[meta].spec_id')
+        else:
+            rc = subprocess.run([
+                sys.executable, '-m', 'louke.__main__',
+                'agent', 'archer', 'ci-scan',
+                '--spec', spec_id,
+                '--tests', args.tests_root,
+            ], cwd=cwd).returncode
+            if rc != 0:
+                all_findings.append({
+                    'severity': 'high',
+                    'description': f'archer ci-scan failed (spec={spec_id}, tests={args.tests_root})',
+                })
+                print('--- AC Trace: FAIL ---')
+            else:
+                print('--- AC Trace: PASS ---')
 
     if not args.skip_anti_pattern:
-        rc = subprocess.run([sys.executable, '-m', 'louke._tools.check_assertions', '--tests', 'tests/'],
+        rc = subprocess.run([sys.executable, '-m', 'louke._tools.check_assertions', '--tests', args.tests_root],
                             cwd=cwd).returncode
         if rc != 0:
             all_findings.append({'severity': 'high', 'description': 'anti-pattern scan failed'})
             print('--- Anti-Pattern: FAIL ---')
+        else:
+            print('--- Anti-Pattern: PASS ---')
 
     has_blocking = any(f.get('severity') in ('critical', 'high') for f in all_findings)
     if has_blocking:

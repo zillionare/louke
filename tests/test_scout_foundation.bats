@@ -20,8 +20,8 @@ setup() {
         --no-repo --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"would write"* ]]
-    [[ "$output" == *"would run lk scout identity-check"* ]]
-    [[ "$output" == *"would run lk warden foundation-check"* ]]
+    [[ "$output" == *"would run lk agent scout identity-check"* ]]
+    [[ "$output" == *"would run lk agent warden foundation-check"* ]]
     [ ! -f .louke/project/project-info.md ]
 }
 

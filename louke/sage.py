@@ -264,7 +264,7 @@ def cmd_lock_spec(args):
 
 
 def _run_lk(*args, cwd=None) -> int:
-    return subprocess.run([sys.executable, '-m', 'louke.__main__', *args],
+    return subprocess.run([sys.executable, '-m', 'louke.__main__', 'agent', *args],
                           cwd=cwd or Path.cwd()).returncode
 
 

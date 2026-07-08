@@ -84,7 +84,7 @@ def _set_project_info_current_stage(stage):
 
 
 def _run_lk(*args):
-    return subprocess.run([sys.executable, '-m', 'louke.__main__', *args],
+    return subprocess.run([sys.executable, '-m', 'louke.__main__', 'agent', *args],
                           cwd=Path.cwd()).returncode
 
 
@@ -175,7 +175,10 @@ def _holdpoint(stage, args):
             return False, f'sage record-lock failed (rc={rc})'
         return True, 'record-lock exit 0 (Sage+Lex+User signals)'
     if stage == 'M-DEV':
-        rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range)
+        keeper_args = ['keeper', 'gate', '--commit-range', args.commit_range]
+        if spec:
+            keeper_args.extend(['--spec-id', spec])
+        rc = _run_lk(*keeper_args)
         if rc != 0:
             return False, f'keeper gate failed (rc={rc})'
         return True, 'keeper gate exit 0'
@@ -183,7 +186,10 @@ def _holdpoint(stage, args):
         rc = _run_lk('shield', 'run-e2e')
         if rc != 0:
             return False, f'shield run-e2e failed (rc={rc})'
-        rc = _run_lk('keeper', 'gate', '--commit-range', args.commit_range)
+        keeper_args = ['keeper', 'gate', '--commit-range', args.commit_range]
+        if spec:
+            keeper_args.extend(['--spec-id', spec])
+        rc = _run_lk(*keeper_args)
         if rc != 0:
             return False, f'keeper gate failed (rc={rc})'
         return True, 'shield run-e2e + keeper gate exit 0'

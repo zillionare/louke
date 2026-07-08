@@ -225,7 +225,7 @@ Test assertions **may only** land on the external observable outlets defined in 
 ## 7. CI Gate
 
 ```bash
-lk archer ci-scan \
+lk agent archer ci-scan \
   --acceptance .louke/project/specs/{SPEC-ID}/acceptance.md \
   --tests tests/
 ```

@@ -62,6 +62,6 @@ setup() {
     TEMPLATE="$REPO_ROOT/louke/templates/test-plan.md"
     grep -qi "test strategy" "$TEMPLATE"
     grep -qE "AC mandatory tracing" "$TEMPLATE"
-    grep -q "lk archer ci-scan" "$TEMPLATE"
+    grep -q "lk agent archer ci-scan" "$TEMPLATE"
     grep -q "does not maintain specific test lists" "$TEMPLATE"
 }

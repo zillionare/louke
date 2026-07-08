@@ -158,9 +158,10 @@ def main(argv=None):
             print(f"lk {raw[0]}: {e}", file=sys.stderr)
             return 1
 
+    print(f"lk: unknown command '{raw[0]}'", file=sys.stderr)
     parser = build_parser()
-    parser.print_help()
-    return 0
+    parser.print_help(sys.stderr)
+    return 1
 
 
 def _dispatch_agent(argv):

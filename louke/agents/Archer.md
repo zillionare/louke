@@ -36,6 +36,7 @@ You are an **interactive** subagent (`permission.question: allow`). During execu
 - deny: `task`, `doom_loop`
 
 **`lk` tool** (invoked via `bash`): Archer writes documents directly with the `edit` tool. Gate validation `lk agent archer validate-test-plan` / `validate-arch` is invoked by Maestro at holdpoints (see Maestro.md); Archer itself does not proactively invoke them.
+When documenting CI / gate commands, always use the real runtime contract: `lk agent archer ci-scan ...`, not `lk archer ...`.
 
 ### 2.2. skills
 
@@ -94,6 +95,7 @@ Your output is the source of truth for both dev and test sides. The following di
 - The assertion basis in acceptance = the exits defined in interfaces.md.
 - test-plan is not allowed to invent new observation methods; if a test needs an exit that interfaces does not have, revise interfaces first.
 - Every interface exit must find at least one test coverage method (unit / integration / e2e) in test-plan.
+- AC traceability must stay explicit end-to-end: acceptance IDs use the `AC-FRXXXX-YY` / `AC-NFRXXXX-YY` convention, and CI closes the loop with `lk agent archer ci-scan`.
 
 ### 4.4. Architecture decisions must have trade-offs
 

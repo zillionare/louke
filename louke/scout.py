@@ -402,7 +402,7 @@ def cmd_foundation(args):
             print(
                 'error: --repo not provided and cannot be inferred from git remote origin.\n'
                 '  -> agent: use the question tool to ask the user for owner/repo, then retry with --repo owner/repo.\n'
-                '  -> example: lk scout foundation --repo zillionare/louke --keyword init-foundation --version 0.7 ...',
+                '  -> example: lk agent scout foundation --repo zillionare/louke --keyword init-foundation --version 0.7 ...',
                 file=sys.stderr,
             )
             return 1
@@ -449,8 +449,8 @@ def cmd_foundation(args):
     if args.dry_run:
         print(f'would write {info_path}')
         print(f'would write {spec_dir / "story.md"}')
-        print(f'would run lk scout identity-check --repo {args.repo}')
-        print(f'would run lk warden foundation-check --repo {args.repo} --version {args.version} --spec-id {args.spec_id}')
+        print(f'would run lk agent scout identity-check --repo {args.repo}')
+        print(f'would run lk agent warden foundation-check --repo {args.repo} --version {args.version} --spec-id {args.spec_id}')
         if full_p0:
             login = _gh_api_login(args) or '<gh-user>'
             print(f'would gh repo create/view for {args.repo}')
@@ -524,8 +524,8 @@ def cmd_foundation(args):
 
     # Step 4a / 4: identity + foundation-check (existing tools)
     for cmd in (
-        [sys.executable, '-m', 'louke.__main__', 'scout', 'identity-check', '--repo', args.repo],
-        [sys.executable, '-m', 'louke.__main__', 'warden', 'foundation-check',
+        [sys.executable, '-m', 'louke.__main__', 'agent', 'scout', 'identity-check', '--repo', args.repo],
+        [sys.executable, '-m', 'louke.__main__', 'agent', 'warden', 'foundation-check',
          '--repo', args.repo, '--version', args.version, '--spec-id', args.spec_id],
     ):
         result = subprocess.run(cmd, cwd=cwd)

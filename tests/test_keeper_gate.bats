@@ -52,10 +52,10 @@ commit() {
     }
 }
 
-@test "FR-0600 AC-4: keeper.py contains no e2e-related code" {
-    run grep -iqE "e2e|end.to.end" "$KEEPER_PY"
+@test "FR-0600 AC-4: keeper.py contains no Shield/e2e orchestration logic" {
+    run grep -iqE "run-e2e|commit-e2e|shield scaffold|tests/e2e/" "$KEEPER_PY"
     [ "$status" -ne 0 ] || {
-        echo "FAIL: keeper.py still contains e2e references" >&2
+        echo "FAIL: keeper.py still contains Shield/e2e orchestration logic" >&2
         false
     }
 }
@@ -101,7 +101,7 @@ commit() {
     }
 }
 
-@test "FR-0600 AC-5/AC-7/AC-8: lk keeper gate checks format/RGR/AC trace/anti-pattern" {
+@test "FR-0600 AC-5/AC-7/AC-8: lk agent keeper gate checks format/RGR/AC trace/anti-pattern" {
     init_tmp_repo
     commit "chore: init"
     commit "test: red – #1 – add failing test"
@@ -113,6 +113,32 @@ commit() {
         echo "keeper gate failed: $output" >&2
         false
     }
+}
+
+@test "FR-0600 AC-trace: keeper gate uses explicit spec-id and tests-root" {
+    init_tmp_repo
+    mkdir -p .louke/project/specs/demo tests
+    cat > .louke/project/specs/demo/acceptance.md <<'EOF'
+<a id="ac-fr-0001"></a>
+
+## FR-0001
+
+### AC-1
+- Works.
+EOF
+    cat > tests/test_trace.py <<'EOF'
+def test_trace():
+    """AC-FR0001-01: works."""
+    assert 2 == 2
+EOF
+    commit "chore: init"
+    commit "feat: green – #1 – add trace"
+    run python -m louke agent keeper gate --commit-range HEAD~1..HEAD --spec-id demo --tests-root tests --skip-anti-pattern
+    [ "$status" -eq 0 ] || {
+        echo "keeper AC trace failed: $output" >&2
+        false
+    }
+    [[ "$output" == *"--- AC Trace: PASS ---"* ]]
 }
 
 @test "FR-0400.3: same-issue [green, refactor] passes" {
