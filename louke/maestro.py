@@ -208,7 +208,10 @@ def _holdpoint(stage, args):
         ok, msg = _require_stage_artifact(spec, 'M-TESTPLAN', 'author-result', 'Archer', 'pass')
         if not ok:
             return False, msg
-        ok, msg = _require_stage_artifact(spec, 'M-TESTPLAN', 'review-result', 'Sage', 'pass')
+        ok, msg = _require_stage_artifact(
+            spec, 'M-TESTPLAN', 'review-result', 'Sage', 'pass',
+            metadata={'source_command': 'review'},
+        )
         if not ok:
             return False, msg
         return True, f'test-plan validated ({spec})'
@@ -222,7 +225,10 @@ def _holdpoint(stage, args):
         ok, msg = _require_stage_artifact(spec, 'M-ARCH', 'author-result', 'Archer', 'pass')
         if not ok:
             return False, msg
-        ok, msg = _require_stage_artifact(spec, 'M-ARCH', 'review-result', 'Prism', 'pass')
+        ok, msg = _require_stage_artifact(
+            spec, 'M-ARCH', 'review-result', 'Prism', 'pass',
+            metadata={'source_command': 'review'},
+        )
         if not ok:
             return False, msg
         return True, f'architecture validated ({spec})'

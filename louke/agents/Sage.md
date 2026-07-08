@@ -48,16 +48,18 @@ You are **interactive** (`question: allow`) — in Step 1 and Step 3 you ask the
 
 **`lk` tool** (invoked via `bash`):
 
-| Command                                                                | Purpose                                                                                                                                                                                | Step    |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `lk agent sage commit-spec --spec {id} --message "..." [--no-push]`    | add spec.md + acceptance.md + commit + push                                                                                                                                            | 2, 3, 4 |
-| `lk agent sage quote-check --spec {id}`                                | all quotes resolved? exit 0 = yes                                                                                                                                                      | 6       |
-| `lk agent sage create-issues --spec {id} [--dry-run] [--skip-project]` | Create GitHub issues from spec FR anchors + associate with Project                                                                                                                     | 5       |
-| `lk agent sage record-lock --spec {id} --confirm`                      | Three-signal lock (quote-check + Lex verify ×3 + write locked:true)                                                                                                                    | 6       |
-| `lk discuss query`                                                     | Find session breakpoints (underlying API). `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]`                                                                            | 2, 3, 4 |
-| `lk discuss start`                                                     | New thread (follow-up question to user). `--file <path> --anchor-line <N> --speaker Sage <msg>`                                                                                        | 2, 3, 4 |
-| `lk discuss reply`                                                     | Append reply (respond to user/Lex). `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Sage <msg>`                                  | 3, 4    |
-| `lk discuss set-status`                                                | Mark threads initiated by self as resolved. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Sage>` | 3, 4    |
+| Command                                                                 | Purpose                                                                                                                                                                                | Step       |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `lk agent sage commit-spec --spec {id} --message "..." [--no-push]`     | add spec.md + acceptance.md + commit + push                                                                                                                                            | 2, 3, 4    |
+| `lk agent sage quote-check --spec {id}`                                 | all quotes resolved? exit 0 = yes                                                                                                                                                      | 6          |
+| `lk agent sage create-issues --spec {id} [--dry-run] [--skip-project]`  | Create GitHub issues from spec FR anchors + associate with Project                                                                                                                     | 5          |
+| `lk agent sage record-lock --spec {id} --confirm`                       | Three-signal lock (quote-check + Lex verify ×3 + write locked:true)                                                                                                                    | 6          |
+| `lk agent sage review-testplan --spec {id} ...`                         | Execute the M-TESTPLAN review and persist a provenance-bearing reviewer artifact                                                                                                       | M-TESTPLAN |
+| `lk agent sage record-testplan-review --spec {id} --verdict reject ...` | Persist a rejected M-TESTPLAN reviewer artifact for audit / handoff                                                                                                                    | M-TESTPLAN |
+| `lk discuss query`                                                      | Find session breakpoints (underlying API). `--file <path> [--initiator <a>] [--blocker <a>] [--status <s>]`                                                                            | 2, 3, 4    |
+| `lk discuss start`                                                      | New thread (follow-up question to user). `--file <path> --anchor-line <N> --speaker Sage <msg>`                                                                                        | 2, 3, 4    |
+| `lk discuss reply`                                                      | Append reply (respond to user/Lex). `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Sage <msg>`                                  | 3, 4       |
+| `lk discuss set-status`                                                 | Mark threads initiated by self as resolved. `--file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status <resolved\|reopen> --operator <Sage>` | 3, 4       |
 
 ### 2.2. skills
 
@@ -193,7 +195,9 @@ The tool executes three signals:
 
 **Feedback**: Use the lk-inline-discussion skill to write to test-plan.md. Blockers ≤3. Pass = 0 blockers.
 
-**Persist reviewer artifact**: after finishing the M-TESTPLAN review decision, run `lk agent sage record-testplan-review --spec {spec-id} --verdict pass|reject ...` so Maestro can consume `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/review-result.json` at the holdpoint.
+**Persist reviewer artifact**: after finishing the M-TESTPLAN review decision, run `lk agent sage review-testplan --spec {spec-id} ...` so Maestro can consume `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/review-result.json` at the holdpoint.
+
+**Provenance rule**: `pass` artifacts for M-TESTPLAN must come from `lk agent sage review-testplan`, which writes `metadata.source_command=review`. `record-testplan-review` is only for rejected results and audit notes.
 
 **Anti-patterns**: reviewing without reading spec / sending plain text reviews in chat / more than 3 blockers / treating test methodology issues (anti-patterns, ground truth) as your own review points (belong to Prism).
 

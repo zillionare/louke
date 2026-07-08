@@ -94,10 +94,8 @@ EOF
 @test "stage-results: M-ARCH advance passes with author + review artifacts" {
     write_arch_fixture
     python -m louke agent archer validate-arch --spec demo >/dev/null
-    python -m louke agent prism record-review \
-        --stage M-ARCH \
+    python -m louke agent prism review-arch \
         --spec-id demo \
-        --verdict pass \
         --reviewed-target .louke/project/specs/demo/architecture.md >/dev/null
 
     run python -m louke agent maestro advance --stage M-ARCH --spec-id demo
@@ -106,6 +104,27 @@ EOF
         false
     }
     [[ "$output" == *"advanced to M-LOCK"* ]]
+}
+
+@test "stage-results: M-ARCH rejects review artifact with wrong source_command" {
+    write_arch_fixture
+    python -m louke agent archer validate-arch --spec demo >/dev/null
+    python -m louke agent prism review-arch --spec-id demo >/dev/null
+    python - <<'PY'
+import json
+from pathlib import Path
+from louke.stage_results import _payload_hash
+
+path = Path('.louke/project/stage-results/demo/M-ARCH/review-result.json')
+data = json.loads(path.read_text(encoding='utf-8'))
+data['metadata']['source_command'] = 'record-review'
+data['output_hash'] = _payload_hash({k: v for k, v in data.items() if k != 'output_hash'})
+path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+PY
+
+    run python -m louke agent maestro advance --stage M-ARCH --spec-id demo
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"artifact metadata mismatch"* ]]
 }
 
 @test "stage-results: M-TESTPLAN advance requires Sage review artifact" {
@@ -117,12 +136,23 @@ EOF
     [ -f .louke/project/stage-results/demo/M-TESTPLAN/author-result.json ]
 }
 
+@test "stage-results: M-ARCH pass artifact cannot be minted via record-review" {
+    write_arch_fixture
+
+    run python -m louke agent prism record-review \
+        --stage M-ARCH \
+        --spec-id demo \
+        --verdict pass \
+        --reviewed-target .louke/project/specs/demo/architecture.md
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"must come from lk agent prism review"* ]]
+}
+
 @test "stage-results: M-TESTPLAN advance passes with author + review artifacts" {
     write_arch_fixture
     python -m louke agent archer validate-test-plan --spec demo >/dev/null
-    python -m louke agent sage record-testplan-review \
+    python -m louke agent sage review-testplan \
         --spec demo \
-        --verdict pass \
         --reviewed-target .louke/project/specs/demo/test-plan.md >/dev/null
 
     run python -m louke agent maestro advance --stage M-TESTPLAN --spec-id demo
@@ -131,6 +161,40 @@ EOF
         false
     }
     [[ "$output" == *"advanced to M-ARCH"* ]]
+}
+
+@test "stage-results: M-TESTPLAN rejects review artifact with missing source_command" {
+    write_arch_fixture
+    python -m louke agent archer validate-test-plan --spec demo >/dev/null
+    python -m louke agent sage review-testplan --spec demo >/dev/null
+    python - <<'PY'
+import json
+from pathlib import Path
+from louke.stage_results import _payload_hash
+
+path = Path('.louke/project/stage-results/demo/M-TESTPLAN/review-result.json')
+data = json.loads(path.read_text(encoding='utf-8'))
+metadata = data.get('metadata') or {}
+metadata.pop('source_command', None)
+data['metadata'] = metadata
+data['output_hash'] = _payload_hash({k: v for k, v in data.items() if k != 'output_hash'})
+path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+PY
+
+    run python -m louke agent maestro advance --stage M-TESTPLAN --spec-id demo
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"artifact metadata mismatch"* ]]
+}
+
+@test "stage-results: M-TESTPLAN pass artifact cannot be minted via record-testplan-review" {
+    write_arch_fixture
+
+    run python -m louke agent sage record-testplan-review \
+        --spec demo \
+        --verdict pass \
+        --reviewed-target .louke/project/specs/demo/test-plan.md
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"must come from lk agent sage review-testplan"* ]]
 }
 
 @test "stage-results: M-DEV advance requires Prism review artifact and writes Keeper gate artifact" {
@@ -161,10 +225,8 @@ EOF
 @test "stage-results: stale contract bundle blocks M-ARCH advance" {
     write_arch_fixture
     python -m louke agent archer validate-arch --spec demo >/dev/null
-    python -m louke agent prism record-review \
-        --stage M-ARCH \
+    python -m louke agent prism review-arch \
         --spec-id demo \
-        --verdict pass \
         --reviewed-target .louke/project/specs/demo/architecture.md >/dev/null
     printf '\n# drift\n' >> .louke/project/specs/demo/spec.md
 
@@ -176,10 +238,8 @@ EOF
 @test "stage-results: current_stage drift does not stale M-ARCH artifacts" {
     write_arch_fixture
     python -m louke agent archer validate-arch --spec demo >/dev/null
-    python -m louke agent prism record-review \
-        --stage M-ARCH \
+    python -m louke agent prism review-arch \
         --spec-id demo \
-        --verdict pass \
         --reviewed-target .louke/project/specs/demo/architecture.md >/dev/null
     python - <<'PY'
 from pathlib import Path

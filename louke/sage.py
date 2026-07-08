@@ -44,6 +44,11 @@ def register(subparsers):
     p.add_argument('--spec', required=True)
     p.add_argument('--confirm', action='store_true')
 
+    p = sub.add_parser('review-testplan', help='review test-plan consistency and persist stage artifact')
+    p.add_argument('--spec', required=True)
+    p.add_argument('--reviewed-target', dest='reviewed_targets', action='append', default=[],
+                   help='repeatable path reviewed by Sage')
+
     p = sub.add_parser('record-testplan-review', help='persist Sage test-plan review verdict as a stage artifact')
     p.add_argument('--spec', required=True)
     p.add_argument('--verdict', required=True, choices=['pass', 'reject'])
@@ -62,6 +67,7 @@ def run(args):
         'create-issues': cmd_create_issues,
         'lock-spec': cmd_lock_spec,
         'record-lock': cmd_record_lock,
+        'review-testplan': cmd_review_testplan,
         'record-testplan-review': cmd_record_testplan_review,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
@@ -127,19 +133,101 @@ def cmd_commit_spec(args):
 
 def cmd_record_testplan_review(args):
     """Persist Sage's M-TESTPLAN review verdict so Maestro can gate on a concrete artifact."""
-    targets = args.reviewed_targets or [f'.louke/project/specs/{args.spec}/test-plan.md']
-    path = write_stage_result(
+    if args.verdict == 'pass':
+        print(
+            'sage record-testplan-review: pass artifacts must come from '
+            'lk agent sage review-testplan --spec ...',
+            file=sys.stderr,
+        )
+        return 2
+    targets = args.reviewed_targets or _default_testplan_review_targets(args.spec)
+    path = _write_testplan_review_artifact(
         spec_id=args.spec,
-        stage='M-TESTPLAN',
-        kind='review-result',
-        role='Sage',
-        verdict='pass' if args.verdict == 'pass' else 'fail',
+        verdict='fail',
         reviewed_targets=targets,
         blocking_findings=args.blocking_finding,
         accepted_risks=args.accepted_risk,
+        source_command='record-testplan-review',
     )
     print(f'✓ review artifact written: {path}')
     return 0
+
+
+def cmd_review_testplan(args):
+    """Review M-TESTPLAN documents and persist a provenance-bearing reviewer artifact."""
+    targets = args.reviewed_targets or _default_testplan_review_targets(args.spec)
+    blocking_findings = _review_testplan_documents(args.spec)
+    path = _write_testplan_review_artifact(
+        spec_id=args.spec,
+        verdict='fail' if blocking_findings else 'pass',
+        reviewed_targets=targets,
+        blocking_findings=blocking_findings,
+        accepted_risks=[],
+        source_command='review',
+    )
+    if blocking_findings:
+        print('=== Sage M-TESTPLAN Review ===')
+        for item in blocking_findings:
+            print(f'- {item}')
+        print(f'✗ review artifact written: {path}')
+        return 1
+    print('=== Sage M-TESTPLAN Review ===')
+    print(f'✓ review artifact written: {path}')
+    return 0
+
+
+def _write_testplan_review_artifact(*, spec_id, verdict, reviewed_targets, blocking_findings,
+                                    accepted_risks, source_command):
+    metadata = {'source_command': source_command} if source_command else {}
+    return write_stage_result(
+        spec_id=spec_id,
+        stage='M-TESTPLAN',
+        kind='review-result',
+        role='Sage',
+        verdict=verdict,
+        reviewed_targets=reviewed_targets,
+        blocking_findings=blocking_findings,
+        accepted_risks=accepted_risks,
+        metadata=metadata,
+    )
+
+
+def _default_testplan_review_targets(spec_id):
+    spec_dir = Path(f'.louke/project/specs/{spec_id}')
+    return [
+        str(spec_dir / 'spec.md'),
+        str(spec_dir / 'acceptance.md'),
+        str(spec_dir / 'test-plan.md'),
+    ]
+
+
+def _review_testplan_documents(spec_id):
+    spec_dir = Path(f'.louke/project/specs/{spec_id}')
+    checks = {
+        'spec.md': spec_dir / 'spec.md',
+        'acceptance.md': spec_dir / 'acceptance.md',
+        'test-plan.md': spec_dir / 'test-plan.md',
+    }
+    failures = []
+    contents = {}
+    for label, path in checks.items():
+        if not path.exists():
+            failures.append(f'missing {path.as_posix()}')
+            continue
+        text = path.read_text(encoding='utf-8', errors='replace').strip()
+        if not text:
+            failures.append(f'empty {path.as_posix()}')
+            continue
+        contents[label] = text
+    if failures:
+        return failures
+
+    if 'AC-' not in contents['acceptance.md'] and 'ac-fr-' not in contents['acceptance.md'].lower():
+        failures.append('acceptance.md must define acceptance criteria before test-plan review')
+    lowered = contents['test-plan.md'].lower()
+    if not any(token in lowered for token in ('unit', 'integration', 'e2e')):
+        failures.append('test-plan.md must describe at least one test layer (unit/integration/e2e)')
+    return failures
 
 
 # ---- FR-0410: create-issues ----

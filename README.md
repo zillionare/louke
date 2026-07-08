@@ -255,7 +255,7 @@ Using "add user authentication" as an example, the timeline unfolds linearly:
 6. **M-DEV** — Devon codes R-G-R. Each commit prefixed `test: red` / `feat: green` / `refactor`. Prism reviews (anti-patterns + security quick scan); `lk agent keeper gate` checks commit format + tests
 7. **M-E2E** — Shield writes e2e (B-level, fixed methods: Playwright/testclient/DB); same Prism + Keeper
 8. **M-SECURITY** — `lk agent judge security-audit` does pattern scan + S-level semantic review. **You** make the final call
-9. **M-MILESTONE** — `lk agent librarian from-raw` distills the session to wiki; `lk agent maestro advance --stage M-MILESTONE` closes the milestone
+9. **M-MILESTONE** — `lk agent librarian distill` distills the session to wiki; `lk agent maestro advance --stage M-MILESTONE` closes the milestone
 
 Each step is a different agent; each hold point is tool-enforced; each handoff is an explicit trace.
 
@@ -352,7 +352,7 @@ lk models unbind devon
 
 ### 8.5. Wiki
 lk agent librarian lint                          # Health check
-lk agent librarian from-raw                      # Distill raw sessions to wiki pages
+lk agent librarian distill                       # Distill raw sessions to wiki pages
 
 ## 9. Troubleshooting
 

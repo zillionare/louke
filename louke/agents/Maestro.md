@@ -198,7 +198,7 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 
 **Gate**: `advance --stage M-TESTPLAN` requires both:
 - `lk agent archer validate-test-plan` exit 0 + `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/author-result.json`
-- Sage `review-result.json` verdict = pass with current contract bundle hash
+- Sage `review-result.json` verdict = pass with current contract bundle hash and `source_command=review`
 
 ---
 
@@ -220,7 +220,7 @@ No sub-agent spawned. Maestro uses `question` to ask the user whether to enter t
 
 **Gate**: `advance --stage M-ARCH` requires both:
 - `lk agent archer validate-arch` exit 0 + `.louke/project/stage-results/{SPEC-ID}/M-ARCH/author-result.json`
-- Prism `review-result.json` verdict = pass with current contract bundle hash
+- Prism `review-result.json` verdict = pass with current contract bundle hash and `source_command=review`
 
 ---
 

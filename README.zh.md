@@ -275,7 +275,7 @@ cd ~/work/my-existing-repo && lk init .
 6. **M-DEV** — Devon 用 R-G-R 编码。每次 commit 前缀 `test: red` / `feat: green` / `refactor`。Prism 评审（反模式 + 安全 quick scan）；`lk agent keeper gate` 跑 commit 格式 + 测试
 7. **M-E2E** — Shield 写 e2e（B 级，固定方法：Playwright/testclient/DB）；同 Prism + Keeper
 8. **M-SECURITY** — `lk agent judge security-audit` 做 pattern 扫描 + S 级语义审查。**你**最终拍板
-9. **M-MILESTONE** — `lk agent librarian from-raw` 蒸馏会话到 wiki；`lk agent maestro advance --stage M-MILESTONE` 关闭
+9. **M-MILESTONE** — `lk agent librarian distill` 蒸馏会话到 wiki；`lk agent maestro advance --stage M-MILESTONE` 关闭
 
 每一步的转换是不同 agent；每个 hold point 是工具强制；每个 handoff 是显式 trace。
 
@@ -372,7 +372,7 @@ lk models unbind devon
 
 ### 8.5. Wiki
 lk agent librarian lint                          # 健康检查
-lk agent librarian from-raw                      # 蒸馏 raw 会话到 wiki pages
+lk agent librarian distill                       # 蒸馏 raw 会话到 wiki pages
 
 ## 9. 排错指引
 

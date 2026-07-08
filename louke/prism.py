@@ -39,6 +39,11 @@ def register(subparsers):
     p = sub.add_parser('code-quality', help='code quality check (function length / nesting depth / DRY)')
     p.add_argument('--diff', default='HEAD', help='ref to scan')
 
+    p = sub.add_parser('review-arch', help='architecture review (semantic document checks + stage artifact)')
+    p.add_argument('--spec-id', required=True)
+    p.add_argument('--reviewed-target', dest='reviewed_targets', action='append', default=[],
+                   help='repeatable contract target reviewed by Prism')
+
     p = sub.add_parser('record-review', help='persist Prism review verdict as a stage artifact')
     p.add_argument('--stage', required=True, choices=['M-ARCH', 'M-DEV', 'M-E2E'])
     p.add_argument('--spec-id', required=True)
@@ -59,6 +64,7 @@ def run(args):
         'test-patterns': cmd_test_patterns,
         'security-quick-scan': cmd_security_quick_scan,
         'code-quality': cmd_code_quality,
+        'review-arch': cmd_review_arch,
         'record-review': cmd_record_review,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
@@ -223,12 +229,45 @@ def cmd_code_quality(args):
     return 1 if has_blocking_severity(findings) else 0
 
 
+def cmd_review_arch(args):
+    """Architecture review for M-ARCH: inspect design documents and persist review artifact."""
+    reviewed_targets = args.reviewed_targets or [
+        f'.louke/project/specs/{args.spec_id}/architecture.md',
+        f'.louke/project/specs/{args.spec_id}/interfaces.md',
+        f'.louke/project/specs/{args.spec_id}/test-plan.md',
+        f'.louke/project/specs/{args.spec_id}/spec.md',
+        f'.louke/project/specs/{args.spec_id}/acceptance.md',
+        '.louke/project/project.toml',
+    ]
+    blocking_findings = _review_arch_documents(args.spec_id)
+    verdict = 'fail' if blocking_findings else 'pass'
+    path = _write_review_artifact(
+        stage='M-ARCH',
+        spec_id=args.spec_id,
+        verdict=verdict,
+        reviewed_targets=reviewed_targets,
+        blocking_findings=blocking_findings,
+        source_command='review',
+    )
+    if blocking_findings:
+        print('=== Prism M-ARCH Review ===')
+        for item in blocking_findings:
+            print(f'- {item}')
+        if path:
+            print(f'✗ review artifact written: {path}')
+        return 1
+    print('=== Prism M-ARCH Review ===')
+    if path:
+        print(f'✓ review artifact written: {path}')
+    return 0
+
+
 def cmd_record_review(args):
     """Persist Prism's verdict so Maestro can gate on a concrete artifact."""
-    if args.stage in {'M-DEV', 'M-E2E'} and args.verdict == 'pass':
+    if args.stage in {'M-ARCH', 'M-DEV', 'M-E2E'} and args.verdict == 'pass':
         print(
             f'prism record-review: pass artifacts for {args.stage} must come from '
-            'lk agent prism review --stage ... --spec-id ...',
+            'lk agent prism review ... or lk agent prism review-arch --spec-id ...',
             file=sys.stderr,
         )
         return 2
@@ -285,3 +324,38 @@ def _write_review_artifact(*, stage, spec_id, verdict, reviewed_targets, blockin
         accepted_risks=accepted_risks,
         metadata=metadata,
     )
+
+
+def _review_arch_documents(spec_id):
+    spec_dir = Path(f'.louke/project/specs/{spec_id}')
+    checks = {
+        'spec.md': spec_dir / 'spec.md',
+        'acceptance.md': spec_dir / 'acceptance.md',
+        'test-plan.md': spec_dir / 'test-plan.md',
+        'architecture.md': spec_dir / 'architecture.md',
+        'interfaces.md': spec_dir / 'interfaces.md',
+        'project.toml': Path('.louke/project/project.toml'),
+    }
+    failures = []
+    contents = {}
+    for label, path in checks.items():
+        if not path.exists():
+            failures.append(f'missing {path.as_posix()}')
+            continue
+        text = path.read_text(encoding='utf-8', errors='replace').strip()
+        if not text:
+            failures.append(f'empty {path.as_posix()}')
+            continue
+        contents[label] = text
+    if failures:
+        return failures
+
+    if 'FR-' not in contents['architecture.md']:
+        failures.append('architecture.md must reference at least one FR requirement')
+    if 'Interfaces' not in contents['interfaces.md'] and '# Interfaces' not in contents['interfaces.md']:
+        failures.append('interfaces.md must define interface scope explicitly')
+    if '[e2e]' not in contents['project.toml']:
+        failures.append('project.toml missing [e2e] section required by Archer contract')
+    if 'test_framework' not in contents['project.toml']:
+        failures.append('project.toml missing [meta].test_framework')
+    return failures

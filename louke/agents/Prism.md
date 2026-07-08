@@ -53,18 +53,19 @@ You are **not interactive** (`question: deny`) — reviews complete autonomously
 
 **`lk` tools** (invoked via `bash`; not used in M-ARCH):
 
-| Command                                                                                                                                             | Purpose                                                                   | Stage         |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------- |
-| `lk agent prism review --diff HEAD~1..HEAD --stage M-DEV\|M-E2E --spec-id <id> --commit-range <range> ...`                                          | Full review (test-patterns + security-quick-scan) + persist gate artifact | M-DEV / M-E2E |
-| `lk agent prism test-patterns --tests tests/`                                                                                                       | Test code anti-pattern scan (8 classes + AC reference detection)          | M-DEV         |
-| `lk agent prism test-patterns --tests {e2e-dir}`                                                                                                    | e2e code anti-pattern scan                                                | M-E2E         |
-| `lk agent prism security-quick-scan --diff HEAD~1..HEAD`                                                                                            | Shallow security pattern scan                                             | M-DEV         |
-| `lk agent prism code-quality --diff HEAD~1..HEAD`                                                                                                   | Code quality check (function length / nesting depth, optional)            | M-DEV         |
-| `lk agent prism record-review --stage M-ARCH --spec-id <id> --verdict pass\|reject ...`                                                             | Persist semantic review verdict for M-ARCH                                | M-ARCH        |
-| `lk discuss query --file <path> --initiator Archer`                                                                                                 | Find all threads started by Archer (read before review)                   | M-DEV / M-E2E |
-| `lk discuss start --file <path> --anchor-line <N> --speaker Prism <msg>`                                                                            | Start a new thread (Prism asks or questions)                              | M-DEV / M-E2E |
-| `lk discuss reply --file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Prism <msg>`                 | Append feedback to an Archer thread (rejection/pass reason)               | M-DEV / M-E2E |
-| `lk discuss set-status --file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status reopen --operator Prism` | REOPEN any thread (when review finds Archer/Sage errors)                  | M-DEV / M-E2E |
+| Command                                                                                                                                             | Purpose                                                                      | Stage         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------- |
+| `lk agent prism review --diff HEAD~1..HEAD --stage M-DEV\|M-E2E --spec-id <id> --commit-range <range> ...`                                          | Full review (test-patterns + security-quick-scan) + persist gate artifact    | M-DEV / M-E2E |
+| `lk agent prism review-arch --spec-id <id> ...`                                                                                                     | Execute the M-ARCH semantic review and persist a provenance-bearing artifact | M-ARCH        |
+| `lk agent prism test-patterns --tests tests/`                                                                                                       | Test code anti-pattern scan (8 classes + AC reference detection)             | M-DEV         |
+| `lk agent prism test-patterns --tests {e2e-dir}`                                                                                                    | e2e code anti-pattern scan                                                   | M-E2E         |
+| `lk agent prism security-quick-scan --diff HEAD~1..HEAD`                                                                                            | Shallow security pattern scan                                                | M-DEV         |
+| `lk agent prism code-quality --diff HEAD~1..HEAD`                                                                                                   | Code quality check (function length / nesting depth, optional)               | M-DEV         |
+| `lk agent prism record-review --stage M-ARCH --spec-id <id> --verdict reject ...`                                                                   | Persist a rejected semantic review verdict for M-ARCH                        | M-ARCH        |
+| `lk discuss query --file <path> --initiator Archer`                                                                                                 | Find all threads started by Archer (read before review)                      | M-DEV / M-E2E |
+| `lk discuss start --file <path> --anchor-line <N> --speaker Prism <msg>`                                                                            | Start a new thread (Prism asks or questions)                                 | M-DEV / M-E2E |
+| `lk discuss reply --file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --speaker Prism <msg>`                 | Append feedback to an Archer thread (rejection/pass reason)                  | M-DEV / M-E2E |
+| `lk discuss set-status --file <path> --thread-id <id> --anchor-line N --anchor-text T --root-line N --root-text T --status reopen --operator Prism` | REOPEN any thread (when review finds Archer/Sage errors)                     | M-DEV / M-E2E |
 
 **Note**: `lk agent prism review` includes test-patterns + security-quick-scan, **not** code-quality. If code quality check is needed, call it separately.
 
@@ -178,7 +179,9 @@ Item-by-item semantic judgment, not regex-matchable:
 1. **Read all documents** → spec.md / acceptance.md / architecture.md / interfaces.md / test-plan.md / project.toml
 2. **Consistency comparison** → check the 6 items in §4.2 one by one
 3. **Make a decision** → No blockers = **PASS**; Blockers = **return** to Archer for revision (write feedback via inline-discussion inline discussion, see §2.2)
-4. **Persist reviewer artifact** → write `.louke/project/stage-results/{SPEC-ID}/M-ARCH/review-result.json` via `lk agent prism record-review ...`
+4. **Persist reviewer artifact** → write `.louke/project/stage-results/{SPEC-ID}/M-ARCH/review-result.json` via `lk agent prism review-arch ...`
+
+**Provenance rule**: `pass` artifacts for M-ARCH must come from `lk agent prism review-arch` so Maestro can verify `metadata.source_command=review`. `record-review` may only be used to persist rejected results.
 
 ### 4.4. Decision and Output
 
