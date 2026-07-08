@@ -12,7 +12,20 @@ Design principles:
    or implement new logic inline
 5. Exit codes follow Unix convention: 0 = success, non-zero = failure
 """
-__version__ = "0.6.14"
+__version__: str
+try:
+    # Read the installed package version from wheel METADATA so the
+    # hardcoded constant can't drift from the released version.
+    # Falls back to the literal below only if importlib.metadata
+    # is unavailable (very old Python) or the package is being
+    # imported from a source tree without an installed distribution.
+    from importlib.metadata import version as _pkg_version, PackageNotFoundError
+    try:
+        __version__ = _pkg_version("louke")
+    except PackageNotFoundError:
+        __version__ = "0.0.0+unknown"
+except ImportError:  # pragma: no cover
+    __version__ = "0.0.0+unknown"
 
 # v0.6-009 NFR-0040: minimum OpenCode version (Qwen A-8.4 calibration)
 # The permission object format (replacing the deprecated tools field) was
