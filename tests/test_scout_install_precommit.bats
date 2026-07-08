@@ -44,16 +44,19 @@ setup() {
     [ -f .git/hooks/pre-commit ]
 }
 
-@test "FR-0100 AC-6: project-info.md records Pre-commit installed line" {
+@test "FR-0100 AC-6: project.toml records pre_commit metadata" {
     cp "$REPO_ROOT/tests/fixtures/pyproject-toml/python/pyproject.toml" .
     mkdir -p .louke/project
-    printf '%s\n' \
-        "# Project Info" \
-        "- **Version**: v0.1" \
-        > .louke/project/project-info.md
+    cat > .louke/project/project.toml <<'EOF'
+[project]
+version = "v0.1"
+
+[meta]
+current_stage = "M-FOUND"
+EOF
     run $PY agent scout install-precommit
     [ "$status" -eq 0 ]
-    run grep -qE "Pre-commit\\*\\*:[[:space:]]*installed[[:space:]]*\\(python[[:space:]]*\\+[[:space:]]*base\\)" .louke/project/project-info.md
+    run grep -qF 'pre_commit = "installed (python + base)"' .louke/project/project.toml
     [ "$status" -eq 0 ]
 }
 

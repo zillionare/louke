@@ -90,6 +90,7 @@ Users may: adjust the coverage threshold; **disable security review** (not neede
 lk agent scout identity-check --repo {owner}/{repo}
 ```
 
+- This command is the CLI wrapper around `louke/_tools/check_identity.py`
 - Exit code 0 → continue
 - Non-0 → refuse to proceed; prompt the user to re-login via `gh auth login` or fix `git config user.name/email`
 
@@ -111,8 +112,9 @@ lk agent scout foundation \
 ```
 
 This command **automatically completes**:
-- Creating the GitHub repo (if it doesn't exist)
+- Creating the GitHub repo (if it does not exist yet, create a new repo via `gh repo create`)
 - Creating the GitHub Project + calling `lk agent scout invite-owner` to add the owner as a collaborator
+- Creating the per-repo backlog project `{repo_name}-backlog` when it is missing
 - Creating the `releases/{version}` branch
 - Writing `project.toml` (13 fields, TOML)
 - Writing `story.md`
@@ -122,6 +124,9 @@ This command **automatically completes**:
 - **Auto commit + push** (unless `--no-commit`)
 
 Exit code 0 → continue; non-0 → check stdout errors and prompt the user.
+
+> [!note]
+> Scout works in the current local workspace. If the target GitHub repo does not exist, Scout creates the remote repo first, then continues writing the local `.louke/project/project.toml` and `.louke/project/specs/{SPEC-ID}/story.md` in the workspace it is already running in.
 
 ### 5.5. Step 4: Call `lk agent scout install-precommit`
 
@@ -197,4 +202,4 @@ Workspace: {directory_path}    Agent availability: {count} prompt files
 
 ## 9. Session save
 
-At the end of each session, use the `lk-reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.

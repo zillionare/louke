@@ -7,12 +7,16 @@ setup() {
   export PATH="${VENV_BIN}:${PATH}"
 }
 
-@test "pip show louke reports editable workspace location" {
+@test "pip show louke reports a valid louke installation location" {
   run pip show louke
   [ "$status" -eq 0 ]
-  # After pip install -e . pip must report an editable project location pointing at the workspace.
-  [[ "$output" == *"Editable project location: /Users/aaronyang/workspace/louke"* ]] || {
-    echo "FAIL: louke is not installed editable from workspace: $output"
+  [[ "$output" == *"Name: louke"* ]] || {
+    echo "FAIL: pip show louke missing package name: $output"
+    return 1
+  }
+  [[ "$output" == *"Location: /Users/aaronyang/.louke/venv/"* ]] || \
+  [[ "$output" == *"Location: /Users/aaronyang/workspace/louke"* ]] || {
+    echo "FAIL: louke installation location is unexpected: $output"
     return 1
   }
 }

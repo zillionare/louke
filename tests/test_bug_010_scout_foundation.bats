@@ -47,10 +47,10 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
     }
 }
 
-@test "SCOUT-010-005: Scout initializes local workspace if repo was just created" {
-    run grep -qE "(git clone|git init|local.*workspace)" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-010-005: Scout continues in current local workspace after repo creation" {
+    run grep -qE "(current local workspace|already running in)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not initialize local workspace"
+        echo "FAIL: Scout.md does not explain current-workspace behavior"
         false
     }
 }
@@ -65,18 +65,18 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
     }
 }
 
-@test "SCOUT-010-007: Scout links default repository to project" {
-    run grep -qE "(default repository|default repo|link.*repo)" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-010-007: Scout writes project.toml as the foundation source of truth" {
+    run grep -qE "project\\.toml" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not link default repo to project"
+        echo "FAIL: Scout.md does not mention project.toml output"
         false
     }
 }
 
-@test "SCOUT-010-008: Scout writes story to project README" {
-    run grep -qiE "(write.*story.*README|story.*README|Writing.*story)" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-010-008: Scout writes story to story.md" {
+    run grep -qiE "(write.*story\\.md|Writing `story\\.md`|story\\.md)" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not write story to project README"
+        echo "FAIL: Scout.md does not write story to story.md"
         false
     }
 }

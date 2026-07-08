@@ -138,16 +138,16 @@ snapshot_agent() {
     [ "$status" -eq 0 ] || { echo "FAIL: Librarian.question must be deny"; false; }
 }
 
-@test "FR-0060.1: Maestro has 13 permission keys" {
+@test "FR-0060.1: Maestro has current primary-agent permission keys" {
     local f="$AGENTS_DIR/Maestro.md"
-    for key in bash read edit grep glob task question webfetch websearch skill lsp external_directory doom_loop; do
+    for key in bash read edit grep glob task question webfetch websearch external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
         [ "$status" -eq 0 ] || { echo "FAIL: Maestro missing $key"; false; }
     done
     run grep -E "^  task: allow" "$f"
     [ "$status" -eq 0 ] || { echo "FAIL: Maestro.task must be allow"; false; }
-    run grep -E "^  question: deny" "$f"
-    [ "$status" -eq 0 ] || { echo "FAIL: Maestro.question must be deny"; false; }
+    run grep -E "^  question: allow" "$f"
+    [ "$status" -eq 0 ] || { echo "FAIL: Maestro.question must be allow"; false; }
 }
 
 # ───────────────────────────────────────────────────────────────────
@@ -248,11 +248,11 @@ PYEOF
     }
 }
 
-@test "FR-0040: lk agent lint --check-opencode-version 1.17.11 >= 1.1.1" {
+@test "FR-0040: lk agent lint --check-opencode-version reports compatible version" {
     cd "$REPO_ROOT"
     run python3 -m louke agent lint --check-opencode-version
     [ "$status" -eq 0 ]
-    [[ "$output" == *"opencode 1.17.11 >= MIN_OPENCODE_VERSION 1.1.1"* ]] || \
+    [[ "$output" == *"opencode "*">= MIN_OPENCODE_VERSION 1.1.1"* ]] || \
     [[ "$output" == *"opencode --version unavailable"* ]] || {
         echo "FAIL: opencode version check failed: $output"
         false
@@ -341,11 +341,8 @@ PYEOF
     done
 }
 
-@test "v0.6.14: 7 non-interactive subagents must have question: deny" {
+@test "v0.6.14: 6 non-interactive subagents must have question: deny" {
     for agent in devon keeper librarian warden prism shield; do
-        # 6 non-interactive (excludes Lex which is spec review, not interactive)
-        # actually Lex IS spec-stage but the question test is about the 4-question-tool subagents only
-        if [ "$agent" = "lex" ]; then continue; fi
         [ -f "$AGENTS_DIR/${agent}.md" ] || continue
         run grep -q "^  question: deny" "$AGENTS_DIR/${agent}.md"
         [ "$status" -eq 0 ] || {

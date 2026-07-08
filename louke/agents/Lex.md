@@ -211,4 +211,4 @@ This Stage occurs after Stage 1 ends. The task is mainly to verify that Sage has
 
 ## 8. Session save
 
-At the end of each round of session, use the `lk-reserve-memory` skill to save the session.
+At the end of each round of session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.

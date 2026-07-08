@@ -63,7 +63,7 @@ mode: subagent
 models:
   - glm-5.2
   - minimax-m3
-  - kimi-2.7-code
+  - kimi-k2.7-code
 permission:
   bash: allow
 ---
@@ -76,7 +76,7 @@ AGENT_EOF
   "aliases": {
     "glm-5.2": "ark/glm-5.2",
     "minimax-m3": "ark/minimax-m3",
-    "kimi-2.7-code": "ark/kimi-k2.7-code"
+    "kimi-k2.7-code": "ark/kimi-k2.7-code"
   },
   "assignments": {}
 }

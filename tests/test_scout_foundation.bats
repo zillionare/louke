@@ -14,25 +14,27 @@ setup() {
     git config user.name "bot"
 }
 
-@test "SCOUT-FOUNDATION-MVP: --dry-run --no-repo writes project-info + story; no gh calls" {
+@test "SCOUT-FOUNDATION-MVP: --dry-run --no-repo previews project.toml + story; no gh calls" {
     run $PY agent scout foundation \
         --repo zillionare/demo --version v0.6 --spec-id v0.6-008-test \
+        --keyword init-foundation \
         --no-repo --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"would write"* ]]
     [[ "$output" == *"would run lk agent scout identity-check"* ]]
     [[ "$output" == *"would run lk agent warden foundation-check"* ]]
-    [ ! -f .louke/project/project-info.md ]
+    [ ! -f .louke/project/project.toml ]
 }
 
-@test "SCOUT-FOUNDATION-MVP: --no-repo writes 12-field project-info.md" {
+@test "SCOUT-FOUNDATION-MVP: --no-repo writes project.toml + story.md" {
     $PY agent scout foundation \
         --repo zillionare/demo --version v0.6 --spec-id v0.6-008-test \
+        --keyword init-foundation \
         --no-repo --story "demo story" 2>/dev/null || true
     # foundation-check / identity-check may fail; we only check what was written
-    [ -f .louke/project/project-info.md ]
+    [ -f .louke/project/project.toml ]
     [ -f .louke/project/specs/v0.6-008-test/story.md ]
-    cat .louke/project/project-info.md
+    grep -q 'spec_id = "v0.6-008-test"' .louke/project/project.toml
 }
 
 @test "SCOUT-INVITE-OWNER: missing --version fails with actionable stderr" {
@@ -43,7 +45,7 @@ setup() {
 
 @test "SCOUT-COMMIT-FOUNDATION: --no-push commits without push; glob picks up *.md" {
     $PY agent scout foundation --repo zillionare/demo --version v0.6 \
-        --spec-id v0.6-008-test --no-repo --story "demo" --no-commit 2>/dev/null || true
+        --spec-id v0.6-008-test --keyword init-foundation --no-repo --story "demo" --no-commit 2>/dev/null || true
     [ -f .louke/project/specs/v0.6-008-test/story.md ]
     run $PY agent scout commit-foundation \
         --spec-id v0.6-008-test \
@@ -61,16 +63,15 @@ setup() {
     [[ "$output" == *"no markdown files"* ]] || [[ "$output" == *"failed: git"* ]]
 }
 
-@test "CHECK-FOUNDATION-F6: project-info needs all 12 fields" {
+@test "CHECK-FOUNDATION-F6: project.toml needs required fields" {
     mkdir -p .louke/project
-    printf '%s\n' \
-        "- **Version**: v0.6" \
-        "- **Repo**: github.com/foo/bar" \
-        "- **Project**: bar-v0.6" \
-        "- **Project ID**: https://example/" \
-        "- **Spec ID**: v0.6-008-x" \
-        "- **Release Branch**: releases/v0.6" \
-        > .louke/project/project-info.md
+    cat > .louke/project/project.toml <<'EOF'
+[project]
+version = "v0.6"
+repo = "github.com/foo/bar"
+project = "bar-v0.6"
+spec_id = "v0.6-008-x"
+EOF
     run python3 "$REPO_ROOT/louke/_tools/check_foundation.py" --repo foo/bar --version v0.6 --spec-id v0.6-008-x
     [ "$status" -ne 0 ]
     [[ "$output" == *"F6"* ]] || [[ "$output" == *"missing fields"* ]] || true

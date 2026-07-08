@@ -355,4 +355,4 @@ Suggestions (non-blocking):
 
 ## 7. Session Saving
 
-At the end of this stage, you must use the `lk-reserve-memory` skill to save the session.
+At the end of this stage, you must use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.

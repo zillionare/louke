@@ -129,7 +129,7 @@ Devon does not manually construct commit messages. When calling `lk agent devon 
 
 ### 6.2. Push rules
 
-After each commit, you must immediately `git push`. Pushing triggers GitHub status updates (commit links become clickable). Without pushing, downstream agents cannot see the latest changes. Green/Refactor commits must be pushed immediately.
+After each commit, you must immediately `git push`. Pushing triggers GitHub status updates (commit links become clickable). Without pushing, downstream agents cannot see the latest changes. Green/Refactor commits must be pushed immediately. When referencing an existing commit in GitHub comments, review notes, or handoff text, use the full `owner/repo@sha` form; do not use a bare short sha because it is ambiguous outside the current repo context.
 
 **Forbidden** to use `git commit --no-verify` or `git push --no-verify` to bypass pre-commit / CI checks; all validation failures must be fixed, not skipped.
 
@@ -169,4 +169,4 @@ The R-G-R order in the M-BUGFIX stage remains unchanged for Devon: first reprodu
 
 ## 10. Session save
 
-At the end of each session, use the `lk-reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.

@@ -159,4 +159,4 @@ cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
 
 ## 7. Session save
 
-At the end of each session, use the `lk-reserve-memory` skill to save the session.
+At the end of each session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.

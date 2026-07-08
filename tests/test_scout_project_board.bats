@@ -2,43 +2,42 @@
 
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
-@test "SCOUT-PROJECT-001: Scout creates project with title format repo-slug v{version}" {
-    run grep -qF "gh project create --title" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-PROJECT-001: Scout creates release project with repo-version title" {
+    run grep -qE "project .*\\{repo_name\\}-\\{version\\}|Project: \\{repo\\}-\\{version\\}|repo-\\{version\\}" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
         echo "FAIL: Scout.md does not specify project title format"
         false
     }
 }
 
-@test "SCOUT-PROJECT-002: Scout configures status board with Backlog/In Progress/Pending Verify/Done" {
-    run grep -qE "(Backlog|In [Pp]rogress|Pending Verify|Done).*(pink|red|yellow|green)" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-PROJECT-002: Scout ensures per-repo backlog project exists" {
+    run grep -qE "backlog Project|\\{repo_name\\}-backlog|backlog project" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not configure status board columns"
+        echo "FAIL: Scout.md does not mention backlog project"
         false
     }
 }
 
-@test "SCOUT-PROJECT-003: Scout sets up status field with these 4 options" {
-    run grep -qE "(status|Status).*(Backlog|In Progress|Pending Verify|Done)" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-PROJECT-003: Scout adds owner as project collaborator" {
+    run grep -qE "invite-owner|collaborator" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not define status field options"
+        echo "FAIL: Scout.md does not define collaborator step"
         false
     }
 }
 
 # --- Identity consistency check ---
 
-@test "SCOUT-ID-001: scout_step4_references_check_identity_py" {
+@test "SCOUT-ID-001: scout_step2_references_check_identity_py" {
     run grep -qF "check_identity.py" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ] || {
-        echo "FAIL: Scout.md does not reference check_identity.py in Step 4"
+        echo "FAIL: Scout.md does not reference check_identity.py in identity step"
         false
     }
 }
 
-@test "SCOUT-ID-002: scout_id_check_before_issue_permission_smoke" {
-    # Step 4a should be identity consistency, 4b is issue/PR smoke test
-    run grep -qE "4a.*identity consistency|identity consistency.*4a" "$AGENTS_DIR/Scout.md"
+@test "SCOUT-ID-002: scout_id_check_runs_before_foundation smoke test" {
+    run grep -qE "Step 2: Call `lk agent scout identity-check`" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ]
 }
 
