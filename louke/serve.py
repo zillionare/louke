@@ -6,8 +6,6 @@ import argparse
 import sys
 from pathlib import Path
 
-from ._common import git_root
-
 
 def register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--host", default="127.0.0.1")
@@ -15,7 +13,7 @@ def register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--project-root",
         default="",
-        help="louke project root (default: current git root, else cwd)",
+        help="louke project root (default: search from current directory upward)",
     )
 
 
@@ -49,7 +47,16 @@ def run(args: argparse.Namespace) -> int:
 def _resolve_project_root(explicit: str) -> Path:
     if explicit:
         return Path(explicit).expanduser().resolve()
-    root = git_root()
-    if root is not None:
-        return Path(root)
+    discovered = _find_project_root(Path.cwd())
+    if discovered is not None:
+        return discovered
     return Path.cwd().resolve()
+
+
+def _find_project_root(start: Path) -> Path | None:
+    current = start.resolve()
+    for candidate in [current, *current.parents]:
+        project_toml = candidate / ".louke" / "project" / "project.toml"
+        if project_toml.exists():
+            return candidate
+    return None

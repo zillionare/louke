@@ -5,6 +5,8 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
+from louke.serve import _resolve_project_root
+from louke.web.auth import SESSION_COOKIE
 from louke.web.app import create_app
 
 
@@ -12,6 +14,7 @@ def build_project(tmp_path: Path) -> Path:
     root = tmp_path
     (root / ".louke" / "project" / "specs" / "demo").mkdir(parents=True)
     (root / ".louke" / "wiki" / "pages").mkdir(parents=True)
+    (root / ".louke" / "wiki" / "pages" / "guides").mkdir(parents=True)
     (root / ".louke" / "project" / "project.toml").write_text(
         """
 [project]
@@ -69,6 +72,10 @@ print("hello")
         "# Overview\n\n- first item\n- second item\n",
         encoding="utf-8",
     )
+    (root / ".louke" / "wiki" / "pages" / "guides" / "getting-started.md").write_text(
+        "# Getting Started\n\n- nested page\n",
+        encoding="utf-8",
+    )
     (root / ".louke" / "models.json").write_text(
         json.dumps(
             {
@@ -86,21 +93,96 @@ print("hello")
     return root
 
 
+def authenticate(client: TestClient, username: str = "Aaron", password: str = "secret") -> None:
+    response = client.post("/api/auth/register", json={"username": username, "password": password})
+    assert response.status_code == 200
+
+
 def test_health_and_home_page(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "spec_id": "demo"}
+    login = client.get("/login")
+    assert login.status_code == 200
+    assert "Min Square_97" in login.text
+    assert "/assets/min-square_97-snk-X32c8tE-unsplash.jpg" in login.text
+    assert "Beyond Vibes, Into Craft (Louke)" in login.text
+    # No Accept-Language header -> fall back to English
+    assert "Sign In" in login.text
+    assert "登录" not in login.text
+    asset = client.get("/assets/min-square_97-snk-X32c8tE-unsplash.jpg")
+    assert asset.status_code == 200
+    guest = client.get("/", follow_redirects=False)
+    assert guest.status_code == 303
+    assert guest.headers["location"].startswith("/login")
+    authenticate(client)
     home = client.get("/")
     assert home.status_code == 200
-    assert "模型绑定" in home.text
-    assert "设计文档" in home.text
+    # No header -> English fallback
+    assert "Model Bindings" in home.text
+    assert "Design Docs" in home.text
+    assert "wiki" in home.text
+    assert "Aaron" in home.text
+
+    home_en = client.get("/", headers={"accept-language": "en-US,en;q=0.9"})
+    assert home_en.status_code == 200
+    assert "Model Bindings" in home_en.text
+    assert "Design Docs" in home_en.text
+    assert "Log Out" in home_en.text
+
+    login_en = TestClient(create_app(root)).get("/login", headers={"accept-language": "en-US,en;q=0.9"})
+    assert login_en.status_code == 200
+    assert "Sign In" in login_en.text
+    assert "Register &amp; Sign In" in login_en.text
+
+    # Explicit Chinese
+    home_zh = client.get("/", headers={"accept-language": "zh-CN,zh;q=0.9"})
+    assert home_zh.status_code == 200
+    assert "模型绑定" in home_zh.text
+    assert "设计文档" in home_zh.text
+    assert "退出" in home_zh.text
+
+    login_zh = TestClient(create_app(root)).get("/login", headers={"accept-language": "zh-CN,zh;q=0.9"})
+    assert login_zh.status_code == 200
+    assert "登录" in login_zh.text
+    assert "注册并登录" in login_zh.text
+
+    # Unsupported language (French) -> fall back to English
+    home_fr = client.get("/", headers={"accept-language": "fr-FR,fr;q=0.9"})
+    assert home_fr.status_code == 200
+    assert "Model Bindings" in home_fr.text
+    assert "模型绑定" not in home_fr.text
+
+
+def test_register_login_logout_flow(tmp_path: Path) -> None:
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+
+    register = client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+    assert register.status_code == 200
+    assert register.json()["username"] == "Aaron"
+    assert SESSION_COOKIE in register.cookies
+
+    logout = client.post("/api/auth/logout")
+    assert logout.status_code == 200
+
+    denied = client.get("/api/bindings")
+    assert denied.status_code == 401
+
+    login = client.post("/api/auth/login", json={"username": "Aaron", "password": "secret"})
+    assert login.status_code == 200
+    assert login.json()["username"] == "Aaron"
+
+    models = client.get("/api/bindings")
+    assert models.status_code == 200
 
 
 def test_doc_roundtrip_and_conflict(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
+    authenticate(client)
 
     response = client.get("/api/docs/demo/spec")
     assert response.status_code == 200
@@ -110,11 +192,9 @@ def test_doc_roundtrip_and_conflict(tmp_path: Path) -> None:
 
     saved = client.put(
         "/api/docs/demo/spec",
-        headers={"X-Louke-Actor": "Aaron"},
         json={
             "body_md": payload["body_md"] + "\nNew line.\n",
             "version_token": payload["version_token"],
-            "actor_name": "Aaron",
         },
     )
     assert saved.status_code == 200
@@ -123,11 +203,9 @@ def test_doc_roundtrip_and_conflict(tmp_path: Path) -> None:
 
     stale = client.put(
         "/api/docs/demo/spec",
-        headers={"X-Louke-Actor": "Bob"},
         json={
             "body_md": "stale write\n",
             "version_token": payload["version_token"],
-            "actor_name": "Bob",
         },
     )
     assert stale.status_code == 409
@@ -136,6 +214,7 @@ def test_doc_roundtrip_and_conflict(tmp_path: Path) -> None:
 def test_wiki_roundtrip(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
+    authenticate(client)
 
     response = client.get("/api/wiki/overview", headers={"Accept": "application/json"})
     assert response.status_code == 200
@@ -144,20 +223,28 @@ def test_wiki_roundtrip(tmp_path: Path) -> None:
 
     saved = client.put(
         "/api/wiki/overview",
-        headers={"X-Louke-Actor": "Aaron"},
         json={
             "body_md": payload["body_md"] + "\n## Extra\n\nText\n",
             "version_token": payload["version_token"],
-            "actor_name": "Aaron",
         },
     )
     assert saved.status_code == 200
     assert saved.json()["last_modified_by"] == "Aaron"
 
+    nested = client.get("/api/wiki/guides/getting-started", headers={"Accept": "application/json"})
+    assert nested.status_code == 200
+    assert nested.json()["page"] == "guides/getting-started"
+
+    page = client.get("/wiki/guides/getting-started")
+    assert page.status_code == 200
+    assert "guides" in page.text
+    assert "getting-started" in page.text
+
 
 def test_bindings_get_and_put(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
+    authenticate(client)
 
     response = client.get("/api/bindings")
     assert response.status_code == 200
@@ -167,7 +254,6 @@ def test_bindings_get_and_put(tmp_path: Path) -> None:
 
     saved = client.put(
         "/api/bindings",
-        headers={"X-Louke-Actor": "Aaron"},
         json={
             "version_token": payload["version_token"],
             "aliases": payload["aliases"],
@@ -175,7 +261,6 @@ def test_bindings_get_and_put(tmp_path: Path) -> None:
                 "roles": {"A": "minimax-m3", "B": "deepseek-v4-flash"},
                 "agents": {"Sage": "glm-5.2"},
             },
-            "actor_name": "Aaron",
         },
     )
     assert saved.status_code == 200
@@ -187,16 +272,15 @@ def test_bindings_get_and_put(tmp_path: Path) -> None:
 def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
+    authenticate(client)
 
     doc = client.get("/api/docs/demo/spec").json()
     created = client.post(
         "/api/discussions/mutate",
-        headers={"X-Louke-Actor": "Aaron"},
         json={
             "target_kind": "doc",
             "target_path": doc["path"],
             "version_token": doc["version_token"],
-            "actor_name": "Aaron",
             "action": "start",
             "anchor": {"anchor_line": 8},
             "payload": {"body": "需要补充降级策略"},
@@ -209,14 +293,15 @@ def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
     assert "> **Aaron**: 需要补充降级策略" in content
 
     thread = created_payload["discussion_threads"][0]
+    client.post("/api/auth/logout")
+    register_bob = client.post("/api/auth/register", json={"username": "Bob", "password": "hunter2"})
+    assert register_bob.status_code == 200
     replied = client.post(
         "/api/discussions/mutate",
-        headers={"X-Louke-Actor": "Bob"},
         json={
             "target_kind": "doc",
             "target_path": created_payload["path"],
             "version_token": created_payload["version_token"],
-            "actor_name": "Bob",
             "action": "reply",
             "anchor": {"anchor_line": thread["anchor_line"]},
             "payload": {
@@ -232,3 +317,11 @@ def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
     assert replied.status_code == 200
     content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(encoding="utf-8")
     assert ">> **Bob**: 已收到" in content
+
+
+def test_resolve_project_root_searches_upward(tmp_path: Path, monkeypatch) -> None:
+    root = build_project(tmp_path)
+    nested = root / "sub" / "dir"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    assert _resolve_project_root("") == root.resolve()

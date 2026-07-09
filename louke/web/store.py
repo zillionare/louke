@@ -37,12 +37,14 @@ class ResourceMetadata:
 class ProjectStore:
     def __init__(self, root: Path):
         self.root = root.resolve()
+        self.louke_dir = self.root / ".louke"
         self.project_dir = self.root / ".louke" / "project"
         self.specs_dir = self.project_dir / "specs"
         self.wiki_dir = self.root / ".louke" / "wiki"
         self.wiki_pages_dir = self.wiki_dir / "pages"
         self.activity_path = self.project_dir / ".serve-activity.jsonl"
         self.project_info_path = self.project_dir / "project.toml"
+        self.users_path = self.louke_dir / "web-users.json"
         if not self.project_info_path.exists():
             raise FileNotFoundError(f"missing {self.project_info_path}")
 
@@ -55,6 +57,58 @@ class ProjectStore:
 
     def health_payload(self) -> dict[str, str]:
         return {"status": "ok", "spec_id": self.spec_id}
+
+    def list_users(self) -> list[dict[str, str]]:
+        payload = self._read_users_payload()
+        users = payload.get("users")
+        if not isinstance(users, list):
+            return []
+        result: list[dict[str, str]] = []
+        for item in users:
+            if not isinstance(item, dict):
+                continue
+            username = str(item.get("username") or "").strip()
+            password = str(item.get("password") or "")
+            if not username:
+                continue
+            result.append({"username": username, "password": password})
+        return result
+
+    def user_exists(self, username: str) -> bool:
+        return any(user["username"] == username for user in self.list_users())
+
+    def create_user(self, username: str, password: str) -> None:
+        if self.user_exists(username):
+            raise ValidationError("username already exists")
+        users = self.list_users()
+        users.append({"username": username, "password": password})
+        payload = {"version": 1, "users": users}
+        self._atomic_write_text(self.users_path, self._stable_json(payload) + "\n")
+
+    def verify_user(self, username: str, password: str) -> bool:
+        for user in self.list_users():
+            if user["username"] == username and user["password"] == password:
+                return True
+        return False
+
+    def list_spec_documents(self, spec_id: str | None = None) -> list[dict[str, str]]:
+        target_spec_id = spec_id or self.spec_id
+        items: list[dict[str, str]] = []
+        for doc_name, file_name in DOC_NAME_TO_FILE.items():
+            path = self.specs_dir / target_spec_id / file_name
+            if not path.exists():
+                continue
+            metadata = self._metadata_for(path)
+            items.append(
+                {
+                    "spec_id": target_spec_id,
+                    "doc_name": doc_name,
+                    "path": self.relative_path(path),
+                    "updated_at": metadata.updated_at,
+                    "last_modified_by": metadata.last_modified_by,
+                }
+            )
+        return items
 
     def doc_path(self, spec_id: str, doc_name: str) -> Path:
         if doc_name not in DOC_NAME_TO_FILE:
@@ -93,11 +147,12 @@ class ProjectStore:
         if not self.wiki_pages_dir.exists():
             return []
         pages = []
-        for path in sorted(self.wiki_pages_dir.glob("*.md")):
+        for path in sorted(self.wiki_pages_dir.rglob("*.md")):
             metadata = self._metadata_for(path)
+            relative = path.relative_to(self.wiki_pages_dir).as_posix()
             pages.append(
                 {
-                    "page": path.stem,
+                    "page": relative[:-3],
                     "path": self.relative_path(path),
                     "updated_at": metadata.updated_at,
                     "last_modified_by": metadata.last_modified_by,
@@ -265,12 +320,26 @@ class ProjectStore:
 
     def _normalize_page_name(self, page: str) -> str:
         value = str(page).strip().replace("\\", "/")
-        if "/" in value or value in {"", ".", ".."}:
-            raise ValidationError("wiki page name must be a single slug")
-        return value
+        if value in {"", ".", ".."}:
+            raise ValidationError("wiki page name must not be empty")
+        parts = [part for part in value.split("/") if part]
+        if not parts or any(part in {".", ".."} for part in parts):
+            raise ValidationError("wiki page name contains invalid path segments")
+        return "/".join(parts)
 
     def _ensure_trailing_newline(self, body_md: str) -> str:
         return body_md if body_md.endswith("\n") else body_md + "\n"
 
     def _now(self) -> str:
         return datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def _read_users_payload(self) -> dict[str, Any]:
+        if not self.users_path.exists():
+            return {"version": 1, "users": []}
+        try:
+            payload = json.loads(self.users_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValidationError(f"invalid users file: {self.users_path}") from exc
+        if not isinstance(payload, dict):
+            raise ValidationError("users payload must be an object")
+        return payload

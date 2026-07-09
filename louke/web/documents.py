@@ -51,7 +51,7 @@ def get_wiki_payload(store: ProjectStore, page: str) -> dict[str, Any]:
     path, body_md, version_token, metadata = store.read_wiki_page(page)
     rendered = render_markdown_view(body_md, kind="wiki")
     return {
-        "page": path.stem,
+        "page": page,
         "path": store.relative_path(path),
         "body_md": body_md,
         "rendered_html": rendered.rendered_html,
@@ -139,7 +139,7 @@ def mutate_discussion(
         spec_id, doc_name = _doc_identity_from_path(store, path)
         response = get_doc_payload(store, spec_id, doc_name)
     else:
-        response = get_wiki_payload(store, path.stem)
+        response = get_wiki_payload(store, path.resolve().relative_to(store.wiki_pages_dir.resolve()).as_posix()[:-3])
     response["updated_at"] = metadata.updated_at
     response["last_modified_by"] = metadata.last_modified_by
     return response
