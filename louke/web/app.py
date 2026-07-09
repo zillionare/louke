@@ -21,12 +21,15 @@ from .documents import (
     render_preview_payload,
     save_doc_payload,
     save_wiki_payload,
+    toggle_status_payload,
 )
 from .events import EventBroker
 from .store import ConflictError, ProjectStore, ValidationError
 
 
-def create_app(project_root: str | Path) -> Starlette:
+def create_app(project_root: str | Path | None = None) -> Starlette:
+    if project_root is None:
+        project_root = Path.cwd()
     store = ProjectStore(Path(project_root))
     broker = EventBroker()
     app = Starlette(
@@ -47,6 +50,8 @@ def create_app(project_root: str | Path) -> Starlette:
             Route("/api/wiki", endpoint=api_wiki_index, methods=["GET"]),
             Route("/api/wiki/{page:path}", endpoint=api_wiki_page, methods=["GET", "PUT"]),
             Route("/api/docs/{spec_id:str}/{doc_name:str}", endpoint=api_doc, methods=["GET", "PUT"]),
+            Route("/api/docs/{spec_id:str}/{doc_name:str}/toggle-status", endpoint=api_toggle_status, methods=["POST"]),
+            Route("/api/specs", endpoint=api_specs, methods=["GET"]),
             Route("/api/render", endpoint=api_render, methods=["POST"]),
             Route("/api/discussions/mutate", endpoint=api_discussion_mutate, methods=["POST"]),
             Route("/api/events", endpoint=api_events, methods=["GET"]),
@@ -256,11 +261,11 @@ async def doc_editor_page(request: Request) -> HTMLResponse:
         <p class="lede">{_escape(_t(lang, "docs.lede"))}</p>
       </div>
       <div class="toolbar-actions">
-        <button id="focus-content">{_escape(_t(lang, "docs.focus_content"))}</button>
-        <button id="focus-discussion">{_escape(_t(lang, "docs.focus_discussion"))}</button>
+        <button id="focus-toggle" class="focus-toggle-btn">{_escape(_t(lang, "docs.focus_content"))}</button>
         <button id="toggle-collapse">{_escape(_t(lang, "docs.toggle_collapse"))}</button>
         <button id="save">{_escape(_t(lang, "common.save"))}</button>
         <button id="reload">{_escape(_t(lang, "common.reload"))}</button>
+        <span id="autosave-indicator" class="autosave-indicator" hidden></span>
       </div>
     </header>
     <div id="banner" class="banner" hidden></div>
@@ -461,6 +466,7 @@ async def api_doc(request: Request) -> JSONResponse:
             body_md=str(payload.get("body_md") or ""),
             version_token=str(payload.get("version_token") or ""),
             actor_name=actor_name,
+            force=bool(payload.get("force")),
         )
     except ConflictError as exc:
         try:
@@ -485,6 +491,40 @@ async def api_doc(request: Request) -> JSONResponse:
         },
     )
     return JSONResponse(response)
+
+
+async def api_toggle_status(request: Request) -> JSONResponse:
+    user = _require_api_user(request)
+    if isinstance(user, Response):
+        return user
+    store: ProjectStore = request.app.state.store
+    spec_id = request.path_params["spec_id"]
+    doc_name = request.path_params["doc_name"]
+    payload = await request.json()
+    fr_id = str(payload.get("fr_id") or "")
+    field = str(payload.get("field") or "")
+    version_token = str(payload.get("version_token") or "")
+    if field not in ("valid", "testable", "decided") or not fr_id:
+        return JSONResponse({"error": "invalid fr_id or field"}, status_code=400)
+    try:
+        response = toggle_status_payload(
+            store, spec_id=spec_id, doc_name=doc_name,
+            fr_id=fr_id, field=field,
+            version_token=version_token, actor_name=user.username,
+        )
+    except ConflictError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=409)
+    except (FileNotFoundError, ValidationError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+    return JSONResponse(response)
+
+
+async def api_specs(request: Request) -> JSONResponse:
+    user = _require_api_user(request)
+    if isinstance(user, Response):
+        return user
+    store: ProjectStore = request.app.state.store
+    return JSONResponse({"specs": store.list_spec_ids()})
 
 
 async def api_render(request: Request) -> JSONResponse:
@@ -722,9 +762,18 @@ def _page_shell(
       font-size: 14px;
     }}
     .ghost-button {{
-      background: var(--surface);
+      background: transparent;
+      color: var(--muted);
+      border: 0;
+      padding: 6px 10px;
+      font-size: 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      min-height: 32px;
+    }}
+    .ghost-button:hover {{
+      background: var(--surface-alt);
       color: var(--text);
-      border: 1px solid var(--border);
     }}
     .nav-section {{
       margin-top: 18px;
@@ -792,7 +841,14 @@ def _page_shell(
     .page-header, .panel-header {{
       display: flex; justify-content: space-between; gap: 16px; align-items: center;
     }}
-    .toolbar-actions, .inline-form {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+    .toolbar-actions, .inline-form {{ display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }}
+    .focus-toggle-btn {{ position: relative; padding-right: 28px; }}
+    .focus-toggle-btn::after {{
+      content: '⇄'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      font-size: 12px; opacity: 0.5;
+    }}
+    .focus-toggle-btn.state-discussion {{ background: var(--surface); color: var(--text); border-color: var(--border-strong); }}
+    .autosave-indicator {{ font-size: 12px; color: var(--muted); padding: 0 4px; }}
     .grid {{ display: grid; gap: 16px; }}
     .editor-grid {{ grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr); }}
     .models-grid {{ grid-template-columns: 280px 1fr 1fr; }}
@@ -859,7 +915,7 @@ def _page_shell(
     .preview-shell.collapsed .discussion-block {{ display: none; }}
     .discussion-block, .discussion-tools, .cards-list {{ margin-top: 16px; }}
     .discussion-thread {{
-      border-left: 3px solid var(--accent);
+      border-left: 1.5px solid rgba(15, 23, 42, 0.18);
       padding-left: 12px;
       margin: 14px 0;
     }}
@@ -871,7 +927,7 @@ def _page_shell(
       padding: 2px 8px;
       font-size: 12px;
     }}
-    .discussion-reply {{ margin: 10px 0 0 12px; padding-left: 12px; border-left: 1px dashed var(--border); }}
+    .discussion-reply {{ margin: 10px 0 0 12px; padding-left: 12px; border-left: 0.5px dashed rgba(226, 232, 240, 0.9); }}
     .cards-list {{ display: grid; gap: 12px; }}
     .requirement-card {{
       border: 1px solid var(--border);
@@ -881,6 +937,26 @@ def _page_shell(
     }}
     .chip-row {{ display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }}
     .chip {{ border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; color: var(--muted); }}
+    .chip-toggle {{
+      border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
+      font-size: 12px; cursor: pointer; background: var(--surface); color: var(--muted);
+      opacity: 0.5;
+    }}
+    .chip-toggle.on {{ opacity: 1; border-color: var(--success, #16a34a); color: var(--success, #16a34a); }}
+    .chip-toggle:hover {{ opacity: 0.8; }}
+    .xref-link {{
+      color: var(--muted); text-decoration: underline dashed; text-underline-offset: 2px;
+      cursor: pointer; font-weight: 500;
+    }}
+    .xref-link:hover {{ color: var(--text); text-decoration: underline; }}
+    .xref-link.xref-cross {{ border-bottom: 1px dotted var(--border-strong); }}
+    .xref-back {{
+      position: sticky; top: 0; z-index: 10; display: inline-flex; align-items: center; gap: 4px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--muted);
+      margin-bottom: 8px;
+    }}
+    .xref-back:hover {{ background: var(--surface-alt); color: var(--text); }}
     .model-chip {{
       border: 1px solid var(--border-strong);
       background: var(--surface-alt);
@@ -1233,12 +1309,34 @@ def _editor_page_script(
           <div><strong>${{item.id}}</strong> · ${{item.title}}</div>
           <p>${{item.summary || ''}}</p>
           <div class="chip-row">
-            <span class="chip">${{strings.valid}}: ${{item.valid ? '✅' : '❌'}}</span>
-            <span class="chip">${{strings.testable}}: ${{item.testable ? '✅' : '❌'}}</span>
-            <span class="chip">${{strings.decided}}: ${{item.decided ? '✅' : '❌'}}</span>
+            <button class="chip-toggle ${{item.valid ? 'on' : ''}}" data-fr="${{item.id}}" data-field="valid">✅ ${{strings.valid}}</button>
+            <button class="chip-toggle ${{item.testable ? 'on' : ''}}" data-fr="${{item.id}}" data-field="testable">✅ ${{strings.testable}}</button>
+            <button class="chip-toggle ${{item.decided ? 'on' : ''}}" data-fr="${{item.id}}" data-field="decided">✅ ${{strings.decided}}</button>
           </div>
         </article>
       `).join('');
+      document.querySelectorAll('.chip-toggle').forEach((btn) => {{
+        btn.addEventListener('click', async () => {{
+          const frId = btn.dataset.fr;
+          const field = btn.dataset.field;
+          const response = await fetch(config.apiPath + '/toggle-status', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify({{ fr_id: frId, field: field, version_token: versionToken }})
+          }});
+          const data = await response.json();
+          if (response.status === 409) {{
+            showConflict(data);
+            return;
+          }}
+          if (!response.ok) {{
+            showBanner(data.error || strings.statusToggleFailed);
+            return;
+          }}
+          hydrate(data);
+          showAutosaveIndicator(strings.statusToggled);
+        }});
+      }});
     }}
 
     function renderThreads(threads) {{
@@ -1294,22 +1392,45 @@ def _editor_page_script(
       hydrate(data);
     }}
 
-    async function save() {{
+    async function save(force) {{
       clearBanner();
+      const body = JSON.stringify({{
+        body_md: source.value,
+        version_token: versionToken,
+        force: !!force
+      }});
       const response = await fetch(config.apiPath, {{
         method: 'PUT',
         headers: {{ 'Content-Type': 'application/json' }},
-        body: JSON.stringify({{
-          body_md: source.value,
-          version_token: versionToken
-        }})
+        body: body
       }});
       const data = await response.json();
+      if (response.status === 409 && !force) {{
+        showConflict(data);
+        return;
+      }}
       if (!response.ok) {{
         showBanner(data.error || strings.saveFailed);
         return;
       }}
       hydrate(data);
+      showAutosaveIndicator(strings.saved || 'Saved');
+    }}
+
+    function showConflict(data) {{
+      banner.hidden = false;
+      banner.innerHTML = `${{strings.conflictDetected || 'Conflict detected'}}: ${{data.error || ''}}
+        <button id="view-remote" class="conflict-btn">${{strings.viewRemote || 'View remote'}}</button>
+        <button id="force-overwrite" class="conflict-btn">${{strings.forceOverwrite || 'Force overwrite'}}</button>`;
+      document.getElementById('view-remote').addEventListener('click', async () => {{
+        const resp = await fetch(config.apiPath, {{ headers: {{'Accept': 'application/json'}} }});
+        const remote = await resp.json();
+        preview.innerHTML = remote.rendered_html || '';
+        showBanner(`${{strings.remoteLoaded || 'Remote loaded (read-only). Merge or discard your edits.'}}`);
+      }});
+      document.getElementById('force-overwrite').addEventListener('click', async () => {{
+        await save(true);
+      }});
     }}
 
     async function refreshPreview() {{
@@ -1328,7 +1449,76 @@ def _editor_page_script(
       preview.innerHTML = data.rendered_html || '';
       renderCards(data.cards || []);
       renderThreads(data.discussion_threads || []);
+      attachXrefHandlers();
     }}
+
+    // FR-0700: cross-reference link handling
+    let xrefHistory = [];
+    let allSpecs = [];
+    async function loadSpecList() {{
+      try {{
+        const resp = await fetch('/api/specs', {{ headers: {{'Accept': 'application/json'}} }});
+        const data = await resp.json();
+        allSpecs = data.specs || [];
+      }} catch(e) {{ allSpecs = []; }}
+    }}
+    loadSpecList();
+
+    function attachXrefHandlers() {{
+      preview.querySelectorAll('.xref-link').forEach((link) => {{
+        if (link._xrefBound) return;
+        link._xrefBound = true;
+        link.addEventListener('click', async (e) => {{
+          e.preventDefault();
+          if (link.classList.contains('xref-cross')) {{
+            await navigateCrossSpec(link);
+          }} else {{
+            const anchorId = link.getAttribute('href').slice(1);
+            const target = preview.querySelector('#' + CSS.escape(anchorId));
+            if (target) {{
+              xrefHistory.push(preview.scrollTop);
+              showXrefBack();
+              target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+            }} else {{
+              link.style.color = 'var(--border)';
+              link.style.textDecoration = 'line-through';
+            }}
+          }}
+        }});
+      }});
+    }}
+
+    async function navigateCrossSpec(link) {{
+      const prefix = link.dataset.spec;
+      const ref = link.dataset.ref;
+      const match = allSpecs.find(s => s.includes('-' + prefix + '-'));
+      if (!match) {{
+        showBanner(strings.xrefNotFound || `Spec "${{prefix}}" not found`);
+        return;
+      }}
+      xrefHistory.push({{ spec: config.apiPath, scroll: preview.scrollTop }});
+      showXrefBack();
+      const resp = await fetch(`/api/docs/${{match}}/spec`, {{ headers: {{'Accept': 'application/json'}} }});
+      const data = await resp.json();
+      const prevHtml = preview.innerHTML;
+      preview.innerHTML = `<button class="xref-back" id="xref-back">← ${{strings.xrefBack || 'Back'}}</button>` + (data.rendered_html || '');
+      document.getElementById('xref-back').addEventListener('click', () => {{
+        preview.innerHTML = prevHtml;
+        attachXrefHandlers();
+        hideXrefBack();
+      }});
+      const anchorId = ref.toLowerCase();
+      const target = preview.querySelector('#' + CSS.escape(anchorId));
+      if (target) {{
+        target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      }}
+    }}
+
+    function showXrefBack() {{
+      // Native #anchor navigation uses browser history automatically;
+      // cross-spec uses explicit back button
+    }}
+    function hideXrefBack() {{}}
 
     async function mutateDiscussion(action, thread, payload) {{
       if (!config.discussionEnabled) return;
@@ -1352,21 +1542,67 @@ def _editor_page_script(
       hydrate(data);
     }}
 
+    let autosaveTimer = null;
+    function showAutosaveIndicator(msg) {{
+      const ind = document.getElementById('autosave-indicator');
+      if (!ind) return;
+      ind.textContent = msg;
+      ind.hidden = false;
+      clearTimeout(ind._fadeTimer);
+      ind._fadeTimer = setTimeout(() => {{ ind.hidden = true; }}, 3000);
+    }}
+
     source.addEventListener('input', () => {{
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(refreshPreview, 250);
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(async () => {{
+        await save(false);
+      }}, 5000);
     }});
-    saveButton.addEventListener('click', save);
+    saveButton.addEventListener('click', () => {{
+      clearTimeout(autosaveTimer);
+      save(false);
+    }});
     reloadButton.addEventListener('click', load);
 
-    if (document.getElementById('focus-content')) {{
-      document.getElementById('focus-content').addEventListener('click', () => {{
-        previewShell.classList.add('focus-content');
-        previewShell.classList.remove('focus-discussion');
-      }});
-      document.getElementById('focus-discussion').addEventListener('click', () => {{
-        previewShell.classList.add('focus-discussion');
-        previewShell.classList.remove('focus-content');
+    // FR-0200: sync scroll between editor and preview
+    let syncScrollSource = null;
+    function syncScroll(from, to) {{
+      if (syncScrollSource && syncScrollSource !== from) return;
+      syncScrollSource = from;
+      const ratio = from.scrollTop / Math.max(1, from.scrollHeight - from.clientHeight);
+      to.scrollTop = ratio * Math.max(1, to.scrollHeight - to.clientHeight);
+      setTimeout(() => {{ syncScrollSource = null; }}, 50);
+    }}
+    source.addEventListener('scroll', () => syncScroll(source, preview));
+    preview.addEventListener('scroll', () => syncScroll(preview, source));
+
+    // FR-0300: focus toggle (3-state: balanced -> content -> discussion -> balanced)
+    const focusToggle = document.getElementById('focus-toggle');
+    if (focusToggle) {{
+      let focusState = 'balanced';
+      focusToggle.textContent = strings.focusBalanced || 'Balanced';
+      focusToggle.addEventListener('click', () => {{
+        if (focusState === 'balanced') {{
+          focusState = 'content';
+          previewShell.classList.add('focus-content');
+          previewShell.classList.remove('focus-discussion');
+          focusToggle.textContent = strings.focusContent || 'Content';
+          focusToggle.classList.remove('state-discussion');
+        }} else if (focusState === 'content') {{
+          focusState = 'discussion';
+          previewShell.classList.remove('focus-content');
+          previewShell.classList.add('focus-discussion');
+          focusToggle.textContent = strings.focusDiscussion || 'Discussion';
+          focusToggle.classList.add('state-discussion');
+        }} else {{
+          focusState = 'balanced';
+          previewShell.classList.remove('focus-discussion');
+          previewShell.classList.remove('focus-content');
+          focusToggle.textContent = strings.focusBalanced || 'Balanced';
+          focusToggle.classList.remove('state-discussion');
+        }}
       }});
       document.getElementById('toggle-collapse').addEventListener('click', () => {{
         previewShell.classList.toggle('collapsed');
@@ -1574,6 +1810,18 @@ def _script_strings(lang: str, scope: str) -> dict[str, str]:
             "discussionFailed": "讨论操作失败",
             "startDiscussionFailed": "发起讨论失败",
             "remoteUpdated": "远端内容已由 {{actor}} 更新，请重新加载或手工合并本地修改",
+            "focusContent": "看正文",
+            "focusDiscussion": "看讨论",
+            "focusBalanced": "均衡",
+            "saved": "已自动保存",
+            "conflictDetected": "检测到写入冲突",
+            "viewRemote": "查看远端版本",
+            "forceOverwrite": "强制覆盖",
+            "remoteLoaded": "已加载远端版本（只读），请合并或放弃本地编辑",
+            "statusToggled": "状态已更新",
+            "statusToggleFailed": "状态更新失败",
+            "xrefBack": "返回",
+            "xrefNotFound": "未找到对应的 spec",
         }
     return {
         "lastModified": "Last modified",
@@ -1593,6 +1841,18 @@ def _script_strings(lang: str, scope: str) -> dict[str, str]:
         "discussionFailed": "Discussion action failed",
         "startDiscussionFailed": "Failed to start discussion",
         "remoteUpdated": "Remote content was updated by {{actor}}. Reload or merge your local edits manually.",
+        "focusContent": "Content",
+        "focusDiscussion": "Discussion",
+        "focusBalanced": "Balanced",
+        "saved": "Auto-saved",
+        "conflictDetected": "Write conflict detected",
+        "viewRemote": "View remote",
+        "forceOverwrite": "Force overwrite",
+        "remoteLoaded": "Remote loaded (read-only). Merge or discard your edits.",
+        "statusToggled": "Status updated",
+        "statusToggleFailed": "Status update failed",
+        "xrefBack": "Back",
+        "xrefNotFound": "Spec not found",
     }
 
 

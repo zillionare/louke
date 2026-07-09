@@ -14,6 +14,13 @@ RE_TABLE_ROW = re.compile(r"^\s*\|\s*(.+?)\s*\|\s*$")
 RE_RULE = re.compile(r"^\s*---+\s*$")
 RE_FENCE = re.compile(r"^\s*(```|~~~)")
 
+# FR-0700: cross-reference linkification patterns
+RE_ANY_REF = re.compile(
+    r"\b(?:(?P<prefix>\d+|[A-Za-z]+)-)?(?P<ref>(?:FR|NFR)-(?P<num>\d{3,4}))\b"
+)
+RE_HEADING_TAG = re.compile(r"<(h[1-6])([^>]*)>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
+RE_FR_IN_HEADING = re.compile(r"^\s*((?:FR|NFR)-(\d{3,4}))", re.IGNORECASE)
+
 
 @dataclass
 class RenderResult:
@@ -25,11 +32,74 @@ class RenderResult:
 def render_markdown_view(body_md: str, kind: str, doc_name: str = "") -> RenderResult:
     discussion_threads = extract_discussion_threads(body_md)
     rendered_html = render_flow_html(body_md)
+    rendered_html = _add_heading_anchors(rendered_html)
+    rendered_html = _linkify_references(rendered_html)
     cards = extract_requirement_cards(body_md) if kind == "doc" and doc_name == "spec" else []
     return RenderResult(
         rendered_html=rendered_html,
         cards=cards,
         discussion_threads=discussion_threads,
+    )
+
+
+def _add_heading_anchors(html_str: str) -> str:
+    """Inject <a id="fr-xxxx"> anchors into headings that start with FR-XXXX or NFR-XXXX."""
+    def replace_heading(m: re.Match) -> str:
+        tag = m.group(1)
+        attrs = m.group(2)
+        content = m.group(3)
+        fr_match = RE_FR_IN_HEADING.match(content)
+        if fr_match:
+            anchor_id = fr_match.group(1).lower()
+            return f'<{tag}{attrs}><a id="{anchor_id}"></a>{content}</{tag}>'
+        return m.group(0)
+    return RE_HEADING_TAG.sub(replace_heading, html_str)
+
+
+def _linkify_references(html_str: str) -> str:
+    """Replace FR-XXXX, NFR-XXXX, and prefix-FR-XXXX patterns in text with clickable links.
+
+    Skips text inside <h1>-<h6>, <code>, <pre>, and <a> tags to avoid corrupting
+    existing markup or creating self-referencing links in headings.
+    """
+    parts = re.split(r"(<[^>]+>)", html_str)
+    in_heading = False
+    in_code = False
+    in_link = False
+    for i, part in enumerate(parts):
+        if part.startswith("<"):
+            lower = part.lower()
+            if re.match(r"<h[1-6]", lower):
+                in_heading = True
+            elif re.match(r"</h[1-6]", lower):
+                in_heading = False
+            elif re.match(r"<(?:code|pre)[\s>]", lower):
+                in_code = True
+            elif re.match(r"</(?:code|pre)>", lower):
+                in_code = False
+            elif re.match(r"<a[\s>]", lower):
+                in_link = True
+            elif re.match(r"</a>", lower):
+                in_link = False
+            continue
+        if in_heading or in_code or in_link:
+            continue
+        parts[i] = RE_ANY_REF.sub(_make_ref_link, part)
+    return "".join(parts)
+
+
+def _make_ref_link(m: re.Match) -> str:
+    prefix = m.group("prefix")
+    ref = m.group("ref")
+    if prefix:
+        return (
+            f'<a class="xref-link xref-cross" href="#" '
+            f'data-spec="{html.escape(prefix)}" data-ref="{html.escape(ref)}">'
+            f'{html.escape(prefix)}-{html.escape(ref)}</a>'
+        )
+    return (
+        f'<a class="xref-link" href="#{ref.lower()}" data-ref="{html.escape(ref)}">'
+        f'{html.escape(ref)}</a>'
     )
 
 

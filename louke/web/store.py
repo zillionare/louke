@@ -110,6 +110,14 @@ class ProjectStore:
             )
         return items
 
+    def list_spec_ids(self) -> list[str]:
+        """List all spec directory names under .louke/project/specs/."""
+        if not self.specs_dir.exists():
+            return []
+        return sorted(
+            d.name for d in self.specs_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
+        )
+
     def doc_path(self, spec_id: str, doc_name: str) -> Path:
         if doc_name not in DOC_NAME_TO_FILE:
             raise ValidationError(f"unsupported document name: {doc_name}")
@@ -134,11 +142,13 @@ class ProjectStore:
         body_md: str,
         version_token: str,
         actor_name: str,
+        force: bool = False,
     ) -> tuple[str, ResourceMetadata]:
         path = self.doc_path(spec_id, doc_name)
         self._check_actor(actor_name)
         current = path.read_text(encoding="utf-8")
-        self._assert_token(path, current, version_token)
+        if not force:
+            self._assert_token(path, current, version_token)
         self._atomic_write_text(path, self._ensure_trailing_newline(body_md))
         metadata = self.record_activity("document.updated", path, actor_name)
         return self._token_for_text(path, body_md), metadata
