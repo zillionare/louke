@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -10,6 +11,30 @@ from typing import Any
 
 from .._common import _toml_load
 from ..models import SCHEMA as MODELS_SCHEMA
+
+
+_RE_SPEC_VERSION = re.compile(r"^v(\d+)\.(\d+)(?:-(\d+))?")
+
+
+def _spec_version_key(spec_id: str) -> tuple[int, int, int, str]:
+    """Parse a spec id like 'v0.10-001-foo' into a sortable key.
+
+    Returns (major, minor, patch, suffix) so 'v0.10' > 'v0.9' > 'v0.8'.
+    Specs without a parseable version get a -1 sentinel so they sort last.
+    """
+    m = _RE_SPEC_VERSION.match(spec_id)
+    if not m:
+        return (-1, -1, -1, spec_id)
+    major = int(m.group(1))
+    minor = int(m.group(2))
+    patch = int(m.group(3) or 0)
+    return (major, minor, patch, spec_id)
+
+
+def _pick_highest_version_spec(spec_ids: list[str]) -> str:
+    if not spec_ids:
+        return ""
+    return max(spec_ids, key=_spec_version_key)
 from ..models import config_path, load_config
 
 
@@ -117,6 +142,22 @@ class ProjectStore:
         return sorted(
             d.name for d in self.specs_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
         )
+
+    def resolve_spec_id(self) -> str:
+        """Return the spec ID to use, with auto-select fallback.
+
+        Priority:
+        1. The configured spec_id from project.toml, if it exists on disk.
+        2. The spec with the highest version number, if any specs exist.
+        3. Empty string if no specs.
+        """
+        available = self.list_spec_ids()
+        if not available:
+            return ""
+        configured = self.spec_id
+        if configured and configured in available:
+            return configured
+        return _pick_highest_version_spec(available)
 
     def doc_path(self, spec_id: str, doc_name: str) -> Path:
         if doc_name not in DOC_NAME_TO_FILE:

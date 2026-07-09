@@ -297,3 +297,41 @@ def _markdown_html(text: str) -> str:
         extensions=["extra", "sane_lists", "toc"],
         output_format="html5",
     )
+
+
+_RE_RESOLVED_MARKER = re.compile(
+    r"\[resolved\]|\[已决定\]|\[已解决\]|\[Decided\]|\[decided\]"
+    r"|\u2713\s*resolved",
+    re.IGNORECASE,
+)
+_RE_DISCUSSION_MARKER = re.compile(
+    r"\[T-\d{3,4}\]|\*\*\[?[A-Za-z][\w@]*\]?\*\*:"
+    r"|^\s*>+\s",
+    re.MULTILINE,
+)
+
+
+def is_resolved_text(text: str) -> bool:
+    """Return True if text contains an inline-discussion resolved marker."""
+    return bool(text and _RE_RESOLVED_MARKER.search(text))
+
+
+def is_discussion_text(text: str) -> bool:
+    """Return True if text looks like an inline-discussion line/block."""
+    return bool(text and _RE_DISCUSSION_MARKER.search(text))
+
+
+def scan_discussion_blocks(body_md: str) -> list[dict]:
+    """Scan markdown for inline-discussion lines and return their status.
+
+    Each entry: {"line": 1-based line number, "text": stripped line, "resolved": bool}.
+    The JS filter/next-discussion uses the same matching rules (see app.py).
+    """
+    results: list[dict] = []
+    for i, raw in enumerate(body_md.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        if is_discussion_text(line):
+            results.append({"line": i, "text": line, "resolved": is_resolved_text(line)})
+    return results

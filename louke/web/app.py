@@ -90,7 +90,7 @@ async def home_page(request: Request) -> HTMLResponse:
         return user
     store: ProjectStore = request.app.state.store
     lang = _ui_language(request)
-    spec_id = store.spec_id
+    spec_id = store.resolve_spec_id()
     body = f"""
     <section class="hero">
       <span class="eyebrow">{_escape(_t(lang, "home.eyebrow"))}</span>
@@ -205,43 +205,35 @@ async def wiki_editor_page(request: Request) -> HTMLResponse:
     page = request.path_params["page"]
     encoded_page = _quote_path(page)
     body = f"""
-    <header class="page-header">
-      <div>
-        <span class="eyebrow">Wiki</span>
-        <h1>wiki: <code>{_escape(page)}</code></h1>
-        <p class="lede">{_escape(_t(lang, "wiki.editor_lede"))}</p>
-      </div>
-      <div class="toolbar-actions">
-        <button id="save">{_escape(_t(lang, "common.save"))}</button>
-        <button id="reload">{_escape(_t(lang, "common.reload"))}</button>
-      </div>
-    </header>
     <div id="banner" class="banner" hidden></div>
-    <div id="meta" class="meta"></div>
-    <main class="grid editor-grid">
-      <section class="panel">
-        <h2>{_escape(_t(lang, "common.markdown"))}</h2>
-        <textarea id="source" spellcheck="false"></textarea>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <h2>{_escape(_t(lang, "common.preview"))}</h2>
+    <div class="pane-container">
+      <div class="pane">
+        <div class="pane-bar">
+          <span class="pane-title">wiki: {_escape(page)}</span>
+          <span class="save-time" id="save-time">Last Saved: --:--:--</span>
+          <div class="pane-tools">
+            <button class="icon-btn icon-save" id="save-btn" title="Save"></button>
+            <button class="icon-btn icon-reload" id="reload-btn" title="Reload"></button>
+          </div>
         </div>
-        <div id="preview" class="preview"></div>
-      </section>
-    </main>
+        <div class="vditor-mount" id="vditor-0"></div>
+      </div>
+    </div>
     """
-    script = _editor_page_script(
+    vditor_head = (
+        '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css" />'
+        '<script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>'
+    )
+    script = _wiki_editor_script(
         api_path=f"/api/wiki/{encoded_page}",
-        kind="wiki",
-        title=f"wiki:{page}",
-        doc_name="",
-        discussion_enabled=False,
         actor_name=user.username,
         lang=lang,
     )
     return HTMLResponse(
-        _page_shell(f"wiki {page}", store, user, lang, "wiki", body, script=script, current_wiki_page=page)
+        _page_shell(
+            f"wiki {page}", store, user, lang, "wiki", body,
+            script=script, current_wiki_page=page, head_extra=vditor_head,
+        )
     )
 
 
@@ -253,60 +245,28 @@ async def doc_editor_page(request: Request) -> HTMLResponse:
     lang = _ui_language(request)
     spec_id = request.path_params["spec_id"]
     doc_name = request.path_params["doc_name"]
+    docs = store.list_spec_documents(spec_id)
     body = f"""
-    <header class="page-header">
-      <div>
-        <span class="eyebrow">Design Docs</span>
-        <h1>{_escape(_t(lang, "docs.title"))}: <code>{_escape(doc_name)}</code></h1>
-        <p class="lede">{_escape(_t(lang, "docs.lede"))}</p>
-      </div>
-      <div class="toolbar-actions">
-        <button id="focus-toggle" class="focus-toggle-btn">{_escape(_t(lang, "docs.focus_content"))}</button>
-        <button id="toggle-collapse">{_escape(_t(lang, "docs.toggle_collapse"))}</button>
-        <button id="save">{_escape(_t(lang, "common.save"))}</button>
-        <button id="reload">{_escape(_t(lang, "common.reload"))}</button>
-        <span id="autosave-indicator" class="autosave-indicator" hidden></span>
-      </div>
-    </header>
-    <div id="banner" class="banner" hidden></div>
-    <div id="meta" class="meta"></div>
-    <main class="grid editor-grid">
-      <section class="panel">
-        <h2>{_escape(_t(lang, "common.markdown"))}</h2>
-        <textarea id="source" spellcheck="false"></textarea>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <h2>{_escape(_t(lang, "common.preview"))}</h2>
-          <span class="muted">{_escape(_t(lang, "docs.inline_hint"))}</span>
-        </div>
-        <div id="preview-shell" class="preview-shell focus-content">
-          <div id="preview" class="preview"></div>
-        </div>
-        <div id="cards" class="cards-list"></div>
-        <section id="discussion-tools" class="discussion-tools">
-          <h2>{_escape(_t(lang, "docs.discussion_actions"))}</h2>
-          <div class="inline-form">
-            <input id="new-anchor-line" type="number" min="1" placeholder="anchor line" />
-            <input id="new-discussion-body" placeholder="{_escape(_t(lang, 'docs.new_discussion_placeholder'))}" />
-            <button id="start-discussion">{_escape(_t(lang, "docs.start_discussion"))}</button>
-          </div>
-          <div id="thread-list" class="thread-list"></div>
-        </section>
-      </section>
-    </main>
+    <div id="banner" class="banner" hidden><span class="banner-msg"></span><button class="banner-close" type="button">×</button></div>
+    <div id="pane-container" class="pane-container"></div>
     """
     script = _editor_page_script(
-        api_path=f"/api/docs/{spec_id}/{doc_name}",
-        kind="doc",
-        title=f"{spec_id}:{doc_name}",
+        spec_id=spec_id,
         doc_name=doc_name,
-        discussion_enabled=True,
+        docs=docs,
         actor_name=user.username,
         lang=lang,
     )
+    vditor_head = (
+        '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css" />'
+        '<script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>'
+    )
     return HTMLResponse(
-        _page_shell(f"{spec_id} {doc_name}", store, user, lang, "docs", body, script=script, current_doc_name=doc_name)
+        _page_shell(
+            f"{spec_id} {doc_name}", store, user, lang, "docs", body,
+            script=script, current_doc_name=doc_name,
+            current_spec_id=spec_id, head_extra=vditor_head,
+        )
     )
 
 
@@ -668,8 +628,12 @@ def _page_shell(
     script: str = "",
     current_doc_name: str = "",
     current_wiki_page: str = "",
+    current_spec_id: str = "",
+    head_extra: str = "",
 ) -> str:
-    sidebar = _sidebar_html(store, user, lang, section, current_doc_name, current_wiki_page)
+    sidebar = _sidebar_html(store, user, lang, section, current_doc_name, current_wiki_page, current_spec_id)
+    # pane-host class is added dynamically by JS based on pane count and
+    # viewport width, not here (so 1 pane keeps the comfortable padding).
     return f"""<!DOCTYPE html>
 <html lang="{_escape('zh-CN' if lang == 'zh' else 'en')}">
 <head>
@@ -713,49 +677,95 @@ def _page_shell(
       min-height: 100vh;
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr);
+      transition: grid-template-columns 0.2s ease;
+    }}
+    .app-shell.sidebar-collapsed {{
+      grid-template-columns: 0 minmax(0, 1fr);
+    }}
+    .app-shell.sidebar-collapsed .sidebar {{
+      overflow: hidden;
+      padding: 0;
+      border-right: 0;
+      min-width: 0;
+      width: 0;
     }}
     .sidebar {{
       position: sticky;
       top: 0;
       align-self: start;
       height: 100vh;
+      min-width: 0;
       overflow: auto;
       padding: 20px 16px;
       background: var(--sidebar);
       border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
     }}
-    .brand {{
-      display: block;
-      padding: 12px 14px;
-      margin-bottom: 18px;
+    .sidebar-toggle {{
+      position: fixed;
+      top: 12px;
+      left: 248px;
+      z-index: 100;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--muted);
+      transition: left 0.2s ease;
+    }}
+    .app-shell.sidebar-collapsed .sidebar-toggle {{
+      left: 8px;
+    }}
+    .brand-card {{
+      padding: 10px;
+      margin-bottom: 12px;
       border: 1px solid var(--border);
       border-radius: 14px;
       background: var(--surface);
       box-shadow: var(--shadow);
     }}
+    .brand {{
+      display: block;
+      padding: 6px 4px;
+    }}
     .brand-title {{
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 700;
       letter-spacing: 0.02em;
     }}
     .brand-subtitle {{
-      margin-top: 4px;
+      padding: 4px 10px;
       color: var(--muted);
       font-size: 12px;
     }}
-    .user-card {{
-      margin-bottom: 18px;
-      padding: 12px 14px;
+    .spec-select {{
+      margin: 4px 10px 10px;
+      width: calc(100% - 20px);
+      padding: 5px 8px;
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 6px;
       background: var(--surface);
-      box-shadow: var(--shadow);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
     }}
     .user-row {{
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      padding: 4px;
+      margin-top: 6px;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
     }}
     .user-name {{
       font-weight: 600;
@@ -837,6 +847,18 @@ def _page_shell(
     .workspace-inner {{
       max-width: 1600px;
       margin: 0 auto;
+    }}
+    /* Pane host mode (toggled by JS when 2+ panes are open, or when the
+       available width per pane drops below the 50 Chinese-char threshold):
+       reclaim the workspace padding and the 1600px inner max-width
+       so panes use the full viewport. Toggled dynamically, not applied
+       unconditionally to doc pages, because 1 pane still benefits from
+       the comfortable 28px padding / 1600px reading width. */
+    .workspace-inner.pane-host {{
+      max-width: none;
+    }}
+    .workspace.pane-host {{
+      padding: 8px;
     }}
     .page-header, .panel-header {{
       display: flex; justify-content: space-between; gap: 16px; align-items: center;
@@ -982,7 +1004,11 @@ def _page_shell(
       margin-top: 10px;
       background: var(--surface-alt);
     }}
-    .banner {{ margin: 12px 0; border-color: #fecaca; color: var(--danger); background: #fef2f2; }}
+    .banner {{ margin: 12px 0; border-color: #fecaca; color: var(--danger); background: #fef2f2; display: flex; align-items: center; gap: 8px; padding: 10px 14px; }}
+    .banner[hidden] {{ display: none !important; }}
+    .banner-msg {{ flex: 1; }}
+    .banner-close {{ background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; padding: 0 4px; line-height: 1; border-radius: 3px; }}
+    .banner-close:hover {{ background: rgba(239,68,68,0.15); }}
     pre {{ overflow: auto; background: var(--surface-alt); padding: 12px; border-radius: 8px; }}
     table {{ width: 100%; border-collapse: collapse; }}
     th, td {{ border: 1px solid var(--border); padding: 8px; text-align: left; }}
@@ -1002,16 +1028,200 @@ def _page_shell(
       }}
       .workspace {{ padding: 20px; }}
       .editor-grid, .models-grid {{ grid-template-columns: 1fr; }}
+      .pane-container {{ flex-direction: column; }}
+    }}
+    /* Pane layout: each pane sized so 50-80 Chinese chars fit per line.
+       min-width is 0 so flex can distribute evenly; when only one pane
+       is open we constrain it so 50-80 Chinese chars still fit and the
+       remaining space becomes whitespace on both sides. */
+    .pane-container {{
+      display: flex;
+      gap: 1px;
+      min-height: calc(100vh - 2px);
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }}
+    .page-docs .workspace {{
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }}
+    .page-docs .workspace-inner {{
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }}
+    .page-docs .pane-container {{
+      min-height: 0;
+      flex: 1;
+    }}
+    .pane {{
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      overflow: hidden;
+    }}
+    .pane-container > .pane:only-child {{
+      flex: 0 1 720px;
+      max-width: 720px;
+      margin: 0 auto;
+    }}
+    .pane-bar {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-alt);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }}
+    .file-select {{
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 13px;
+      background: var(--surface);
+      max-width: 160px;
+    }}
+    .pane-title {{
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+    }}
+    .save-time {{
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }}
+    .pane-tools {{
+      display: flex;
+      gap: 2px;
+    }}
+    .icon-btn {{
+      width: 30px;
+      height: 30px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background-color: transparent;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 14px;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      opacity: 0.85;
+      transition: all 0.15s;
+    }}
+    .icon-btn:hover {{
+      background-color: var(--surface);
+      border-color: var(--border);
+      color: var(--text);
+      opacity: 1;
+    }}
+    .icon-btn.close {{
+      margin-left: 4px;
+    }}
+    .icon-btn.active {{
+      background-color: var(--surface-alt);
+      border-color: var(--border-strong);
+      color: var(--text);
+      opacity: 1;
+    }}
+    .icon-next {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3Cpolyline points='12 5 19 12 12 19'/%3E%3C/svg%3E"); }}
+    .icon-collapse {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }}
+    .icon-filter {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'/%3E%3C/svg%3E"); }}
+    .icon-unresolved {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='8 12 12 16 16 12'/%3E%3Cline x1='12' y1='8' x2='12' y2='16'/%3E%3C/svg%3E"); }}
+    .icon-split {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='18' x='2' y='3' rx='2'/%3E%3Cpath d='M12 3v18'/%3E%3C/svg%3E"); }}
+    .icon-save {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/%3E%3Cpolyline points='17 21 17 13 7 13 7 21'/%3E%3Cpolyline points='7 3 7 8 15 8'/%3E%3C/svg%3E"); }}
+    .icon-reload {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 4 23 10 17 10'/%3E%3Cpolyline points='1 20 1 14 7 14'/%3E%3Cpath d='M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'/%3E%3C/svg%3E"); }}
+    .icon-close {{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E"); }}
+    .vditor-mount {{
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }}
+    /* Vditor overrides */
+    .vditor {{ border: 0; height: 100%; }}
+    .vditor-toolbar {{ display: none; }}
+    /* Table styling: header distinct, no vertical borders, body no bg */
+    .vditor-ir table, .vditor-wysiwyg table {{
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+    }}
+    .vditor-ir table th, .vditor-wysiwyg table th {{
+      font-weight: 600;
+      background: var(--surface-alt);
+      border: none;
+      border-bottom: 2px solid var(--border-strong);
+      padding: 8px 12px;
+      text-align: left;
+    }}
+    .vditor-ir table td, .vditor-wysiwyg table td {{
+      border: none;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+      padding: 8px 12px;
+    }}
+    .vditor-ir table tr, .vditor-wysiwyg table tr {{
+      border: none;
+    }}
+    /* Discussion thread styling */
+    .vditor-ir blockquote blockquote blockquote {{
+      border-left: 2px solid var(--border-strong);
+      padding: 8px 12px;
+      margin: 10px 0;
+      background: var(--surface-alt);
+      border-radius: 0 4px 4px 0;
+    }}
+    .pane.discussions-collapsed .vditor-ir [data-discussion="1"] {{
+      height: 22px;
+      overflow: hidden;
+      border-left: 3px solid var(--border-strong);
+      background: var(--surface-alt);
+      border-radius: 0 4px 4px 0;
+      margin: 2px 0;
+      padding: 3px 8px;
+      position: relative;
+      cursor: pointer;
+    }}
+    .pane.discussions-collapsed .vditor-ir [data-discussion="1"] > * {{
+      display: none;
+    }}
+    .pane.discussions-collapsed .vditor-ir [data-discussion="1"][data-resolved="1"]::before {{
+      content: '✓ discussion collapsed';
+      font-size: 12px;
+      color: var(--success, #22c55e);
+    }}
+    .pane.discussions-collapsed .vditor-ir [data-discussion="1"]:not([data-resolved="1"])::before {{
+      content: '⚠ unresolved discussion collapsed';
+      font-size: 12px;
+      color: var(--warning, #f59e0b);
     }}
   </style>
+  {head_extra}
 </head>
-<body data-actor-name="{_escape(user.username)}" data-ui-lang="{_escape(lang)}">
+<body class="page-{section}" data-actor-name="{_escape(user.username)}" data-ui-lang="{_escape(lang)}">
+  <button class="sidebar-toggle" onclick="document.querySelector('.app-shell').classList.toggle('sidebar-collapsed')">☰</button>
   <div class="app-shell">
     <aside class="sidebar">
       {sidebar}
     </aside>
-    <main class="workspace">
-      <div class="workspace-inner">
+    <main class="workspace" id="workspace">
+      <div class="workspace-inner" id="workspace-inner">
         {body}
       </div>
     </main>
@@ -1036,17 +1246,24 @@ def _sidebar_html(
     section: str,
     current_doc_name: str,
     current_wiki_page: str,
+    current_spec_id: str = "",
 ) -> str:
-    spec_id = store.spec_id
+    spec_id = current_spec_id or store.resolve_spec_id()
+    all_specs = store.list_spec_ids()
     docs = store.list_spec_documents(spec_id)
     wiki_groups = _group_wiki_pages(store.list_wiki_pages(), lang)
+    spec_options = "".join(
+        f'<option value="{_escape(s)}"{(" selected" if s == spec_id else "")}>{_escape(s)}</option>'
+        for s in all_specs
+    )
     return f"""
-    <a class="brand" href="/">
-      <div class="brand-title">louke / web</div>
-      <div class="brand-subtitle">{_escape(_t(lang, "sidebar.spec"))}: {_escape(spec_id)}</div>
-    </a>
-    <div class="user-card">
-      <div class="nav-label">{_escape(_t(lang, "sidebar.signed_in"))}</div>
+    <div class="brand-card">
+      <a class="brand" href="/">
+        <div class="brand-title">Lòukè</div>
+      </a>
+      <select class="spec-select" onchange="if(this.value)location.href='/docs/'+this.value+'/spec'">
+        {spec_options}
+      </select>
       <div class="user-row">
         <div class="user-name">{_escape(user.username)}</div>
         <button type="button" class="ghost-button" data-action="logout">{_escape(_t(lang, "sidebar.logout"))}</button>
@@ -1247,404 +1464,427 @@ def _models_page_script(lang: str) -> str:
     """
 
 
+def _wiki_editor_script(api_path: str, actor_name: str, lang: str) -> str:
+    config = json.dumps(
+        {"apiPath": api_path, "actorName": actor_name, "lang": lang},
+        ensure_ascii=False,
+    )
+    js = """<script>
+const cfg = __CONFIG__;
+const banner = document.getElementById('banner');
+const saveBtn = document.getElementById('save-btn');
+const reloadBtn = document.getElementById('reload-btn');
+const saveTimeEl = document.getElementById('save-time');
+let vditor = null, vditorReady = false, versionToken = '', autosaveTimer = null;
+
+function showBanner(msg) { banner.hidden = false; banner.textContent = msg; }
+
+async function load() {
+  try {
+    const resp = await fetch(cfg.apiPath, { headers: { Accept: 'application/json' } });
+    const data = await resp.json();
+    if (!resp.ok) { showBanner(data.error || 'Load failed'); return; }
+    versionToken = data.version_token || '';
+    if (vditorReady && vditor) { vditor.setValue(data.body_md || ''); }
+    else { initVditor(data.body_md || ''); }
+    if (data.updated_at) {
+      saveTimeEl.textContent = 'Last Saved: ' + new Date(data.updated_at).toLocaleTimeString('en-GB');
+    }
+  } catch(e) { showBanner('Error: ' + e.message); }
+}
+
+function initVditor(initialMd) {
+  if (typeof Vditor === 'undefined') {
+    const mount = document.getElementById('vditor-0');
+    mount.innerHTML = '<textarea style="width:100%;height:100%;border:0;outline:none;padding:12px;font-family:monospace;" spellcheck="false"></textarea>';
+    const ta = mount.querySelector('textarea');
+    ta.value = initialMd;
+    vditor = { getValue: () => ta.value, setValue: (v) => { ta.value = v; } };
+    vditorReady = true;
+    return;
+  }
+  vditor = new Vditor('vditor-0', {
+    mode: 'ir', value: initialMd, height: '100%',
+    toolbar: false, cache: { enable: false },
+    after: () => { vditorReady = true; },
+    input: () => {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => save(false), 5000);
+    }
+  });
+}
+
+async function save(force) {
+  if (!vditorReady) return;
+  const resp = await fetch(cfg.apiPath, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body_md: vditor.getValue(), version_token: versionToken, force: !!force })
+  });
+  const data = await resp.json();
+  if (!resp.ok) { showBanner(data.error || 'Save failed'); return; }
+  versionToken = data.version_token || '';
+  saveTimeEl.textContent = 'Last Saved: ' + new Date().toLocaleTimeString('en-GB');
+}
+
+saveBtn.addEventListener('click', () => { clearTimeout(autosaveTimer); save(false); });
+reloadBtn.addEventListener('click', load);
+load();
+</script>"""
+    return js.replace("__CONFIG__", config)
+
+
 def _editor_page_script(
-    api_path: str,
-    kind: str,
-    title: str,
+    spec_id: str,
     doc_name: str,
-    discussion_enabled: bool,
+    docs: list[dict[str, str]],
     actor_name: str,
     lang: str,
 ) -> str:
-    strings = _script_strings(lang, "editor")
     config = json.dumps(
         {
-            "apiPath": api_path,
-            "kind": kind,
-            "title": title,
-            "docName": doc_name,
-            "discussionEnabled": discussion_enabled,
+            "specId": spec_id,
+            "initialDoc": doc_name,
+            "docList": [d["doc_name"] for d in docs],
             "actorName": actor_name,
-            "strings": strings,
         },
         ensure_ascii=False,
     )
-    return f"""
-    <script>
-    const config = {config};
-    const actorName = config.actorName;
-    const strings = config.strings;
-    const source = document.getElementById('source');
-    const preview = document.getElementById('preview');
-    const cards = document.getElementById('cards');
-    const meta = document.getElementById('meta');
-    const banner = document.getElementById('banner');
-    const saveButton = document.getElementById('save');
-    const reloadButton = document.getElementById('reload');
-    const previewShell = document.getElementById('preview-shell');
-    const threadList = document.getElementById('thread-list');
-    let versionToken = '';
-    let targetPath = '';
-    let debounceTimer = null;
-    let requestSerial = 0;
+    js = """<script>
+const cfg = __CONFIG__;
+const banner = document.getElementById('banner');
+const paneContainer = document.getElementById('pane-container');
+const panes = [];
+let paneSeq = 0;
 
-    function showBanner(message) {{
-      banner.hidden = false;
-      banner.textContent = message;
-    }}
+let _bannerTimer = null;
+function showBanner(msg) {
+  const span = banner.querySelector('.banner-msg');
+  if (span) span.textContent = msg; else banner.textContent = msg;
+  banner.hidden = false;
+  clearTimeout(_bannerTimer);
+  _bannerTimer = setTimeout(function() { banner.hidden = true; }, 4000);
+}
+function clearBanner() { banner.hidden = true; clearTimeout(_bannerTimer); }
+banner.addEventListener('click', function(e) {
+  if (e.target.classList.contains('banner-close')) { banner.hidden = true; clearTimeout(_bannerTimer); }
+});
 
-    function clearBanner() {{
-      banner.hidden = true;
-      banner.textContent = '';
-    }}
+function buildOptions(selected) {
+  return cfg.docList.map(d =>
+    '<option value="' + d + '"' + (d === selected ? ' selected' : '') + '>' + d + '</option>'
+  ).join('');
+}
 
-    function renderMeta(data) {{
-      meta.textContent = `${{strings.lastModified}}: ${{data.last_modified_by || strings.unknown}} @ ${{data.updated_at || strings.notRecorded}}`;
-    }}
+function createPane(docName) {
+  if (panes.length >= 4) { showBanner('Max 4 panes'); return -1; }
+  const id = paneSeq++;
+  const el = document.createElement('div');
+  el.className = 'pane';
+  el.dataset.paneId = id;
+  el.innerHTML =
+    '<div class="pane-bar">' +
+      '<select class="file-select">' + buildOptions(docName) + '</select>' +
+      '<span class="save-time">Last Saved: --:--:--</span>' +
+      '<div class="pane-tools">' +
+        '<button class="icon-btn icon-next" data-action="next-discussion" title="Next discussion"></button>' +
+        '<button class="icon-btn icon-collapse" data-action="collapse" title="Collapse discussions"></button>' +
+        '<button class="icon-btn icon-unresolved" data-action="next-unresolved" title="Next unresolved FR/NFR/AC"></button>' +
+        '<button class="icon-btn icon-split" data-action="split" title="Split pane"></button>' +
+        '<button class="icon-btn icon-save" data-action="save" title="Save"></button>' +
+        '<button class="icon-btn icon-reload" data-action="reload" title="Reload"></button>' +
+        '<button class="icon-btn icon-close close" data-action="close" title="Close pane"></button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="vditor-mount" id="vditor-' + id + '"></div>';
+  paneContainer.appendChild(el);
 
-    function renderCards(items) {{
-      if (!cards) return;
-      cards.innerHTML = (items || []).map((item) => `
-        <article class="requirement-card">
-          <div><strong>${{item.id}}</strong> · ${{item.title}}</div>
-          <p>${{item.summary || ''}}</p>
-          <div class="chip-row">
-            <button class="chip-toggle ${{item.valid ? 'on' : ''}}" data-fr="${{item.id}}" data-field="valid">✅ ${{strings.valid}}</button>
-            <button class="chip-toggle ${{item.testable ? 'on' : ''}}" data-fr="${{item.id}}" data-field="testable">✅ ${{strings.testable}}</button>
-            <button class="chip-toggle ${{item.decided ? 'on' : ''}}" data-fr="${{item.id}}" data-field="decided">✅ ${{strings.decided}}</button>
-          </div>
-        </article>
-      `).join('');
-      document.querySelectorAll('.chip-toggle').forEach((btn) => {{
-        btn.addEventListener('click', async () => {{
-          const frId = btn.dataset.fr;
-          const field = btn.dataset.field;
-          const response = await fetch(config.apiPath + '/toggle-status', {{
-            method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
-            body: JSON.stringify({{ fr_id: frId, field: field, version_token: versionToken }})
-          }});
-          const data = await response.json();
-          if (response.status === 409) {{
-            showConflict(data);
-            return;
-          }}
-          if (!response.ok) {{
-            showBanner(data.error || strings.statusToggleFailed);
-            return;
-          }}
-          hydrate(data);
-          showAutosaveIndicator(strings.statusToggled);
-        }});
-      }});
-    }}
+  const state = {
+    id, el, vditor: null, vditorReady: false,
+    apiPath: '', versionToken: '', docName: '',
+    autosaveTimer: null, collapsed: false, filterOn: false,
+  };
+  panes.push(state);
 
-    function renderThreads(threads) {{
-      if (!threadList) return;
-      threadList.innerHTML = (threads || []).map((thread) => `
-        <article class="thread-item">
-          <div><strong>${{thread.thread_id}}</strong> · ${{thread.initiator}} · ${{strings.status}}=${{thread.status}}</div>
-          <div class="binding-meta">${{strings.anchorLine}} ${{thread.anchor_line}} · ${{strings.rootLine}} ${{thread.root_line}}</div>
-          <p>${{thread.snippet || ''}}</p>
-          <div class="inline-form">
-            <input data-thread="${{thread.thread_id}}" class="reply-body" placeholder="${{strings.replyPlaceholder}}" />
-            <button data-action="reply" data-thread="${{thread.thread_id}}">${{strings.reply}}</button>
-            <button data-action="set-status" data-thread="${{thread.thread_id}}" data-status="resolved">${{strings.markResolved}}</button>
-          </div>
-        </article>
-      `).join('');
-      document.querySelectorAll('[data-action="reply"]').forEach((button) => {{
-        button.addEventListener('click', async () => {{
-          const thread = (threads || []).find((item) => item.thread_id === button.dataset.thread);
-          const body = document.querySelector(`input.reply-body[data-thread="${{thread.thread_id}}"]`).value.trim();
-          if (!body) return;
-          await mutateDiscussion('reply', thread, {{ body, thread_id: thread.thread_id }});
-        }});
-      }});
-      document.querySelectorAll('[data-action="set-status"]').forEach((button) => {{
-        button.addEventListener('click', async () => {{
-          const thread = (threads || []).find((item) => item.thread_id === button.dataset.thread);
-          await mutateDiscussion('set-status', thread, {{ status: button.dataset.status, thread_id: thread.thread_id }});
-        }});
-      }});
-    }}
+  const fileSelect = el.querySelector('.file-select');
+  fileSelect.addEventListener('change', () => loadDoc(id, fileSelect.value));
+  el.querySelectorAll('.icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleAction(id, btn.dataset.action, btn));
+  });
 
-    function hydrate(data) {{
-      source.value = data.body_md || '';
-      preview.innerHTML = data.rendered_html || '';
-      versionToken = data.version_token || '';
-      targetPath = data.path || targetPath;
-      renderMeta(data);
-      renderCards(data.cards || []);
-      renderThreads(data.discussion_threads || []);
-    }}
+  updatePaneHost();
+  if (docName) loadDoc(id, docName);
+  return id;
+}
 
-    async function load() {{
-      clearBanner();
-      const response = await fetch(config.apiPath, {{
-        headers: {{'Accept': 'application/json'}}
-      }});
-      const data = await response.json();
-      if (!response.ok) {{
-        showBanner(data.error || strings.loadFailed.replace('{{title}}', config.title));
+// Toggle the pane-host class on workspace / workspace-inner so the
+// comfortable 28px padding and 1600px reading-width cap are reclaimed
+// only when the pane layout actually needs the extra space.
+//
+// Decision: compute per-pane width in both normal and pane-host modes.
+// If normal mode already gives every pane >= 50 chars (~800px), keep
+// the padding. Otherwise switch to pane-host to reclaim the space.
+function updatePaneHost() {
+  const ws = document.getElementById('workspace');
+  const inner = document.getElementById('workspace-inner');
+  if (!ws || !inner) return;
+  const needs = needsPaneHost();
+  ws.classList.toggle('pane-host', needs);
+  inner.classList.toggle('pane-host', needs);
+}
+
+function needsPaneHost() {
+  if (panes.length === 0) return false;
+  const ws = document.getElementById('workspace');
+  if (!ws) return false;
+  const wsWidth = ws.getBoundingClientRect().width;
+  // Normal mode: 28px padding each side, inner capped at 1600px
+  const normalPerPane = Math.min(wsWidth - 56, 1600) / panes.length;
+  // 50 Chinese chars ~= 800px at 16px font
+  // If normal mode gives each pane enough width, keep the comfortable padding
+  if (normalPerPane >= 800) return false;
+  // Otherwise reclaim the padding to give panes more room
+  return true;
+}
+
+window.addEventListener('resize', updatePaneHost);
+// Also observe workspace size changes (e.g. sidebar collapse/expand)
+if (typeof ResizeObserver !== 'undefined') {
+  const _ro = new ResizeObserver(() => updatePaneHost());
+  document.addEventListener('DOMContentLoaded', () => {
+    const ws = document.getElementById('workspace');
+    if (ws) _ro.observe(ws);
+  });
+}
+
+async function loadDoc(paneId, docName) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+  pane.docName = docName;
+  pane.apiPath = '/api/docs/' + cfg.specId + '/' + docName;
+  try {
+    const resp = await fetch(pane.apiPath, { headers: { Accept: 'application/json' } });
+    const data = await resp.json();
+    if (!resp.ok) { showBanner(data.error || 'Load failed'); return; }
+    pane.versionToken = data.version_token || '';
+    if (pane.vditorReady && pane.vditor) {
+      pane.vditor.setValue(data.body_md || '');
+      postProcessDiscussions(paneId);
+    } else {
+      initVditor(paneId, data.body_md || '');
+    }
+    updateSaveTime(paneId, data.updated_at);
+  } catch(e) { showBanner('Network error: ' + e.message); }
+}
+
+function initVditor(paneId, initialMd) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+  if (typeof Vditor === 'undefined') {
+    const mount = pane.el.querySelector('.vditor-mount');
+    mount.innerHTML = '<textarea style="width:100%;height:100%;border:0;outline:none;padding:12px;font-family:monospace;" spellcheck="false"></textarea>';
+    const ta = mount.querySelector('textarea');
+    ta.value = initialMd;
+    pane.vditor = { getValue: () => ta.value, setValue: (v) => { ta.value = v; } };
+    pane.vditorReady = true;
+    ta.addEventListener('input', () => {
+      clearTimeout(pane.autosaveTimer);
+      pane.autosaveTimer = setTimeout(() => saveDoc(paneId, false), 5000);
+    });
+    return;
+  }
+  pane.vditor = new Vditor('vditor-' + paneId, {
+    mode: 'ir', value: initialMd, height: '100%',
+    toolbar: false, cache: { enable: false },
+    after: () => { pane.vditorReady = true; postProcessDiscussions(paneId); },
+    input: () => {
+      clearTimeout(pane.autosaveTimer);
+      pane.autosaveTimer = setTimeout(() => saveDoc(paneId, false), 5000);
+      clearTimeout(pane._discTimer);
+      pane._discTimer = setTimeout(() => postProcessDiscussions(paneId), 800);
+    }
+  });
+}
+
+async function saveDoc(paneId, force) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane || !pane.vditorReady) return;
+  try {
+    const resp = await fetch(pane.apiPath, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body_md: pane.vditor.getValue(), version_token: pane.versionToken, force: !!force })
+    });
+    const data = await resp.json();
+    if (resp.status === 409 && !force) {
+      showBanner('Conflict: ' + (data.error || '') + ' — click reload to discard, or save again to force.');
+      return;
+    }
+    if (!resp.ok) { showBanner(data.error || 'Save failed'); return; }
+    pane.versionToken = data.version_token || '';
+    updateSaveTime(paneId, new Date().toISOString());
+  } catch(e) { showBanner('Save error: ' + e.message); }
+}
+
+function updateSaveTime(paneId, timeStr) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+  const el = pane.el.querySelector('.save-time');
+  if (el && timeStr) {
+    const d = new Date(timeStr);
+    const time = isNaN(d) ? timeStr : d.toLocaleTimeString('en-GB');
+    el.textContent = 'Last Saved: ' + time;
+  }
+}
+
+function handleAction(paneId, action, btn) {
+  switch(action) {
+    case 'next-discussion': nextDiscussion(paneId); break;
+    case 'collapse': toggleCollapse(paneId, btn); break;
+    case 'next-unresolved': nextUnresolved(paneId); break;
+    case 'split': createPane(null); break;
+    case 'save': clearTimeout(panes.find(p=>p.id===paneId)?.autosaveTimer); saveDoc(paneId, false); break;
+    case 'reload': loadDoc(paneId, panes.find(p=>p.id===paneId)?.docName); break;
+    case 'close': closePane(paneId); break;
+  }
+}
+
+function closePane(paneId) {
+  if (panes.length <= 1) { showBanner('Cannot close the last pane'); return; }
+  const idx = panes.findIndex(p => p.id === paneId);
+  if (idx === -1) return;
+  const pane = panes[idx];
+  if (pane.vditor && typeof pane.vditor.destroy === 'function') {
+    try { pane.vditor.destroy(); } catch(e) {}
+  }
+  clearTimeout(pane.autosaveTimer);
+  clearTimeout(pane._discTimer);
+  pane.el.remove();
+  panes.splice(idx, 1);
+  updatePaneHost();
+}
+
+function isResolvedText(text) {
+  if (!text) return false;
+  return /\u2713|\[resolved\]|\[已决定\]|\[已解决\]|\[Decided\]|\[decided\]|\[wontfix\]/.test(text);
+}
+
+function isDiscussionText(text) {
+  if (!text) return false;
+  return /\[T-\d{3,4}\]/.test(text)
+      || /\b(Sage|Lex|Aaron|Devon|Archer|Maestro|Probe|Scout)\b\s*:/.test(text)
+      || /\u2713|\[resolved\]|\[decided\]|\[wontfix\]/.test(text);
+}
+
+function postProcessDiscussions(paneId) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane || !pane.vditorReady) return;
+  const ir = pane.el.querySelector('.vditor-ir');
+  if (!ir) return;
+  ir.querySelectorAll('[data-discussion]').forEach(el => { delete el.dataset.discussion; delete el.dataset.resolved; });
+  ir.querySelectorAll('blockquote').forEach(el => {
+    el.dataset.discussion = '1';
+    if (isResolvedText(el.textContent || '')) {
+      el.dataset.resolved = '1';
+    } else {
+      delete el.dataset.resolved;
+    }
+  });
+  ir.querySelectorAll('p, li').forEach(el => {
+    const text = el.textContent || '';
+    if (/\[T-\d{3,4}\]/.test(text)) {
+      el.dataset.discussion = '1';
+      if (isResolvedText(text)) { el.dataset.resolved = '1'; } else { delete el.dataset.resolved; }
+    }
+  });
+}
+
+function nextDiscussion(paneId) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+  const ir = pane.el.querySelector('.vditor-ir');
+  if (!ir) return;
+  postProcessDiscussions(paneId);
+  const discussions = Array.from(ir.querySelectorAll('[data-discussion="1"]'));
+  if (discussions.length === 0) { showBanner('No discussions found'); return; }
+  const mount = pane.el.querySelector('.vditor-mount');
+  const mountTop = mount ? mount.getBoundingClientRect().top : 0;
+  for (const el of discussions) {
+    if (el.getBoundingClientRect().top > mountTop + 20) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+  }
+  discussions[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showBanner('Wrapped to first discussion');
+}
+
+function toggleCollapse(paneId, btn) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+  pane.collapsed = !pane.collapsed;
+  pane.el.classList.toggle('discussions-collapsed', pane.collapsed);
+  btn.classList.toggle('active', pane.collapsed);
+}
+
+function nextUnresolved(paneId) {
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+  const ir = pane.el.querySelector('.vditor-ir');
+  if (!ir) return;
+  postProcessDiscussions(paneId);
+  const all = Array.from(ir.querySelectorAll('h1, h2, h3, h4, h5, h6, [data-discussion="1"]'));
+  const targets = [];
+  let curHeading = null, curHasUnresolved = false, curHasDiscussion = false;
+  function flush() {
+    if (!curHeading) return;
+    const text = curHeading.textContent.trim();
+    if (!/^(FR|NFR|AC)-\d/.test(text)) return;
+    if (curHasUnresolved || !curHasDiscussion) {
+      targets.push({ el: curHeading, text: text, inconsistent: isResolvedText(text) && curHasUnresolved });
+    }
+  }
+  for (const el of all) {
+    if (/^H[1-6]$/.test(el.tagName)) {
+      flush();
+      curHeading = el;
+      curHasUnresolved = false;
+      curHasDiscussion = false;
+    } else if (el.dataset.discussion === '1') {
+      curHasDiscussion = true;
+      if (el.dataset.resolved !== '1') curHasUnresolved = true;
+    }
+  }
+  flush();
+  const mount = pane.el.querySelector('.vditor-mount');
+  const mountTop = mount ? mount.getBoundingClientRect().top : 0;
+  if (targets.length === 0) {
+    const unresolved = Array.from(ir.querySelectorAll('[data-discussion="1"]:not([data-resolved="1"])'));
+    if (unresolved.length === 0) { showBanner('All FR/NFR/AC resolved \u2713'); return; }
+    for (const el of unresolved) {
+      if (el.getBoundingClientRect().top > mountTop + 20) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showBanner('Unresolved discussion (outside FR/NFR/AC)');
         return;
-      }}
-      hydrate(data);
-    }}
+      }
+    }
+    unresolved[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showBanner('\u21BB Unresolved discussion (outside FR/NFR/AC)');
+    return;
+  }
+  for (const t of targets) {
+    if (t.el.getBoundingClientRect().top > mountTop + 20) {
+      t.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showBanner((t.inconsistent ? '\u26A0 INCONSISTENT: ' : '') + t.text.substring(0, 50));
+      return;
+    }
+  }
+  const first = targets[0];
+  first.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showBanner('\u21BB ' + (first.inconsistent ? '\u26A0 ' : '') + first.text.substring(0, 50));
+}
 
-    async function save(force) {{
-      clearBanner();
-      const body = JSON.stringify({{
-        body_md: source.value,
-        version_token: versionToken,
-        force: !!force
-      }});
-      const response = await fetch(config.apiPath, {{
-        method: 'PUT',
-        headers: {{ 'Content-Type': 'application/json' }},
-        body: body
-      }});
-      const data = await response.json();
-      if (response.status === 409 && !force) {{
-        showConflict(data);
-        return;
-      }}
-      if (!response.ok) {{
-        showBanner(data.error || strings.saveFailed);
-        return;
-      }}
-      hydrate(data);
-      showAutosaveIndicator(strings.saved || 'Saved');
-    }}
-
-    function showConflict(data) {{
-      banner.hidden = false;
-      banner.innerHTML = `${{strings.conflictDetected || 'Conflict detected'}}: ${{data.error || ''}}
-        <button id="view-remote" class="conflict-btn">${{strings.viewRemote || 'View remote'}}</button>
-        <button id="force-overwrite" class="conflict-btn">${{strings.forceOverwrite || 'Force overwrite'}}</button>`;
-      document.getElementById('view-remote').addEventListener('click', async () => {{
-        const resp = await fetch(config.apiPath, {{ headers: {{'Accept': 'application/json'}} }});
-        const remote = await resp.json();
-        preview.innerHTML = remote.rendered_html || '';
-        showBanner(`${{strings.remoteLoaded || 'Remote loaded (read-only). Merge or discard your edits.'}}`);
-      }});
-      document.getElementById('force-overwrite').addEventListener('click', async () => {{
-        await save(true);
-      }});
-    }}
-
-    async function refreshPreview() {{
-      const serial = ++requestSerial;
-      const response = await fetch('/api/render', {{
-        method: 'POST',
-        headers: {{'Content-Type': 'application/json'}},
-        body: JSON.stringify({{
-          kind: config.kind,
-          doc_name: config.docName,
-          body_md: source.value
-        }})
-      }});
-      const data = await response.json();
-      if (serial !== requestSerial) return;
-      preview.innerHTML = data.rendered_html || '';
-      renderCards(data.cards || []);
-      renderThreads(data.discussion_threads || []);
-      attachXrefHandlers();
-    }}
-
-    // FR-0700: cross-reference link handling
-    let xrefHistory = [];
-    let allSpecs = [];
-    async function loadSpecList() {{
-      try {{
-        const resp = await fetch('/api/specs', {{ headers: {{'Accept': 'application/json'}} }});
-        const data = await resp.json();
-        allSpecs = data.specs || [];
-      }} catch(e) {{ allSpecs = []; }}
-    }}
-    loadSpecList();
-
-    function attachXrefHandlers() {{
-      preview.querySelectorAll('.xref-link').forEach((link) => {{
-        if (link._xrefBound) return;
-        link._xrefBound = true;
-        link.addEventListener('click', async (e) => {{
-          e.preventDefault();
-          if (link.classList.contains('xref-cross')) {{
-            await navigateCrossSpec(link);
-          }} else {{
-            const anchorId = link.getAttribute('href').slice(1);
-            const target = preview.querySelector('#' + CSS.escape(anchorId));
-            if (target) {{
-              xrefHistory.push(preview.scrollTop);
-              showXrefBack();
-              target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-            }} else {{
-              link.style.color = 'var(--border)';
-              link.style.textDecoration = 'line-through';
-            }}
-          }}
-        }});
-      }});
-    }}
-
-    async function navigateCrossSpec(link) {{
-      const prefix = link.dataset.spec;
-      const ref = link.dataset.ref;
-      const match = allSpecs.find(s => s.includes('-' + prefix + '-'));
-      if (!match) {{
-        showBanner(strings.xrefNotFound || `Spec "${{prefix}}" not found`);
-        return;
-      }}
-      xrefHistory.push({{ spec: config.apiPath, scroll: preview.scrollTop }});
-      showXrefBack();
-      const resp = await fetch(`/api/docs/${{match}}/spec`, {{ headers: {{'Accept': 'application/json'}} }});
-      const data = await resp.json();
-      const prevHtml = preview.innerHTML;
-      preview.innerHTML = `<button class="xref-back" id="xref-back">← ${{strings.xrefBack || 'Back'}}</button>` + (data.rendered_html || '');
-      document.getElementById('xref-back').addEventListener('click', () => {{
-        preview.innerHTML = prevHtml;
-        attachXrefHandlers();
-        hideXrefBack();
-      }});
-      const anchorId = ref.toLowerCase();
-      const target = preview.querySelector('#' + CSS.escape(anchorId));
-      if (target) {{
-        target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-      }}
-    }}
-
-    function showXrefBack() {{
-      // Native #anchor navigation uses browser history automatically;
-      // cross-spec uses explicit back button
-    }}
-    function hideXrefBack() {{}}
-
-    async function mutateDiscussion(action, thread, payload) {{
-      if (!config.discussionEnabled) return;
-      const response = await fetch('/api/discussions/mutate', {{
-        method: 'POST',
-        headers: {{ 'Content-Type': 'application/json' }},
-        body: JSON.stringify({{
-          target_kind: config.kind,
-          target_path: targetPath,
-          version_token: versionToken,
-          action,
-          anchor: {{ anchor_line: thread.anchor_line }},
-          payload: Object.assign({{}}, payload, thread)
-        }})
-      }});
-      const data = await response.json();
-      if (!response.ok) {{
-        showBanner(data.error || strings.discussionFailed);
-        return;
-      }}
-      hydrate(data);
-    }}
-
-    let autosaveTimer = null;
-    function showAutosaveIndicator(msg) {{
-      const ind = document.getElementById('autosave-indicator');
-      if (!ind) return;
-      ind.textContent = msg;
-      ind.hidden = false;
-      clearTimeout(ind._fadeTimer);
-      ind._fadeTimer = setTimeout(() => {{ ind.hidden = true; }}, 3000);
-    }}
-
-    source.addEventListener('input', () => {{
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(refreshPreview, 250);
-      clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(async () => {{
-        await save(false);
-      }}, 5000);
-    }});
-    saveButton.addEventListener('click', () => {{
-      clearTimeout(autosaveTimer);
-      save(false);
-    }});
-    reloadButton.addEventListener('click', load);
-
-    // FR-0200: sync scroll between editor and preview
-    let syncScrollSource = null;
-    function syncScroll(from, to) {{
-      if (syncScrollSource && syncScrollSource !== from) return;
-      syncScrollSource = from;
-      const ratio = from.scrollTop / Math.max(1, from.scrollHeight - from.clientHeight);
-      to.scrollTop = ratio * Math.max(1, to.scrollHeight - to.clientHeight);
-      setTimeout(() => {{ syncScrollSource = null; }}, 50);
-    }}
-    source.addEventListener('scroll', () => syncScroll(source, preview));
-    preview.addEventListener('scroll', () => syncScroll(preview, source));
-
-    // FR-0300: focus toggle (3-state: balanced -> content -> discussion -> balanced)
-    const focusToggle = document.getElementById('focus-toggle');
-    if (focusToggle) {{
-      let focusState = 'balanced';
-      focusToggle.textContent = strings.focusBalanced || 'Balanced';
-      focusToggle.addEventListener('click', () => {{
-        if (focusState === 'balanced') {{
-          focusState = 'content';
-          previewShell.classList.add('focus-content');
-          previewShell.classList.remove('focus-discussion');
-          focusToggle.textContent = strings.focusContent || 'Content';
-          focusToggle.classList.remove('state-discussion');
-        }} else if (focusState === 'content') {{
-          focusState = 'discussion';
-          previewShell.classList.remove('focus-content');
-          previewShell.classList.add('focus-discussion');
-          focusToggle.textContent = strings.focusDiscussion || 'Discussion';
-          focusToggle.classList.add('state-discussion');
-        }} else {{
-          focusState = 'balanced';
-          previewShell.classList.remove('focus-discussion');
-          previewShell.classList.remove('focus-content');
-          focusToggle.textContent = strings.focusBalanced || 'Balanced';
-          focusToggle.classList.remove('state-discussion');
-        }}
-      }});
-      document.getElementById('toggle-collapse').addEventListener('click', () => {{
-        previewShell.classList.toggle('collapsed');
-      }});
-      document.getElementById('start-discussion').addEventListener('click', async () => {{
-        const anchorLine = Number(document.getElementById('new-anchor-line').value || 0);
-        const body = document.getElementById('new-discussion-body').value.trim();
-        if (!anchorLine || !body) return;
-        const response = await fetch('/api/discussions/mutate', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{
-            target_kind: config.kind,
-            target_path: targetPath,
-            version_token: versionToken,
-            action: 'start',
-            anchor: {{ anchor_line: anchorLine }},
-            payload: {{ body }}
-          }})
-        }});
-        const data = await response.json();
-        if (!response.ok) {{
-          showBanner(data.error || strings.startDiscussionFailed);
-          return;
-        }}
-        hydrate(data);
-      }});
-    }}
-
-    const events = new EventSource('/api/events');
-    ['document.updated', 'wiki.updated', 'conflict.detected'].forEach((eventName) => {{
-      events.addEventListener(eventName, (event) => {{
-        const data = JSON.parse(event.data);
-        if (targetPath && data.target === targetPath && data.actor_name !== actorName) {{
-          showBanner(strings.remoteUpdated.replace('{{actor}}', data.actor_name));
-        }}
-      }});
-    }});
-
-    load();
-    </script>
-    """
+createPane(cfg.initialDoc);
+</script>"""
+    return js.replace("__CONFIG__", config)
 
 
 def _escape(text: str) -> str:
@@ -1655,6 +1895,8 @@ def _escape(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
 
 
 def _quote_path(path: str) -> str:
