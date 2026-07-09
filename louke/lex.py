@@ -27,6 +27,7 @@ def register(subparsers):
     p = sub.add_parser('verify-issue', help='run L1-L8 schema validation (Stage 3)')
     p.add_argument('--spec', required=True)
     p.add_argument('--repo', default='')
+    p.add_argument('--branch', default='', help='override default release branch (fix-094)')
 
     p = sub.add_parser('verify-project', help='validate Feature issues linked to Project (FR-0740)')
     p.add_argument('--spec', required=True)
@@ -83,11 +84,14 @@ def cmd_verify_acceptance(args):
 
 
 def cmd_verify_issue(args):
-    """FR-0540 partial: --repo auto-resolved from project-info."""
+    """FR-0540 partial: --repo auto-resolved from project-info. fix-094: --branch."""
     cmd = [sys.executable, '-m', 'louke._tools.verify_issue_schema', '--spec', args.spec]
     repo = args.repo or _read_project_info('Repo').replace('github.com/', '')
     if repo:
         cmd.extend(['--repo', repo])
+    branch = args.branch or _read_project_info('Release Branch')
+    if branch:
+        cmd.extend(['--branch', branch])
     result = subprocess.run(
         cmd,
         cwd=Path.cwd(),
