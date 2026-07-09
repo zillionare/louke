@@ -297,7 +297,8 @@ def _gh_smoke_pr(args, repo, version):
 
 
 def _git(args, *cmd):
-    return subprocess.run(['git', *cmd], cwd=Path.cwd(), capture_output=True, text=True).returncode, None, None
+    result = subprocess.run(['git', *cmd], cwd=Path.cwd(), capture_output=True, text=True)
+    return result.returncode, result.stdout, result.stderr
 
 
 # Detection priority table for pre-commit language templates.
