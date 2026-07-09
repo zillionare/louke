@@ -1802,7 +1802,8 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
   <main class="auth-shell">
     <section class="auth-hero">
       <div class="hero-copy">
-        <h1>Beyond Vibes, Into Craft (Louke)</h1>
+        <h1>Beyond Vibes, Into Craft</h1>
+        <h2>超越氛围编程 自是精工镂刻</h2>
       </div>
       <div class="photo-credit">
         Photo by <a href="https://unsplash.com/@min_square97?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText" target="_blank" rel="noreferrer">Min Square_97</a> on <a href="https://unsplash.com/photos/a-close-up-of-a-clock-with-gold-gears-snk-X32c8tE?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText" target="_blank" rel="noreferrer">Unsplash</a>
