@@ -211,6 +211,24 @@ class ProjectStore:
             )
         return pages
 
+    def wiki_index_path(self) -> Path:
+        """Path to the wiki index file (.louke/wiki/index.md)."""
+        return self.wiki_dir / "index.md"
+
+    def read_wiki_index(self) -> tuple[str, ResourceMetadata] | None:
+        """Read the wiki index file if it exists, else return None.
+
+        The wiki index is a regular Markdown file at .louke/wiki/index.md
+        that the librarian agent keeps up to date. The /wiki page renders
+        this file's content (instead of enumerating pages/ directly).
+        """
+        path = self.wiki_index_path()
+        if not path.exists():
+            return None
+        body_md = path.read_text(encoding="utf-8")
+        return body_md, self._metadata_for(path)
+        return pages
+
     def read_wiki_page(self, page: str) -> tuple[Path, str, str, ResourceMetadata]:
         path = self.wiki_page_path(page)
         if not path.exists():

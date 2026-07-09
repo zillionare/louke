@@ -21,6 +21,12 @@ RE_ANY_REF = re.compile(
 RE_HEADING_TAG = re.compile(r"<(h[1-6])([^>]*)>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
 RE_FR_IN_HEADING = re.compile(r"^\s*((?:FR|NFR)-(\d{3,4}))", re.IGNORECASE)
 
+# Wiki-style link: [[page-name]] or [[page-name|display text]].
+# Supports nested pages with slashes (e.g. [[guides/getting-started]]).
+# Reserved characters inside the page name: alphanumeric, dot, dash,
+# underscore, slash. Display text (after '|') is anything except ']'.
+RE_WIKI_LINK = re.compile(r"\[\[([A-Za-z0-9._/\-]+)(?:\|([^\]]+))?\]\]")
+
 
 @dataclass
 class RenderResult:
@@ -31,6 +37,11 @@ class RenderResult:
 
 def render_markdown_view(body_md: str, kind: str, doc_name: str = "") -> RenderResult:
     discussion_threads = extract_discussion_threads(body_md)
+    # Pre-process [[wiki-links]] to standard markdown links BEFORE
+    # rendering. Doing this here (rather than after) means the link
+    # text is parsed as part of normal markdown and won't accidentally
+    # match other post-processors (e.g. FR-XXXX detection).
+    body_md = _expand_wiki_links(body_md, kind=kind)
     rendered_html = render_flow_html(body_md)
     rendered_html = _add_heading_anchors(rendered_html)
     rendered_html = _linkify_references(rendered_html)
@@ -40,6 +51,27 @@ def render_markdown_view(body_md: str, kind: str, doc_name: str = "") -> RenderR
         cards=cards,
         discussion_threads=discussion_threads,
     )
+
+
+def _expand_wiki_links(body_md: str, kind: str = "") -> str:
+    """Convert [[page]] / [[page|text]] to standard markdown links.
+
+    Only runs on wiki documents to avoid breaking inline-discussion
+    threads that may legitimately use [[ ]] in spec bodies. The link
+    target is /wiki/<page> (or relative if a base is provided).
+    """
+    if kind != "wiki":
+        return body_md
+
+    def replace_wiki(m: re.Match) -> str:
+        page = m.group(1)
+        display = m.group(2) or page
+        # Encode path components (slashes preserved) so nested pages work.
+        from urllib.parse import quote
+        encoded = quote(page, safe="/")
+        return f"[{display}](/wiki/{encoded})"
+
+    return RE_WIKI_LINK.sub(replace_wiki, body_md)
 
 
 def _add_heading_anchors(html_str: str) -> str:

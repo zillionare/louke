@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import shutil
+import subprocess
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -48,6 +52,7 @@ def create_app(project_root: str | Path | None = None) -> Starlette:
             Route("/api/auth/logout", endpoint=api_auth_logout, methods=["POST"]),
             Route("/api/bindings", endpoint=api_bindings, methods=["GET", "PUT"]),
             Route("/api/wiki", endpoint=api_wiki_index, methods=["GET"]),
+            Route("/api/wiki/refresh", endpoint=api_wiki_refresh, methods=["POST"]),
             Route("/api/wiki/{page:path}", endpoint=api_wiki_page, methods=["GET", "PUT"]),
             Route("/api/docs/{spec_id:str}/{doc_name:str}", endpoint=api_doc, methods=["GET", "PUT"]),
             Route("/api/docs/{spec_id:str}/{doc_name:str}/toggle-status", endpoint=api_toggle_status, methods=["POST"]),
@@ -108,11 +113,11 @@ async def home_page(request: Request) -> HTMLResponse:
         <h2>{_escape(_t(lang, "nav.docs"))}</h2>
         <p>{_escape(_t(lang, "home.docs_desc"))}</p>
       </a>
-      <a class="card card-link" href="/wiki">
-        <div class="card-kicker">wiki</div>
-        <h2>wiki</h2>
-        <p>{_escape(_t(lang, "home.wiki_desc"))}</p>
-      </a>
+       <a class="card card-link" href="/wiki">
+         <div class="card-kicker">llm wiki</div>
+         <h2>llm wiki</h2>
+         <p>{_escape(_t(lang, "home.wiki_desc"))}</p>
+       </a>
     </section>
     """
     return HTMLResponse(_page_shell("louke web", store, user, lang, "home", body))
@@ -160,30 +165,69 @@ async def wiki_index_page(request: Request) -> HTMLResponse:
     store: ProjectStore = request.app.state.store
     lang = _ui_language(request)
     pages = store.list_wiki_pages()
-    items = []
-    for page in pages:
-        items.append(
-            f'<a class="card card-link wiki-card" href="/wiki/{_quote_path(page["page"])}">'
-            f'<h2>{_escape(page["page"])}</h2>'
-            f'<p>{_escape(page["updated_at"] or _t(lang, "meta.not_recorded"))}</p>'
-            f"</a>"
-        )
-    body = f"""
-    <header class="page-header">
-      <div>
-        <span class="eyebrow">Wiki</span>
-        <h1>wiki</h1>
-        <p class="lede">{_escape(_t(lang, "wiki.index_lede"))}</p>
-      </div>
-      <div class="toolbar-actions">
-        <input id="new-page" placeholder="guides/getting-started" />
-        <button id="create-page">{_escape(_t(lang, "wiki.create_open"))}</button>
-      </div>
-    </header>
-    <section class="grid cards">
-      {''.join(items) or f'<div class="card"><p>{_escape(_t(lang, "wiki.empty"))}</p></div>'}
-    </section>
-    """
+    index_entry = store.read_wiki_index()
+    if index_entry is not None:
+        # Render the content of .louke/wiki/index.md (maintained by the
+        # librarian agent) as the wiki landing page, with the list of
+        # wiki pages as a side card.
+        from .render import render_markdown_view
+        rendered = render_markdown_view(index_entry[0], kind="wiki")
+        last_modified = index_entry[1].updated_at or _t(lang, "meta.not_recorded")
+        last_modified_by = index_entry[1].last_modified_by or _t(lang, "meta.unknown")
+        body = f"""
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">llm wiki</span>
+            <h1>llm wiki</h1>
+            <p class="lede">{_escape(_t(lang, "wiki.index_lede"))}</p>
+          </div>
+          <div class="toolbar-actions">
+            <input id="new-page" placeholder="guides/getting-started" />
+            <button id="create-page">{_escape(_t(lang, "wiki.create_open"))}</button>
+          </div>
+        </header>
+        <section class="grid wiki-layout">
+          <article class="card wiki-index-body">
+            <div class="wiki-index-content">{rendered.rendered_html}</div>
+            <div class="meta">Last modified by {_escape(last_modified_by)} @ {_escape(last_modified)}</div>
+          </article>
+          <aside class="card wiki-pages-list">
+            <h2>Pages ({len(pages)})</h2>
+            <ul class="wiki-pages-ul">
+              {''.join(
+                f'<li><a href="/wiki/{_quote_path(p["page"])}">{_escape(p["page"])}</a></li>'
+                for p in pages
+              ) or f'<li class="muted">{_escape(_t(lang, "wiki.empty"))}</li>'}
+            </ul>
+          </aside>
+        </section>
+        """
+    else:
+        # No index.md yet — fall back to the legacy "card grid" listing.
+        items = []
+        for page in pages:
+            items.append(
+                f'<a class="card card-link wiki-card" href="/wiki/{_quote_path(page["page"])}">'
+                f'<h2>{_escape(page["page"])}</h2>'
+                f'<p>{_escape(page["updated_at"] or _t(lang, "meta.not_recorded"))}</p>'
+                f"</a>"
+            )
+        body = f"""
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">llm wiki</span>
+            <h1>llm wiki</h1>
+            <p class="lede">{_escape(_t(lang, "wiki.index_lede"))}</p>
+          </div>
+          <div class="toolbar-actions">
+            <input id="new-page" placeholder="guides/getting-started" />
+            <button id="create-page">{_escape(_t(lang, "wiki.create_open"))}</button>
+          </div>
+        </header>
+        <section class="grid cards">
+          {''.join(items) or f'<div class="card"><p>{_escape(_t(lang, "wiki.empty"))}</p></div>'}
+        </section>
+        """
     script = """
     <script>
     document.getElementById('create-page').addEventListener('click', () => {
@@ -344,6 +388,146 @@ async def api_wiki_index(request: Request) -> JSONResponse:
     if isinstance(user, Response):
         return user
     return JSONResponse({"pages": request.app.state.store.list_wiki_pages()})
+
+
+async def api_wiki_refresh(request: Request) -> JSONResponse:
+    """Trigger a librarian agent run to refresh the wiki.
+
+    Delegates to `lk agent librarian rewrite`, which:
+      1. Selects the right compact bundle (M2 merged vs M0/M1 main).
+      2. Resolves the model via `--model > --model-from-config > frontmatter`.
+      3. Spawns `opencode run --agent librarian [--model X] -- <prompt>`
+         where <prompt> is a fully-formed instruction (without -- or a
+         prompt, the opencode CLI errors with
+         "You must provide a message or a command").
+
+    All stdout/stderr/returncode are emitted to the server log so
+    non-zero exits are debuggable without re-running the agent.
+    """
+    user = _require_api_user(request)
+    if isinstance(user, Response):
+        return user
+    store: ProjectStore = request.app.state.store
+    project_root = store.root
+
+    _logger.info("wiki refresh requested by %s in %s", user.username, project_root)
+
+    # Auto-prepare: if no compact bundle exists, run `lk agent librarian
+    # compact` first so the user never has to remember to do it manually.
+    # The rewrite subcommand assumes .compact-bundle.md (or the M2 merged
+    # bundle) is present; without it, the click would fail with a
+    # confusing "compact-bundle missing" error. Running compact inline
+    # makes the click work end-to-end.
+    wiki_dir = project_root / ".louke" / "wiki"
+    bundle_main = wiki_dir / ".compact-bundle.md"
+    bundle_merged = wiki_dir / ".compact-bundle-merged.md"
+    if not bundle_main.exists() and not bundle_merged.exists():
+        if (project_root / ".louke" / "raw").exists():
+            _logger.info("auto-running librarian compact (no bundle yet)")
+            compact_proc = subprocess.run(
+                [sys.executable, "-m", "louke", "agent", "librarian", "compact"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            _logger.info(
+                "auto-compact finished: returncode=%d (stdout=%d bytes, stderr=%d bytes)",
+                compact_proc.returncode,
+                len(compact_proc.stdout or ""),
+                len(compact_proc.stderr or ""),
+            )
+            for line in (compact_proc.stdout or "").splitlines():
+                _logger.info("auto-compact stdout | %s", line)
+            for line in (compact_proc.stderr or "").splitlines():
+                _logger.info("auto-compact stderr | %s", line)
+            if compact_proc.returncode != 0:
+                # If compact fails (e.g. raw/ doesn't exist), surface a clear
+                # hint instead of a generic rewrite error.
+                _logger.warning(
+                    "auto-compact returned non-zero; rewriting with whatever "
+                    "is on disk may still succeed or will fail with hint."
+                )
+        else:
+            _logger.warning(
+                "no .louke/raw/ directory; skipping auto-compact. Run "
+                "`lk agent librarian compact` first to seed raw data."
+            )
+
+    # Invoke lk as a Python module via the same interpreter that runs
+    # this server. This avoids depending on the `lk` console-script
+    # being on PATH — some IDE-launched servers (e.g. Trae CN) strip
+    # PATH down to a single entry, and the `lk` script installed by
+    # `pip install -e .` into `.venv/bin/` is not visible from there.
+    # `python -m louke` always works as long as louke is importable,
+    # which it must be (this code is in louke.web).
+    cmd = [
+        sys.executable, "-m", "louke",
+        "agent", "librarian", "rewrite",
+    ]
+    _logger.info("spawning: %s (cwd=%s)", " ".join(cmd), project_root)
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        _logger.error("librarian run exceeded 10 minute timeout in %s", project_root)
+        return JSONResponse(
+            {"error": "librarian run exceeded 10 minute timeout"},
+            status_code=504,
+        )
+    except Exception as exc:
+        _logger.exception("failed to spawn lk in %s", project_root)
+        return JSONResponse({"error": f"failed to spawn lk: {exc}"}, status_code=500)
+
+    # Log everything so non-zero exits are debuggable from the server log.
+    log_fn = _logger.info if proc.returncode == 0 else _logger.error
+    log_fn("librarian finished: returncode=%d (stdout=%d bytes, stderr=%d bytes)",
+           proc.returncode,
+           len(proc.stdout or ""),
+           len(proc.stderr or ""))
+    if proc.stdout:
+        for line in proc.stdout.splitlines():
+            log_fn("librarian stdout | %s", line)
+    if proc.stderr:
+        for line in proc.stderr.splitlines():
+            log_fn("librarian stderr | %s", line)
+    if proc.returncode != 0:
+        _logger.error("librarian run failed (exit %d). Last 80 lines of combined output:",
+                      proc.returncode)
+        combined = (proc.stderr or "") + "\n" + (proc.stdout or "")
+        for line in combined.splitlines()[-80:]:
+            _logger.error("  %s", line)
+
+    # Record activity so other clients see that the wiki was refreshed.
+    index_path = store.wiki_index_path()
+    if index_path.exists():
+        metadata = store.record_activity(
+            "wiki.updated", index_path, user.username,
+            extra={"action": "librarian.refresh", "returncode": proc.returncode},
+        )
+    else:
+        metadata = None
+
+    payload: dict[str, Any] = {
+        "ok": proc.returncode == 0,
+        "returncode": proc.returncode,
+        "stdout": proc.stdout[-4000:] if proc.stdout else "",
+        "stderr": proc.stderr[-4000:] if proc.stderr else "",
+    }
+    if metadata is not None:
+        payload["updated_at"] = metadata.updated_at
+        payload["last_modified_by"] = metadata.last_modified_by
+    # Surface a clearer hint when the failure is the missing-bundle
+    # precondition (so the UI message can guide the user to run
+    # `lk agent librarian compact` first).
+    if proc.returncode != 0 and proc.stderr and "compact-bundle" in proc.stderr:
+        payload["hint"] = "Run `lk agent librarian compact` first to create .compact-bundle.md"
+    return JSONResponse(payload)
 
 
 async def api_wiki_page(request: Request) -> JSONResponse:
@@ -587,6 +771,9 @@ def _require_page_user(request: Request) -> AuthenticatedUser | Response:
     return RedirectResponse(url=f"/login?{urlencode({'next': next_path})}", status_code=303)
 
 
+_logger = logging.getLogger("louke.web")
+
+
 def _require_api_user(request: Request) -> AuthenticatedUser | Response:
     user = _current_user(request)
     if user is not None:
@@ -785,6 +972,114 @@ def _page_shell(
       background: var(--surface-alt);
       color: var(--text);
     }}
+    .nav-link-row {{
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }}
+    .nav-link-row > a {{ flex: 1; }}
+    .wiki-refresh-btn {{
+      background: transparent;
+      border: 0;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }}
+    .wiki-refresh-btn:hover {{
+      background: var(--surface-alt);
+      color: var(--text);
+    }}
+    .wiki-refresh-btn[data-busy="1"] {{
+      opacity: 0.7;
+      cursor: wait;
+      animation: wiki-refresh-spin 1.2s linear infinite;
+    }}
+    @keyframes wiki-refresh-spin {{
+      from {{ transform: rotate(0deg); }}
+      to   {{ transform: rotate(360deg); }}
+    }}
+    /* Modal overlay for wiki refresh — full-screen, step-by-step status */
+    .wiki-modal[hidden] {{ display: none; }}
+    .wiki-modal-backdrop {{
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
+      display: grid; place-items: center;
+    }}
+    .wiki-modal-dialog {{
+      width: min(420px, calc(100vw - 32px));
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+      padding: 24px 24px 20px;
+      font-size: 14px;
+      color: var(--text);
+    }}
+    .wiki-modal-title {{
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 0 0 12px; font-size: 16px; font-weight: 600;
+    }}
+    .wiki-modal-elapsed {{
+      font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted);
+    }}
+    .wiki-modal-steps {{ list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }}
+    .wiki-modal-step {{
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }}
+    .wiki-modal-step .step-icon {{
+      width: 18px; height: 18px; display: inline-flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: 13px;
+      border: 1px solid var(--border); border-radius: 50%;
+      background: var(--surface); color: var(--muted);
+    }}
+    .wiki-modal-step.active {{
+      background: var(--surface-alt); color: var(--text);
+      border-color: var(--accent);
+    }}
+    .wiki-modal-step.active .step-icon {{
+      background: var(--accent); color: white; border-color: var(--accent);
+      animation: wiki-modal-pulse 1.4s ease-in-out infinite;
+    }}
+    .wiki-modal-step.done {{
+      color: var(--text);
+    }}
+    .wiki-modal-step.done .step-icon {{
+      background: #16a34a; color: white; border-color: #16a34a;
+    }}
+    .wiki-modal-step.failed {{
+      color: #b91c1c; border-color: #fecaca; background: #fef2f2;
+    }}
+    .wiki-modal-step.failed .step-icon {{
+      background: #b91c1c; color: white; border-color: #b91c1c;
+    }}
+    @keyframes wiki-modal-pulse {{
+      0%, 100% {{ transform: scale(1); opacity: 1; }}
+      50%      {{ transform: scale(1.08); opacity: 0.7; }}
+    }}
+    .wiki-modal-detail {{
+      margin: 8px 0 12px; padding: 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface);
+      font-family: ui-monospace, monospace;
+      font-size: 12px; line-height: 1.45;
+      max-height: 140px; overflow: auto;
+      white-space: pre-wrap; word-break: break-word;
+      color: var(--text);
+    }}
+    .wiki-modal-actions {{
+      display: flex; gap: 8px; justify-content: flex-end;
+    }}
+    .wiki-modal-actions .ghost-button {{ padding: 6px 12px; font-size: 13px; }}
     .nav-section {{
       margin-top: 18px;
     }}
@@ -875,6 +1170,14 @@ def _page_shell(
     .editor-grid {{ grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr); }}
     .models-grid {{ grid-template-columns: 280px 1fr 1fr; }}
     .cards {{ grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 16px; }}
+    .wiki-layout {{ grid-template-columns: minmax(0, 1fr) 280px; margin-top: 16px; align-items: start; }}
+    .wiki-index-body {{ min-width: 0; }}
+    .wiki-index-content {{ line-height: 1.6; }}
+    .wiki-index-content h1, .wiki-index-content h2, .wiki-index-content h3 {{ margin-top: 16px; }}
+    .wiki-pages-list h2 {{ font-size: 14px; margin: 0 0 10px; }}
+    .wiki-pages-ul {{ list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }}
+    .wiki-pages-ul li a {{ display: block; padding: 6px 8px; border-radius: 6px; color: var(--text); font-size: 13px; }}
+    .wiki-pages-ul li a:hover {{ background: var(--surface-alt); }}
     .panel, .card, .banner {{
       background: var(--surface);
       border: 1px solid var(--border);
@@ -1216,6 +1519,34 @@ def _page_shell(
 </head>
 <body class="page-{section}" data-actor-name="{_escape(user.username)}" data-ui-lang="{_escape(lang)}">
   <button class="sidebar-toggle" onclick="document.querySelector('.app-shell').classList.toggle('sidebar-collapsed')">☰</button>
+  <div id="wiki-modal" class="wiki-modal" hidden>
+    <div class="wiki-modal-backdrop">
+      <div class="wiki-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="wiki-modal-title">
+        <h2 class="wiki-modal-title">
+          <span id="wiki-modal-title">更新 wiki</span>
+          <span id="wiki-modal-elapsed" class="wiki-modal-elapsed">0:00</span>
+        </h2>
+        <ol class="wiki-modal-steps" id="wiki-modal-steps">
+          <li class="wiki-modal-step" data-step="prepare">
+            <span class="step-icon">1</span>
+            <span class="step-label">准备中</span>
+          </li>
+          <li class="wiki-modal-step" data-step="agent">
+            <span class="step-icon">2</span>
+            <span class="step-label">调用 Agent 生成 llm wiki 中</span>
+          </li>
+          <li class="wiki-modal-step" data-step="apply">
+            <span class="step-icon">3</span>
+            <span class="step-label">应用更新</span>
+          </li>
+        </ol>
+        <div class="wiki-modal-detail" id="wiki-modal-detail" hidden></div>
+        <div class="wiki-modal-actions">
+          <button type="button" id="wiki-modal-dismiss" class="ghost-button" style="display: none;">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="app-shell">
     <aside class="sidebar">
       {sidebar}
@@ -1234,6 +1565,149 @@ def _page_shell(
         location.href = '/login';
       }});
     }});
+    const wikiRefreshBtn = document.getElementById('wiki-refresh');
+    if (wikiRefreshBtn) {{
+      const modalEl = document.getElementById('wiki-modal');
+      const modalElapsed = document.getElementById('wiki-modal-elapsed');
+      const modalDetail = document.getElementById('wiki-modal-detail');
+      const modalDismiss = document.getElementById('wiki-modal-dismiss');
+      const stepEls = {{
+        prepare: modalEl ? modalEl.querySelector('[data-step="prepare"]') : null,
+        agent:   modalEl ? modalEl.querySelector('[data-step="agent"]')   : null,
+        apply:   modalEl ? modalEl.querySelector('[data-step="apply"]')   : null,
+      }};
+
+      function fmtElapsed(ms) {{
+        const s = Math.floor(ms / 1000);
+        const m = Math.floor(s / 60);
+        return m + ':' + String(s % 60).padStart(2, '0');
+      }}
+
+      let elapsedTimer = null;
+      function startElapsed() {{
+        if (elapsedTimer) return;
+        const start = Date.now();
+        elapsedTimer = setInterval(() => {{
+          if (modalElapsed) modalElapsed.textContent = fmtElapsed(Date.now() - start);
+        }}, 1000);
+      }}
+      function stopElapsed() {{
+        if (elapsedTimer) {{ clearInterval(elapsedTimer); elapsedTimer = null; }}
+      }}
+
+      function resetSteps() {{
+        for (const k of Object.keys(stepEls)) {{
+          const el = stepEls[k];
+          if (!el) continue;
+          el.classList.remove('active', 'done', 'failed');
+          const icon = el.querySelector('.step-icon');
+          if (icon) icon.textContent = String(Object.keys(stepEls).indexOf(k) + 1);
+          const label = el.querySelector('.step-label');
+          if (label) label.textContent = label.dataset.default || label.textContent;
+        }}
+      }}
+      function setStep(key, state, label) {{
+        const el = stepEls[key];
+        if (!el) return;
+        el.classList.remove('active', 'done', 'failed');
+        el.classList.add(state);
+        const icon = el.querySelector('.step-icon');
+        if (icon) {{
+          icon.textContent = state === 'done' ? '\u2713' :
+                             state === 'failed' ? '\u2717' :
+                             (icon.dataset.idx || Object.keys(stepEls).indexOf(key) + 1);
+        }}
+        const lbl = el.querySelector('.step-label');
+        if (lbl && label) lbl.textContent = label;
+      }}
+      // Cache default labels so resetSteps() can restore them.
+      for (const el of Object.values(stepEls)) {{
+        if (!el) continue;
+        const lbl = el.querySelector('.step-label');
+        if (lbl) lbl.dataset.default = lbl.textContent;
+        const icon = el.querySelector('.step-icon');
+        if (icon) icon.dataset.idx = icon.textContent;
+      }}
+
+      function showModal() {{
+        modalEl.hidden = false;
+        resetSteps();
+        setStep('prepare', 'active');
+        modalElapsed.textContent = '0:00';
+        modalDetail.hidden = true;
+        modalDetail.textContent = '';
+        modalDismiss.style.display = 'none';
+        startElapsed();
+      }}
+      function hideModal() {{
+        modalEl.hidden = true;
+        stopElapsed();
+        wikiRefreshBtn.dataset.busy = '0';
+      }}
+      function showDetail(text) {{
+        modalDetail.textContent = text;
+        modalDetail.hidden = false;
+      }}
+
+      if (modalDismiss) {{
+        modalDismiss.addEventListener('click', hideModal);
+      }}
+
+      wikiRefreshBtn.addEventListener('click', async (e) => {{
+        e.preventDefault();
+        e.stopPropagation();
+        if (wikiRefreshBtn.dataset.busy === '1') return;
+        wikiRefreshBtn.dataset.busy = '1';
+        showModal();
+        setStep('prepare', 'done', '准备完成');
+        setStep('agent', 'active', '调用 Agent 生成 llm wiki 中');
+        try {{
+          const resp = await fetch('/api/wiki/refresh', {{ method: 'POST' }});
+          setStep('agent', 'done', 'Agent 已返回');
+          setStep('apply', 'active', '应用更新中');
+          const data = await resp.json();
+          if (!resp.ok) {{
+            setStep('apply', 'failed', '更新失败 (HTTP ' + resp.status + ')');
+            showDetail((data && data.error) || ('HTTP ' + resp.status));
+            modalDismiss.style.display = '';
+            modalDismiss.textContent = '关闭';
+            hideModal.bind(null); // no-op; button stays
+            return;
+          }}
+          if (data.ok) {{
+            setStep('apply', 'done', '完成');
+            showDetail('页面即将刷新…');
+            stopElapsed();
+            setTimeout(() => location.reload(), 600);
+            return;
+          }}
+          // Non-zero exit (e.g. agent failed). Show stderr + hint if present.
+          const stderrTail = (data.stderr || '').split('\\n').filter(Boolean).slice(-3).join('\\n');
+          const detail = [
+            data.hint ? '提示：' + data.hint : null,
+            stderrTail ? stderrTail : null,
+            '详见服务器日志。',
+          ].filter(Boolean).join('\\n\\n');
+          setStep('apply', 'failed', '更新失败 (exit ' + data.returncode + ')');
+          showDetail(detail);
+          modalDismiss.style.display = '';
+          modalDismiss.textContent = '关闭';
+          stopElapsed();
+          wikiRefreshBtn.dataset.busy = '0';
+        }} catch (err) {{
+          setStep('apply', 'failed', '网络错误');
+          showDetail(err.message || String(err));
+          modalDismiss.style.display = '';
+          modalDismiss.textContent = '关闭';
+          stopElapsed();
+          wikiRefreshBtn.dataset.busy = '0';
+        }}
+      }});
+      // Note: no polling on page load — the current /api/wiki/refresh is
+      // synchronous (subprocess.run blocks until the agent finishes). When
+      // we move to an async job queue, also add a status endpoint AND
+      // register it BEFORE the /api/wiki/<page:path> wildcard route.
+    }}
   </script>
 </body>
 </html>"""
@@ -1274,7 +1748,10 @@ def _sidebar_html(
       <a class="{_nav_link_class(section == 'models')}" href="/models">{_escape(_t(lang, "nav.models"))}</a>
       <a class="{_nav_link_class(section == 'docs')}" href="/docs/{_escape(spec_id)}/spec">{_escape(_t(lang, "nav.docs"))}</a>
       {_docs_sublinks(spec_id, docs, current_doc_name)}
-      <a class="{_nav_link_class(section == 'wiki')}" href="/wiki">wiki</a>
+      <div class="nav-link-row">
+        <a class="{_nav_link_class(section == 'wiki')}" href="/wiki" style="flex: 1;">llm wiki</a>
+        <button type="button" class="wiki-refresh-btn" id="wiki-refresh" title="Refresh wiki via librarian">↻</button>
+      </div>
       {_wiki_sublinks(wiki_groups, current_wiki_page)}
     </div>
     """

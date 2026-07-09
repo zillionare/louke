@@ -317,7 +317,7 @@ def cmd_compact(args):
 
     FR-0080: removed cmd_from_raw + cmd_daily; merged into cmd_compact.
     FR-0140: auto-select M0/M1/M2 mode based on token volume.
-    FR-0140.2 P0-3 / P1-4: clean old bundles on entry.
+    FR-0140.2 P0-3 / P1-4: clean old bundles just before write (NOT on entry).
     FR-0080 P1-8: skip raw entries without date field + warning.
     """
     cwd = Path.cwd()
@@ -329,12 +329,6 @@ def cmd_compact(args):
         print('raw dir does not exist: .louke/raw/', file=sys.stderr)
         return 1
     wiki_pages_dir.mkdir(parents=True, exist_ok=True)
-
-    # 1. clean old bundles (P0-3 / P1-4)
-    if not args.dry_run:
-        cleaned = _cleanup_old_bundles(wiki_dir)
-        if cleaned:
-            print(f'[compact] cleaned {cleaned} old bundle(s)')
 
     # 2. compute window
     cache = _read_cache()
@@ -358,8 +352,14 @@ def cmd_compact(args):
             print(f'  ... (+{len(skipped_no_date) - 10} more)')
 
     if not matched:
-        print('[compact] no new raw to distill, zero output')
-        # update last_distill even on zero output to stay idempotent (dry-run does not write)
+        print('[compact] no new raw to distill, zero output (existing bundles preserved)')
+        # update last_distill even on zero output to stay idempotent (dry-run does not write).
+        # IMPORTANT: do NOT delete bundles here — if we already wrote them
+        # on a previous run and there's no new raw, the existing bundles
+        # remain valid for `lk agent librarian rewrite`. Deleting them was
+        # a footgun (FR-0140.2 footgun-fixed): a no-op compact would wipe
+        # the very artifact that downstream rewrite depends on. Cleanup is
+        # now performed just before writing fresh bundles below.
         if not args.dry_run:
             cache = _read_cache()
             cache['last_distill'] = yesterday
@@ -390,7 +390,17 @@ def cmd_compact(args):
         mode = 'M2_map_reduce'
         print(f'[compact] M2: chunk by month, will produce multiple bundles + merged')
 
-    # 6. write bundle(s)
+    # 6. clean old bundles (footgun-fix: only when we are about to write
+    # fresh ones). Bundles are intermediate products of compact and are
+    # not persisted beyond the current cached window; deleting them now
+    # ensures no stale `.compact-bundle-merged.md` from a previous M2 run
+    # leaks into the next M0/M1 run.
+    if not args.dry_run:
+        cleaned = _cleanup_old_bundles(wiki_dir)
+        if cleaned:
+            print(f'[compact] cleaned {cleaned} old bundle(s)')
+
+    # 7. write bundle(s)
     if mode == 'M2_map_reduce':
         from collections import defaultdict
         grouped = defaultdict(list)
@@ -433,10 +443,18 @@ def cmd_compact(args):
 
 
 def cmd_rewrite(args):
-    """LLM full rewrite of pages/, via opencode run --agent librarian.
+    """LLM full rewrite of pages/, via opencode run.
 
     FR-0130: shell-out to OpenCode CLI, does not call LLM SDK directly.
     FR-0140.4 P1-7: model priority chain --model > --model-from-config > frontmatter.
+
+    Note on `--agent librarian`: opencode refuses to start a subagent as
+    the primary target of `opencode run` (subagents can only be dispatched
+    FROM a primary, not invoked as one). Instead, we run the default
+    primary agent (Maestro) with an explicit "you are playing the
+    librarian role" prompt. Maestro has the same tools (bash, edit, read)
+    that the librarian subagent needs, and the bundled prompt above
+    spells out the exact workflow so the answer is deterministic.
     """
     cwd = Path.cwd()
     wiki_dir = cwd / '.louke' / 'wiki'
@@ -455,7 +473,15 @@ def cmd_rewrite(args):
         bundle = bundle_main
         mode_hint = 'M0/M1_full'
 
-    # model priority chain: --model > --model-from-config > frontmatter (FR-0140.4)
+    # Model priority chain (FR-0140.4):
+    #   1. --model flag (explicit, always wins)
+    #   2. --model-from-config: read current lk models bind
+    #   3. librarian frontmatter models[0] (single value, no provider prefix)
+    #   4. opencode default model from .opencode/opencode.json
+    # Without one of these, opencode falls back to a placeholder model
+    # (e.g. "volcengine-plan/ark-code-latest") that may not exist on the
+    # user's currently-active provider, which surfaces as
+    # `ProviderModelNotFoundError -> UnknownError "err_XXXXXX"`.
     model_flag = []
     if args.model:
         model_flag = ['--model', args.model]
@@ -470,10 +496,39 @@ def cmd_rewrite(args):
                 model_flag = ['--model', bound.stdout.strip()]
         except FileNotFoundError:
             pass
-    # otherwise: do not pass --model; OpenCode uses the first frontmatter models: entry
+    if not model_flag:
+        # Fall back to librarian's own frontmatter models[0]. This is
+        # what `opencode run` honours when --agent-style dispatch happens;
+        # for the direct-primary invocation path we mirror it explicitly.
+        from .board import agent_source, parse_frontmatter
+        src = agent_source(Path.cwd())
+        libr_path = src / 'Librarian.md'
+        if libr_path.exists():
+            fm, _ = parse_frontmatter(libr_path.read_text(encoding='utf-8'))
+            libr_models = fm.get('models') or []
+            if isinstance(libr_models, str):
+                libr_models = [libr_models]
+            if libr_models:
+                model_flag = ['--model', str(libr_models[0])]
+        # Last-ditch fallback used to be "do not pass --model" (let
+        # opencode use its global default). That default may be a model
+        # that is not on the user's active provider, so we always pass
+        # --model when we have any candidate. If nothing above yields one,
+        # raise an explicit error rather than letting opencode crash with
+        # an opaque UnknownError ref code (e.g. err_974c503f).
+        if not model_flag:
+            print(
+                'error: no model available. Set one of:\n'
+                '  - lk agent librarian rewrite --model provider/model\n'
+                '  - lk agent librarian rewrite --model-from-config\n'
+                '  - .louke/models.json assignments (lk models bind ...)',
+                file=sys.stderr,
+            )
+            return 2
 
     if args.dry_run:
-        cmd_preview = ['opencode', 'run', '--agent', 'librarian']
+        # No --agent librarian (subagent can't be primary target; see docstring).
+        cmd_preview = ['opencode', 'run']
         cmd_preview += model_flag
         cmd_preview += ['--', '<prompt>']
         print(f'[dry-run] {bundle.name} ({mode_hint})')
@@ -481,26 +536,68 @@ def cmd_rewrite(args):
         return 0
 
     prompt = f'''
-You are the Librarian subagent, in CLI batch mode (started via `opencode run --agent librarian`).
+You are playing the **Librarian** role. Run as a CLI batch: distill and exit.
 
-Task: fully rewrite wiki pages/ based on raw.
+# Context: this is an llm-wiki (Karpathy-style)
+
+The wiki is **not** a knowledge base of historical records. It is the
+**current best understanding** of every topic the project touches. The
+shape is "one concise page per topic, always reflecting the latest and
+most correct knowledge". Older material is **not preserved** in the
+wiki — it lives in `.louke/raw/` for reference. NEVER add a page like
+"本页面已废弃" or migrate-by-preserving-as-archive.
 
 Inputs:
-1. Read {bundle} (contains raw full text + existing pages/ + distillation instructions, mode: {mode_hint})
-2. Read all existing pages under .louke/wiki/pages/
+1. {bundle} (raw conversations + existing pages; mode: {mode_hint})
+2. .louke/wiki/pages/ (current wiki pages)
+3. .louke/raw/ (full source transcripts — the original, unedited record)
 
-Outputs:
-1. **Full rewrite** of .louke/wiki/pages/ (not a patch):
-   - Keep decisions that still hold
-   - Delete/merge outdated ones
-   - Add newly emerged topics
-   - Every wiki decision must be traceable to evidence in raw (quote dialogue syntax, see v0.4-004)
-2. Run `lk agent librarian rebuild-index` to rebuild index.md
-3. Run `lk agent librarian lint` for health check; self-heal broken links / missing frontmatter if any
+# Workflow
+1. Read the bundle. Group raw conversations into TOPICS (e.g. one topic
+   per agent, per decision, per workflow).
+2. For each topic, write **one** canonical page under .louke/wiki/pages/
+   that captures the **current state of the truth**. The page should:
+   - Start with a 1-2 sentence summary of the topic at the top
+   - Then 2-4 sections, each focused on one aspect (current behavior,
+     constraints, related decisions, references into raw/)
+   - Use frontmatter (name + description) so the wiki index links to it
+   - Be CONCISE — single canonical truth, not a discussion history
+3. DELETE any page in pages/ that is:
+   - A historical / event record (e.g. `2026-07-09-*.md`, `*-interview.md`,
+     `end-to-end-test.md`, `first-conversation.md`, `librarian-from-raw.md`)
+     — these are scaffolding for raw/, not llm-wiki content
+   - A one-time setup log that no longer reflects current behavior
+   - A "rewrite of X" / "本页面已废弃" stub
+   - **Subsumed** by a newer canonical page (merge content into the
+     canonical page first, then delete the old)
+4. Pages that earn their keep should be REWRITTEN if they are stale,
+   bloated, or include history rather than truth.
+5. Some existing pages like `decisions/NNN-*.md`, `agents/<name>.md`,
+   and workflow pages are legitimately canonical and should be kept /
+   refined, not deleted.
 
-Exit 0 when done. Exit 1 if lint fails and cannot self-heal.
+# Anti-patterns (do NOT do these)
+- Do not add "已废弃" or deprecation banners to existing pages — delete
+  them outright if they no longer carry current truth.
+- Do not add date prefixes like "2026-07-09-…" to new pages; llm-wiki
+  pages are timeless (the raw/ dir carries the date).
+- Do not insert "this was rewritten by librarian on …" metadata; it
+  bloats the page and adds no value.
+- Do not copy raw conversation transcripts into pages/; that is what
+  raw/ is for.
+
+# After editing pages/
+1. Run `lk agent librarian rebuild-index` (regenerates index.md from the
+   current pages/) — this will pick up your new pages automatically.
+2. Run `lk agent librarian lint` for health checks. Self-heal broken
+   links or missing frontmatter.
+
+Exit 0 when done. Exit 1 only if lint fails and cannot self-heal.
 '''
-    cmd = ['opencode', 'run', '--agent', 'librarian']
+    # Use the default primary agent (Maestro). Pass --model only when the
+    # caller explicitly asked for one; otherwise let opencode use the
+    # primary's frontmatter `models: [0]`.
+    cmd = ['opencode', 'run']
     cmd += model_flag
     cmd += ['--', prompt]
     print(f'[rewrite] shell-out: bundle={bundle.name} mode={mode_hint} model={"<default>" if not model_flag else model_flag[1]}')

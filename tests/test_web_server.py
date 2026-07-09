@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import inspect
 import json
+import re
+import sys
 from pathlib import Path
 
 from starlette.testclient import TestClient
@@ -523,3 +526,482 @@ def test_pane_layout_allows_flex_shrink(tmp_path: Path) -> None:
     assert "data:image/svg+xml" in body
     # The default <main> markup should NOT have pane-host baked in.
     assert 'class="workspace pane-host"' not in body
+
+
+def test_wiki_index_renders_index_md_content(tmp_path: Path) -> None:
+    """The /wiki page should render the content of .louke/wiki/index.md,
+    not enumerate the pages/ directory directly."""
+    root = build_project(tmp_path)
+    index = root / ".louke" / "wiki" / "index.md"
+    index.write_text(
+        "# Custom Wiki Index\n"
+        "\n"
+        "This is a librarian-maintained index. It should show up as the\n"
+        "wiki landing page content, replacing the old card-grid listing.\n"
+        "\n"
+        "## Sections\n"
+        "\n"
+        "- Decisions\n"
+        "- Experience\n",
+        encoding="utf-8",
+    )
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    page = client.get("/wiki")
+    assert page.status_code == 200
+    body = page.text
+    # The custom index.md content must be rendered (markdown -> HTML)
+    assert "Custom Wiki Index" in body
+    assert "librarian-maintained index" in body
+    # The pages-list side card is still present
+    assert "Pages" in body
+    assert "overview" in body  # page from build_project
+    # The old card-grid is no longer the primary layout
+    assert "wiki-layout" in body
+    assert "wiki-index-content" in body
+
+
+def test_wiki_refresh_route_calls_librarian(tmp_path: Path, monkeypatch) -> None:
+    """The /api/wiki/refresh endpoint should delegate to
+    `lk agent librarian rewrite` (which handles bundle selection +
+    prompt generation). Direct `opencode run --agent librarian` without
+    a positional <prompt> fails with
+    "You must provide a message or a command", so we go through lk."""
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import louke.web.app as app_module
+    # Pretend lk is on PATH so the endpoint doesn't bail with 503.
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+    captured: dict = {}
+    def fake_run(cmd, *args, **kwargs):
+        captured["cmd"] = cmd
+        captured["cwd"] = kwargs.get("cwd")
+        captured["timeout"] = kwargs.get("timeout")
+        class _R:
+            returncode = 0
+            stdout = "librarian: ok"
+            stderr = ""
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["returncode"] == 0
+    assert "librarian: ok" in data["stdout"]
+    # The exact command must be `python -m louke agent librarian rewrite`.
+    # Going through lk avoids the "no message or command" error from
+    # raw `opencode run --agent librarian`.
+    assert captured["cmd"][:3] == [sys.executable, "-m", "louke"]
+    assert captured["cmd"][3:] == ["agent", "librarian", "rewrite"]
+    assert captured["cwd"] == str(root)
+    assert captured["timeout"] is not None and captured["timeout"] >= 60
+
+
+def test_wiki_refresh_bypasses_lk_path_lookup(tmp_path: Path, monkeypatch) -> None:
+    """The endpoint runs librarian via `python -m louke agent librarian
+    rewrite` so it does NOT depend on the `lk` console-script being on
+    PATH. Some IDE-launched servers strip PATH to a single entry, so
+    `shutil.which('lk')` would return None there even when louke is
+    importable as a module (which it must be — this endpoint lives in
+    louke.web).
+    """
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import louke.web.app as app_module
+    # If the old `shutil.which('lk')` check was still here, this would
+    # short-circuit to 503. We expect 200 instead.
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: None)
+    captured: dict = {}
+    def fake_run(cmd, *args, **kwargs):
+        captured["cmd"] = cmd
+        class _R:
+            returncode = 0
+            stdout = "ok"
+            stderr = ""
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    # Python module invocation, not `lk` script.
+    assert captured["cmd"][:3] == [sys.executable, "-m", "louke"]
+    assert captured["cmd"][3:] == ["agent", "librarian", "rewrite"]
+
+
+def test_wiki_refresh_503_when_subprocess_missing(tmp_path: Path, monkeypatch) -> None:
+    """If subprocess.run itself fails (e.g. python not findable), the
+    endpoint must return a 5xx, not silently succeed."""
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import louke.web.app as app_module
+    def fake_run(cmd, *args, **kwargs):
+        raise OSError("python not found")
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 500
+    assert "failed to spawn" in resp.json()["error"]
+
+
+def test_wiki_refresh_no_path_dependency() -> None:
+    """Configuration that PATH must contain 'lk' is broken — exercise
+    it via the constant check that used to gate the endpoint."""
+    # This test exists to document the bug we just fixed: previously
+    # the endpoint required shutil.which('lk') to return a path. The
+    # fix replaces this with `python -m louke agent librarian rewrite`,
+    # which works as long as louke is importable.
+    import louke.web.app as app_module
+    src = inspect.getsource(app_module.api_wiki_refresh)
+    assert "shutil.which" not in src, (
+        "api_wiki_refresh should not call shutil.which() — use "
+        "`python -m louke ...` to avoid PATH dependency. Found "
+        "shutil.which usage in the source."
+    )
+
+
+def test_wiki_refresh_surfaces_compact_bundle_hint(tmp_path: Path, monkeypatch) -> None:
+    """When the project has no .compact-bundle.md, the librarian subprocess
+    exits non-zero with stderr mentioning compact-bundle. The endpoint
+    must surface a `hint` field so the UI can tell the user to run
+    `lk agent librarian compact` first."""
+    root = build_project(tmp_path)
+    bundle = root / ".louke" / "wiki" / ".compact-bundle.md"
+    if bundle.exists():
+        bundle.unlink()
+
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import louke.web.app as app_module
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+    def fake_run(cmd, *args, **kwargs):
+        class _R:
+            returncode = 1
+            stdout = ""
+            stderr = "error: .compact-bundle.md does not exist, please run lk agent librarian compact first"
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is False
+    assert "hint" in data
+    assert "lk agent librarian compact" in data["hint"]
+
+
+def test_wiki_menu_has_refresh_icon(tmp_path: Path) -> None:
+    """The wiki nav link should have a refresh icon next to it that
+    triggers the librarian via /api/wiki/refresh."""
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    # The refresh button is in the sidebar on every page, not just /wiki.
+    home = client.get("/")
+    assert home.status_code == 200
+    body = home.text
+    assert 'id="wiki-refresh"' in body
+    assert 'class="wiki-refresh-btn"' in body
+    # The click handler is wired to the /api/wiki/refresh endpoint.
+    assert "/api/wiki/refresh" in body
+
+
+def test_wiki_index_renders_double_bracket_links(tmp_path: Path) -> None:
+    """[[page]] and [[page|display]] in index.md must be rendered as
+    clickable links to /wiki/<page>."""
+    root = build_project(tmp_path)
+    index = root / ".louke" / "wiki" / "index.md"
+    index.write_text(
+        "# Wiki\n"
+        "\n"
+        "## Recent\n"
+        "\n"
+        "- [[sage-interview]] — Sage Interview\n"
+        "- [[scout-v0.1|Scout v0.1]] — Ready\n"
+        "- [[guides/getting-started]] — Guide\n",
+        encoding="utf-8",
+    )
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    page = client.get("/wiki")
+    assert page.status_code == 200
+    body = page.text
+    # [[sage-interview]] -> <a href="/wiki/sage-interview">sage-interview</a>
+    assert 'href="/wiki/sage-interview"' in body
+    # [[scout-v0.1|Scout v0.1]] -> <a href="/wiki/scout-v0.1">Scout v0.1</a>
+    assert 'href="/wiki/scout-v0.1"' in body
+    assert ">Scout v0.1<" in body
+    # [[guides/getting-started]] -> nested path preserved
+    assert 'href="/wiki/guides/getting-started"' in body
+    # The raw [[ ]] syntax must NOT appear in the rendered output
+    assert "[[" not in body
+    assert "]]" not in body
+
+
+def test_wiki_refresh_logs_subprocess_output(tmp_path: Path, monkeypatch, caplog) -> None:
+    """When the librarian subprocess exits non-zero, the server log
+    must contain the stdout/stderr so failures are debuggable.
+    """
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import logging
+    import louke.web.app as app_module
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+
+    def fake_run(cmd, *args, **kwargs):
+        class _R:
+            returncode = 2
+            stdout = "librarian step 1 ok\nstep 2 failed: bad input"
+            stderr = "ERROR: missing config\nFATAL: giving up"
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    with caplog.at_level(logging.INFO, logger="louke.web"):
+        resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is False
+    assert data["returncode"] == 2
+    # Subprocess output must be emitted to the server log so a non-zero
+    # exit is debuggable from `tail -f` on the server.
+    log_text = caplog.text
+    assert "librarian finished" in log_text
+    assert "returncode=2" in log_text
+    assert "ERROR: missing config" in log_text
+    assert "FATAL: giving up" in log_text
+    assert "librarian run failed" in log_text  # explicit non-zero warning
+
+
+def test_wiki_refresh_logs_on_success(tmp_path: Path, monkeypatch, caplog) -> None:
+    """On success, the log records an INFO line so the run is auditable."""
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import logging
+    import louke.web.app as app_module
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+
+    def fake_run(cmd, *args, **kwargs):
+        class _R:
+            returncode = 0
+            stdout = "librarian: index.md updated"
+            stderr = ""
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    with caplog.at_level(logging.INFO, logger="louke.web"):
+        resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    log_text = caplog.text
+    assert "wiki refresh requested" in log_text
+    assert "spawning:" in log_text
+    assert "librarian rewrite" in log_text
+    assert "librarian finished: returncode=0" in log_text
+    assert "librarian: index.md updated" in log_text
+
+
+def test_wiki_refresh_auto_runs_compact_when_bundle_missing(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    """Click refresh with no bundle on disk should auto-run
+    `lk agent librarian compact` first so the user never has to type
+    that command themselves. The auto-compact runs as a separate
+    subprocess before the rewrite, and the click ultimately succeeds.
+    """
+    import logging
+    root = build_project(tmp_path)
+    # Ensure NO compact bundle exists, but raw/ does (so compact can run).
+    bundle = root / ".louke" / "wiki" / ".compact-bundle.md"
+    if bundle.exists():
+        bundle.unlink()
+    raw_dir = root / ".louke" / "raw"
+    raw_dir.mkdir(exist_ok=True)
+    (raw_dir / "2026-07-10-test.md").write_text(
+        "date: 2026-07-10\nstatus: resolved\n\nTest raw entry.\n",
+        encoding="utf-8",
+    )
+
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    import louke.web.app as app_module
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+
+    # Capture every subprocess.run invocation so we can assert compact
+    # ran BEFORE rewrite, and that rewrite still ran after.
+    calls: list = []
+    def fake_run(cmd, *args, **kwargs):
+        calls.append(list(cmd))
+        class _R:
+            returncode = 0
+            stdout = "ok"
+            stderr = ""
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    with caplog.at_level(logging.INFO, logger="louke.web"):
+        resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+    # Auto-compact must have been called first
+    assert len(calls) >= 2, f"expected at least 2 subprocess calls, got {len(calls)}: {calls}"
+    assert calls[0][3:] == ["agent", "librarian", "compact"], (
+        f"first call should be compact, got {calls[0]}"
+    )
+    # Then rewrite
+    assert calls[1][3:] == ["agent", "librarian", "rewrite"], (
+        f"second call should be rewrite, got {calls[1]}"
+    )
+
+    # Server log records both events
+    log_text = caplog.text
+    assert "auto-running librarian compact (no bundle yet)" in log_text
+    assert "auto-compact finished" in log_text
+
+
+def test_wiki_refresh_skips_auto_compact_when_bundle_present(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """If the bundle already exists, auto-compact is skipped — we go
+    straight to rewrite. This keeps the click fast in the common case.
+    """
+    import louke.web.app as app_module
+    root = build_project(tmp_path)
+    # Pre-populate a bundle so auto-compact is skipped
+    (root / ".louke" / "wiki" / ".compact-bundle.md").write_text(
+        "date: 2026-07-09\nstatus: resolved\n\nExisting bundle.\n",
+        encoding="utf-8",
+    )
+
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+
+    calls: list = []
+    def fake_run(cmd, *args, **kwargs):
+        calls.append(list(cmd))
+        class _R:
+            returncode = 0
+            stdout = "ok"
+            stderr = ""
+        return _R()
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    # Only ONE call: rewrite. No compact (skipped because bundle exists).
+    assert len(calls) == 1, f"expected only rewrite, got {calls}"
+    assert calls[0][3:] == ["agent", "librarian", "rewrite"]
+
+
+def test_wiki_refresh_handles_missing_raw_directory(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    """No .louke/raw/ AND no compact bundle → auto-compact would fail,
+    so we skip it (with a warning) and let rewrite surface its own
+    'compact-bundle missing' error. The user gets a clear hint in
+    both the server log AND the response hint field.
+    """
+    import logging
+    import louke.web.app as app_module
+    root = build_project(tmp_path)
+    # Remove raw/ so compact can't run
+    import shutil
+    raw_dir = root / ".louke" / "raw"
+    if raw_dir.exists():
+        shutil.rmtree(raw_dir)
+    # No bundle either
+    bundle = root / ".louke" / "wiki" / ".compact-bundle.md"
+    if bundle.exists():
+        bundle.unlink()
+
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+
+    def fake_run(cmd, *args, **kwargs):
+        # Simulate rewrite failing because no bundle
+        if "rewrite" in cmd:
+            class _R:
+                returncode = 1
+                stdout = ""
+                stderr = "error: .compact-bundle.md does not exist"
+            return _R()
+        # compact should not be called since raw/ doesn't exist
+        raise AssertionError("compact should not be called without raw/")
+
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    with caplog.at_level(logging.INFO, logger="louke.web"):
+        resp = client.post("/api/wiki/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is False
+    assert "hint" in data
+    assert "lk agent librarian compact" in data["hint"]
+    # Log records the skip
+    assert "no .louke/raw/ directory" in caplog.text
+
+
+def test_wiki_refresh_progress_modal_present(tmp_path: Path) -> None:
+    """The /wiki page must include the step-by-step modal so a multi-minute
+    wiki refresh does not look like the click was ignored. The modal
+    starts hidden and is shown by the click handler; we verify the DOM
+    elements, animation classes, and stepping logic are wired in."""
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root))
+    client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    body = client.get("/wiki").text
+    # Modal DOM
+    assert 'id="wiki-modal"' in body
+    assert 'id="wiki-modal-title"' in body
+    assert 'id="wiki-modal-elapsed"' in body
+    assert 'id="wiki-modal-detail"' in body
+    assert 'id="wiki-modal-dismiss"' in body
+    # Three steps with the right data-step keys
+    assert 'data-step="prepare"' in body
+    assert 'data-step="agent"' in body
+    assert 'data-step="apply"' in body
+    # User-facing labels in Chinese (no mention of "librarian")
+    assert '准备中' in body
+    # The "agent" step label describes the action in user terms —
+    # "调用 Agent 生成 llm wiki 中" — not the internal name "librarian".
+    assert '调用 Agent 生成 llm wiki 中' in body
+    assert '应用更新' in body
+    # The modal must NOT mention "librarian" in any visible label
+    for label_match in re.findall(r'class="step-label">([^<]+)<', body):
+        assert 'librarian' not in label_match.lower(), \
+            f"step label exposes 'librarian' to user: {label_match!r}"
+    # Animations
+    assert "@keyframes wiki-modal-pulse" in body
+    assert "@keyframes wiki-refresh-spin" in body
+    # Modal starts hidden
+    assert 'id="wiki-modal" class="wiki-modal" hidden' in body
+    # Click handler is wired up
+    assert "wikiRefreshBtn.addEventListener" in body
+    assert "fmtElapsed" in body
+    # Step transition logic exists
+    assert "setStep('prepare', 'done'" in body
+    assert "setStep('agent', 'active'" in body
+    assert "setStep('apply', 'done'" in body
