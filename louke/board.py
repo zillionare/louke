@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -151,7 +152,7 @@ def _rewrite_agent_skill_references(text: str) -> str:
         out = re.sub(rf'(?<!{re.escape(SKILL_PREFIX)})`{re.escape(old)}`', f'`{new}`', out)
         out = re.sub(rf'(?<!{re.escape(SKILL_PREFIX)})\*\*{re.escape(old)}\*\*', f'**{new}**', out)
         out = re.sub(rf'(?<!{re.escape(SKILL_PREFIX)}){re.escape(old)} skill', f'{new} skill', out)
-        out = out.replace(f'agents/_skills/{old}/SKILL.md', f'.opencode/skill/{new}.md')
+        out = out.replace(f'agents/_skills/{old}/SKILL.md', f'.opencode/skill/{new}/SKILL.md')
     return out
 
 
@@ -345,18 +346,30 @@ def cmd_opencode(args):
         raw_name = str(fm.get('name') or fp.parent.name).strip() or fp.parent.name
         skill_name = prefixed_skill_name(raw_name)
         out = _rewrite_skill_frontmatter_name(skill_text, skill_name)
-        dest = skill_dest_dir / f'{skill_name}.md'
+        # OpenCode expects `.opencode/skill/<name>/SKILL.md` (a directory) and
+        # supports companion files (templates, references, scripts). Copy the
+        # full skill folder, not just the SKILL.md — flattening to `<name>.md`
+        # would drop any multi-file skills.
+        src_dir = fp.parent
+        dest = skill_dest_dir / skill_name
         generated_skills.append(dest)
         if dry_run:
             if not quiet:
                 marker = cyan('+')
-                print(f'      {marker} {skill_name}', flush=True)
+                print(f'      {marker} {skill_name}/', flush=True)
         else:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(out, encoding='utf-8')
+            dest.mkdir(parents=True, exist_ok=True)
+            (dest / 'SKILL.md').write_text(out, encoding='utf-8')
+            for sibling in sorted(src_dir.iterdir()):
+                if sibling.name == 'SKILL.md':
+                    continue
+                if sibling.is_file():
+                    shutil.copy2(sibling, dest / sibling.name)
+                elif sibling.is_dir():
+                    shutil.copytree(sibling, dest / sibling.name, dirs_exist_ok=True)
             if not quiet:
                 marker = g('✓')
-                print(f'      {marker} {skill_name}', flush=True)
+                print(f'      {marker} {skill_name}/', flush=True)
 
     if not dry_run and not quiet:
         print(

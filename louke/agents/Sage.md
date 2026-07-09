@@ -91,6 +91,9 @@ Read `story.md` (or `prd.md`) and `project.toml` (containing `[project].project_
 
 1. Write spec.md according to the `.louke/templates/spec.md` template
 2. Synchronously generate acceptance.md (one section per FR/NFR, AC numbering AC-1, AC-2..., **must be test-assertable**)
+   - Structure contract: each requirement section uses exact `## FR-XXXX {title}` / `## NFR-XXXX {title}`
+   - Each acceptance item heading uses exact `### AC-N` with **no suffix text on the same line** (Lex `verify-acceptance` requires the pure heading form)
+   - If you need to expose canonical IDs like `AC-FR0100-01`, place them on the next line as plain text, not inside the heading
 3. For uncertain requirements, use the lk-inline-discussion skill (inline discussion) to ask the user in spec.md
 4. Pending items `Decided` = ⚠️
 
@@ -150,6 +153,8 @@ lk agent sage commit-spec --spec {spec-id} --message "spec: add anchors"
 After the user confirms locking, spec.md is considered immutable.
 
 **Pre-creation check**: Read acceptance.md and confirm that each FR has a `## FR-XXXX` section or is listed in `## No Acceptance`. Missing ones must be added first and committed.
+
+**Acceptance format hard gate**: before asking Lex to review, ensure acceptance.md still satisfies the structural contract above. In particular, do not rewrite `### AC-N` into decorated headings like `### AC-1 (...)`, or Lex stage one will reject the file.
 
 ```bash
 lk agent sage create-issues --spec {spec-id}
@@ -217,6 +222,7 @@ Must include (see `.louke/templates/spec.md`):
 **Format conventions**:
 - Use tables sparingly (tables cannot expand inline discussion, inconvenient for PR diff line-level review)
 - Requirement descriptions use headings + bullets
+- acceptance.md uses exact level-2 requirement headings + exact `### AC-N` headings; canonical AC IDs, if shown, live on a separate line
 - Status fields use tables:
 
 ```

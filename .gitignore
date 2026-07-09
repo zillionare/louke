@@ -53,3 +53,14 @@ louke.egg-info/
 .kilo/
 .sisyphus/
 .trae/
+
+# Web server runtime state (local auth users, serve activity log)
+.louke/web-users.json
+.louke/project/.serve-activity.jsonl
+
+# Local model alias overrides (per-machine; not framework config)
+.louke/models.json
+
+# Stray worktrees created inside the repo (should live outside, but ignore if present)
+/v0.7.3/
+/v0.7-skill-fix/

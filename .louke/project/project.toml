@@ -6,17 +6,17 @@
 # 写入方: Scout (M-FOUND 初始化), Archer (M-ARCH [e2e]), M-MILESTONE 收尾迁移到 history.md
 
 [project]
-version = "0.7"
+version = "0.8"
 repo = "github.com/zillionare/louke"
-project = "louke-v0.7 (#8)"
+project = "louke-v0.8 (#8)"
 project_id = "https://github.com/users/quantclaws/projects/8"
-spec_id = "v0.7-002-knowledge-distillation-karpathy"
-release_branch = "releases/v0.7"
+spec_id = "v0.8-001-web-server"
+release_branch = "releases/v0.8"
 
 [meta]
 created = "2026-07-05"
-tag = "v0.7.0 (zillionare/louke@v0.7.0)"
-current_stage = "M-E2E"
+tag = "v0.7.3 (zillionare/louke@v0.7.3)"
+current_stage = "M-ARCH"
 security_audit = "disabled"
 smoke_test_issue = "#80 (closed, previous v0.6 milestone 冒烟)"
 smoke_test_pr = "#81 (closed, M-FOUND test PR for v0.7)"
@@ -26,7 +26,7 @@ test_framework = "pytest"
 acknowledged_orphan_releases = []
 
 story = """
-pre-commit 接管 lint/format/typecheck/test + R-G-R Red 去 commit + Keeper 瘦到 R-G-R/format/AC trace/反模式 + 知识蒸馏 Karpathy 化（cron 触发 raw → pages 重写）.
+给 louke 增加一个面向团队内多人协作的 web server，用于拖拽式模型绑定、wiki 浏览/编辑、以及 spec/acceptance/test-plan 等设计文档的浏览与编辑；设计文档需支持常用 Markdown 渲染、inline-discussion 的正文/讨论切换与折叠，以及 FR/NFR 卡片式渲染。
 """
 
 [meta.known_carryover]
@@ -37,13 +37,17 @@ commit_rgr = "`lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数,
 [active_specs]
 # 当前活跃 spec 列表 (post-v0.7 hotfix)
 v0_7_001 = "shipped (2026-07-05, tag v0.7.0)"
-v0_7_002 = "in progress (knowledge-distillation-karpathy)"
+v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
+v0_8_001 = "in progress (web-server)"
 
 [e2e]
-# Archer M-ARCH 填; Shield 读这段自动启停项目. 全部字段可选, 缺失时降级.
-# start = "make e2e-env-up"
-# ready = "curl -sf http://localhost:8000/health"
-# ready_timeout_seconds = 60
-# framework = "playwright"
-# browsers = ["chromium"]
-# teardown = "make e2e-env-down"
+# v0.8-001 Web Server 的替代 e2e 契约：Trae 下不要求照搬 Shield 流程，但必须保留等价的启动 / 就绪 / 执行出口。
+start = "python -m louke serve --host 127.0.0.1 --port 8765"
+ready = "curl -sf http://127.0.0.1:8765/health"
+ready_timeout_seconds = 60
+run = "python -m pytest tests"
+framework = "pytest"
+browsers = ["chromium"]
+cwd = "."
+paths = ["tests"]
+teardown = "true"

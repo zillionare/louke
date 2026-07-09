@@ -1,5 +1,5 @@
 ---
-name: lk-security-checklist
+name: security-checklist
 description: When reviewing or writing code, use this security checklist to identify common vulnerabilities and unsafe patterns. Invoke for security-focused code review, audit, or before finishing a feature.
 license: MIT
 compatibility: opencode

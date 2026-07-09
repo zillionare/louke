@@ -8,6 +8,7 @@ User-facing commands:
     lk init <name|path>         Initialize/adopt louke project skeleton
     lk models list|doctor|bind|unbind  Manage abstract model bindings
     lk board opencode|status    Generate IDE agent boards
+    lk serve [--host H --port P] Start the web collaboration server
     lk upgrade                  Upgrade louke via pip
     lk version                  Print version (also: lk --version, lk -v)
     lk help                     Print help (also: lk --help, lk -h)
@@ -34,6 +35,7 @@ from . import __version__
 from . import init as init_cmd
 from . import models as models_cmd
 from . import board as board_cmd
+from . import serve as serve_cmd
 from . import agent as agent_main
 
 
@@ -41,6 +43,7 @@ USER_COMMANDS = {
     'init': init_cmd,
     'models': models_cmd,
     'board': board_cmd,
+    'serve': serve_cmd,
 }
 
 
@@ -180,6 +183,7 @@ def print_help_text():
     print('  lk init <name|path>         Initialize/adopt louke project skeleton')
     print('  lk models list|doctor|bind|unbind  Manage abstract model bindings')
     print('  lk board opencode|status    Generate IDE agent boards')
+    print('  lk serve [--host H --port P] [--project-root PATH]  Start the web collaboration server')
     print('  lk upgrade [--index URL] [--pre] [--dry-run]  Upgrade louke via pip')
     print('  lk version                  Print version')
     print('  lk help                     Print this help')

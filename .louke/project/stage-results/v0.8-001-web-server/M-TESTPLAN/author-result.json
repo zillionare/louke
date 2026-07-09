@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.8-001-web-server",
+  "stage": "M-TESTPLAN",
+  "kind": "author-result",
+  "role": "Archer",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.8-001-web-server/test-plan.md"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-08T12:12:08Z",
+  "contract_bundle_hash": "db99066ef2103eb2197104686a47400acabc5f7c432c929cdd71a9f9f776777a",
+  "metadata": {},
+  "output_hash": "8ecf455f22398b1c245017e18f0fd78e14440925e2bbee41fd1f36cade80314c"
+}

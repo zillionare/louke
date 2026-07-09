@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "louke"
-version = "0.7.4"
+version = "0.8.0"
 description = "Lòukè - beyond vibes, into craft"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -29,6 +29,10 @@ classifiers = [
 
 dependencies = [
     "pre-commit>=3.0,<5.0",
+    "markdown>=3.6,<4.0",
+    "starlette>=0.38,<1.0",
+    "uvicorn>=0.30,<1.0",
+    "httpx>=0.27,<1.0",
 ]
 
 [project.scripts]
@@ -40,7 +44,7 @@ Repository = "https://github.com/zillionare/louke"
 Issues = "https://github.com/zillionare/louke/issues"
 
 [tool.setuptools]
-packages = ["louke", "louke._tools"]
+packages = ["louke", "louke._tools", "louke.web"]
 
 [tool.setuptools.package-data]
 louke = [
@@ -53,4 +57,7 @@ louke = [
     "templates/pre-commit/*.yml",
     "templates/pre-commit/*.md",
     ".github/ISSUE_TEMPLATE/*.yml",
+]
+"louke.web" = [
+    "assets/*",
 ]

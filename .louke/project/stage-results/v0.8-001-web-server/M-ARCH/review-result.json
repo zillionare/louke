@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.8-001-web-server",
+  "stage": "M-ARCH",
+  "kind": "review-result",
+  "role": "Prism",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.8-001-web-server/architecture.md",
+    ".louke/project/specs/v0.8-001-web-server/interfaces.md",
+    ".louke/project/specs/v0.8-001-web-server/test-plan.md",
+    ".louke/project/specs/v0.8-001-web-server/spec.md",
+    ".louke/project/specs/v0.8-001-web-server/acceptance.md",
+    ".louke/project/project.toml"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-08T11:59:21Z",
+  "contract_bundle_hash": "06542e80dcb344d2399dfb615c98009ef7776f9928d2cff2e675940215c42b8f",
+  "metadata": {
+    "source_command": "review"
+  },
+  "output_hash": "c6cc68940d9b1ddd9832865fd621ef68e04e083e3c3bd8ad988f84466c47c157"
+}

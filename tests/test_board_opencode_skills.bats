@@ -13,7 +13,7 @@ REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
     }
 
     for skill in lk-inline-discussion lk-reserve-memory lk-security-checklist; do
-        f=".opencode/skill/${skill}.md"
+        f=".opencode/skill/${skill}/SKILL.md"
         [ -f "$f" ] || { echo "FAIL: $f not generated"; false; }
         run grep -E "^name: ${skill}$" "$f"
         [ "$status" -eq 0 ] || { echo "FAIL: $f missing renamed skill frontmatter"; false; }
@@ -25,7 +25,7 @@ REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
     run grep -F '`lk-reserve-memory` skill' ".opencode/agents/maestro.md"
     [ "$status" -eq 0 ] || { echo "FAIL: maestro.md should reference lk-reserve-memory"; false; }
 
-    run grep -F '.opencode/skill/lk-inline-discussion.md' ".opencode/agents/sage.md"
+    run grep -F '.opencode/skill/lk-inline-discussion/SKILL.md' ".opencode/agents/sage.md"
     [ "$status" -eq 0 ] || { echo "FAIL: sage.md should point to installed skill path"; false; }
 
     run grep -F 'lk-lk-inline-discussion' ".opencode/agents/sage.md"
