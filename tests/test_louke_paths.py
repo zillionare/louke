@@ -32,13 +32,10 @@ def test_server_dir_does_not_collide_with_others():
     s = server_dir()
     r = review_dir()
     ss = session_dir()
-    # 4 个路径互不包含
+    # 4 个路径互不包含: a should not contain b
     for a, b in [(s, r), (s, ss), (r, ss)]:
-        try:
+        with pytest.raises(ValueError):
             b.relative_to(a)
-            assert False, f"{b} is under {a}"
-        except ValueError:
-            pass
 
 
 def test_session_dir_namespaced_by_date():
