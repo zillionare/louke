@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-E2E",
+  "kind": "author-result",
+  "role": "Shield",
+  "verdict": "pass",
+  "reviewed_targets": [
+    "tests",
+    "tests/fixtures"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T14:14:15Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "run_command": "python -m pytest -m e2e tests/e2e --browser chromium --browser firefox",
+    "cwd": "/Users/openclaw/workspace/louke"
+  },
+  "output_hash": "80b1348b6697f131fe9d7180b135be19fecbe3d9e9101d0e34026e751fd7f156"
+}

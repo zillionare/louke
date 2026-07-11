@@ -70,17 +70,23 @@ def parse_acceptance(path: Path) -> dict[str, dict[str, Any]]:
     return acs
 
 
-def iter_test_files(paths: list[Path]) -> list[Path]:
+def iter_test_files(paths: list[Path], exclude: list[Path] | None = None) -> list[Path]:
+    exclude_resolved = [e.resolve() for e in (exclude or [])]
     out: list[Path] = []
     for p in paths:
         if p.is_file() and p.suffix in TEST_EXTS:
-            out.append(p)
+            if not any(p.resolve() == e or e in p.resolve().parents for e in exclude_resolved):
+                out.append(p)
         elif p.is_dir():
             for child in p.rglob("*"):
                 if (
                     child.is_file()
                     and child.suffix in TEST_EXTS
                     and ".git" not in child.parts
+                    and not any(
+                        child.resolve() == e or e in child.resolve().parents
+                        for e in exclude_resolved
+                    )
                 ):
                     out.append(child)
     return sorted(out)
@@ -114,6 +120,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--acceptance", required=True)
     ap.add_argument("--tests", nargs="+", required=True)
+    ap.add_argument("--exclude", nargs="*", default=[], help="paths to exclude from scan")
     ap.add_argument("--legacy-baseline")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -123,8 +130,9 @@ def main() -> int:
         print(f"acceptance not found: {acceptance}", file=sys.stderr)
         return 2
     test_paths = [Path(x) for x in args.tests]
+    exclude_paths = [Path(x) for x in args.exclude]
     acs = parse_acceptance(acceptance)
-    refs = parse_refs(iter_test_files(test_paths))
+    refs = parse_refs(iter_test_files(test_paths, exclude=exclude_paths))
     baseline = load_baseline(
         Path(args.legacy_baseline) if args.legacy_baseline else None
     )

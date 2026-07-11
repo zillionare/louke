@@ -98,7 +98,7 @@ def scan_test_file(filepath: Path):
         func_name = m.group(1)
         # Collect the next 5 lines and look for the docstring
         block = "\n".join(lines[i + 1 : i + 6])
-        if not re.search(r"AC-FR\d{4}-\d{2}", block):
+        if not re.search(r"AC-(?:FR|NFR)\d{4}-\d{2}", block):
             findings.append(
                 {
                     "file": str(filepath),

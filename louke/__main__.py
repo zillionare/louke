@@ -37,6 +37,7 @@ from . import init as init_cmd
 from . import models as models_cmd
 from . import board as board_cmd
 from . import serve as serve_cmd
+from . import e2e as e2e_cmd
 from . import agent as agent_main
 
 
@@ -45,6 +46,7 @@ USER_COMMANDS = {
     "models": models_cmd,
     "board": board_cmd,
     "serve": serve_cmd,
+    "e2e": e2e_cmd,
 }
 
 

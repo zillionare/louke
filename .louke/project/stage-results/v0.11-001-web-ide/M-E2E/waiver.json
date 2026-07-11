@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-E2E",
+  "kind": "waiver",
+  "role": "human",
+  "verdict": "waived",
+  "reviewed_targets": [],
+  "blocking_findings": [
+    "Prism M-E2E review reports 1 high + 2 medium findings, ALL false positives on louke/_tests.py:18,37,47 — these are pattern-LITERAL STRINGS in the Prism anti-pattern scanner's own regex pattern definitions (r\"assert\\s+True\\s*==\\s*True\", r\"pytest\\.mark\\.skip\", r\"mock\\.patch...\"), not real anti-patterns. The Prism scanner has no skip-self mechanism so it scans its own source. Master user (zillionare) accepted this risk as a known scanner design issue (same family as the M-DEV eval-exec false-positive on re.compile); not introduced by v0.11-001-web-ide, just surfaced by including louke/_tests.py in the diff (the file was edited to broaden AC ID matching from FR-only to FR|NFR, which is a v0.11 AC-trace requirement). Recommend follow-up issue to add self-exclusion to louke/_tests.py (and louke/_security.py) so scanner pattern literals are not flagged; out of scope for v0.11 web ide."
+  ],
+  "accepted_risks": [
+    "Prism test-pattern scanner self-detection: louke/_tests.py:18 (trivial-assert: regex pattern literal r\"assert\\s+True\\s*==\\s*True\"), louke/_tests.py:37 (skip-without-issue: regex pattern literal r\"pytest\\.mark\\.skip\"), louke/_tests.py:47 (mock-overuse: regex pattern literal r\"mock\\.patch\"). All three are literal pattern strings in the scanner's TEST_ANTI_PATTERNS list (i.e. the regex used to DETECT these patterns in user tests), not actual anti-patterns. Recommend follow-up to add self-exclusion: scan_test_file() should skip if 'louke/_tests.py' in str(filepath) and 'louke/_tools/' in str(filepath) (the latter hosts the matching scanner)."
+  ],
+  "created_at": "2026-07-11T14:18:16Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "approved_by": "zillionare (Master user via Maestro session 2026-07-11 22:14 UTC)",
+    "commit_range": "623d7ba~..38f3a44"
+  },
+  "output_hash": "e195a1c9d83879d6946a4a7cf57260b7170a05fbe0d50fdf5f9a48dcdf4d6985"
+}

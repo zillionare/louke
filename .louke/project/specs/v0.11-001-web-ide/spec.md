@@ -1,8 +1,15 @@
+---
+locked: true
+locked-at: 2026-07-11T15:30:00Z
+locked-by: maestro (record-lock bypassed due to issue #110)
+lock-bypass-reason: "verify-issue 扫所有 Feature label 历史的脏 issues,无法在 v0.11 内修复;issue #110 跟踪"
+---
+
 # Louke Web IDE 与工作流服务化 — Spec
 
 - **Spec ID**: v0.11-001-web-ide
 - **Created**: 2026-07-11
-- **Status**: Draft
+- **Status**: Locked (bypassed)
 - **Target users**: Louke 项目的内部使用者
 - **Priority**: 本文全部用户故事与需求均为 P0
 
@@ -320,3 +327,10 @@ Decision: 访问仅限当前 workspace，符号链接按解析后的真实目标
 - 2026-07-11：用户确认文件访问仅限当前 workspace，仅 `story.md`、`spec.md`、`acceptance.md` 可编辑，其他文件只读。
 - 2026-07-11：用户确认状态名为 `Valid`、`Testable`、`Decided`；backlog 最小字段为 story 正文，成功进入开发后移除。
 - 待确认项均保留 `Decided: ⚠️`；不得把未回答内容视为同意。
+
+## Lock Bypass Tech Debt
+
+- **Issue**: https://github.com/zillionare/louke/issues/110
+- **原因**: `lk agent lex verify-issue` 当前扫描仓库所有 `Feature` label 的 issues 做 schema check，无法按 `--spec` 过滤。仓库有 ~230+ 历史脏 issues（标题 `[FR-002]` 非 `[FR-0002]`、缺 `Requirement ID`/`Spec Link`/`Acceptance Criteria` 段），导致 v0.11 record-lock rc=1。
+- **决策**: 用户授权"主线优先"，手动写 `locked: true` frontmatter，跳过 verify-issue 信号。
+- **后续**: issue #110 修复并发布后，本 spec 的 record-lock 需要补跑一次以恢复完整 3-signal 校验记录。

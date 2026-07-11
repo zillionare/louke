@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-ARCH",
+  "kind": "author-result",
+  "role": "Archer",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-001-web-ide/test-plan.md",
+    ".louke/project/specs/v0.11-001-web-ide/architecture.md",
+    ".louke/project/specs/v0.11-001-web-ide/interfaces.md",
+    ".louke/project/project.toml"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T09:00:50Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {},
+  "output_hash": "adffc1f902da961b73d173b920ebdcc7989c2ca7d454fcd4f607b38c1e19d375"
+}

@@ -33,3 +33,19 @@ except ImportError:  # pragma: no cover
 # The permission object format (replacing the deprecated tools field) was
 # introduced in OpenCode v1.1.1
 MIN_OPENCODE_VERSION = "1.1.1"
+
+# NFR-0201: workspace security sandbox module registration
+from . import security  # noqa: E402,F401
+
+# FR-0401: canonical .louke directory layout module registration
+from . import paths  # noqa: E402,F401
+
+from . import opencode, opencode_api  # noqa: E402,F401
+
+from . import files_api  # noqa: E402,F401
+
+# FR-0501: FR/NFR task toggle API
+from . import tasks_api  # noqa: E402,F401
+
+# FR-0601: local story backlog API
+from . import backlog_api  # noqa: E402,F401

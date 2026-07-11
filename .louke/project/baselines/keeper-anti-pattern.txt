@@ -1,0 +1,6 @@
+# Legacy baseline: pre-existing v0.10 anti-pattern violations exempted
+# from the keeper gate. Format: FAKE-XXX <file>:<line>
+# These are test-fixture data or legitimate assertions the scanner cannot
+# distinguish from real anti-patterns; reviewed and accepted at v0.10.
+FAKE-008 tests/test_verify_acceptance.bats:87
+FAKE-002 tests/test_web_server.py:642

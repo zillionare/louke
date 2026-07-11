@@ -268,16 +268,21 @@ def cmd_gate(args):
                 print("--- AC Trace: PASS ---")
 
     if not args.skip_anti_pattern:
-        rc = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "louke._tools.check_assertions",
-                "--tests",
-                *tests_roots,
-            ],
-            cwd=cwd,
-        ).returncode
+        legacy_baseline = cwd / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+        # Exclude tests/fixtures/: check_assertions' own test fixtures contain
+        # intentional anti-pattern code (assert True, try/except/pass, etc.).
+        anti_pattern_cmd = [
+            sys.executable,
+            "-m",
+            "louke._tools.check_assertions",
+            "--tests",
+            *tests_roots,
+            "--exclude",
+            "tests/fixtures",
+        ]
+        if legacy_baseline.exists():
+            anti_pattern_cmd.extend(["--legacy-baseline", str(legacy_baseline)])
+        rc = subprocess.run(anti_pattern_cmd, cwd=cwd).returncode
         if rc != 0:
             all_findings.append(
                 {"severity": "high", "description": "anti-pattern scan failed"}

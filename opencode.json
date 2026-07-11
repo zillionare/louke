@@ -7,5 +7,6 @@
       "*": "deny",
       "security-checklist": "allow"
     }
-  }
+  },
+  "default_agent": "maestro"
 }
