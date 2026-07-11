@@ -11,7 +11,7 @@ repo = "github.com/zillionare/louke"
 project = "louke-v0.8 (#8)"
 project_id = "https://github.com/users/quantclaws/projects/8"
 spec_id = "v0.8-001-web-server"
-release_branch = "releases/v0.8"
+release_branch = "releases/v0.10"
 
 [meta]
 created = "2026-07-05"
