@@ -643,6 +643,19 @@ def report(checks: list[IssueCheck], spec_frs: set[str] | None) -> int:
 # ---------- Entry point ----------
 
 
+def issue_belongs_to_spec(issue: dict[str, Any], spec_id: str) -> bool:
+    """Return True if the issue's Spec Link points to the given spec_id."""
+    body = issue.get("body") or ""
+    fields = parse_issue_form(body)
+    spec_url = fields.get(FIELD_SPEC_URL, "").strip()
+    if not spec_url:
+        return False
+    m = RE_SPEC_URL.match(spec_url)
+    if not m:
+        return False
+    return m.group("spec_id") == spec_id
+
+
 def load_issues_from_gh(repo: str) -> list[dict[str, Any]]:
     out = subprocess.check_output(
         [
@@ -753,6 +766,12 @@ def main() -> int:
         spec_frs = load_spec_frs_from_gh(owner, reponame, branch, args.spec)
         issues = load_issues_from_gh(repo)
         spec_cache = {}
+
+    # Filter to issues created for the requested spec. Historical Feature issues
+    # from other specs (e.g. stale [FR-002] titles, missing fields) must not block
+    # the current spec's record-lock gate (fix #110).
+    if args.spec:
+        issues = [i for i in issues if issue_belongs_to_spec(i, args.spec)]
 
     checks = [check_issue(i, spec_cache) for i in issues]
     return report(checks, spec_frs)

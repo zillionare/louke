@@ -162,6 +162,46 @@ EOF
     [[ "$output" == *"[PASS]"* ]]
 }
 
+@test "VERIFY-110: verify_issue_filters_by_spec_id_offline_mode" {
+    # fix #110: --spec should only validate issues whose Spec Link points to that
+    # spec_id; historical dirty issues from other specs are ignored.
+    SPEC_FIX="$BATS_TEST_TMPDIR/v0.11_spec.md"
+    cat > "$SPEC_FIX" <<'EOF'
+# Web IDE Spec
+<a id="fr-0001"></a>
+**FR-0001**: minimal fixture
+EOF
+    ACC_FIX="$BATS_TEST_TMPDIR/v0.11_acc.md"
+    make_acceptance_fixture "$ACC_FIX" "0001"
+    FIXTURE="$BATS_TEST_TMPDIR/mixed_issues.json"
+    cat > "$FIXTURE" <<'EOF'
+[
+  {
+    "number": 10,
+    "title": "[FR-0001] Web IDE Feature",
+    "body": "### Requirement ID\nFR-0001\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.11-001-web-ide/spec.md#fr-0001\n\n### Acceptance Criteria\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.11-001-web-ide/acceptance.md#ac-fr-0001\n",
+    "state": "open"
+  },
+  {
+    "number": 99,
+    "title": "[FR-002] dirty historical issue (wrong title format)",
+    "body": "### Requirement ID\nFR-002\n\n### Spec Link\nhttps://github.com/foo/bar/blob/main/.louke/project/specs/v0.8-001-old/spec.md#fr-0002\n\n### Acceptance Criteria\nNone\n",
+    "state": "open"
+  }
+]
+EOF
+    run python3 "$SCRIPT" --offline \
+        --spec v0.11-001-web-ide \
+        --spec-file "$SPEC_FIX" \
+        --acceptance-file "$ACC_FIX" \
+        --issues-json "$FIXTURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[PASS]"* ]]
+    [[ "$output" == *"1 PASS"* ]]
+    [[ "$output" != *"#99"* ]]
+    [[ "$output" != *"FR-002"* ]]
+}
+
 # ---------- Validator offline mode: error paths ----------
 
 # Shared acceptance fixture (contains fr-0001 and fr-0005) for error-path tests to reuse, avoiding L7 interference
