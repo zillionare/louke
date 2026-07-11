@@ -172,20 +172,21 @@ async def models_page(request: Request) -> HTMLResponse:
         <span class="eyebrow">Models</span>
         <h1>{_escape(_t(lang, "nav.models"))}</h1>
         <p class="lede">{_escape(_t(lang, "models.lede"))}</p>
+        <p class="models-flow">{_escape(_t(lang, "models.flow_hint"))}</p>
       </div>
       <div id="meta" class="meta"></div>
     </header>
     <div id="banner" class="banner" hidden></div>
     <main class="grid models-grid">
-      <section class="panel">
+      <section class="panel models-panel">
         <h2>{_escape(_t(lang, "models.catalog"))}</h2>
         <div id="model-list" class="model-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel models-panel">
         <h2>{_escape(_t(lang, "models.roles"))}</h2>
         <div id="role-list" class="binding-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel models-panel">
         <h2>{_escape(_t(lang, "models.agents"))}</h2>
         <div id="agent-list" class="binding-list"></div>
       </section>
@@ -1260,7 +1261,15 @@ def _page_shell(
     .autosave-indicator {{ font-size: 12px; color: var(--muted); padding: 0 4px; }}
     .grid {{ display: grid; gap: 16px; }}
     .editor-grid {{ grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr); }}
-    .models-grid {{ grid-template-columns: 280px 1fr 1fr; }}
+    .models-grid {{ grid-template-columns: 240px 200px 1fr; align-items: start; }}
+    .models-panel {{ position: relative; }}
+    .models-flow {{ margin: 6px 0 0; color: var(--muted); font-size: 12px; }}
+    .models-panel + .models-panel::before {{
+      content: '→'; position: absolute; left: -14px; top: 18px;
+      color: var(--border-strong); font-size: 16px; font-weight: 600;
+    }}
+    .binding-list {{ display: grid; gap: 8px; }}
+    .binding-list.is-agents {{ grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }}
     .cards {{ grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 16px; }}
     .wiki-layout {{ grid-template-columns: minmax(0, 1fr) 280px; margin-top: 16px; align-items: start; }}
     .wiki-index-body {{ min-width: 0; }}
@@ -1385,11 +1394,21 @@ def _page_shell(
     .binding-card {{
       border: 1px dashed var(--border);
       border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
+      padding: 10px;
       background: var(--surface-alt);
     }}
+    .binding-card.is-bound {{ border-style: solid; border-color: var(--border-strong); }}
     .binding-card.drag-over {{ border-color: var(--text); background: #f5f5f5; }}
+    .binding-card-head {{ display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }}
+    .binding-current {{ font-size: 13px; }}
+    .clear-binding {{
+      display: inline-flex; align-items: center; gap: 3px;
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 2px 6px; font-size: 12px; color: var(--muted); cursor: pointer; line-height: 1.4;
+    }}
+    .clear-binding:hover {{ background: var(--surface); color: var(--text); border-color: var(--border-strong); }}
+    .clear-binding .clear-label {{ font-size: 11px; }}
+    .binding-card:not(.is-bound) .clear-binding {{ display: none; }}
     .binding-meta {{ color: var(--muted); font-size: 13px; }}
     .meta {{ margin: 12px 0; color: var(--muted); }}
     .thread-item {{
@@ -1946,20 +1965,23 @@ def _models_page_script(lang: str) -> str:
         </div>
       `).join('');
       roleList.innerHTML = Object.keys(state.roster).map((role) => renderTarget('role', role, state.resolved.roles[role])).join('');
+      agentList.className = 'binding-list is-agents';
       agentList.innerHTML = Object.entries(state.resolved.agents).map(([agent, resolved]) => renderTarget('agent', agent, resolved)).join('');
       bindDnD();
     }}
 
     function renderTarget(kind, id, resolved) {{
       const current = resolved.abstract || strings.unbound;
+      const isBound = !!resolved.abstract;
       return `
-        <div class="binding-card" data-kind="${{kind}}" data-id="${{id}}">
-          <div><strong>${{id}}</strong></div>
-          <div>${{current}}</div>
+        <div class="binding-card${{isBound ? ' is-bound' : ''}}" data-kind="${{kind}}" data-id="${{id}}">
+          <div class="binding-card-head">
+            <strong>${{id}}</strong>
+            ${{isBound ? `<button class="clear-binding" data-kind="${{kind}}" data-id="${{id}}" title="${{strings.revertFactory}}"><span aria-hidden="true">↺</span><span class="clear-label">${{strings.revertFactory}}</span></button>` : ''}}
+          </div>
+          <div class="binding-current">${{current}}</div>
           <div class="binding-meta">${{strings.source}}: ${{resolved.source || ''}}${{resolved.role ? ' / role=' + resolved.role : ''}}</div>
           <div class="binding-meta">${{resolved.full || strings.unresolvedFullModel}}</div>
-          <div class="binding-meta">${{strings.bindingEffect}}</div>
-          <button class="clear-binding" data-kind="${{kind}}" data-id="${{id}}">${{strings.clearOverride}}</button>
         </div>
       `;
     }}
@@ -2481,15 +2503,16 @@ TRANSLATIONS = {
         "home.eyebrow": "Workbench",
         "home.lede_before": "当前 spec: ",
         "home.lede_after": "。左侧 sidebar 常驻，模型、wiki、设计文档都从当前项目直接打开。",
-        "home.models_desc": "拖拽角色或 Agent 绑定，保存后立刻写入当前项目 `.louke/models.json`。",
+        "home.models_desc": "拖拽角色或 Agent 绑定模型。",
         "home.docs_desc": "以 spec 目录为准，打开 spec / acceptance / test-plan 编辑与预览。",
         "home.wiki_desc": "浏览与编辑 `.louke/wiki/pages/`，支持按一级目录分组导航。",
         "nav.models": "模型绑定",
         "nav.docs": "设计文档",
-        "models.lede": "左侧模型列表可拖到角色或 Agent 卡片上。保存后会立即写入当前项目 `.louke/models.json`，新的命令解析与新启动 Agent 立刻生效；已在运行的会话不会热切换。",
+        "models.lede": "左侧模型列表可拖到角色或 Agent 卡片上。新的命令解析与新启动 Agent 立刻生效；已在运行的会话不会热切换。",
         "models.catalog": "模型列表",
         "models.roles": "角色绑定",
         "models.agents": "Agent 绑定",
+        "models.flow_hint": "模型 → 角色 → Agent（Agent 未单独绑定时继承其角色绑定）",
         "wiki.index_lede": "支持直接输入 `dir/page` 新建目录页；sidebar 会按一级目录自动归类。",
         "wiki.create_open": "新建并打开",
         "wiki.empty": "当前没有 wiki 页面。",
@@ -2527,15 +2550,16 @@ TRANSLATIONS = {
         "home.eyebrow": "Workbench",
         "home.lede_before": "Current spec: ",
         "home.lede_after": ". The sidebar stays visible, and models, wiki, and design docs open from the current project.",
-        "home.models_desc": "Drag roles or agents to bind models and save directly into `.louke/models.json`.",
+        "home.models_desc": "Drag roles or agents to bind models.",
         "home.docs_desc": "Open spec / acceptance / test-plan editors and previews from the current spec directory.",
         "home.wiki_desc": "Browse and edit `.louke/wiki/pages/` with first-level directory grouping in the sidebar.",
         "nav.models": "Model Bindings",
         "nav.docs": "Design Docs",
-        "models.lede": "Drag models onto roles or agents. Saving writes to `.louke/models.json` immediately; new commands and newly started agents pick up the change right away.",
+        "models.lede": "Drag models onto roles or agents. New commands and newly started agents pick up the change right away.",
         "models.catalog": "Model Catalog",
         "models.roles": "Role Bindings",
         "models.agents": "Agent Bindings",
+        "models.flow_hint": "Models -> Roles -> Agents (an agent inherits its role binding unless overridden)",
         "wiki.index_lede": "Create nested pages with `dir/page`; the sidebar groups them by first-level directory.",
         "wiki.create_open": "Create & Open",
         "wiki.empty": "No wiki pages yet.",
@@ -2588,8 +2612,7 @@ def _script_strings(lang: str, scope: str) -> dict[str, str]:
             "unbound": "未绑定",
             "source": "来源",
             "unresolvedFullModel": "未解析 full model",
-            "bindingEffect": "保存后对当前项目立即生效；新启动的 Agent / 命令会读取这个绑定。",
-            "clearOverride": "清除覆盖",
+            "revertFactory": "恢复出厂",
             "saveBindingsFailed": "保存绑定失败",
             "bindingsUpdated": "模型绑定已由 {{actor}} 更新，正在刷新视图",
         }
@@ -2601,8 +2624,7 @@ def _script_strings(lang: str, scope: str) -> dict[str, str]:
             "unbound": "Unbound",
             "source": "Source",
             "unresolvedFullModel": "Full model not resolved",
-            "bindingEffect": "Changes apply to this project immediately; newly started agents and commands use this binding.",
-            "clearOverride": "Clear Override",
+            "revertFactory": "Revert to factory",
             "saveBindingsFailed": "Failed to save bindings",
             "bindingsUpdated": "Bindings were updated by {{actor}}. Refreshing view.",
         }
