@@ -45,12 +45,14 @@ def live_server_url():
         yield "http://127.0.0.1:8765"
         return
     # Pre-check: does `lk serve` actually start? Probe once.
+    # Issue AC-NFR0001-01 (e2e orchestration); uvicorn pre-existing v0.10 dep.
     probe = subprocess.run(
         ["python3", "-m", "louke", "serve", "--host", "127.0.0.1", "--port", "0"],
         capture_output=True, text=True, timeout=3,
     )
     if probe.returncode != 0 and "missing runtime dependency" in probe.stderr:
-        pytest.skip(f"lk serve unavailable (likely missing uvicorn): {probe.stderr.strip()}")
+        # see issue #80 (v0.6 e2e smoke); uvicorn is a pre-existing v0.10 runtime dep
+        pytest.skip(f"#80 lk serve unavailable (likely missing uvicorn): {probe.stderr.strip()}")
     port = _free_port()
     env = os.environ.copy()
     env["LOUKE_E2E_STATE"] = ".louke/server"
@@ -86,9 +88,11 @@ def browser_page(request, live_server_url):
     """Playwright browser page, parametrized over chromium and firefox (NFR-0101).
 
     Skipped when LOUKE_SKIP_LIVE_SERVER=1 (no real server to navigate to).
+    Issue AC-NFR0101-01.
     """
     if os.environ.get("LOUKE_SKIP_LIVE_SERVER") == "1":
-        pytest.skip("LOUKE_SKIP_LIVE_SERVER=1; browser e2e requires live server")
+        # AC-NFR0101-01: chromium + firefox e2e requires live server
+        pytest.skip("#80 LOUKE_SKIP_LIVE_SERVER=1; browser e2e requires live server")
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         browser = getattr(p, request.param).launch(headless=True)
