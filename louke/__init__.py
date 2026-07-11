@@ -41,3 +41,5 @@ from . import security  # noqa: E402,F401
 from . import paths  # noqa: E402,F401
 
 from . import opencode, opencode_api  # noqa: E402,F401
+
+from . import files_api  # noqa: E402,F401
