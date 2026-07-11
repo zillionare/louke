@@ -53,7 +53,7 @@ jobs:
       - name: Install wheel into a clean venv
         run: |
           python -m venv /tmp/lk-venv
-          /tmp/lk-venv/bin/pip install --force-reinstall --no-deps dist/louke-*.whl
+          /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
 
       - name: "Smoke test: lk --help"
         run: /tmp/lk-venv/bin/lk --help
