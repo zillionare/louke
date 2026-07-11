@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-TESTPLAN",
+  "kind": "review-result",
+  "role": "Sage",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-001-web-ide/test-plan.md",
+    ".louke/project/specs/v0.11-001-web-ide/acceptance.md",
+    ".louke/project/specs/v0.11-001-web-ide/spec.md"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T08:48:48Z",
+  "contract_bundle_hash": "e7250fb81809f654f2b6164e0b6a72ef3b43e82b7eb934cdac3466df4c1293e4",
+  "metadata": {
+    "source_command": "review"
+  },
+  "output_hash": "a872552b1036b803bdf7fca24b65a188d0a863b0c659c384e4a3e6295cb7ce41"
+}

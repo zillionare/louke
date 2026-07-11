@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-TESTPLAN",
+  "kind": "author-result",
+  "role": "Archer",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-001-web-ide/test-plan.md"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T08:48:50Z",
+  "contract_bundle_hash": "e7250fb81809f654f2b6164e0b6a72ef3b43e82b7eb934cdac3466df4c1293e4",
+  "metadata": {},
+  "output_hash": "c360df8a6dcb7032a281d89bfda6aee1176a9fd14bd57ab6417dd37f3336ed94"
+}
