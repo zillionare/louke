@@ -117,11 +117,11 @@ Details:
 ## [High] SQL injection in user_repository.py:L42
 **Location**: `user_repository.py:42`
 **Pattern**: directly concatenating user input into SQL
-**Example**: 
+**Example**:
 ```python
 cursor.execute(f"SELECT * FROM users WHERE id={user_id}")
 ```
-**Fix recommendation**: 
+**Fix recommendation**:
 ```python
 cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
 ```

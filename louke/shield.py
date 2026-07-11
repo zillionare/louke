@@ -16,7 +16,7 @@ What Shield no longer does:
 - assume e2e tests live under ``.louke/project/specs/.../tests/e2e/``
 - assume every project uses ``python -m pytest`` / browser flags
 """
-import argparse
+
 import shlex
 import subprocess
 import sys
@@ -29,22 +29,35 @@ from .stage_results import write_stage_result
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('shield', help='e2e test authoring (Shield, B level)')
-    sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
+    parser = subparsers.add_parser(
+        "shield", help="e2e test authoring (Shield, B level)"
+    )
+    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
-    p = sub.add_parser('run-e2e', help='run host-project e2e per project.toml [e2e] contract')
-    p.add_argument('--no-env', action='store_true', help='skip auto start/ready/teardown (user started manually)')
+    p = sub.add_parser(
+        "run-e2e", help="run host-project e2e per project.toml [e2e] contract"
+    )
+    p.add_argument(
+        "--no-env",
+        action="store_true",
+        help="skip auto start/ready/teardown (user started manually)",
+    )
 
-    p = sub.add_parser('commit-e2e', help='commit host-project e2e files (git add + commit + push)')
-    p.add_argument('--message', required=True)
-    p.add_argument('--paths', nargs='+',
-                   help='host-project paths to stage (defaults to [e2e].paths in project.toml)')
+    p = sub.add_parser(
+        "commit-e2e", help="commit host-project e2e files (git add + commit + push)"
+    )
+    p.add_argument("--message", required=True)
+    p.add_argument(
+        "--paths",
+        nargs="+",
+        help="host-project paths to stage (defaults to [e2e].paths in project.toml)",
+    )
 
 
 def run(args):
     handlers = {
-        'run-e2e': cmd_run_e2e,
-        'commit-e2e': cmd_commit_e2e,
+        "run-e2e": cmd_run_e2e,
+        "commit-e2e": cmd_commit_e2e,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
@@ -65,27 +78,29 @@ def _read_e2e_config() -> dict:
     data = _toml_load(PROJECT_INFO_PATH)
     if not data:
         return {}
-    return data.get('e2e', {}) or {}
+    return data.get("e2e", {}) or {}
 
 
 def _normalize_repo_relative_path(raw: str) -> str:
     p = Path(str(raw).strip())
     if not str(p):
-        raise ValueError('empty path')
+        raise ValueError("empty path")
     if p.is_absolute():
-        raise ValueError(f'absolute path not allowed: {raw}')
+        raise ValueError(f"absolute path not allowed: {raw}")
     parts = p.parts
-    if '..' in parts:
-        raise ValueError(f'path escapes repo root: {raw}')
-    if parts and parts[0] == '.louke':
-        raise ValueError(f'e2e paths must point to host-project assets, not .louke/: {raw}')
+    if ".." in parts:
+        raise ValueError(f"path escapes repo root: {raw}")
+    if parts and parts[0] == ".louke":
+        raise ValueError(
+            f"e2e paths must point to host-project assets, not .louke/: {raw}"
+        )
     return p.as_posix()
 
 
 def _resolve_commit_paths(cfg: dict, cli_paths: Optional[List[str]]) -> List[str]:
     raw_paths = cli_paths
     if not raw_paths:
-        configured = cfg.get('paths')
+        configured = cfg.get("paths")
         if isinstance(configured, str):
             raw_paths = [configured]
         elif isinstance(configured, list):
@@ -99,7 +114,7 @@ def _resolve_commit_paths(cfg: dict, cli_paths: Optional[List[str]]) -> List[str
 
 
 def _resolve_e2e_cwd(cfg: dict) -> Path:
-    raw = str(cfg.get('cwd', '')).strip()
+    raw = str(cfg.get("cwd", "")).strip()
     if not raw:
         return Path.cwd()
     rel = _normalize_repo_relative_path(raw)
@@ -117,7 +132,7 @@ def _run_command(cmd_str: str, cwd: Path) -> int:
     try:
         args = shlex.split(cmd_str)
     except ValueError as e:
-        print(f'[shield] command parse failed: {cmd_str!r} ({e})', file=sys.stderr)
+        print(f"[shield] command parse failed: {cmd_str!r} ({e})", file=sys.stderr)
         return 1
     if not args:
         return 0
@@ -138,34 +153,39 @@ def cmd_run_e2e(args):
     """Run host-project e2e per the generic [e2e] contract."""
     env = _read_e2e_config()
     cwd = _resolve_e2e_cwd(env)
-    spec_id = _read_project_info_field('Spec ID').strip()
+    spec_id = _read_project_info_field("Spec ID").strip()
 
-    run_cmd = str(env.get('run', '')).strip()
+    run_cmd = str(env.get("run", "")).strip()
     if not run_cmd:
-        print('[shield] missing [e2e].run in .louke/project/project.toml', file=sys.stderr)
-        print('[shield] Archer must define the host-project e2e command (for example: pytest -q tests/e2e)', file=sys.stderr)
+        print(
+            "[shield] missing [e2e].run in .louke/project/project.toml", file=sys.stderr
+        )
+        print(
+            "[shield] Archer must define the host-project e2e command (for example: pytest -q tests/e2e)",
+            file=sys.stderr,
+        )
         if spec_id:
             write_stage_result(
                 spec_id=spec_id,
-                stage='M-E2E',
-                kind='author-result',
-                role='Shield',
-                verdict='fail',
+                stage="M-E2E",
+                kind="author-result",
+                role="Shield",
+                verdict="fail",
                 reviewed_targets=_resolve_commit_paths(env, None),
-                blocking_findings=['missing [e2e].run in .louke/project/project.toml'],
+                blocking_findings=["missing [e2e].run in .louke/project/project.toml"],
             )
         return 1
 
-    start = '' if args.no_env else str(env.get('start', '')).strip()
-    ready = '' if args.no_env else str(env.get('ready', '')).strip()
-    teardown_cmd = '' if args.no_env else str(env.get('teardown', '')).strip()
+    start = "" if args.no_env else str(env.get("start", "")).strip()
+    ready = "" if args.no_env else str(env.get("ready", "")).strip()
+    teardown_cmd = "" if args.no_env else str(env.get("teardown", "")).strip()
     try:
-        ready_timeout = int(env.get('ready_timeout_seconds', 60))
+        ready_timeout = int(env.get("ready_timeout_seconds", 60))
     except (TypeError, ValueError):
         ready_timeout = 60
 
-    print(f"=== Run E2E ===")
-    print(f"Config source: project.toml [e2e] section")
+    print("=== Run E2E ===")
+    print("Config source: project.toml [e2e] section")
     print(f"Workdir: {cwd}")
     print(f"Run command: {run_cmd}")
     if args.no_env:
@@ -176,17 +196,17 @@ def cmd_run_e2e(args):
         print(f"\n[e2e] start: {start}")
         rc = _run_command(start, cwd)
         if rc != 0:
-            print(f'[e2e] start failed (rc={rc})', file=sys.stderr)
+            print(f"[e2e] start failed (rc={rc})", file=sys.stderr)
             if spec_id:
                 write_stage_result(
                     spec_id=spec_id,
-                    stage='M-E2E',
-                    kind='author-result',
-                    role='Shield',
-                    verdict='fail',
+                    stage="M-E2E",
+                    kind="author-result",
+                    role="Shield",
+                    verdict="fail",
                     reviewed_targets=_resolve_commit_paths(env, None),
-                    blocking_findings=[f'e2e start failed (rc={rc})'],
-                    metadata={'run_command': run_cmd, 'cwd': str(cwd)},
+                    blocking_findings=[f"e2e start failed (rc={rc})"],
+                    metadata={"run_command": run_cmd, "cwd": str(cwd)},
                 )
             return rc
 
@@ -194,23 +214,23 @@ def cmd_run_e2e(args):
     if ready:
         print(f"\n[e2e] waiting ready ({ready}, timeout {ready_timeout}s)")
         if not _wait_ready(ready, cwd, ready_timeout):
-            print(f'[e2e] timeout waiting ready ({ready_timeout}s)', file=sys.stderr)
+            print(f"[e2e] timeout waiting ready ({ready_timeout}s)", file=sys.stderr)
             if teardown_cmd:
-                print(f'[e2e] teardown (after timeout): {teardown_cmd}')
+                print(f"[e2e] teardown (after timeout): {teardown_cmd}")
                 _run_command(teardown_cmd, cwd)
             if spec_id:
                 write_stage_result(
                     spec_id=spec_id,
-                    stage='M-E2E',
-                    kind='author-result',
-                    role='Shield',
-                    verdict='fail',
+                    stage="M-E2E",
+                    kind="author-result",
+                    role="Shield",
+                    verdict="fail",
                     reviewed_targets=_resolve_commit_paths(env, None),
-                    blocking_findings=[f'timeout waiting ready ({ready_timeout}s)'],
-                    metadata={'run_command': run_cmd, 'cwd': str(cwd)},
+                    blocking_findings=[f"timeout waiting ready ({ready_timeout}s)"],
+                    metadata={"run_command": run_cmd, "cwd": str(cwd)},
                 )
             return 1
-        print('[e2e] ready')
+        print("[e2e] ready")
 
     # 3. Run e2e
     print(f"\n[e2e] run: {run_cmd}")
@@ -225,13 +245,13 @@ def cmd_run_e2e(args):
     if spec_id:
         write_stage_result(
             spec_id=spec_id,
-            stage='M-E2E',
-            kind='author-result',
-            role='Shield',
-            verdict='pass' if rc == 0 else 'fail',
+            stage="M-E2E",
+            kind="author-result",
+            role="Shield",
+            verdict="pass" if rc == 0 else "fail",
             reviewed_targets=_resolve_commit_paths(env, None),
-            blocking_findings=[] if rc == 0 else [f'e2e run failed (rc={rc})'],
-            metadata={'run_command': run_cmd, 'cwd': str(cwd)},
+            blocking_findings=[] if rc == 0 else [f"e2e run failed (rc={rc})"],
+            metadata={"run_command": run_cmd, "cwd": str(cwd)},
         )
 
     return rc
@@ -244,21 +264,24 @@ def cmd_commit_e2e(args):
     try:
         paths = _resolve_commit_paths(cfg, args.paths)
     except ValueError as e:
-        print(f'[shield] invalid e2e path: {e}', file=sys.stderr)
+        print(f"[shield] invalid e2e path: {e}", file=sys.stderr)
         return 1
     if not paths:
-        print('[shield] no e2e paths provided.', file=sys.stderr)
-        print('[shield] pass --paths <dir ...> or define [e2e].paths in .louke/project/project.toml', file=sys.stderr)
+        print("[shield] no e2e paths provided.", file=sys.stderr)
+        print(
+            "[shield] pass --paths <dir ...> or define [e2e].paths in .louke/project/project.toml",
+            file=sys.stderr,
+        )
         return 1
 
-    print(f"=== Commit E2E ===")
+    print("=== Commit E2E ===")
     print(f"Paths: {', '.join(paths)}")
     print(f"Message: {args.message}")
 
     cmds = [
-        ['git', 'add', *paths],
-        ['git', 'commit', '-m', f'e2e: {args.message}'],
-        ['git', 'push'],
+        ["git", "add", *paths],
+        ["git", "commit", "-m", f"e2e: {args.message}"],
+        ["git", "push"],
     ]
     for cmd in cmds:
         rc, out, err = git(*cmd[1:], cwd=cwd)

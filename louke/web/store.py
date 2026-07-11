@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -10,7 +11,33 @@ from typing import Any
 
 from .._common import _toml_load
 from ..models import SCHEMA as MODELS_SCHEMA
-from ..models import config_path, load_config
+
+
+_RE_SPEC_VERSION = re.compile(r"^v(\d+)\.(\d+)(?:-(\d+))?")
+
+
+def _spec_version_key(spec_id: str) -> tuple[int, int, int, str]:
+    """Parse a spec id like 'v0.10-001-foo' into a sortable key.
+
+    Returns (major, minor, patch, suffix) so 'v0.10' > 'v0.9' > 'v0.8'.
+    Specs without a parseable version get a -1 sentinel so they sort last.
+    """
+    m = _RE_SPEC_VERSION.match(spec_id)
+    if not m:
+        return (-1, -1, -1, spec_id)
+    major = int(m.group(1))
+    minor = int(m.group(2))
+    patch = int(m.group(3) or 0)
+    return (major, minor, patch, spec_id)
+
+
+def _pick_highest_version_spec(spec_ids: list[str]) -> str:
+    if not spec_ids:
+        return ""
+    return max(spec_ids, key=_spec_version_key)
+
+
+from ..models import config_path, load_config  # noqa: E402
 
 
 DOC_NAME_TO_FILE = {
@@ -110,6 +137,32 @@ class ProjectStore:
             )
         return items
 
+    def list_spec_ids(self) -> list[str]:
+        """List all spec directory names under .louke/project/specs/."""
+        if not self.specs_dir.exists():
+            return []
+        return sorted(
+            d.name
+            for d in self.specs_dir.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        )
+
+    def resolve_spec_id(self) -> str:
+        """Return the spec ID to use, with auto-select fallback.
+
+        Priority:
+        1. The configured spec_id from project.toml, if it exists on disk.
+        2. The spec with the highest version number, if any specs exist.
+        3. Empty string if no specs.
+        """
+        available = self.list_spec_ids()
+        if not available:
+            return ""
+        configured = self.spec_id
+        if configured and configured in available:
+            return configured
+        return _pick_highest_version_spec(available)
+
     def doc_path(self, spec_id: str, doc_name: str) -> Path:
         if doc_name not in DOC_NAME_TO_FILE:
             raise ValidationError(f"unsupported document name: {doc_name}")
@@ -122,7 +175,9 @@ class ProjectStore:
         page_name = self._normalize_page_name(page)
         return self.wiki_pages_dir / f"{page_name}.md"
 
-    def read_doc(self, spec_id: str, doc_name: str) -> tuple[str, str, ResourceMetadata]:
+    def read_doc(
+        self, spec_id: str, doc_name: str
+    ) -> tuple[str, str, ResourceMetadata]:
         path = self.doc_path(spec_id, doc_name)
         body_md = path.read_text(encoding="utf-8")
         return body_md, self._token_for_text(path, body_md), self._metadata_for(path)
@@ -134,11 +189,13 @@ class ProjectStore:
         body_md: str,
         version_token: str,
         actor_name: str,
+        force: bool = False,
     ) -> tuple[str, ResourceMetadata]:
         path = self.doc_path(spec_id, doc_name)
         self._check_actor(actor_name)
         current = path.read_text(encoding="utf-8")
-        self._assert_token(path, current, version_token)
+        if not force:
+            self._assert_token(path, current, version_token)
         self._atomic_write_text(path, self._ensure_trailing_newline(body_md))
         metadata = self.record_activity("document.updated", path, actor_name)
         return self._token_for_text(path, body_md), metadata
@@ -160,12 +217,34 @@ class ProjectStore:
             )
         return pages
 
+    def wiki_index_path(self) -> Path:
+        """Path to the wiki index file (.louke/wiki/index.md)."""
+        return self.wiki_dir / "index.md"
+
+    def read_wiki_index(self) -> tuple[str, ResourceMetadata] | None:
+        """Read the wiki index file if it exists, else return None.
+
+        The wiki index is a regular Markdown file at .louke/wiki/index.md
+        that the librarian agent keeps up to date. The /wiki page renders
+        this file's content (instead of enumerating pages/ directly).
+        """
+        path = self.wiki_index_path()
+        if not path.exists():
+            return None
+        body_md = path.read_text(encoding="utf-8")
+        return body_md, self._metadata_for(path)
+
     def read_wiki_page(self, page: str) -> tuple[Path, str, str, ResourceMetadata]:
         path = self.wiki_page_path(page)
         if not path.exists():
             raise FileNotFoundError(path)
         body_md = path.read_text(encoding="utf-8")
-        return path, body_md, self._token_for_text(path, body_md), self._metadata_for(path)
+        return (
+            path,
+            body_md,
+            self._token_for_text(path, body_md),
+            self._metadata_for(path),
+        )
 
     def write_wiki_page(
         self,
@@ -180,7 +259,9 @@ class ProjectStore:
         if path.exists():
             self._assert_token(path, current, version_token)
         elif version_token not in {"", "new"}:
-            raise ConflictError("wiki page does not exist yet; use empty token to create it")
+            raise ConflictError(
+                "wiki page does not exist yet; use empty token to create it"
+            )
         self._atomic_write_text(path, self._ensure_trailing_newline(body_md))
         metadata = self.record_activity("wiki.updated", path, actor_name)
         return path, self._token_for_text(path, body_md), metadata
@@ -198,7 +279,9 @@ class ProjectStore:
         config.setdefault("version", 1)
         config.setdefault("aliases", {})
         token = self._token_for_json(path, config)
-        metadata = self._metadata_for(path) if path.exists() else ResourceMetadata("", "")
+        metadata = (
+            self._metadata_for(path) if path.exists() else ResourceMetadata("", "")
+        )
         return config, token, metadata
 
     def write_bindings(
@@ -225,10 +308,17 @@ class ProjectStore:
         metadata = self.record_activity("bindings.updated", path, actor_name)
         return self._token_for_json(path, payload), metadata
 
-    def read_text_target(self, target_path: str) -> tuple[Path, str, str, ResourceMetadata]:
+    def read_text_target(
+        self, target_path: str
+    ) -> tuple[Path, str, str, ResourceMetadata]:
         path = self.resolve_target_path(target_path)
         body_md = path.read_text(encoding="utf-8")
-        return path, body_md, self._token_for_text(path, body_md), self._metadata_for(path)
+        return (
+            path,
+            body_md,
+            self._token_for_text(path, body_md),
+            self._metadata_for(path),
+        )
 
     def resolve_target_path(self, target_path: str) -> Path:
         candidate = (self.root / target_path).resolve()
@@ -282,7 +372,11 @@ class ProjectStore:
             )
         if path.exists():
             stat = path.stat()
-            updated_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+            updated_at = (
+                datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
             return ResourceMetadata(updated_at=updated_at, last_modified_by="")
         return ResourceMetadata(updated_at="", last_modified_by="")
 

@@ -46,9 +46,9 @@ note() { echo "louke: $*" >&2; }
 die()  { note "error: $*"; exit 1; }
 
 # ---------- Pre-check ----------
-command -v python3 >/dev/null 2>&1 || die "python3 not found. install Python 3.9+ first."
+command -v python3 >/dev/null 2>&1 || die "python3 not found. install Python 3.11+ first."
 PY_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
-[ "$PY_MINOR" -ge 9 ] 2>/dev/null || die "Python 3.9+ required (found $(python3 -V 2>&1))"
+[ "$PY_MINOR" -ge 11 ] 2>/dev/null || die "Python 3.11+ required (found $(python3 -V 2>&1))"
 
 # ---------- Decide install source ----------
 if [ "$EDITABLE" -eq 1 ]; then

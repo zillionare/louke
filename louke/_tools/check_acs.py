@@ -19,7 +19,26 @@ RE_FR_HEADING = re.compile(r"^##\s+((?:FR|NFR)-\d{4})\b", re.I)
 RE_AC_HEADING = re.compile(r"^###\s+AC-(\d+)\b", re.I)
 RE_AC_COLON = re.compile(r"^AC-(\d+)\s*:", re.I)
 RE_AC_REF = re.compile(r"\bAC-((?:FR|NFR)\d{4})-(\d{2})\b", re.I)
-TEST_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".sh", ".bats", ".java", ".kt", ".rb", ".php", ".c", ".cc", ".cpp", ".h", ".hpp"}
+TEST_EXTS = {
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".go",
+    ".rs",
+    ".sh",
+    ".bats",
+    ".java",
+    ".kt",
+    ".rb",
+    ".php",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".h",
+    ".hpp",
+}
 
 
 def canonical(fr: str, ac_no: str | int) -> str:
@@ -58,7 +77,11 @@ def iter_test_files(paths: list[Path]) -> list[Path]:
             out.append(p)
         elif p.is_dir():
             for child in p.rglob("*"):
-                if child.is_file() and child.suffix in TEST_EXTS and ".git" not in child.parts:
+                if (
+                    child.is_file()
+                    and child.suffix in TEST_EXTS
+                    and ".git" not in child.parts
+                ):
                     out.append(child)
     return sorted(out)
 
@@ -80,7 +103,11 @@ def parse_refs(files: list[Path]) -> dict[str, list[dict[str, Any]]]:
 def load_baseline(path: Path | None) -> set[str]:
     if not path or not path.exists():
         return set()
-    return {line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")}
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
 
 
 def main() -> int:
@@ -98,7 +125,9 @@ def main() -> int:
     test_paths = [Path(x) for x in args.tests]
     acs = parse_acceptance(acceptance)
     refs = parse_refs(iter_test_files(test_paths))
-    baseline = load_baseline(Path(args.legacy_baseline) if args.legacy_baseline else None)
+    baseline = load_baseline(
+        Path(args.legacy_baseline) if args.legacy_baseline else None
+    )
 
     missing = sorted([ac for ac in acs if ac not in refs and ac not in baseline])
     baseline_missing = sorted([ac for ac in acs if ac not in refs and ac in baseline])
@@ -117,7 +146,9 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
-        print(f"AC traceability: {report['referenced_ac']}/{report['total_ac']} referenced")
+        print(
+            f"AC traceability: {report['referenced_ac']}/{report['total_ac']} referenced"
+        )
         for ac in missing:
             print(f"[missing] {ac}")
         for ac in baseline_missing:

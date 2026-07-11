@@ -47,7 +47,7 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -56,11 +56,11 @@ from pathlib import Path
 
 @dataclass
 class CheckResult:
-    code: str           # F1, F2, ...
-    name: str           # check name
+    code: str  # F1, F2, ...
+    name: str  # check name
     passed: bool = False
-    message: str = ""   # details on pass
-    error: str = ""     # reason on failure
+    message: str = ""  # details on pass
+    error: str = ""  # reason on failure
     warning: bool = False  # True = warning rather than blocking
 
 
@@ -70,9 +70,11 @@ class CheckResult:
 def _gh(*args: str) -> tuple[str, bool]:
     """Run a gh command, returns (stdout, success)"""
     try:
-        out = subprocess.check_output(
-            ["gh", *args], stderr=subprocess.STDOUT
-        ).decode().strip()
+        out = (
+            subprocess.check_output(["gh", *args], stderr=subprocess.STDOUT)
+            .decode()
+            .strip()
+        )
         return out, True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "", False
@@ -112,9 +114,15 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
 
     if project_id:
         # Validate the specified ID directly
-        data, ok = _gh_json("project", "view", str(project_id),
-                            "--owner", repo.split("/")[0],
-                            "--json", "title,number")
+        data, ok = _gh_json(
+            "project",
+            "view",
+            str(project_id),
+            "--owner",
+            repo.split("/")[0],
+            "--json",
+            "title,number",
+        )
         if ok and data:
             r.passed = True
             r.message = f"{data['title']} (#{data['number']})"
@@ -127,8 +135,9 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
     owners_to_check = list({repo_owner, gh_user})  # dedupe preserving order
 
     for owner in owners_to_check:
-        data, ok = _gh_json("project", "list", "--owner", owner,
-                            "--format", "json", "--limit", "50")
+        data, ok = _gh_json(
+            "project", "list", "--owner", owner, "--format", "json", "--limit", "50"
+        )
         if not ok or not data:
             continue
         # gh project list --format json returns {"projects": [...], "totalCount": N}
@@ -160,14 +169,23 @@ def check_f3_test_issue(repo: str, version: str) -> CheckResult:
     r = CheckResult(code="F3", name="Test Issue compliant")
     expected_title = f"Good First Issue: {repo.split('/')[-1]}-{version}"
 
-    data, ok = _gh_json("issue", "list", "--repo", repo,
-                        "--state", "all", "--limit", "100",
-                        "--json", "number,title,state")
+    data, ok = _gh_json(
+        "issue",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,state",
+    )
     if not ok or not data:
         r.error = "unable to list issues — please confirm gh has repo access"
         return r
 
-    for issue in (data if isinstance(data, list) else []):
+    for issue in data if isinstance(data, list) else []:
         if expected_title.lower() in issue.get("title", "").lower():
             if issue.get("state") == "CLOSED":
                 r.passed = True
@@ -185,14 +203,23 @@ def check_f4_test_pr(repo: str, version: str) -> CheckResult:
     r = CheckResult(code="F4", name="Test PR compliant")
     expected_title = f"Good First PR: {repo.split('/')[-1]}-{version}"
 
-    data, ok = _gh_json("pr", "list", "--repo", repo,
-                        "--state", "all", "--limit", "100",
-                        "--json", "number,title,state")
+    data, ok = _gh_json(
+        "pr",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,state",
+    )
     if not ok or not data:
         r.error = "unable to list PRs — please confirm gh has repo access"
         return r
 
-    for pr in (data if isinstance(data, list) else []):
+    for pr in data if isinstance(data, list) else []:
         if expected_title.lower() in pr.get("title", "").lower():
             state = pr.get("state")
             if state in ("CLOSED", "MERGED"):
@@ -207,16 +234,25 @@ def check_f4_test_pr(repo: str, version: str) -> CheckResult:
 
 
 def check_f5_agents() -> CheckResult:
-    """F5: Agent prompt files exist"""
+    """F5: Agent prompt files exist (in .opencode/agents/, the OpenCode output).
+
+    Agents are owned by the louke package — they never live in the project
+    source tree. `lk board opencode` materialises them into .opencode/agents/
+    so the OpenCode IDE can consume them; that's the canonical location this
+    check inspects.
+    """
     r = CheckResult(code="F5", name="Agent files exist")
-    agents_dir = Path("agents")
+    agents_dir = Path(".opencode/agents")
     if not agents_dir.is_dir():
-        r.error = "agents/ directory does not exist"
+        r.error = (
+            ".opencode/agents/ directory does not exist — "
+            "run `lk board opencode` (or `lk init`) to materialise agents"
+        )
         return r
 
     md_files = list(agents_dir.glob("*.md"))
     if not md_files:
-        r.error = "no .md files found under agents/"
+        r.error = "no .md files found under .opencode/agents/"
         return r
 
     r.passed = True
@@ -264,7 +300,7 @@ def check_f6_project_info(spec_id: str | None) -> CheckResult:
             r.error = "Python tomllib/tomli unavailable, cannot parse project.toml"
             return r
     try:
-        with open(pi_path, 'rb') as f:
+        with open(pi_path, "rb") as f:
             data = tomllib.load(f)
     except Exception as e:
         r.error = f"project.toml parse failed: {e}"
@@ -274,7 +310,7 @@ def check_f6_project_info(spec_id: str | None) -> CheckResult:
     missing = []
     for section, key in REQUIRED_PROJECT_INFO_FIELDS:
         if section not in data or key not in data[section]:
-            missing.append(f'[{section}].{key}')
+            missing.append(f"[{section}].{key}")
     if missing:
         r.error = f"project.toml missing fields: {', '.join(missing)}"
         return r
@@ -284,7 +320,7 @@ def check_f6_project_info(spec_id: str | None) -> CheckResult:
         if not RE_SPEC_ID.match(spec_id):
             r.error = f"Spec ID format non-compliant: '{spec_id}' — expected v{{version}}-{{NNN}}-{{keyword}} (e.g. v0.3-001-adopt-mode)"
             return r
-        actual_spec_id = data.get('project', {}).get('spec_id', '')
+        actual_spec_id = data.get("project", {}).get("spec_id", "")
         if actual_spec_id != spec_id:
             r.error = f"Spec ID in project.toml does not match argument '{spec_id}'"
             return r
@@ -319,10 +355,14 @@ def check_f8_dev_branch(version: str, upstream: str | None) -> CheckResult:
 
     # Use git ls-remote directly (does not depend on gh, also avoids gh api nested shell expansion pitfalls)
     try:
-        ls_out = subprocess.check_output(
-            ["git", "ls-remote", "--heads", "origin", branch],
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
+        ls_out = (
+            subprocess.check_output(
+                ["git", "ls-remote", "--heads", "origin", branch],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
         if ls_out:
             r.passed = True
             r.message = f"remote branch {branch} exists"
@@ -356,7 +396,9 @@ def check_f9_spec_id(spec_id: str) -> CheckResult:
     return r
 
 
-def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -> CheckResult:
+def check_f10_unmerged_releases(
+    repo: str, current_release: str | None = None
+) -> CheckResult:
     """F10: check all releases/* branches not merged into main
 
     Exemption rule: the release currently being worked on (releases/{version} corresponding to --version)
@@ -373,10 +415,14 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
 
     # 1. List all releases/* remote branches not merged into main
     try:
-        out = subprocess.check_output(
-            ["git", "ls-remote", "--heads", "origin", "releases/*"],
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
+        out = (
+            subprocess.check_output(
+                ["git", "ls-remote", "--heads", "origin", "releases/*"],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
     except Exception as e:
         r.error = f"unable to list remote branches: {e}"
         return r
@@ -423,9 +469,11 @@ def check_f10_unmerged_releases(repo: str, current_release: str | None = None) -
                 tomllib = None  # type: ignore
         if tomllib is not None:
             try:
-                with open(pi_path, 'rb') as f:
+                with open(pi_path, "rb") as f:
                     data = tomllib.load(f)
-                acked_list = data.get('meta', {}).get('acknowledged_orphan_releases', [])
+                acked_list = data.get("meta", {}).get(
+                    "acknowledged_orphan_releases", []
+                )
                 if isinstance(acked_list, list):
                     acked = acked_list
             except Exception:
@@ -469,9 +517,12 @@ def check_f11_identity(repo: str) -> CheckResult:
         git_name, git_email, last_author, remote_url = check_identity.collect_git()
         repo_role = check_identity.collect_repo_role(repo)
         ident = check_identity.Identity(
-            gh_user=gh_user, gh_emails=gh_emails,
-            git_name=git_name, git_email=git_email,
-            last_commit_author=last_author, remote_url=remote_url,
+            gh_user=gh_user,
+            gh_emails=gh_emails,
+            git_name=git_name,
+            git_email=git_email,
+            last_commit_author=last_author,
+            remote_url=remote_url,
             repo_role=repo_role,
         )
         check_identity.check(ident, repo)
@@ -518,11 +569,15 @@ def report(results: list[CheckResult]) -> int:
     print()
 
     if failed:
-        print(f"[REJECT] {len(failed)} blocking, {len(warnings)} warnings, {len(passed)} passed\n")
+        print(
+            f"[REJECT] {len(failed)} blocking, {len(warnings)} warnings, {len(passed)} passed\n"
+        )
         return 1
 
     if warnings:
-        print(f"[PASS+warning] {len(warnings)} warnings need confirmation, {len(passed)} passed\n")
+        print(
+            f"[PASS+warning] {len(warnings)} warnings need confirmation, {len(passed)} passed\n"
+        )
         return 0
 
     print(f"[PASS] all {len(passed)} checks passed\n")
@@ -539,13 +594,22 @@ def main() -> int:
     )
     p.add_argument("repo", help="owner/repo, e.g. zillionare/louke")
     p.add_argument("--version", required=True, help="version number, e.g. v0.1")
-    p.add_argument("--spec-id", dest="spec_id", help="Spec ID, e.g. v0.3-001-adopt-mode")
-    p.add_argument("--project-id", dest="project_id", type=int,
-                   help="GitHub Project numeric ID (skip auto-lookup)")
+    p.add_argument(
+        "--spec-id", dest="spec_id", help="Spec ID, e.g. v0.3-001-adopt-mode"
+    )
+    p.add_argument(
+        "--project-id",
+        dest="project_id",
+        type=int,
+        help="GitHub Project numeric ID (skip auto-lookup)",
+    )
     p.add_argument("--upstream", help="upstream branch name (enables F8 check)")
     p.add_argument("--skip", help="skip specific checks, comma-separated (e.g. F3,F4)")
-    p.add_argument("--offline", action="store_true",
-                   help="offline mode: only run local checks (F5, F6, F7, F9)")
+    p.add_argument(
+        "--offline",
+        action="store_true",
+        help="offline mode: only run local checks (F5, F6, F7, F9)",
+    )
 
     args = p.parse_args()
 

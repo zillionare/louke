@@ -18,7 +18,9 @@ class AuthenticatedUser:
     username: str
 
 
-def current_user(store: ProjectStore, cookie_value: str | None) -> AuthenticatedUser | None:
+def current_user(
+    store: ProjectStore, cookie_value: str | None
+) -> AuthenticatedUser | None:
     if not cookie_value:
         return None
     payload = _decode_session(store, cookie_value)
@@ -32,20 +34,28 @@ def current_user(store: ProjectStore, cookie_value: str | None) -> Authenticated
 
 def issue_session_cookie(store: ProjectStore, username: str) -> str:
     payload = {"username": username}
-    serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    serialized = json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
     encoded = base64.urlsafe_b64encode(serialized).decode("ascii")
-    signature = hmac.new(_session_secret(store), encoded.encode("ascii"), hashlib.sha256).hexdigest()
+    signature = hmac.new(
+        _session_secret(store), encoded.encode("ascii"), hashlib.sha256
+    ).hexdigest()
     return f"{encoded}.{signature}"
 
 
-def register_user(store: ProjectStore, username: str, password: str) -> AuthenticatedUser:
+def register_user(
+    store: ProjectStore, username: str, password: str
+) -> AuthenticatedUser:
     clean_username = _normalize_username(username)
     clean_password = _normalize_password(password)
     store.create_user(clean_username, clean_password)
     return AuthenticatedUser(username=clean_username)
 
 
-def authenticate_user(store: ProjectStore, username: str, password: str) -> AuthenticatedUser:
+def authenticate_user(
+    store: ProjectStore, username: str, password: str
+) -> AuthenticatedUser:
     clean_username = _normalize_username(username)
     clean_password = _normalize_password(password)
     if not store.verify_user(clean_username, clean_password):
@@ -57,7 +67,9 @@ def _decode_session(store: ProjectStore, cookie_value: str) -> dict[str, Any] | 
     encoded, dot, signature = cookie_value.partition(".")
     if not encoded or not dot or not signature:
         return None
-    expected = hmac.new(_session_secret(store), encoded.encode("ascii"), hashlib.sha256).hexdigest()
+    expected = hmac.new(
+        _session_secret(store), encoded.encode("ascii"), hashlib.sha256
+    ).hexdigest()
     if not hmac.compare_digest(signature, expected):
         return None
     try:

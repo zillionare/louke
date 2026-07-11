@@ -29,9 +29,7 @@ Thumbs.db
 .louke/raw/
 
 # Librarian temp files (FR-0100 / FR-0140.2)
-.louke/wiki/.compact-bundle*.md
-.louke/wiki/.cron.log
-.louke/wiki/.distillations/
+.louke/wiki
 
 # Test/cache files
 .coverage
@@ -47,7 +45,7 @@ louke.egg-info/
 # 禁止在仓库根目录创建同名目录 (避免双份漂移)
 /agents/
 /templates/
-/Makefile
+# Makefile is intentionally tracked (provides `make test` for CI).
 
 # Session artifacts (per-agent / per-IDE state)
 .kilo/
@@ -64,3 +62,4 @@ louke.egg-info/
 # Stray worktrees created inside the repo (should live outside, but ignore if present)
 /v0.7.3/
 /v0.7-skill-fix/
+.louke/wiki/**

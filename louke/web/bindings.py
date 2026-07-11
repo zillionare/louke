@@ -13,7 +13,9 @@ ROLE_TO_AGENTS = {
     "A": ["Maestro", "Sage", "Archer", "Devon", "Prism", "Shield"],
     "B": ["Lex", "Warden", "Keeper", "Scout", "Librarian"],
 }
-AGENT_TO_ROLE = {agent: role for role, agents in ROLE_TO_AGENTS.items() for agent in agents}
+AGENT_TO_ROLE = {
+    agent: role for role, agents in ROLE_TO_AGENTS.items() for agent in agents
+}
 
 
 def get_bindings_payload(store: ProjectStore) -> dict[str, Any]:
@@ -26,7 +28,9 @@ def get_bindings_payload(store: ProjectStore) -> dict[str, Any]:
         abstract = assignments["roles"].get(role, "")
         resolved_roles[role] = {
             "abstract": abstract,
-            "full": _resolve_full_model(abstract, store.root, aliases) if abstract else "",
+            "full": _resolve_full_model(abstract, store.root, aliases)
+            if abstract
+            else "",
         }
     resolved_agents = {}
     for agent, role in AGENT_TO_ROLE.items():
@@ -43,7 +47,9 @@ def get_bindings_payload(store: ProjectStore) -> dict[str, Any]:
             "source": source,
             "role": role,
             "abstract": abstract,
-            "full": _resolve_full_model(abstract, store.root, aliases) if abstract else "",
+            "full": _resolve_full_model(abstract, store.root, aliases)
+            if abstract
+            else "",
         }
     catalog = []
     for abstract in _catalog_models(assignments, defaults, aliases):
@@ -95,8 +101,12 @@ def _normalize_assignments(assignments: dict[str, Any]) -> dict[str, dict[str, s
     roles = dict(assignments.get("roles") or {})
     agents = dict(assignments.get("agents") or {})
     return {
-        "roles": {str(key): str(value) for key, value in roles.items() if str(value).strip()},
-        "agents": {str(key): str(value) for key, value in agents.items() if str(value).strip()},
+        "roles": {
+            str(key): str(value) for key, value in roles.items() if str(value).strip()
+        },
+        "agents": {
+            str(key): str(value) for key, value in agents.items() if str(value).strip()
+        },
     }
 
 
