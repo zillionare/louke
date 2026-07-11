@@ -4,7 +4,7 @@
 
 [🇺🇸 English](README.md) · [🇨🇳 中文](README.zh.md)
 
-**LouKe 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。** 
+**LouKe 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。**
 
 ---
 
@@ -251,11 +251,14 @@ cd ~/work/my-existing-repo && lk init .
 
 `lk init` 会：
 
-1. 复制 agents/templates 到 `.LouKe/`
-2. 生成 `.opencode/agents/*.md`（每 agent 含解析后的 `model:` 字段）
-3. 写 `default_agent: maestro` 到项目级 `opencode.json`
-4. 安装 `.github/ISSUE_TEMPLATE/feature.yml`（4 位 FR schema）+ `.github/workflows/LouKe-ci.yml`（AC 引用闭合门禁）
-5. 解析抽象模型名 → `provider/model`（`lk models doctor --fix-auto`）
+1. 建项目结构（`.louke/{templates,project,project/specs,wiki/pages,wiki/decisions,raw}/`）
+2. 复制 louke 包内的 templates 到 `.louke/templates/`（spec / acceptance / prd / bug-fix / …）
+3. 装 `.github/ISSUE_TEMPLATE/feature.yml`（4 位 FR schema）+ `.github/ISSUE_TEMPLATE/bug.yml`
+4. 写 `default_agent: maestro` 到项目级 `opencode.json`
+5. 从已安装 louke 包的 agent 提示词生成 `.opencode/agents/*.md`（每 agent 含解析后的 `model:` 字段）。升级 louke 后重跑 `lk board opencode` 即可刷新
+6. 可选：装每日 wiki 蒸馏 cron（`--no-cron` 跳过）
+
+> **Agent 提示词归包所有**。12 个 agent 提示词住在已安装的 `louke` Python 包里 — 故意没有项目侧副本可改（也不应改）。`lk board opencode` 把它们落到 `.opencode/agents/` 给 OpenCode 用。之前开放项目覆盖 agent 的尝试被移除，因为会引发过期格式漂移。
 
 然后启动 OpenCode——默认 primary agent 就是 **Maestro**。在聊天里直接说要做什么，例如：
 
@@ -406,7 +409,7 @@ MIT
 
 ## 12. 更新历史
 
-Louke 遵循 [语义化版本](https://semver.org/)。CLI (`lk`) 通过 `pip install --upgrade louke` 自更新；项目级状态 (`.louke/agents/`, `~/.louke/models.json`) 升级时保留。`lk upgrade` 后跑 `lk board opencode` 刷新 `.opencode/agents/`。
+Louke 遵循 [语义化版本](https://semver.org/)。CLI (`lk`) 通过 `pip install --upgrade louke` 自更新；项目级状态（`.louke/`, `~/.louke/models.json`）升级时保留。Agent 提示词来自已安装的包，所以升级 louke 会自动带上 agent 提示词的变更 —— `lk upgrade` 后跑 `lk board opencode` 即可刷新 `.opencode/agents/`。
 
 ### v0.6.0 — v0.6.13 (2026-07-04)
 
@@ -416,7 +419,7 @@ Louke 遵循 [语义化版本](https://semver.org/)。CLI (`lk`) 通过 `pip ins
 | v0.6.12 | 清理: 删 6 个 agent prompt 里的内部 spec 引用 (`(v0.6-008 FR-0710)`, `(FR-0070)` 等). 这些是发行给用户的, 不该有内部追踪 ID. |
 | v0.6.11 | 清理: 删 4 个交互式 subagent prompt 里冗余的 `(实测确认 2026-07-03 14:00 by Aaron)` 注释. |
 | v0.6.10 | Subagent 调度澄清: `agents/Maestro.md` 显式写 "只**用 `task` 工具调子 agent, 不要用 `opencode run`". Spec FR-0070.7 文档化两种 invocation 模式 (生产 TUI vs CLI 测试). |
-| v0.6.9 | `lk agent set-model` 重设计: 直接写 `.opencode/agents/<name>.md` (output), 不改 source. **临时** — 下次 `lk board opencode` 用 source 重新生成覆盖. |
+| v0.6.9 | `lk agent set-model` 重设计: 直接写 `.opencode/agents/<name>.md` (output), 不改 package source. **临时** — 下次 `lk board opencode` 用包 source 重新生成覆盖. |
 | v0.6.8 | `lk agent set-model` bugfix: `ok` 变量遮蔽了 import 的 `ok` 函数 → `TypeError: 'bool' object is not callable`. |
 | v0.6.7 | `lk agent list-models` — 表格显示所有 agent 的 `models:` chain + 当前 resolved model. `--unbound-only` flag. |
 | v0.6.6 | `lk agent set-model <name> <abstract>` — 一条命令改 agent 模型. 交互式 bind + probe 后保存. |

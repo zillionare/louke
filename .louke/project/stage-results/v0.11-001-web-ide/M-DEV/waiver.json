@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-DEV",
+  "kind": "waiver",
+  "role": "human",
+  "verdict": "waived",
+  "reviewed_targets": [],
+  "blocking_findings": [
+    "Prism security quick scan reports 15 eval-exec findings on re.compile() calls in louke/keeper.py, louke/_tools/check_acs.py, louke/_tools/check_assertions.py, louke/_tools/ci_scan.py. These are FALSE POSITIVES: \\bcompile\\s*\\( pattern matches all re.compile() calls which are static string literal regex compilations, not eval/exec. Pre-existing scanner design issue (louke/_security.py pattern \\bcompile\\s*\\() not introduced by v0.11-001-web-ide. Master user (zillionare) has reviewed and accepted this risk in this session. Same code patterns used by all Louke scanner tools (Prism's own pattern library calls re.compile). Recommend follow-up issue (#111 or similar) to fix _security.py scanner pattern; out of scope for v0.11 web ide."
+  ],
+  "accepted_risks": [
+    "eval-exec false-positive on re.compile() — 15 occurrences in keeper.py:116 (RE_ISSUE_RE), louke/_tools/check_acs.py:17-21 (RE_AC_ANCHOR/RE_FR_HEADING/RE_AC_HEADING/RE_AC_COLON/RE_AC_REF), louke/_tools/check_assertions.py:26-58 (RE_AC_REF/RE_ISSUE_OR_URL/FAKE-001..008 patterns). All static regex compilations with literal patterns, no user input. Louke _security.py pattern \\bcompile\\s*\\( should be \\b(?!re\\.|__)compile\\( or scoped to module-level only."
+  ],
+  "created_at": "2026-07-11T13:41:10Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "approved_by": "zillionare (Master user via Maestro session 2026-07-11 21:33 UTC)",
+    "commit_range": "ab218a5~..47de0a9"
+  },
+  "output_hash": "fa2a20ac12752733592b621ea10e4fc71d4dc50fc6f08a4ebabe5f30d631f74b"
+}

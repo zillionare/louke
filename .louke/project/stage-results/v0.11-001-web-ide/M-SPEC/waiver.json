@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-SPEC",
+  "kind": "waiver",
+  "role": "human",
+  "verdict": "waived",
+  "reviewed_targets": [],
+  "blocking_findings": [
+    "verify-issue schema drift over 230+ legacy Feature issues blocks record-lock and advance; tracked in #110; bypass approved (主线优先)"
+  ],
+  "accepted_risks": [
+    "verify-issue schema drift over 230+ legacy Feature issues blocks record-lock and advance; tracked in #110; bypass approved (主线优先)"
+  ],
+  "created_at": "2026-07-11T08:41:44Z",
+  "contract_bundle_hash": "b2caddf87748eab583762a2be87eae4ef132c1b61fbe24112ae83e8f966685b2",
+  "metadata": {
+    "approved_by": "human"
+  },
+  "output_hash": "653d75dbba469a2d34a703836739b463861752b9555cd17a051146e6329b7918"
+}

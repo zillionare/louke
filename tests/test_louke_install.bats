@@ -1,9 +1,14 @@
 #!/usr/bin/env bats
 # Smoke tests to ensure the venv always runs workspace louke, not stale site-packages.
+# These tests are specific to the developer's local install layout
+# (/Users/aaronyang/.louke/venv); they auto-skip on CI or any other env.
 
 setup() {
   LOUKE_ROOT="${BATS_TEST_DIRNAME}/.."
   VENV_BIN="/Users/aaronyang/.louke/venv/bin"
+  if [ ! -x "$VENV_BIN/pip" ] && [ ! -x "$VENV_BIN/python3" ]; then
+    skip "louke_install smoke tests require the developer-local venv at $VENV_BIN (CI is unrelated)"
+  fi
   export PATH="${VENV_BIN}:${PATH}"
 }
 

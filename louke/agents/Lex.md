@@ -156,7 +156,7 @@ Lex's feedback uses the lk-inline-discussion skill to create, append, and reply 
 **Tool gate** (all exit 0):
 - [ ] `lk agent lex verify-acceptance --spec {spec-id}` — L1-L5 structural validation
 - [ ] `lk agent lex quote-check --spec {spec-id} --check-ready` — all inline-discussion resolved
-  
+
 **Semantic check**:
 
 No issues from item 2 in §5.2 appear.

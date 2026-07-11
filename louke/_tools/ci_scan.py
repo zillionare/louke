@@ -30,8 +30,30 @@ def main() -> int:
         print("--acceptance or --spec is required", file=sys.stderr)
         return 2
     root = Path(__file__).resolve().parent
-    ac_cmd = [sys.executable, str(root / "check_acs.py"), "--acceptance", str(acceptance), "--tests", args.tests]
-    assert_cmd = [sys.executable, str(root / "check_assertions.py"), "--tests", args.tests]
+    legacy_baseline = Path.cwd() / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+    # Exclude tests/fixtures/ from scan: these are check_assertions' own test fixtures
+    # containing intentional anti-pattern code (assert True, try/except/pass, etc.).
+    exclude = ["tests/fixtures"]
+    ac_cmd = [
+        sys.executable,
+        str(root / "check_acs.py"),
+        "--acceptance",
+        str(acceptance),
+        "--tests",
+        args.tests,
+        "--exclude",
+        *exclude,
+    ]
+    assert_cmd = [
+        sys.executable,
+        str(root / "check_assertions.py"),
+        "--tests",
+        args.tests,
+        "--exclude",
+        *exclude,
+    ]
+    if legacy_baseline.exists():
+        assert_cmd.extend(["--legacy-baseline", str(legacy_baseline)])
     if args.json:
         ac_cmd.append("--json")
         assert_cmd.append("--json")
@@ -39,12 +61,20 @@ def main() -> int:
     assert_status, assert_out = run(assert_cmd)
     ok = ac_status == 0 and assert_status == 0
     if args.json:
+
         def parse(text: str):
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 return {"raw": text}
-        print(json.dumps({"ok": ok, "acs": parse(ac_out), "assertions": parse(assert_out)}, ensure_ascii=False, indent=2))
+
+        print(
+            json.dumps(
+                {"ok": ok, "acs": parse(ac_out), "assertions": parse(assert_out)},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
         print("== check_acs ==")
         print(ac_out.rstrip())

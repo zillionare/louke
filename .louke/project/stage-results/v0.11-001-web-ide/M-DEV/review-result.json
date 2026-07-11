@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-DEV",
+  "kind": "review-result",
+  "role": "Prism",
+  "verdict": "fail",
+  "reviewed_targets": [
+    "louke/security.py",
+    "louke/paths.py",
+    "louke/e2e.py",
+    "louke/opencode/adapter.py",
+    "louke/opencode/in_memory.py",
+    "louke/opencode_api.py",
+    "louke/files_api.py",
+    "louke/tasks_api.py",
+    "louke/backlog_api.py",
+    "louke/intent_api.py",
+    "louke/wiki_api.py"
+  ],
+  "blocking_findings": [
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_acs.py:17 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_acs.py:18 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_acs.py:19 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_acs.py:20 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_acs.py:21 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:26 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:27 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:32 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:37 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:42 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:47 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:50 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:53 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/_tools/check_assertions.py:58 - using eval/exec to dynamically execute code",
+    "eval-exec - /Users/openclaw/workspace/louke/louke/keeper.py:116 - using eval/exec to dynamically execute code"
+  ],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T13:36:19Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "commit_range": "ab218a5~..47de0a9",
+    "source_command": "review",
+    "diff": "ab218a5~..47de0a9"
+  },
+  "output_hash": "9072cb2176a9890e8201f32fbee125eee547ebd3e92d5b5549a0a72dd02f5f6b"
+}

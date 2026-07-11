@@ -17,4 +17,5 @@ def test_swallow_exception():
 
 def test_skip_without_issue():
     import pytest
+
     pytest.skip("later")

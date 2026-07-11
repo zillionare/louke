@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-ARCH",
+  "kind": "review-result",
+  "role": "Prism",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-001-web-ide/architecture.md",
+    ".louke/project/specs/v0.11-001-web-ide/interfaces.md",
+    ".louke/project/specs/v0.11-001-web-ide/spec.md",
+    ".louke/project/specs/v0.11-001-web-ide/acceptance.md"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T09:00:47Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "source_command": "review",
+    "six_checks": {
+      "1_module_dependencies": "pass",
+      "2_endpoint_ac_closure": "pass",
+      "3_data_flow_alignment": "pass",
+      "4_error_handling_alignment": "pass",
+      "5_security_nfr0201": "pass",
+      "6_e2e_contract_alignment": "pass"
+    },
+    "fr_0101": "explicitly deferred; absent from arch/interfaces/test-plan"
+  },
+  "output_hash": "68ff84dce593aee622f979fba08bd9853fd05e1b1ab87fa3d4a63b6e88abd2e8"
+}

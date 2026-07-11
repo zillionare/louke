@@ -12,6 +12,7 @@ Design principles:
    or implement new logic inline
 5. Exit codes follow Unix convention: 0 = success, non-zero = failure
 """
+
 __version__: str
 try:
     # Read the installed package version from wheel METADATA so the
@@ -20,6 +21,7 @@ try:
     # is unavailable (very old Python) or the package is being
     # imported from a source tree without an installed distribution.
     from importlib.metadata import version as _pkg_version, PackageNotFoundError
+
     try:
         __version__ = _pkg_version("louke")
     except PackageNotFoundError:
@@ -31,3 +33,19 @@ except ImportError:  # pragma: no cover
 # The permission object format (replacing the deprecated tools field) was
 # introduced in OpenCode v1.1.1
 MIN_OPENCODE_VERSION = "1.1.1"
+
+# NFR-0201: workspace security sandbox module registration
+from . import security  # noqa: E402,F401
+
+# FR-0401: canonical .louke directory layout module registration
+from . import paths  # noqa: E402,F401
+
+from . import opencode, opencode_api  # noqa: E402,F401
+
+from . import files_api  # noqa: E402,F401
+
+# FR-0501: FR/NFR task toggle API
+from . import tasks_api  # noqa: E402,F401
+
+# FR-0601: local story backlog API
+from . import backlog_api  # noqa: E402,F401

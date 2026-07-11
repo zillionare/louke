@@ -3,7 +3,7 @@
 Add YAML frontmatter to agents/*.md so VS Code recognizes them as custom agents.
 Idempotent: files that already have frontmatter are skipped.
 """
-import re
+
 from pathlib import Path
 
 AGENTS_DIR = Path(__file__).parent.parent / "agents"

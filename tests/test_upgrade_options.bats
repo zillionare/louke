@@ -3,11 +3,24 @@
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
-# Use PYTHONPATH so lk uses local source (avoid venv installing old version)
-LK_BIN="/Users/aaronyang/.local/bin/lk"
+# `lk upgrade` resolves its venv by reading sys.argv[0]'s realpath and
+# expecting a sibling `pip` binary. Running it via `python3 -m louke`
+# breaks that (sys.argv[0] is the python interpreter, not a venv lk).
+# So these tests need an actual installed `lk` entry point that the test
+# process can invoke. CI installs the wheel into /tmp/lk-venv and links
+# `lk` to /tmp/lk-venv/bin/lk — use that when present. Otherwise skip.
+LK_BIN=""
+if [ -x /tmp/lk-venv/bin/lk ]; then
+    LK_BIN="/tmp/lk-venv/bin/lk"
+elif command -v lk >/dev/null 2>&1; then
+    LK_BIN="$(command -v lk)"
+fi
 
 setup() {
-    export PYTHONPATH="$REPO_ROOT"
+    if [ -z "$LK_BIN" ]; then
+        skip "lk upgrade tests require a venv-installed lk entry point (not in \$PATH or /tmp/lk-venv)"
+    fi
+    export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 }
 
 teardown() {

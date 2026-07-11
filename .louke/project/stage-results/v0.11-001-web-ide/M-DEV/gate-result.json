@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-DEV",
+  "kind": "gate-result",
+  "role": "Keeper",
+  "verdict": "pass",
+  "reviewed_targets": [
+    "tests/"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T13:35:06Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "commit_range": "ab218a5~..47de0a9",
+    "tests_roots": [
+      "tests/"
+    ]
+  },
+  "output_hash": "4f0edda713bb602fed508aa43c48908bdae99ddf2d5844a5bc8351000aca4a65"
+}

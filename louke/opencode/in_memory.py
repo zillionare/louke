@@ -1,0 +1,72 @@
+"""InMemoryOpenCodeAdapter - for unit/integration tests (no real OpenCode)."""
+from __future__ import annotations
+
+import threading
+from typing import Optional
+
+from .adapter import Instance, Message, new_id, OpenCodeAdapter
+
+
+class InMemoryOpenCodeAdapter:
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._instances: dict[str, Instance] = {}
+        self._messages: dict[str, list[Message]] = {}
+
+    def create(self, *, correlation_id: str) -> Instance:
+        with self._lock:
+            inst = Instance(id=new_id(), status="running")
+            self._instances[inst.id] = inst
+            self._messages.setdefault(inst.id, [])
+            return inst
+
+    def list(self) -> list[Instance]:
+        with self._lock:
+            return list(self._instances.values())
+
+    def stop(self, instance_id: str) -> Instance:
+        with self._lock:
+            inst = self._instances.get(instance_id)
+            if inst is None:
+                return Instance(id=instance_id, status="stopped")
+            inst.status = "stopped"
+            return inst
+
+    def send_message(self, instance_id: str, content: str, *, correlation_id: str) -> tuple[Message, bool]:
+        with self._lock:
+            inst = self._instances.get(instance_id)
+            if inst is None:
+                raise KeyError(instance_id)
+            if inst.status != "running":
+                raise RuntimeError(f"instance {instance_id} not running (status={inst.status})")
+            user_msg = Message(
+                id=new_id(), instance_id=inst.id, role="user",
+                kind="message", content=content,
+            )
+            self._messages[inst.id].append(user_msg)
+            echo = Message(
+                id=new_id(), instance_id=inst.id, role="assistant",
+                kind="message", content=f"echo: {content}",
+            )
+            self._messages[inst.id].append(echo)
+            return user_msg, True
+
+    def list_messages(self, instance_id: str, *, after_message_id: Optional[str]) -> list[Message]:
+        with self._lock:
+            msgs = list(self._messages.get(instance_id, []))
+        if not after_message_id:
+            return msgs
+        for i, m in enumerate(msgs):
+            if m.id == after_message_id:
+                return msgs[i + 1:]
+        return msgs
+
+
+_singleton: Optional[InMemoryOpenCodeAdapter] = None
+
+
+def get_default_adapter() -> InMemoryOpenCodeAdapter:
+    global _singleton
+    if _singleton is None:
+        _singleton = InMemoryOpenCodeAdapter()
+    return _singleton

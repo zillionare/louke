@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-LOCK",
+  "kind": "waiver",
+  "role": "human",
+  "verdict": "waived",
+  "reviewed_targets": [],
+  "blocking_findings": [
+    "verify-issue schema drift over 230+ legacy Feature issues blocks both M-SPEC record-lock and M-LOCK gate; same root cause as #110 (in progress)"
+  ],
+  "accepted_risks": [
+    "verify-issue schema drift over 230+ legacy Feature issues blocks both M-SPEC record-lock and M-LOCK gate; same root cause as #110 (in progress)"
+  ],
+  "created_at": "2026-07-11T09:02:53Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "approved_by": "human"
+  },
+  "output_hash": "14b7ecc9d1d6509f4c278a417b6ff6f473e469ba65f26e5dcda9a03264ecc2e4"
+}

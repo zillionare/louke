@@ -3,7 +3,7 @@
 Keeper responsibilities: per-commit gate (R-G-R order + commit format + AC trace +
 anti-pattern scan) + regression check (merges Shield's judgment portion).
 """
-import argparse
+
 import re
 import subprocess
 import sys
@@ -15,76 +15,105 @@ from .stage_results import write_stage_result
 
 
 def register(subparsers):
-    parser = subparsers.add_parser('keeper', help='gate check (Keeper)')
-    sub = parser.add_subparsers(dest='command', required=True, metavar='<command>')
+    parser = subparsers.add_parser("keeper", help="gate check (Keeper)")
+    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
-    p = sub.add_parser('gate', help='per-commit gate (format + R-G-R order + AC trace + anti-pattern scan)')
-    p.add_argument('--commit-range', default='HEAD~1..HEAD', help='commit range to check')
-    p.add_argument('--tests', action='store_true', help='deprecated (v0.7-001)')
-    p.add_argument('--lint', action='store_true', help='deprecated (v0.7-001)')
-    p.add_argument('--typecheck', action='store_true', help='deprecated (v0.7-001)')
-    p.add_argument('--stage', default='M-DEV', choices=['M-DEV', 'M-E2E'],
-                   help='stage that consumes this gate artifact')
-    p.add_argument('--spec-id', default='', help='spec-id for AC trace validation (falls back to project.toml)')
-    p.add_argument('--tests-root', action='append', default=[],
-                   help='repeatable host-project test root used by AC trace and anti-pattern scans')
-    p.add_argument('--skip-ac-trace', action='store_true', help='skip AC trace validation')
-    p.add_argument('--skip-anti-pattern', action='store_true', help='skip anti-pattern scan')
+    p = sub.add_parser(
+        "gate",
+        help="per-commit gate (format + R-G-R order + AC trace + anti-pattern scan)",
+    )
+    p.add_argument(
+        "--commit-range", default="HEAD~1..HEAD", help="commit range to check"
+    )
+    p.add_argument("--tests", action="store_true", help="deprecated (v0.7-001)")
+    p.add_argument("--lint", action="store_true", help="deprecated (v0.7-001)")
+    p.add_argument("--typecheck", action="store_true", help="deprecated (v0.7-001)")
+    p.add_argument(
+        "--stage",
+        default="M-DEV",
+        choices=["M-DEV", "M-E2E"],
+        help="stage that consumes this gate artifact",
+    )
+    p.add_argument(
+        "--spec-id",
+        default="",
+        help="spec-id for AC trace validation (falls back to project.toml)",
+    )
+    p.add_argument(
+        "--tests-root",
+        action="append",
+        default=[],
+        help="repeatable host-project test root used by AC trace and anti-pattern scans",
+    )
+    p.add_argument(
+        "--skip-ac-trace", action="store_true", help="skip AC trace validation"
+    )
+    p.add_argument(
+        "--skip-anti-pattern", action="store_true", help="skip anti-pattern scan"
+    )
 
-    p = sub.add_parser('regression', help='regression check (per-bug-fix, compare before/after fix)')
-    p.add_argument('--baseline', default='main', help='baseline (before fix)')
-    p.add_argument('--current', default='HEAD', help='current (after fix)')
-    p.add_argument('--tests', action='store_true', help='run tests for actual comparison (default: diff range only)')
+    p = sub.add_parser(
+        "regression", help="regression check (per-bug-fix, compare before/after fix)"
+    )
+    p.add_argument("--baseline", default="main", help="baseline (before fix)")
+    p.add_argument("--current", default="HEAD", help="current (after fix)")
+    p.add_argument(
+        "--tests",
+        action="store_true",
+        help="run tests for actual comparison (default: diff range only)",
+    )
 
 
 def run(args):
     handlers = {
-        'gate': cmd_gate,
-        'regression': cmd_regression,
+        "gate": cmd_gate,
+        "regression": cmd_regression,
     }
     return handlers.get(args.command, lambda _: 1)(args) or 0
 
 
 def check_commit_messages(commit_range: str, cwd: Path = None) -> list:
     """Check commit message format - R-G-R pattern (feat: green / fix: green / refactor:)."""
-    rc, out, _ = git('log', '--format=%H %s', commit_range, cwd=cwd)
+    rc, out, _ = git("log", "--format=%H %s", commit_range, cwd=cwd)
     if rc != 0:
-        return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
+        return [{"error": f"git log failed: {out}", "severity": "critical"}]
 
     valid_prefixes = (
-        'feat: green',
-        'fix: green',
-        'refactor:',
-        'fix:',
-        'docs:',
-        'chore:',
-        'e2e:',
+        "feat: green",
+        "fix: green",
+        "refactor:",
+        "fix:",
+        "docs:",
+        "chore:",
+        "e2e:",
     )
 
     findings = []
-    for line in out.strip().split('\n'):
+    for line in out.strip().split("\n"):
         if not line.strip():
             continue
-        parts = line.split(' ', 1)
+        parts = line.split(" ", 1)
         if len(parts) != 2:
             continue
         sha, subject = parts
         if not any(subject.startswith(p) for p in valid_prefixes):
-            findings.append({
-                'commit': sha[:8],
-                'subject': subject,
-                'severity': 'medium',
-                'description': (
-                    f'commit format non-standard (must start with one of {" / ".join(valid_prefixes)}; '
-                    f'Green phase uses "feat: green" / "fix: green")'
-                ),
-            })
+            findings.append(
+                {
+                    "commit": sha[:8],
+                    "subject": subject,
+                    "severity": "medium",
+                    "description": (
+                        f"commit format non-standard (must start with one of {' / '.join(valid_prefixes)}; "
+                        f'Green phase uses "feat: green" / "fix: green")'
+                    ),
+                }
+            )
     return findings
 
 
 # ---- FR-0400.3: R-G-R order validation ----
 
-_ISSUE_RE = re.compile(r'#(\d+)')
+_ISSUE_RE = re.compile(r"#(\d+)")
 
 
 def _issue_key(subject: str) -> str:
@@ -95,10 +124,10 @@ def _issue_key(subject: str) -> str:
 
 def _rgr_phase(subject: str) -> Optional[str]:
     """Return the R-G-R phase corresponding to the subject: 'green' / 'refactor'; None for unrelated phases."""
-    if subject.startswith('feat: green') or subject.startswith('fix: green'):
-        return 'green'
-    if subject.startswith('refactor:'):
-        return 'refactor'
+    if subject.startswith("feat: green") or subject.startswith("fix: green"):
+        return "green"
+    if subject.startswith("refactor:"):
+        return "refactor"
     return None
 
 
@@ -113,12 +142,12 @@ def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
     Forbidden sequences:
     - [refactor..., green...] (refactor appears before green)
     """
-    rc, out, _ = git('log', '--reverse', '--format=%s', commit_range, cwd=cwd)
+    rc, out, _ = git("log", "--reverse", "--format=%s", commit_range, cwd=cwd)
     if rc != 0:
-        return [{'error': f'git log failed: {out}', 'severity': 'critical'}]
+        return [{"error": f"git log failed: {out}", "severity": "critical"}]
 
     grouped: dict[str, list[tuple[str, str]]] = {}
-    for line in out.strip().split('\n'):
+    for line in out.strip().split("\n"):
         subject = line.strip()
         phase = _rgr_phase(subject)
         if phase is None:
@@ -129,13 +158,15 @@ def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
     for commits in grouped.values():
         seen_refactor = False
         for phase, subject in commits:
-            if phase == 'green' and seen_refactor:
-                findings.append({
-                    'subject': subject,
-                    'severity': 'high',
-                    'description': 'refactor before green within the same issue',
-                })
-            elif phase == 'refactor':
+            if phase == "green" and seen_refactor:
+                findings.append(
+                    {
+                        "subject": subject,
+                        "severity": "high",
+                        "description": "refactor before green within the same issue",
+                    }
+                )
+            elif phase == "refactor":
                 seen_refactor = True
     return findings
 
@@ -143,28 +174,37 @@ def check_rgr_order(commit_range: str, cwd: Path = None) -> list:
 def _resolve_spec_id(cli_spec_id: str) -> str:
     if cli_spec_id.strip():
         return cli_spec_id.strip()
-    return _read_project_info_field('Spec ID').strip()
+    return _read_project_info_field("Spec ID").strip()
 
 
 def _resolve_tests_roots(raw_roots) -> list[str]:
-    return normalize_repo_relative_roots(raw_roots, default=['tests/'])
+    return normalize_repo_relative_roots(raw_roots, default=["tests/"])
 
 
 def cmd_gate(args):
     """per-commit gate check: commit format + R-G-R order + AC trace + anti-pattern scan."""
     if args.tests:
-        print('error: --tests deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate', file=sys.stderr)
+        print(
+            "error: --tests deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate",
+            file=sys.stderr,
+        )
         return 1
     if args.lint:
-        print('error: --lint deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate', file=sys.stderr)
+        print(
+            "error: --lint deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate",
+            file=sys.stderr,
+        )
         return 1
     if args.typecheck:
-        print('error: --typecheck deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate', file=sys.stderr)
+        print(
+            "error: --typecheck deprecated (v0.7-001); lint/test/typecheck no longer scheduled by keeper gate",
+            file=sys.stderr,
+        )
         return 1
 
     cwd = Path.cwd()
     tests_roots = _resolve_tests_roots(args.tests_root)
-    print(f"=== Keeper Gate ===")
+    print("=== Keeper Gate ===")
     print(f"Commit range: {args.commit_range}")
     print(f"Tests roots: {', '.join(tests_roots)}")
     print()
@@ -174,64 +214,107 @@ def cmd_gate(args):
     findings = check_commit_messages(args.commit_range, cwd=cwd)
     print(f"--- Commit Message Format ({len(findings)} findings) ---")
     for f in findings:
-        print(f"[{f.get('severity','?')}] {f.get('commit','?')} - {f.get('subject','?')}")
+        print(
+            f"[{f.get('severity', '?')}] {f.get('commit', '?')} - {f.get('subject', '?')}"
+        )
     all_findings.extend(findings)
 
     findings = check_rgr_order(args.commit_range, cwd=cwd)
     print(f"--- R-G-R Order ({len(findings)} findings) ---")
     for f in findings:
-        print(f"[{f.get('severity','?')}] {f.get('subject','?')} - {f.get('description','')}")
+        print(
+            f"[{f.get('severity', '?')}] {f.get('subject', '?')} - {f.get('description', '')}"
+        )
     all_findings.extend(findings)
 
     if not args.skip_ac_trace:
         spec_id = _resolve_spec_id(args.spec_id)
         if not spec_id:
-            all_findings.append({'severity': 'high', 'description': 'archer ci-scan failed (AC not referenced)'})
-            print('--- AC Trace: FAIL ---')
-            print('missing spec-id: pass --spec-id or set project.toml [project]/[meta].spec_id')
+            all_findings.append(
+                {
+                    "severity": "high",
+                    "description": "archer ci-scan failed (AC not referenced)",
+                }
+            )
+            print("--- AC Trace: FAIL ---")
+            print(
+                "missing spec-id: pass --spec-id or set project.toml [project]/[meta].spec_id"
+            )
         else:
-            rc = subprocess.run([
-                sys.executable, '-m', 'louke.__main__',
-                'agent', 'archer', 'ci-scan',
-                '--spec', spec_id,
-                '--tests', *tests_roots,
-            ], cwd=cwd).returncode
+            rc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "louke.__main__",
+                    "agent",
+                    "archer",
+                    "ci-scan",
+                    "--spec",
+                    spec_id,
+                    "--tests",
+                    *tests_roots,
+                ],
+                cwd=cwd,
+            ).returncode
             if rc != 0:
-                all_findings.append({
-                    'severity': 'high',
-                    'description': f'archer ci-scan failed (spec={spec_id}, tests={tests_roots})',
-                })
-                print('--- AC Trace: FAIL ---')
+                all_findings.append(
+                    {
+                        "severity": "high",
+                        "description": f"archer ci-scan failed (spec={spec_id}, tests={tests_roots})",
+                    }
+                )
+                print("--- AC Trace: FAIL ---")
             else:
-                print('--- AC Trace: PASS ---')
+                print("--- AC Trace: PASS ---")
 
     if not args.skip_anti_pattern:
-        rc = subprocess.run([sys.executable, '-m', 'louke._tools.check_assertions', '--tests', *tests_roots],
-                            cwd=cwd).returncode
+        legacy_baseline = cwd / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+        # Exclude tests/fixtures/: check_assertions' own test fixtures contain
+        # intentional anti-pattern code (assert True, try/except/pass, etc.).
+        anti_pattern_cmd = [
+            sys.executable,
+            "-m",
+            "louke._tools.check_assertions",
+            "--tests",
+            *tests_roots,
+            "--exclude",
+            "tests/fixtures",
+        ]
+        if legacy_baseline.exists():
+            anti_pattern_cmd.extend(["--legacy-baseline", str(legacy_baseline)])
+        rc = subprocess.run(anti_pattern_cmd, cwd=cwd).returncode
         if rc != 0:
-            all_findings.append({'severity': 'high', 'description': 'anti-pattern scan failed'})
-            print('--- Anti-Pattern: FAIL ---')
+            all_findings.append(
+                {"severity": "high", "description": "anti-pattern scan failed"}
+            )
+            print("--- Anti-Pattern: FAIL ---")
         else:
-            print('--- Anti-Pattern: PASS ---')
+            print("--- Anti-Pattern: PASS ---")
 
     spec_id = _resolve_spec_id(args.spec_id)
-    has_blocking = any(f.get('severity') in ('critical', 'high') for f in all_findings)
+    has_blocking = any(f.get("severity") in ("critical", "high") for f in all_findings)
     if spec_id:
         write_stage_result(
             spec_id=spec_id,
             stage=args.stage,
-            kind='gate-result',
-            role='Keeper',
-            verdict='fail' if has_blocking else 'pass',
+            kind="gate-result",
+            role="Keeper",
+            verdict="fail" if has_blocking else "pass",
             reviewed_targets=tests_roots,
-            blocking_findings=[f.get('description', '') for f in all_findings if f.get('severity') in ('critical', 'high')],
+            blocking_findings=[
+                f.get("description", "")
+                for f in all_findings
+                if f.get("severity") in ("critical", "high")
+            ],
             metadata={
-                'commit_range': args.commit_range,
-                'tests_roots': tests_roots,
+                "commit_range": args.commit_range,
+                "tests_roots": tests_roots,
             },
         )
     if has_blocking:
-        print(f"\n→ REJECT ({sum(1 for f in all_findings if f.get('severity') in ('critical','high'))} blocking findings)")
+        print(
+            f"\n→ REJECT ({sum(1 for f in all_findings if f.get('severity') in ('critical', 'high'))} blocking findings)"
+        )
         return 1
     print(f"\n→ gate PASS ({len(all_findings)} non-blocking findings)")
     return 0
@@ -240,21 +323,21 @@ def cmd_gate(args):
 def cmd_regression(args):
     """Regression check: compare baseline vs current test results."""
     cwd = Path.cwd()
-    print(f"=== Keeper Regression Check ===")
+    print("=== Keeper Regression Check ===")
     print(f"Baseline: {args.baseline}")
     print(f"Current: {args.current}")
     print()
 
-    rc, diff_out, _ = git('diff', '--name-only', args.baseline, args.current, cwd=cwd)
+    rc, diff_out, _ = git("diff", "--name-only", args.baseline, args.current, cwd=cwd)
     if rc != 0:
-        print(f"git diff failed")
+        print("git diff failed")
         return 1
 
-    changed = [f for f in diff_out.strip().split('\n') if f]
+    changed = [f for f in diff_out.strip().split("\n") if f]
     print(f"Changed files: {len(changed)}")
 
-    test_changes = [f for f in changed if 'test' in f.lower()]
-    code_changes = [f for f in changed if 'test' not in f.lower()]
+    test_changes = [f for f in changed if "test" in f.lower()]
+    code_changes = [f for f in changed if "test" not in f.lower()]
 
     print(f"  Test changes:  {len(test_changes)}")
     print(f"  Code changes:  {len(code_changes)}")
@@ -262,30 +345,46 @@ def cmd_regression(args):
     findings = []
 
     if len(code_changes) > 5:
-        findings.append({
-            'severity': 'medium',
-            'description': f'Bug fix changed {len(code_changes)} code files (recommend ≤5; exceeding may introduce new regressions)',
-        })
+        findings.append(
+            {
+                "severity": "medium",
+                "description": f"Bug fix changed {len(code_changes)} code files (recommend ≤5; exceeding may introduce new regressions)",
+            }
+        )
 
     for f in changed:
-        if any(p in f for p in ('package.json', 'requirements.txt', 'pyproject.toml',
-                                  'Cargo.toml', 'go.mod')):
-            findings.append({
-                'severity': 'high',
-                'description': f'Dependency file {f} changed in bug fix (may be version change; needs review)',
-            })
+        if any(
+            p in f
+            for p in (
+                "package.json",
+                "requirements.txt",
+                "pyproject.toml",
+                "Cargo.toml",
+                "go.mod",
+            )
+        ):
+            findings.append(
+                {
+                    "severity": "high",
+                    "description": f"Dependency file {f} changed in bug fix (may be version change; needs review)",
+                }
+            )
 
     if args.tests:
-        print(f"\n--- Running Tests on Current ---")
+        print("\n--- Running Tests on Current ---")
         result = subprocess.run(
-            ['python3', '-m', 'pytest', 'tests/', '--tb=short', '-q'],
-            cwd=cwd, capture_output=True, text=True,
+            ["python3", "-m", "pytest", "tests/", "--tb=short", "-q"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
-            findings.append({
-                'severity': 'critical',
-                'description': 'Current test suite failed (regression test did not pass)',
-            })
+            findings.append(
+                {
+                    "severity": "critical",
+                    "description": "Current test suite failed (regression test did not pass)",
+                }
+            )
         else:
             print("[ok] current tests passed")
 
@@ -293,7 +392,7 @@ def cmd_regression(args):
     for f in findings:
         print(f"[{f['severity']}] {f['description']}")
 
-    if any(f['severity'] in ('critical', 'high') for f in findings):
+    if any(f["severity"] in ("critical", "high") for f in findings):
         print("\n→ REJECT (critical/high issues)")
         return 1
     print("\n→ regression check PASS")

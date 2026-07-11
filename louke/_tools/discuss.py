@@ -9,14 +9,13 @@ Core API:
 Replaces the core functionality of louke/_tools/quote_parser.py. quote_parser.py is
 kept as a backward-compatible thin wrapper.
 """
+
 from __future__ import annotations
 
 import json
 import re
-import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 
 # Status: only 3 states (QoderWork P0-NEW: reopen counts as blocking)
@@ -77,6 +76,7 @@ def normalize_text(s: str) -> str:
     Does not change case and does not strip markdown formatting.
     """
     import unicodedata
+
     s = unicodedata.normalize("NFC", s)
     s = s.strip()
     s = re.sub(r"\s+", " ", s)
@@ -93,11 +93,13 @@ def levenshtein(a: str, b: str) -> int:
     for i, ca in enumerate(a):
         curr = [i + 1]
         for j, cb in enumerate(b):
-            curr.append(min(
-                prev[j + 1] + 1,       # deletion
-                curr[j] + 1,             # insertion
-                prev[j] + (ca != cb),    # substitution
-            ))
+            curr.append(
+                min(
+                    prev[j + 1] + 1,  # deletion
+                    curr[j] + 1,  # insertion
+                    prev[j] + (ca != cb),  # substitution
+                )
+            )
         prev = curr
     return prev[len(b)]
 
@@ -113,19 +115,20 @@ class Thread:
     - root_line: line number of the root comment's `>` line
     - root_text: the root comment's speaker + body (normalized)
     """
-    thread_id: str                  # "T-NNN" auto-increment sequence
-    initiator: str                 # root comment speaker (lowercased for normalized comparison)
-    status: str                    # STATUS_OPEN / RESOLVED / REOPEN
-    last_speaker: str             # last person to speak in the thread
+
+    thread_id: str  # "T-NNN" auto-increment sequence
+    initiator: str  # root comment speaker (lowercased for normalized comparison)
+    status: str  # STATUS_OPEN / RESOLVED / REOPEN
+    last_speaker: str  # last person to speak in the thread
     reply_count: int
-    snippet: str                   # first 80 chars of the root comment body
+    snippet: str  # first 80 chars of the root comment body
 
     # 5-tuple locating fields
-    total_lines: int               # total line count of the file at creation time
-    anchor_line: int               # line number of the commented content
-    anchor_text: str               # normalized text
-    root_line: int                 # root comment line number
-    root_text: str                 # root comment speaker + body (normalized)
+    total_lines: int  # total line count of the file at creation time
+    anchor_line: int  # line number of the commented content
+    anchor_text: str  # normalized text
+    root_line: int  # root comment line number
+    root_text: str  # root comment speaker + body (normalized)
 
     # @mention parsing
     mentioned_agents: list[str] = field(default_factory=list)
@@ -137,6 +140,7 @@ class ParseResult:
 
     is_ready decision (QoderWork P0-NEW): all thread statuses == "resolved".
     """
+
     threads: list[Thread] = field(default_factory=list)
     units: list[dict] = field(default_factory=list)  # [{id, kind, yaml_resolved, ...}]
     is_ready: bool = False
@@ -176,7 +180,10 @@ class DiscussParser:
             depth = depth_prefix.count(">")
             speaker_raw = m.group("speaker").strip("*").lstrip("@")
             # Extract the @mention list (speaker tag + body, FR-0020 AC-8)
-            mentioned = re.findall(r"@([A-Za-z][A-Za-z0-9_\-]*)", m.group("speaker") + " " + m.group("body"))
+            mentioned = re.findall(
+                r"@([A-Za-z][A-Za-z0-9_\-]*)",
+                m.group("speaker") + " " + m.group("body"),
+            )
             body = m.group("body").strip()
             # ✓ (U+2713) compatibility: older specs use ✓ to mark resolved
             if m.group("status"):
@@ -271,9 +278,14 @@ class DiscussParser:
                             val = cells[idx]
                             if key == "valid" and not current_unit["yaml_valid"]:
                                 current_unit["yaml_valid"] = val
-                            elif key == "testability" and not current_unit["yaml_testability"]:
+                            elif (
+                                key == "testability"
+                                and not current_unit["yaml_testability"]
+                            ):
                                 current_unit["yaml_testability"] = val
-                            elif key == "resolved" and not current_unit["yaml_resolved"]:
+                            elif (
+                                key == "resolved" and not current_unit["yaml_resolved"]
+                            ):
                                 current_unit["yaml_resolved"] = val
                 continue
             elif m_row is None:
@@ -294,11 +306,15 @@ class DiscussParser:
         for u in self._units:
             if u["kind"] in ("FR", "NFR"):
                 if u["yaml_resolved"] != "✅":
-                    blockers.append(f"{u['id']}: yaml.resolved={u['yaml_resolved']!r} (need ✅)")
+                    blockers.append(
+                        f"{u['id']}: yaml.resolved={u['yaml_resolved']!r} (need ✅)"
+                    )
                 for tid in u["thread_ids"]:
                     t = next((x for x in self._threads if x.thread_id == tid), None)
                     if t and t.status != STATUS_RESOLVED:
-                        blockers.append(f"{u['id']}: thread {tid} status={t.status!r} (need resolved)")
+                        blockers.append(
+                            f"{u['id']}: thread {tid} status={t.status!r} (need resolved)"
+                        )
             else:
                 # US and others: no thread = ok
                 for tid in u["thread_ids"]:
@@ -332,7 +348,9 @@ class DiscussParser:
 
     def _next_unit_heading(self, current_line: int) -> int:
         """Line number of the next unit heading (in ### US/FR/NFR-XXXX order)."""
-        candidates = [u["heading_line"] for u in self._units if u["heading_line"] > current_line]
+        candidates = [
+            u["heading_line"] for u in self._units if u["heading_line"] > current_line
+        ]
         return min(candidates) if candidates else 10**9
 
     # ===== 4-level fallback lookup (QoderWork P0-2, FR-0050) =====
@@ -404,14 +422,22 @@ class DiscussParser:
                         m = RE_QUOTE_LINE.match(lines[j - 1])
                         if m and m.group("depth").count(">") == 1:
                             # Found the root comment. Verify root_text matches
-                            actual_root = normalize_text(f"{m.group('speaker').strip('*').lstrip('@')}: {m.group('body')}")
+                            actual_root = normalize_text(
+                                f"{m.group('speaker').strip('*').lstrip('@')}: {m.group('body')}"
+                            )
                             if not root_text or actual_root == root_text:
                                 # Build a thread to return
                                 return Thread(
                                     thread_id="?",
-                                    initiator=m.group("speaker").strip("*").lstrip("@").lower(),
+                                    initiator=m.group("speaker")
+                                    .strip("*")
+                                    .lstrip("@")
+                                    .lower(),
                                     status=(m.group("status") or STATUS_OPEN).lower(),
-                                    last_speaker=m.group("speaker").strip("*").lstrip("@").lower(),
+                                    last_speaker=m.group("speaker")
+                                    .strip("*")
+                                    .lstrip("@")
+                                    .lower(),
                                     reply_count=0,
                                     snippet=m.group("body")[:80],
                                     total_lines=current_total,
@@ -434,16 +460,26 @@ class DiscussParser:
                     best_anchor_line = i
             threshold = max(5, len(anchor_text) * 0.2)
             if best_anchor_dist <= threshold and best_anchor_line:
-                for j in range(best_anchor_line, min(current_total, best_anchor_line + 10) + 1):
+                for j in range(
+                    best_anchor_line, min(current_total, best_anchor_line + 10) + 1
+                ):
                     m = RE_QUOTE_LINE.match(lines[j - 1])
                     if m and m.group("depth").count(">") == 1:
-                        actual_root = normalize_text(f"{m.group('speaker').strip('*').lstrip('@')}: {m.group('body')}")
+                        actual_root = normalize_text(
+                            f"{m.group('speaker').strip('*').lstrip('@')}: {m.group('body')}"
+                        )
                         if not root_text or actual_root == root_text:
                             return Thread(
                                 thread_id="?",
-                                initiator=m.group("speaker").strip("*").lstrip("@").lower(),
+                                initiator=m.group("speaker")
+                                .strip("*")
+                                .lstrip("@")
+                                .lower(),
                                 status=(m.group("status") or STATUS_OPEN).lower(),
-                                last_speaker=m.group("speaker").strip("*").lstrip("@").lower(),
+                                last_speaker=m.group("speaker")
+                                .strip("*")
+                                .lstrip("@")
+                                .lower(),
                                 reply_count=0,
                                 snippet=m.group("body")[:80],
                                 total_lines=current_total,
@@ -501,8 +537,11 @@ class DiscussParser:
             snippet=body[:80],
             total_lines=len(new_lines),
             anchor_line=anchor_line,
-            anchor_text=normalize_text(self._get_line(lines, anchor_line)) if 1 <= anchor_line <= len(lines) else "",
-            root_line=insert_at + 2,  # +2 because a blank line + the line were prepended
+            anchor_text=normalize_text(self._get_line(lines, anchor_line))
+            if 1 <= anchor_line <= len(lines)
+            else "",
+            root_line=insert_at
+            + 2,  # +2 because a blank line + the line were prepended
             root_text=normalize_text(f"{initiator}: {body}"),
         )
         return new_thread
@@ -568,7 +607,9 @@ class DiscussParser:
         if 0 <= root_idx < len(lines):
             line = lines[root_idx]
             # Remove the old status marker
-            line = re.sub(r"\s*\[(?:open|resolved|reopen)\]\s*", "", line, flags=re.IGNORECASE)
+            line = re.sub(
+                r"\s*\[(?:open|resolved|reopen)\]\s*", "", line, flags=re.IGNORECASE
+            )
             # Add the new marker (open does not get one)
             if new_status != STATUS_OPEN:
                 # Insert status after **Speaker:**
@@ -629,7 +670,7 @@ class DiscussParser:
         new_lines = [first]
         for bl in body_lines[1:]:
             new_lines.append(f"{depth_prefix}{bl}")
-        lines[target_line_no - 1:target_line_no] = new_lines
+        lines[target_line_no - 1 : target_line_no] = new_lines
         new_text = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
         self._atomic_write(file_path, new_text)
 
@@ -659,7 +700,9 @@ class DiscussParser:
                 return i + 1
         return None
 
-    def _find_last_nested_line(self, lines: list[str], start: int, end: int) -> int | None:
+    def _find_last_nested_line(
+        self, lines: list[str], start: int, end: int
+    ) -> int | None:
         """Line number of the last quote line within the start..end range (inclusive)."""
         last = None
         for i in range(start - 1, end):
@@ -678,6 +721,7 @@ class DiscussParser:
         """Atomic write: tmp + rename. Also uses flock to prevent concurrent access."""
         import fcntl
         import tempfile
+
         lock_path = file_path.with_suffix(file_path.suffix + ".lock")
         with open(lock_path, "w", encoding="utf-8") as lock_fd:
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
@@ -694,6 +738,7 @@ class DiscussParser:
 
 
 # ===== Module-level helper functions (shared by Layer 1) =====
+
 
 def format_ready(spec_path: Path, fmt: str = "text") -> tuple[int, str]:
     """Format the quote-check output. Returns (exit_code, output_text).
@@ -796,12 +841,20 @@ def check_violations(spec_path: Path) -> tuple[int, str]:
         if not m:
             continue
         depth = m.group("depth").count(">")
-        if depth > 1 and (m.group("status") or m.group("check") is not None or m.group("check") == ""):
+        if depth > 1 and (
+            m.group("status") or m.group("check") is not None or m.group("check") == ""
+        ):
             speaker = m.group("speaker").strip("*").lstrip("@")
             violations.append(
                 f"  L{line_no} d{depth} {speaker}: status marker on nested reply is ignored"
             )
     if not violations:
-        return (0, f"no violations in {spec_path} (inline-discussion enforces RESOLVED at write time)")
-    msg = f"VIOLATIONS: {len(violations)} reply line(s) with ignored status marker:\n" + "\n".join(violations)
+        return (
+            0,
+            f"no violations in {spec_path} (inline-discussion enforces RESOLVED at write time)",
+        )
+    msg = (
+        f"VIOLATIONS: {len(violations)} reply line(s) with ignored status marker:\n"
+        + "\n".join(violations)
+    )
     return (1, msg)

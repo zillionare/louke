@@ -231,11 +231,14 @@ cd ~/work/my-existing-repo && lk init .
 
 `lk init` does:
 
-1. Copies louke's bundled agents/templates into `.louke/` (project-local override layer)
-2. Generates `.opencode/agents/*.md` (each agent with resolved `model:` field)
-3. Writes `default_agent: maestro` to project-level `opencode.json`
-4. Installs `.github/ISSUE_TEMPLATE/feature.yml` (4-digit FR schema) + `.github/workflows/louke-ci.yml` (AC traceability gate)
-5. Resolves abstract model names → `provider/model` (`lk models doctor --fix-auto`)
+1. Scaffolds the project layout (`.louke/{templates,project,project/specs,wiki/pages,wiki/decisions,raw}/`)
+2. Copies louke's bundled templates (spec / acceptance / prd / bug-fix / …) into `.louke/templates/`
+3. Installs `.github/ISSUE_TEMPLATE/feature.yml` (4-digit FR schema) + `.github/ISSUE_TEMPLATE/bug.yml`
+4. Writes `default_agent: maestro` to project-level `opencode.json`
+5. Generates `.opencode/agents/*.md` from the louke package's installed agent prompts (each agent with its resolved `model:` field). Re-run with `lk board opencode` any time you upgrade louke.
+6. Optionally installs the daily wiki-distillation cron (`--no-cron` to skip)
+
+> **Agents are package-owned.** The 12 agent prompts live inside the installed `louke` Python package — there is intentionally no project-side copy you can (or should) edit. `lk board opencode` materialises them into `.opencode/agents/` so OpenCode can consume them. Past attempts to let projects override agents were removed because they caused stale-format drift.
 
 Then start OpenCode — the default primary agent is **Maestro**. Just tell it what you want in chat, for example:
 
@@ -386,7 +389,7 @@ MIT
 
 ## 12. Release History
 
-Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`) self-updates via `pip install --upgrade louke`; project-local state (`.louke/agents/` override, `~/.louke/models.json`) is preserved across upgrades. After `lk upgrade`, re-run `lk board opencode` to refresh `.opencode/agents/`.
+Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`) self-updates via `pip install --upgrade louke`; project-local state (`.louke/`, `~/.louke/models.json`) is preserved across upgrades. Agent prompts come from the installed package, so upgrading louke automatically ships any agent-prompt changes — re-run `lk board opencode` to refresh `.opencode/agents/`.
 
 ### v0.6.0 — v0.6.13 (2026-07-04)
 
@@ -396,7 +399,7 @@ Louke releases follow [Semantic Versioning](https://semver.org/). The CLI (`lk`)
 | v0.6.12 | Cleanup: removed internal spec references (`(v0.6-008 FR-0710)`, `(FR-0070)`, etc.) from 6 agent prompts shipped to users. |
 | v0.6.11 | Cleanup: removed redundant `(实测确认 2026-07-03 14:00 by Aaron)` annotations from 4 interactive subagent prompts. |
 | v0.6.10 | Subagent dispatch clarification: `louke/agents/Maestro.md` now explicitly says "只**用 `task` 工具调子 agent, 不要用 `opencode run`". Spec FR-0070.7 documents the two invocation modes (production TUI vs CLI test). |
-| v0.6.9 | `lk agent set-model` redesign: writes directly to `.opencode/agents/<name>.md` (output) instead of source. **Temporary** — next `lk board opencode` regenerates from source. |
+| v0.6.9 | `lk agent set-model` redesign: writes directly to `.opencode/agents/<name>.md` (output) instead of the package source. **Temporary** — next `lk board opencode` regenerates from the package source. |
 | v0.6.8 | `lk agent set-model` bugfix: `ok` variable shadowed imported `ok` function → `TypeError: 'bool' object is not callable`. |
 | v0.6.7 | `lk agent list-models` — table view of all agents' `models:` chain + current resolved model. `--unbound-only` flag. |
 | v0.6.6 | `lk agent set-model <name> <abstract>` — change an agent's primary model in one command. Interactive bind + probe before save. |

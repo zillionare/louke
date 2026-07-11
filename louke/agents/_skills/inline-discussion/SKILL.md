@@ -80,7 +80,7 @@ The following example demonstrates the complete syntax structure and the usage o
 >>> **Aaron:** Treat it as invalid input and return -1.
 
 > **Aaron:** This is another thread, need help with the API.
->> **Sage:** I'll handle this later. 
+>> **Sage:** I'll handle this later.
 >> (Note: this thread's root comment has no `[RESOLVED]` marker; the system defaults it to `OPEN` state)
 ```
 
@@ -147,4 +147,3 @@ lk discuss reply --file <markdown-file> --thread-id <id> \
 ```
 
 `lk` locates the session via `thread-id`; the 5-tuple positioning fields assist in locating the session even after the file changes. `<message>` is appended to the end of that session.
-

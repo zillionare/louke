@@ -137,9 +137,7 @@ def parse_issue_form(body: str) -> dict[str, str]:
 # ---------- Checks ----------
 
 
-def check_issue(
-    issue: dict[str, Any], spec_cache: dict[str, str]
-) -> IssueCheck:
+def check_issue(issue: dict[str, Any], spec_cache: dict[str, str]) -> IssueCheck:
     """Run L1-L7 for a single issue, return check result (spec_cache is reused across calls for L4-L6)."""
     ic = IssueCheck(number=issue["number"], title=issue["title"])
     body = issue.get("body") or ""
@@ -185,7 +183,11 @@ def check_issue(
         else:
             ic.spec_url = raw_url
             ic.spec_url_parsed = m.groupdict()
-            expected_fragment = raw_fr.split("-")[0].lower() + "-" + raw_fr.split("-")[1] if raw_fr else ""
+            expected_fragment = (
+                raw_fr.split("-")[0].lower() + "-" + raw_fr.split("-")[1]
+                if raw_fr
+                else ""
+            )
             if m.group("fragment") != expected_fragment:
                 ic.failures.append(
                     f"L3 URL fragment {m.group('fragment')!r} does not match requirement ID {raw_fr!r} "
@@ -354,8 +356,12 @@ def check_spec_fragment_ac(
         return
 
     spec_text = _get_spec_text(
-        spec_cache, m.group("owner"), m.group("repo"), m.group("branch"),
-        m.group("spec_id"), m.group("vol_suffix") or "",
+        spec_cache,
+        m.group("owner"),
+        m.group("repo"),
+        m.group("branch"),
+        m.group("spec_id"),
+        m.group("vol_suffix") or "",
     )
     if spec_text is None:
         ic.failures.append(
@@ -418,7 +424,10 @@ def check_no_acceptance(
         acc_key = f"{p['owner']}/{p['repo']}@{p['branch']}:{p['spec_id']}"
         if acc_key not in spec_cache:
             spec_cache[acc_key] = fetch_acceptance_markdown(
-                p["owner"], p["repo"], p["branch"], p["spec_id"],
+                p["owner"],
+                p["repo"],
+                p["branch"],
+                p["spec_id"],
             )
         acc_text = spec_cache[acc_key]
 
@@ -488,7 +497,11 @@ def _get_spec_text(
     spec_key = f"{owner}/{repo}@{branch}:{spec_id}/{spec_filename}"
     if spec_key not in spec_cache:
         spec_cache[spec_key] = fetch_spec_markdown(
-            owner, repo, branch, spec_id, spec_filename,
+            owner,
+            repo,
+            branch,
+            spec_id,
+            spec_filename,
         )
     return spec_cache[spec_key]
 
@@ -516,7 +529,7 @@ def fetch_spec_markdown(
                     "api",
                     f"repos/{owner}/{repo}/contents/{path}",
                     "-H",
-                    f"Accept: application/vnd.github.raw",
+                    "Accept: application/vnd.github.raw",
                     "--method",
                     "GET",
                     "--field",
@@ -556,7 +569,7 @@ def fetch_acceptance_markdown(
                     "api",
                     f"repos/{owner}/{repo}/contents/{path}",
                     "-H",
-                    f"Accept: application/vnd.github.raw",
+                    "Accept: application/vnd.github.raw",
                     "--method",
                     "GET",
                     "--field",
@@ -582,7 +595,9 @@ def fetch_acceptance_markdown(
 def report(checks: list[IssueCheck], spec_frs: set[str] | None) -> int:
     ok = [c for c in checks if c.ok]
     bad = [c for c in checks if not c.ok]
-    print(f"\nSummary: {len(checks)} Feature issues validated, {len(ok)} PASS, {len(bad)} FAIL\n")
+    print(
+        f"\nSummary: {len(checks)} Feature issues validated, {len(ok)} PASS, {len(bad)} FAIL\n"
+    )
 
     if bad:
         print("[REJECT]\n")
@@ -610,7 +625,9 @@ def report(checks: list[IssueCheck], spec_frs: set[str] | None) -> int:
             if orphans_in_spec:
                 print(f"  - FRs in spec without a matching issue: {orphans_in_spec}")
             if orphans_in_issues:
-                print(f"  - issues referencing FRs not present in spec: {orphans_in_issues}")
+                print(
+                    f"  - issues referencing FRs not present in spec: {orphans_in_issues}"
+                )
             print()
             return 1
 
@@ -624,6 +641,19 @@ def report(checks: list[IssueCheck], spec_frs: set[str] | None) -> int:
 
 
 # ---------- Entry point ----------
+
+
+def issue_belongs_to_spec(issue: dict[str, Any], spec_id: str) -> bool:
+    """Return True if the issue's Spec Link points to the given spec_id."""
+    body = issue.get("body") or ""
+    fields = parse_issue_form(body)
+    spec_url = fields.get(FIELD_SPEC_URL, "").strip()
+    if not spec_url:
+        return False
+    m = RE_SPEC_URL.match(spec_url)
+    if not m:
+        return False
+    return m.group("spec_id") == spec_id
 
 
 def load_issues_from_gh(repo: str) -> list[dict[str, Any]]:
@@ -660,14 +690,19 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--spec", help="spec-id, e.g. v0.1-001-specforge")
     p.add_argument("--repo", help="owner/repo, inferred from gh repo view by default")
-    p.add_argument("--branch", help="default branch, inferred from gh repo view by default")
+    p.add_argument(
+        "--branch", help="default branch, inferred from gh repo view by default"
+    )
     p.add_argument(
         "--offline",
         action="store_true",
         help="offline mode (for bats): use --spec-file + --acceptance-file + --issues-json",
     )
     p.add_argument("--spec-file", help="offline mode: path to spec.md")
-    p.add_argument("--acceptance-file", help="offline mode: path to acceptance.md (for L7 anchor validation)")
+    p.add_argument(
+        "--acceptance-file",
+        help="offline mode: path to acceptance.md (for L7 anchor validation)",
+    )
     p.add_argument("--issues-json", help="offline mode: path to issue list JSON")
     args = p.parse_args()
 
@@ -676,7 +711,9 @@ def main() -> int:
             sys.stderr.write("--offline requires --spec-file and --issues-json\n")
             return 2
         spec_text = Path(args.spec_file).read_text(encoding="utf-8")
-        spec_frs = {f"FR-{a.split('-')[1].zfill(3)}" for a in RE_ANCHOR.findall(spec_text)}
+        spec_frs = {
+            f"FR-{a.split('-')[1].zfill(3)}" for a in RE_ANCHOR.findall(spec_text)
+        }
         with open(args.issues_json, "r", encoding="utf-8") as f:
             issues = json.load(f)
         # Offline mode: any spec_url/ac_url is treated as pointing to the same fixture
@@ -693,20 +730,48 @@ def main() -> int:
         repo = args.repo
         branch = args.branch
         if not repo:
-            repo = subprocess.check_output(
-                ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]
-            ).decode().strip()
+            repo = (
+                subprocess.check_output(
+                    [
+                        "gh",
+                        "repo",
+                        "view",
+                        "--json",
+                        "nameWithOwner",
+                        "-q",
+                        ".nameWithOwner",
+                    ]
+                )
+                .decode()
+                .strip()
+            )
         if not branch:
-            branch = subprocess.check_output(
-                [
-                    "gh", "repo", "view", repo,
-                    "--json", "defaultBranchRef", "-q", ".defaultBranchRef.name",
-                ]
-            ).decode().strip()
+            branch = (
+                subprocess.check_output(
+                    [
+                        "gh",
+                        "repo",
+                        "view",
+                        repo,
+                        "--json",
+                        "defaultBranchRef",
+                        "-q",
+                        ".defaultBranchRef.name",
+                    ]
+                )
+                .decode()
+                .strip()
+            )
         owner, reponame = repo.split("/", 1)
         spec_frs = load_spec_frs_from_gh(owner, reponame, branch, args.spec)
         issues = load_issues_from_gh(repo)
         spec_cache = {}
+
+    # Filter to issues created for the requested spec. Historical Feature issues
+    # from other specs (e.g. stale [FR-002] titles, missing fields) must not block
+    # the current spec's record-lock gate (fix #110).
+    if args.spec:
+        issues = [i for i in issues if issue_belongs_to_spec(i, args.spec)]
 
     checks = [check_issue(i, spec_cache) for i in issues]
     return report(checks, spec_frs)
