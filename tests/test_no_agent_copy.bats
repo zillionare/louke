@@ -11,7 +11,10 @@
 #    `lk board opencode` writes to `.opencode/agents/`.
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-LK="$REPO_ROOT/.venv/bin/lk"
+export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+# Run louke via `python3 -m louke` so the test works regardless of where
+# the louke CLI is installed (CI's pre-commit venv, /usr/local, etc.).
+LK() { python3 -m louke "$@"; }
 
 setup() {
     export TEST_TMP="$(mktemp -d -t louke-no-agent-copy-XXXXXX)"
@@ -23,7 +26,7 @@ teardown() {
 }
 
 @test "lk init does NOT create .louke/agents/" {
-    run "$LK" init . --no-cron
+    run LK init . --no-cron
     [ "$status" -eq 0 ] || { echo "FAIL: exit $status: $output"; false; }
     [ ! -d "$TEST_TMP/.louke/agents" ] || {
         echo "FAIL: lk init created .louke/agents/ — agents must be package-owned"
@@ -33,7 +36,7 @@ teardown() {
 }
 
 @test "lk init does NOT copy agents to project root agents/" {
-    run "$LK" init . --no-cron
+    run LK init . --no-cron
     [ "$status" -eq 0 ]
     [ ! -d "$TEST_TMP/agents" ] || {
         echo "FAIL: lk init created project-root agents/ — agents must be package-owned"
@@ -60,7 +63,7 @@ This file is in OUTPUT format (model: singular) and was incorrectly committed as
 EOF
     done
 
-    run "$LK" board opencode --quiet
+    run LK board opencode --quiet
     [ "$status" -eq 0 ] || { echo "FAIL: exit $status: $output"; false; }
 
     # Every generated agent file must have a NON-bogus, non-empty model.
@@ -102,7 +105,7 @@ permission:
   bash: allow
 ---
 EOF
-    run "$LK" board opencode --quiet
+    run LK board opencode --quiet
     [ "$status" -eq 0 ]
 
     local desc
