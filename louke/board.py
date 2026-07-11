@@ -133,6 +133,61 @@ def agent_source(root: Path) -> Path:
     return package_root() / 'agents'
 
 
+def _collect_model_candidates(fm: dict) -> list[str]:
+    """Return ordered model candidates parsed from an agent frontmatter dict.
+
+    Supports both formats:
+    - `models:` (plural, canonical source format) — list of abstracts, the first
+      one is the primary preference and the rest are fallbacks.
+    - `model:`  (singular, the format cmd_opencode writes back out) — typically
+      a fully-qualified `provider/name` string. If the value itself contains
+      no `/`, it's treated as a single-item abstract list and will go through
+      normal alias / strong / weak resolution.
+    """
+    models = fm.get('models')
+    if isinstance(models, str):
+        models = [models]
+    elif not isinstance(models, list):
+        models = []
+    if models:
+        return [str(m) for m in models if m]
+    single = fm.get('model')
+    if single:
+        return [str(single)]
+    return []
+
+
+def _ensure_issue_templates(root: Path, quiet: bool = False) -> int:
+    """Copy bundled feature.yml + bug.yml into .github/ISSUE_TEMPLATE/ if missing.
+
+    Idempotent and non-destructive: existing files are left untouched (mirrors
+    the behaviour of `lk init`'s _write_file_if_needed). Returns the number of
+    files actually written so callers can report a count.
+    """
+    from ._common import package_root
+    from ._color import cyan, dim, green as g
+
+    pkg = package_root()
+    src_dir = pkg / '.github' / 'ISSUE_TEMPLATE'
+    if not src_dir.is_dir():
+        return 0
+    dest_dir = root / '.github' / 'ISSUE_TEMPLATE'
+    written = 0
+    for src in sorted(src_dir.glob('*.yml')):
+        dest = dest_dir / src.name
+        if dest.exists():
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        written += 1
+        if not quiet:
+            print(
+                f'      {g("✓")} {dim(str(dest.relative_to(root)))}',
+                flush=True,
+            )
+    return written
+
+
 def skill_source(root: Path) -> Path:
     return agent_source(root) / '_skills'
 
@@ -241,17 +296,19 @@ def cmd_opencode(args):
         print(f'      found {len(source_files)} agent prompts', flush=True)
         print(f'      found {len(source_skills)} skills', flush=True)
 
-    # 2. Parse frontmatter, collect all abstract model names
+    # 2. Parse frontmatter, collect all abstract model names.
+    # Accept both `models:` (plural list, the canonical source format) and
+    # `model:` (singular, the output format produced by cmd_opencode itself).
+    # Users who copy `.opencode/agents/*.md` back into a source `agents/` dir
+    # will have `model:` singular — we must still resolve that correctly.
     from .models import opencode_models, auth_providers, model_costs
     parsed = []  # [(fp, fm, body)]
     abstract_models = set()
     for fp in source_files:
         text = fp.read_text(encoding='utf-8')
         fm, body = parse_frontmatter(text)
+        models = _collect_model_candidates(fm)
         parsed.append((fp, fm, body))
-        models = fm.get('models') or []
-        if isinstance(models, str):
-            models = [models]
         for m in models:
             if m and '/' not in m:
                 abstract_models.add(m)
@@ -299,9 +356,7 @@ def cmd_opencode(args):
         name = str(fm.get('name') or fp.stem).lower()
         description = fm.get('description') or fp.stem
         mode = fm.get('mode') or 'all'
-        models = fm.get('models') or []
-        if isinstance(models, str):
-            models = [models]
+        models = _collect_model_candidates(fm)
         model = resolve_model(models[0], root=root, models=available,
                               auth=auth, costs=costs) if models else ''
         # Detect unbound: no '/' in the name (still abstract) + no alias
@@ -371,10 +426,30 @@ def cmd_opencode(args):
                 marker = g('✓')
                 print(f'      {marker} {skill_name}/', flush=True)
 
+    # Self-bootstrap: when the source agents come from a root-level `agents/`
+    # dir (rather than the canonical `.louke/agents/`), the project was almost
+    # certainly never initialized with `lk init`, which means
+    # `.github/ISSUE_TEMPLATE/` is missing too. Install the bundled feature
+    # + bug templates in place so the user doesn't need a second command.
+    issue_templates_written = 0
+    if not dry_run and src == root / 'agents':
+        issue_templates_written = _ensure_issue_templates(root, quiet=quiet)
+        if issue_templates_written and not quiet:
+            print(
+                f'      {info("note:")} installed {issue_templates_written} '
+                f'.github/ISSUE_TEMPLATE/ file(s) (project was not lk init\'d)',
+                flush=True,
+            )
+
     if not dry_run and not quiet:
+        extras = (
+            f'; bootstrapped {issue_templates_written} issue template(s)'
+            if issue_templates_written
+            else ''
+        )
         print(
             f'{cyan("[6/6]")} done: generated {len(generated)} OpenCode agents -> {dest_dir}; '
-            f'installed {len(generated_skills)} skills -> {skill_dest_dir}',
+            f'installed {len(generated_skills)} skills -> {skill_dest_dir}{extras}',
             flush=True,
         )
     # Unbound hint
