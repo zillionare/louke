@@ -39,3 +39,5 @@ from . import security  # noqa: E402,F401
 
 # FR-0401: canonical .louke directory layout module registration
 from . import paths  # noqa: E402,F401
+
+from . import opencode, opencode_api  # noqa: E402,F401
