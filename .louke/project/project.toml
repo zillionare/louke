@@ -6,11 +6,11 @@
 # 写入方: Scout (M-FOUND 初始化), Archer (M-ARCH [e2e]), M-MILESTONE 收尾迁移到 history.md
 
 [project]
-version = "0.8"
+version = "0.11"
 repo = "github.com/zillionare/louke"
-project = "louke-v0.8 (#8)"
+project = "louke-v0.11 (#8)"
 project_id = "https://github.com/users/quantclaws/projects/8"
-spec_id = "v0.8-001-web-server"
+spec_id = "v0.11-001-web-ide"
 release_branch = "releases/v0.10"
 
 [meta]
@@ -20,25 +20,28 @@ current_stage = "M-DEV"
 security_audit = "disabled"
 smoke_test_issue = "#80 (closed, previous v0.6 milestone 冒烟)"
 smoke_test_pr = "#81 (closed, M-FOUND test PR for v0.7)"
-dod = "e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 58/58；未启用 Security Audit 因本项目为内部工具）"
+dod = "e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 37/37；未启用 Security Audit 因本项目为内部工具）"
 pre_commit = "installed (python + base)"
 test_framework = "pytest"
 acknowledged_orphan_releases = []
 
 story = """
-给 louke 增加一个面向团队内多人协作的 web server，用于拖拽式模型绑定、wiki 浏览/编辑、以及 spec/acceptance/test-plan 等设计文档的浏览与编辑；设计文档需支持常用 Markdown 渲染、inline-discussion 的正文/讨论切换与折叠，以及 FR/NFR 卡片式渲染。
+v0.11-001-web-ide: 在 v0.8-v0.10 web server 基础上, 引入 OpenCode Adapter 抽象、用户意图路由、可追溯 Wiki、项目 .louke 目录规划、FR/NFR task 切换、本地 Story Backlog、文件浏览/diff/Markdown 文档展示、自动化质量门、文件沙箱与浏览器兼容性。
 """
 
 [meta.known_carryover]
 dirty_files = "louke 工作树里有 ~70 个 pre-existing dirty 文件 (agents/ 目录迁移、Makefile 删除等), 跟当前 spec 无关"
 project_owner = "Project `louke-v0.7` (#8) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN"
 commit_rgr = "`lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数, 后续 v0.7+ 应去掉以保持 R-G-R commit 格式干净"
+v0_11_waiver = "M-SPEC + M-LOCK 各有一条 waiver (verify-issue schema drift, 230+ 脏 legacy issues); #110 在修, 修完后重跑 `lk agent sage record-lock --spec v0.11-001-web-ide --confirm` 解除 waiver"
+v0_11_batch3 = "M-DEV Batch 1+2+3 已完成 (FR-0001/0401/0501/0601/0701/0801 + NFR-0001/0201, 81 passed); Batch 4 待启 (#100 FR-0201 + #101 FR-0301)"
 
 [active_specs]
 # 当前活跃 spec 列表 (post-v0.7 hotfix)
 v0_7_001 = "shipped (2026-07-05, tag v0.7.0)"
 v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
-v0_8_001 = "in progress (web-server)"
+v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
+v0_11_001 = "in progress (web-ide, M-DEV Batch 4 待启)"
 
 [e2e]
 # v0.11-001 Web IDE：host-project 正式双浏览器 e2e 编排契约。
