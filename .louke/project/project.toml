@@ -16,7 +16,7 @@ release_branch = "releases/v0.10"
 [meta]
 created = "2026-07-05"
 tag = "v0.7.3 (zillionare/louke@v0.7.3)"
-current_stage = "M-ARCH"
+current_stage = "M-LOCK"
 security_audit = "disabled"
 smoke_test_issue = "#80 (closed, previous v0.6 milestone 冒烟)"
 smoke_test_pr = "#81 (closed, M-FOUND test PR for v0.7)"
@@ -41,13 +41,14 @@ v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
 v0_8_001 = "in progress (web-server)"
 
 [e2e]
-# v0.8-001 Web Server 的替代 e2e 契约：Trae 下不要求照搬 Shield 流程，但必须保留等价的启动 / 就绪 / 执行出口。
-start = "python -m louke serve --host 127.0.0.1 --port 8765"
+# v0.11-001 Web IDE：host-project 正式双浏览器 e2e 编排契约。
+start = "python -m louke e2e start --host 127.0.0.1 --port 8765 --opencode mock"
 ready = "curl -sf http://127.0.0.1:8765/health"
 ready_timeout_seconds = 60
-run = "python -m pytest tests"
+run = "python -m pytest -m e2e tests/e2e --browser chromium --browser firefox"
 framework = "pytest"
-browsers = ["chromium"]
+browsers = ["chromium", "firefox"]
 cwd = "."
-paths = ["tests"]
-teardown = "true"
+# 当前已存在的 host test asset root；Shield 在其下新增 tests/e2e。
+paths = ["tests", "tests/fixtures"]
+teardown = "python -m louke e2e stop --port 8765 --cleanup-workspace"
