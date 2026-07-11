@@ -123,13 +123,15 @@ def run(args):
     return module.run(args) or 0
 
 
-def agent_source(root: Path) -> Path:
-    """Reuse board.py's agent source directory lookup logic."""
-    for candidate in (root / '.louke/agents', root / 'agents'):
-        if candidate.exists():
-            return candidate
-    from ._common import package_root
-    return package_root() / 'agents'
+def agent_source(root: Path | None = None) -> Path:
+    """Canonical agent source directory (the installed louke package).
+
+    Same contract as `louke.board.agent_source`. Kept as a thin wrapper here so
+    `lk agent lint` works whether invoked via `board.py` or directly.
+    `root` is accepted but ignored.
+    """
+    from .board import agent_source as _board_agent_source
+    return _board_agent_source(root)
 
 
 def _check_permission_block(name: str, perm, errors: list[str]) -> None:

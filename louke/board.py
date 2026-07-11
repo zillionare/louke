@@ -125,10 +125,17 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     return data, body
 
 
-def agent_source(root: Path) -> Path:
-    for candidate in (root / '.louke/agents', root / 'agents'):
-        if candidate.exists():
-            return candidate
+def agent_source(root: Path | None = None) -> Path:
+    """Return the canonical agent source directory (the installed louke package).
+
+    Agents are part of the toolchain, not the project. They live inside the
+    installed `louke` Python package and are immutable from a user's perspective:
+    users must not (and cannot meaningfully) customize them. Customizing was
+    tried and removed because it caused multi-source confusion (e.g. an output
+    format got committed as a source on the `millionaire` project).
+
+    `root` is accepted for backwards-compat with call sites but is ignored.
+    """
     from ._common import package_root
     return package_root() / 'agents'
 

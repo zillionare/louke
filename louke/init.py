@@ -221,8 +221,13 @@ def cmd_init(args):
     if rc:
         return rc
 
+    # NOTE: agents are NEVER copied into the project. The single source of truth
+    # is the installed louke package's `agents/` dir; users must not (and cannot)
+    # customize them — `lk board opencode` reads directly from the package.
+    # Copying them to `.louke/agents/` or `$project_root/agents/` previously
+    # caused multi-source confusion (FR feedback on mini-one `millionaire`).
     dirs = [
-        '.louke/agents', '.louke/templates', '.louke/project',
+        '.louke/templates', '.louke/project',
         '.louke/project/specs', '.louke/wiki/pages', '.louke/wiki/decisions',
         '.louke/raw',
     ]
@@ -233,7 +238,6 @@ def cmd_init(args):
             if not args.dry_run:
                 path.mkdir(parents=True, exist_ok=True)
 
-    _copy_tree_files(pkg / 'agents', target / '.louke/agents', args, report, skip_names={'README.md'})
     _copy_tree_files(pkg / 'templates', target / '.louke/templates', args, report)
 
     if not args.no_issue_template:
@@ -241,7 +245,7 @@ def cmd_init(args):
         _write_file_if_needed(pkg / '.github/ISSUE_TEMPLATE/bug.yml', target / '.github/ISSUE_TEMPLATE/bug.yml', args, report)
 
     if not args.no_gitignore:
-        for line in ('.louke/agents/', '.louke/templates/'):
+        for line in ('.louke/templates/',):
             ensure_gitignore_line(target / '.gitignore', line, dry_run=args.dry_run, report=report)
 
     if args.board == 'opencode':

@@ -207,16 +207,25 @@ def check_f4_test_pr(repo: str, version: str) -> CheckResult:
 
 
 def check_f5_agents() -> CheckResult:
-    """F5: Agent prompt files exist"""
+    """F5: Agent prompt files exist (in .opencode/agents/, the OpenCode output).
+
+    Agents are owned by the louke package — they never live in the project
+    source tree. `lk board opencode` materialises them into .opencode/agents/
+    so the OpenCode IDE can consume them; that's the canonical location this
+    check inspects.
+    """
     r = CheckResult(code="F5", name="Agent files exist")
-    agents_dir = Path("agents")
+    agents_dir = Path(".opencode/agents")
     if not agents_dir.is_dir():
-        r.error = "agents/ directory does not exist"
+        r.error = (
+            ".opencode/agents/ directory does not exist — "
+            "run `lk board opencode` (or `lk init`) to materialise agents"
+        )
         return r
 
     md_files = list(agents_dir.glob("*.md"))
     if not md_files:
-        r.error = "no .md files found under agents/"
+        r.error = "no .md files found under .opencode/agents/"
         return r
 
     r.passed = True
