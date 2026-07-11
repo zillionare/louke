@@ -17,7 +17,26 @@ from starlette.responses import JSONResponse
 from .security import WorkspaceSecurity
 
 
+# FR-0801: canonical design doc basenames discoverable under .louke/project/**
+DESIGN_DOC_BASENAMES = {
+    "story.md", "spec.md", "acceptance.md", "architecture.md", "interfaces.md",
+}
+
+
 app = Starlette()
+
+
+def _is_binary(p: Path) -> bool:
+    """Return True if the file looks binary (NUL byte in first 8192 bytes).
+
+    Uses a chunked read to avoid loading large files into memory. On OSError
+    (unreadable / missing) returns False so callers can still report the entry.
+    """
+    try:
+        with p.open("rb") as f:
+            return b"\x00" in f.read(8192)
+    except OSError:
+        return False
 
 
 def _ws_root() -> Path:
@@ -114,6 +133,15 @@ async def list_files(request: Request):
                                     status_code=400)
             from .security import WorkspaceSecurity
             ws_sec = WorkspaceSecurity(ws)
+            full = (ws / Path(rel)).resolve()
+            try:
+                full.relative_to(ws)
+            except ValueError:
+                return JSONResponse({"error_code": "PATH_OUTSIDE_WORKSPACE",
+                                     "message": f"{rel} outside workspace"}, status_code=403)
+            if _is_binary(full):
+                return JSONResponse({"error_code": "BINARY_NOT_PREVIEWABLE",
+                                     "message": "binary file not previewable"}, status_code=403)
             fc = ws_sec.read(Path(rel))
             line_count = fc.content.count("\n") + 1
             if line_count > 500 and not approved:
@@ -129,8 +157,28 @@ async def list_files(request: Request):
                 "revision": fc.revision,
                 "rendered_html": None,
             })
-        if view in ("tree", "changes", "documents"):
-            # tree / changes / documents views all return FileEntry[]
+        if view == "documents":
+            entries = []
+            for dirpath, _dirnames, filenames in os.walk(ws):
+                rel_dir = Path(dirpath).relative_to(ws)
+                for fname in filenames:
+                    full = Path(dirpath) / fname
+                    rel_path = fname if str(rel_dir) == "." else str(rel_dir / fname)
+                    if not fname.endswith(".md"):
+                        continue
+                    if _is_binary(full):
+                        continue
+                    in_louke = rel_path.startswith(".louke/project/")
+                    is_root_readme = rel_path == "README.md"
+                    in_docs = rel_path.startswith("docs/")
+                    if not (in_louke or is_root_readme or in_docs):
+                        continue
+                    if in_louke and fname not in DESIGN_DOC_BASENAMES:
+                        continue
+                    entries.append(_file_entry(ws, full))
+            return JSONResponse({"view": "documents", "entries": entries})
+        if view in ("tree", "changes"):
+            # tree / changes views return FileEntry[]
             target = ws / rel if rel else ws
             target_rp = target.resolve()
             try:
