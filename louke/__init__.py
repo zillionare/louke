@@ -36,3 +36,6 @@ MIN_OPENCODE_VERSION = "1.1.1"
 
 # NFR-0201: workspace security sandbox module registration
 from . import security  # noqa: E402,F401
+
+# FR-0401: canonical .louke directory layout module registration
+from . import paths  # noqa: E402,F401
