@@ -30,6 +30,10 @@ def main() -> int:
         print("--acceptance or --spec is required", file=sys.stderr)
         return 2
     root = Path(__file__).resolve().parent
+    legacy_baseline = Path.cwd() / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+    # Exclude tests/fixtures/ from scan: these are check_assertions' own test fixtures
+    # containing intentional anti-pattern code (assert True, try/except/pass, etc.).
+    exclude = ["tests/fixtures"]
     ac_cmd = [
         sys.executable,
         str(root / "check_acs.py"),
@@ -37,13 +41,19 @@ def main() -> int:
         str(acceptance),
         "--tests",
         args.tests,
+        "--exclude",
+        *exclude,
     ]
     assert_cmd = [
         sys.executable,
         str(root / "check_assertions.py"),
         "--tests",
         args.tests,
+        "--exclude",
+        *exclude,
     ]
+    if legacy_baseline.exists():
+        assert_cmd.extend(["--legacy-baseline", str(legacy_baseline)])
     if args.json:
         ac_cmd.append("--json")
         assert_cmd.append("--json")
