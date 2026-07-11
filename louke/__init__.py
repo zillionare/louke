@@ -46,3 +46,6 @@ from . import files_api  # noqa: E402,F401
 
 # FR-0501: FR/NFR task toggle API
 from . import tasks_api  # noqa: E402,F401
+
+# FR-0601: local story backlog API
+from . import backlog_api  # noqa: E402,F401
