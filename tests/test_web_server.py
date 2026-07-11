@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -603,6 +604,11 @@ def test_wiki_refresh_route_calls_librarian(tmp_path: Path, monkeypatch) -> None
 
     import louke.web.app as app_module
 
+    # The louke.web.app module does not import shutil (lint pass dropped it
+    # when the endpoint stopped calling shutil.which); inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
+
     # Pretend lk is on PATH so the endpoint doesn't bail with 503.
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
     captured: dict = {}
@@ -649,6 +655,10 @@ def test_wiki_refresh_bypasses_lk_path_lookup(tmp_path: Path, monkeypatch) -> No
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
 
     # If the old `shutil.which('lk')` check was still here, this would
     # short-circuit to 503. We expect 200 instead.
@@ -724,6 +734,10 @@ def test_wiki_refresh_surfaces_compact_bundle_hint(tmp_path: Path, monkeypatch) 
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
 
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
@@ -808,6 +822,10 @@ def test_wiki_refresh_logs_subprocess_output(
     import logging
     import louke.web.app as app_module
 
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
+
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
     def fake_run(cmd, *args, **kwargs):
@@ -844,6 +862,10 @@ def test_wiki_refresh_logs_on_success(tmp_path: Path, monkeypatch, caplog) -> No
 
     import logging
     import louke.web.app as app_module
+
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
 
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
@@ -896,6 +918,10 @@ def test_wiki_refresh_auto_runs_compact_when_bundle_missing(
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
 
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
@@ -956,6 +982,10 @@ def test_wiki_refresh_skips_auto_compact_when_bundle_present(
     client = TestClient(create_app(root))
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
+
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
     calls: list = []
@@ -993,11 +1023,7 @@ def test_wiki_refresh_handles_missing_raw_directory(
 
     root = build_project(tmp_path)
     # Remove raw/ so compact can't run
-    import shutil
-
-    raw_dir = root / ".louke" / "raw"
-    if raw_dir.exists():
-        shutil.rmtree(raw_dir)
+    shutil.rmtree(root / ".louke" / "raw", ignore_errors=True)
     # No bundle either
     bundle = root / ".louke" / "wiki" / ".compact-bundle.md"
     if bundle.exists():
@@ -1005,6 +1031,10 @@ def test_wiki_refresh_handles_missing_raw_directory(
 
     client = TestClient(create_app(root))
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+
+    # The louke.web.app module does not import shutil; inject it here so
+    # the legacy monkeypatch line below still works.
+    monkeypatch.setattr(app_module, "shutil", shutil, raising=False)
 
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
