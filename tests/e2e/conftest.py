@@ -44,15 +44,15 @@ def live_server_url():
     if os.environ.get("LOUKE_SKIP_LIVE_SERVER") == "1":
         yield "http://127.0.0.1:8765"
         return
-    # Pre-check: does `lk serve` actually start? Probe once.
-    # Issue AC-NFR0001-01 (e2e orchestration); uvicorn pre-existing v0.10 dep.
-    probe = subprocess.run(
-        ["python3", "-m", "louke", "serve", "--host", "127.0.0.1", "--port", "0"],
-        capture_output=True, text=True, timeout=3,
-    )
-    if probe.returncode != 0 and "missing runtime dependency" in probe.stderr:
-        # see issue #80 (v0.6 e2e smoke); uvicorn is a pre-existing v0.10 runtime dep
-        pytest.skip(f"#80 lk serve unavailable (likely missing uvicorn): {probe.stderr.strip()}")
+    # Pre-check: does `lk serve` have uvicorn? Probe via import (fast, no server start).
+    # Issue AC-NFR0001-01 (e2e orchestration); uvicorn is a pyproject dep but may
+    # not be installed in this env. We import uvicorn instead of starting the server
+    # because the server is long-lived and the probe would race against teardown.
+    try:
+        import uvicorn  # noqa: F401
+    except ImportError as exc:
+        # see issue #80 (v0.6 e2e smoke); uvicorn is a pyproject dep
+        pytest.skip(f"#80 uvicorn not importable: {exc}")
     port = _free_port()
     env = os.environ.copy()
     env["LOUKE_E2E_STATE"] = ".louke/server"
