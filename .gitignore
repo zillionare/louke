@@ -45,7 +45,7 @@ louke.egg-info/
 # 禁止在仓库根目录创建同名目录 (避免双份漂移)
 /agents/
 /templates/
-/Makefile
+# Makefile is intentionally tracked (provides `make test` for CI).
 
 # Session artifacts (per-agent / per-IDE state)
 .kilo/
