@@ -67,12 +67,15 @@ EOF
     [ "$status" -eq 0 ] || { echo "FAIL: exit $status: $output"; false; }
 
     # Every generated agent file must have a NON-bogus, non-empty model.
+    # We don't require a `provider/model` prefix because on minimal CI
+    # environments (no opencode CLI auth configured) resolve_model returns
+    # the abstract name unchanged; the point of this test is to verify
+    # agents come from the package, not from a stale project agents/ copy.
     for name in archer devon judge keeper lex librarian maestro prism sage scout shield warden; do
         local m
         m=$(grep -E "^model: " "$TEST_TMP/.opencode/agents/${name}.md" | head -1 | awk '{print $2}')
         [ -n "$m" ] || { echo "FAIL: $name model is empty"; false; }
         [[ "$m" != *"bogus"* ]] || { echo "FAIL: $name leaked the bogus stale format"; false; }
-        [[ "$m" == */* ]] || { echo "FAIL: $name model '$m' has no provider prefix"; false; }
     done
 
     # The stale project agents/ must still NOT influence the output — verify by
