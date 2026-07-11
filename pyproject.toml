@@ -63,6 +63,12 @@ louke = [
     "assets/*",
 ]
 
+[tool.coverage.run]
+source = ["louke"]
+
+[tool.coverage.report]
+fail_under = 95
+
 # Pragmatic mypy config — the codebase predates strict mypy and would need a
 # large pass to make --strict pass cleanly. Goal: keep mypy CI useful (catch
 # new regressions, real type-confusion bugs) without forcing a big legacy
