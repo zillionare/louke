@@ -122,7 +122,7 @@ models:                      # specforge 自定义: primary [0] + fallback
 >> 3. **板生成时**: `specforge board opencode` 查 alias map, 把抽象名翻译成 opencode 全名写到 `.opencode/agents/sage.md` 的 `model:` 字段; 找不到对应键则报错并提示 `specforge models bind <抽象名> <opencode 全名>`
 >> 4. **首次 init 时**: 若 `~/.specforge/models.json` 不存在, 走 interview (复活 v0.2-002 已废弃的 FR-001~005 思路, 见 FR-090)
 >>
->> 这样 source 跨 user / 跨 provider 一致, 不需要改 18 个文件; 用户本机 alias 一次性配好即可. 
+>> 这样 source 跨 user / 跨 provider 一致, 不需要改 18 个文件; 用户本机 alias 一次性配好即可.
 >>> Aaron: alias map 如何配置？用户手工改？用户如何知道 opencode 中配置了哪些模型（provider/model），如果有 API 可获得 List，能否智能化关联？
 >>>> **Sage:** 调查后确认: `opencode models` 命令存在且**机器可读**（一行一个 `provider/model-id`, stdout 直接 grep 即可）. 所以**用户完全不需要手填**, specforge 可以智能匹配:
 >>>>

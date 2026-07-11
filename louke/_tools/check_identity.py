@@ -33,7 +33,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import subprocess
 import sys
@@ -52,8 +51,10 @@ class Identity:
     last_commit_author: str = ""  # "Name <email>"
     remote_url: str = ""
     repo_role: str = ""  # ADMIN/MAINTAIN/WRITE/READ/NONE
-    failures: list[str] = field(default_factory=list)   # blocking: any present → reject
-    warnings: list[str] = field(default_factory=list)   # advisory: non-blocking, needs user confirmation
+    failures: list[str] = field(default_factory=list)  # blocking: any present → reject
+    warnings: list[str] = field(
+        default_factory=list
+    )  # advisory: non-blocking, needs user confirmation
 
     @property
     def ok(self) -> bool:
@@ -68,17 +69,21 @@ def collect_gh() -> tuple[str, list[str]]:
     user = ""
     emails: list[str] = []
     try:
-        user = subprocess.check_output(
-            ["gh", "api", "user", "-q", ".login"]
-        ).decode().strip()
-    except Exception as e:
+        user = (
+            subprocess.check_output(["gh", "api", "user", "-q", ".login"])
+            .decode()
+            .strip()
+        )
+    except Exception:
         return "", []
 
     # Public email (PAT `repo` scope is enough)
     try:
-        out = subprocess.check_output(
-            ["gh", "api", "user", "-q", ".email"]
-        ).decode().strip()
+        out = (
+            subprocess.check_output(["gh", "api", "user", "-q", ".email"])
+            .decode()
+            .strip()
+        )
         if out and out != "null":
             emails.append(out)
     except Exception:
@@ -86,9 +91,11 @@ def collect_gh() -> tuple[str, list[str]]:
 
     # All emails (needs `user` scope; skip on failure)
     try:
-        out = subprocess.check_output(
-            ["gh", "api", "user/emails", "-q", ".[].email"]
-        ).decode().strip()
+        out = (
+            subprocess.check_output(["gh", "api", "user/emails", "-q", ".[].email"])
+            .decode()
+            .strip()
+        )
         for e in out.splitlines():
             e = e.strip()
             if e and e != "null":
@@ -108,11 +115,14 @@ def collect_gh() -> tuple[str, list[str]]:
 
 def collect_git() -> tuple[str, str, str, str]:
     """Return (user.name, user.email, last_commit_author, remote_url)"""
+
     def _git(*args: str) -> str:
         try:
-            return subprocess.check_output(
-                ["git", *args], stderr=subprocess.DEVNULL
-            ).decode().strip()
+            return (
+                subprocess.check_output(["git", *args], stderr=subprocess.DEVNULL)
+                .decode()
+                .strip()
+            )
         except Exception:
             return ""
 
@@ -125,13 +135,22 @@ def collect_git() -> tuple[str, str, str, str]:
 
 def collect_repo_role(repo: str) -> str:
     try:
-        out = subprocess.check_output(
-            [
-                "gh", "repo", "view", repo,
-                "--json", "viewerPermission",
-                "-q", ".viewerPermission",
-            ]
-        ).decode().strip()
+        out = (
+            subprocess.check_output(
+                [
+                    "gh",
+                    "repo",
+                    "view",
+                    repo,
+                    "--json",
+                    "viewerPermission",
+                    "-q",
+                    ".viewerPermission",
+                ]
+            )
+            .decode()
+            .strip()
+        )
         return out
     except Exception:
         return ""
@@ -243,7 +262,9 @@ def report(ident: Identity, repo: str) -> int:
         print("Suggestions:")
         print("  1. Check current token account with 'gh auth status'")
         print("  2. Switch token: 'gh auth login' or 'gh auth switch'")
-        print("  3. Or update git config: 'git config user.email <email linked to gh account>'")
+        print(
+            "  3. Or update git config: 'git config user.email <email linked to gh account>'"
+        )
         print("  4. Re-run this script to confirm\n")
         return 1
 
@@ -255,7 +276,9 @@ def report(ident: Identity, repo: str) -> int:
         print()
         return 0
 
-    print("[PASS] gh and git identities are fully consistent, token permissions sufficient\n")
+    print(
+        "[PASS] gh and git identities are fully consistent, token permissions sufficient\n"
+    )
     return 0
 
 
@@ -265,12 +288,18 @@ def report(ident: Identity, repo: str) -> int:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--repo", required=True, help="OWNER/REPO, e.g. zillionare/louke")
-    p.add_argument("--offline", action="store_true", help="offline mode (for bats tests)")
+    p.add_argument(
+        "--offline", action="store_true", help="offline mode (for bats tests)"
+    )
     p.add_argument("--gh-user", help="offline: gh login")
     p.add_argument("--gh-emails", help="offline: space-separated gh email list")
     p.add_argument("--git-name", help="offline: git user.name")
     p.add_argument("--git-email", help="offline: git user.email")
-    p.add_argument("--last-commit-author", dest="last_commit_author", help="offline: 'Name <email>'")
+    p.add_argument(
+        "--last-commit-author",
+        dest="last_commit_author",
+        help="offline: 'Name <email>'",
+    )
     p.add_argument("--remote-url", dest="remote_url", help="offline: remote URL")
     p.add_argument("--repo-role", dest="repo_role", help="offline: viewerPermission")
     args = p.parse_args()

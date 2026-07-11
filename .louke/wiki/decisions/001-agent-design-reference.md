@@ -8,7 +8,7 @@
 当前所有 Agent prompt 是基于飞书文档 [specforge 开发流程](https://qcnj2a4uoe9q.feishu.cn/wiki/FBNqwXG27iVnemkJN34cRNdvnOh) 设计的。该文档定义了下述流程结构：
 
 ```
-Story/PRD → Interview → Issue Tracker → Test Plan → 
+Story/PRD → Interview → Issue Tracker → Test Plan →
 执行规划 → 任务执行(R-G-R) → 验收
 Bug 修复(R-G-R) 独立流程
 ```

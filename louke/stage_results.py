@@ -21,25 +21,30 @@ from typing import Any, Dict, Iterable, List, Optional
 from ._common import PROJECT_INFO_PATH, _toml_load
 
 SCHEMA_VERSION = 1
-STAGE_RESULTS_ROOT = Path('.louke/project/stage-results')
+STAGE_RESULTS_ROOT = Path(".louke/project/stage-results")
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _spec_dir(spec_id: str) -> Path:
-    return Path('.louke/project/specs') / spec_id
+    return Path(".louke/project/specs") / spec_id
 
 
 def contract_bundle_paths(spec_id: str) -> List[Path]:
     spec_dir = _spec_dir(spec_id)
     return [
-        spec_dir / 'spec.md',
-        spec_dir / 'acceptance.md',
-        spec_dir / 'test-plan.md',
-        spec_dir / 'architecture.md',
-        spec_dir / 'interfaces.md',
+        spec_dir / "spec.md",
+        spec_dir / "acceptance.md",
+        spec_dir / "test-plan.md",
+        spec_dir / "architecture.md",
+        spec_dir / "interfaces.md",
         PROJECT_INFO_PATH,
     ]
 
@@ -47,12 +52,16 @@ def contract_bundle_paths(spec_id: str) -> List[Path]:
 def _stable_project_contract_payload() -> bytes:
     data = _toml_load(PROJECT_INFO_PATH)
     stable = {
-        'meta': {
-            'test_framework': str(((data.get('meta') or {}).get('test_framework', '') or '')).strip(),
+        "meta": {
+            "test_framework": str(
+                ((data.get("meta") or {}).get("test_framework", "") or "")
+            ).strip(),
         },
-        'e2e': (data.get('e2e') or {}),
+        "e2e": (data.get("e2e") or {}),
     }
-    return json.dumps(stable, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    return json.dumps(
+        stable, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
 
 
 def _contract_payload_bytes(path: Path) -> bytes:
@@ -70,12 +79,12 @@ def compute_contract_bundle_hash(spec_id: str) -> str:
     """
     sha = hashlib.sha256()
     for path in contract_bundle_paths(spec_id):
-        sha.update(str(path.as_posix()).encode('utf-8'))
+        sha.update(str(path.as_posix()).encode("utf-8"))
         if path.exists():
-            sha.update(b'\0exists\0')
+            sha.update(b"\0exists\0")
             sha.update(_contract_payload_bytes(path))
         else:
-            sha.update(b'\0missing\0')
+            sha.update(b"\0missing\0")
     return sha.hexdigest()
 
 
@@ -84,7 +93,7 @@ def stage_dir(spec_id: str, stage: str) -> Path:
 
 
 def artifact_path(spec_id: str, stage: str, kind: str) -> Path:
-    return stage_dir(spec_id, stage) / f'{kind}.json'
+    return stage_dir(spec_id, stage) / f"{kind}.json"
 
 
 def _normalize_strings(values: Optional[Iterable[str]]) -> List[str]:
@@ -99,7 +108,9 @@ def _normalize_strings(values: Optional[Iterable[str]]) -> List[str]:
 
 
 def _payload_hash(payload: Dict[str, Any]) -> str:
-    blob = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    blob = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
 
 
@@ -119,21 +130,24 @@ def write_stage_result(
     path = artifact_path(spec_id, stage, kind)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: Dict[str, Any] = {
-        'schema_version': SCHEMA_VERSION,
-        'spec_id': spec_id,
-        'stage': stage,
-        'kind': kind,
-        'role': role,
-        'verdict': verdict,
-        'reviewed_targets': _normalize_strings(reviewed_targets),
-        'blocking_findings': _normalize_strings(blocking_findings),
-        'accepted_risks': _normalize_strings(accepted_risks),
-        'created_at': _utc_now_iso(),
-        'contract_bundle_hash': contract_bundle_hash or compute_contract_bundle_hash(spec_id),
-        'metadata': metadata or {},
+        "schema_version": SCHEMA_VERSION,
+        "spec_id": spec_id,
+        "stage": stage,
+        "kind": kind,
+        "role": role,
+        "verdict": verdict,
+        "reviewed_targets": _normalize_strings(reviewed_targets),
+        "blocking_findings": _normalize_strings(blocking_findings),
+        "accepted_risks": _normalize_strings(accepted_risks),
+        "created_at": _utc_now_iso(),
+        "contract_bundle_hash": contract_bundle_hash
+        or compute_contract_bundle_hash(spec_id),
+        "metadata": metadata or {},
     }
-    payload['output_hash'] = _payload_hash(payload)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    payload["output_hash"] = _payload_hash(payload)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return path
 
 
@@ -142,14 +156,14 @@ def load_stage_result(spec_id: str, stage: str, kind: str) -> Optional[Dict[str,
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding='utf-8'))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
 
 
 def verify_stage_result_hash(data: Dict[str, Any]) -> bool:
-    if not data or 'output_hash' not in data:
+    if not data or "output_hash" not in data:
         return False
     payload = dict(data)
-    expected = payload.pop('output_hash', '')
+    expected = payload.pop("output_hash", "")
     return _payload_hash(payload) == expected

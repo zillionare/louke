@@ -84,7 +84,9 @@ def save_wiki_payload(
     return payload
 
 
-def render_preview_payload(kind: str, body_md: str, doc_name: str = "") -> dict[str, Any]:
+def render_preview_payload(
+    kind: str, body_md: str, doc_name: str = ""
+) -> dict[str, Any]:
     rendered = render_markdown_view(body_md, kind=kind, doc_name=doc_name)
     return {
         "rendered_html": rendered.rendered_html,
@@ -114,13 +116,24 @@ def mutate_discussion(
         anchor_line = int(anchor.get("anchor_line") or 0)
         if anchor_line <= 0:
             raise ValidationError("start discussion requires anchor.anchor_line")
-        parser.add_thread(path, anchor_line=anchor_line, initiator=actor_name, body=str(payload.get("body") or ""))
+        parser.add_thread(
+            path,
+            anchor_line=anchor_line,
+            initiator=actor_name,
+            body=str(payload.get("body") or ""),
+        )
     elif action == "reply":
         thread_id = str(payload.get("thread_id") or "")
         if not thread_id:
             raise ValidationError("reply requires payload.thread_id")
         loc = _thread_locate_fields(payload)
-        parser.add_reply(path, thread_id=thread_id, body=str(payload.get("body") or ""), speaker=actor_name, **loc)
+        parser.add_reply(
+            path,
+            thread_id=thread_id,
+            body=str(payload.get("body") or ""),
+            speaker=actor_name,
+            **loc,
+        )
     elif action == "set-status":
         thread_id = str(payload.get("thread_id") or "")
         if not thread_id:
@@ -137,12 +150,17 @@ def mutate_discussion(
         raise ValidationError(f"unsupported discussion action: {action}")
 
     event_name = "document.updated" if target_kind == "doc" else "wiki.updated"
-    metadata = store.record_activity(event_name, path, actor_name, extra={"action": f"discussion.{action}"})
+    metadata = store.record_activity(
+        event_name, path, actor_name, extra={"action": f"discussion.{action}"}
+    )
     if target_kind == "doc":
         spec_id, doc_name = _doc_identity_from_path(store, path)
         response = get_doc_payload(store, spec_id, doc_name)
     else:
-        response = get_wiki_payload(store, path.resolve().relative_to(store.wiki_pages_dir.resolve()).as_posix()[:-3])
+        response = get_wiki_payload(
+            store,
+            path.resolve().relative_to(store.wiki_pages_dir.resolve()).as_posix()[:-3],
+        )
     response["updated_at"] = metadata.updated_at
     response["last_modified_by"] = metadata.last_modified_by
     return response

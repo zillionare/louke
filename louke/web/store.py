@@ -35,7 +35,9 @@ def _pick_highest_version_spec(spec_ids: list[str]) -> str:
     if not spec_ids:
         return ""
     return max(spec_ids, key=_spec_version_key)
-from ..models import config_path, load_config
+
+
+from ..models import config_path, load_config  # noqa: E402
 
 
 DOC_NAME_TO_FILE = {
@@ -140,7 +142,9 @@ class ProjectStore:
         if not self.specs_dir.exists():
             return []
         return sorted(
-            d.name for d in self.specs_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
+            d.name
+            for d in self.specs_dir.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
         )
 
     def resolve_spec_id(self) -> str:
@@ -171,7 +175,9 @@ class ProjectStore:
         page_name = self._normalize_page_name(page)
         return self.wiki_pages_dir / f"{page_name}.md"
 
-    def read_doc(self, spec_id: str, doc_name: str) -> tuple[str, str, ResourceMetadata]:
+    def read_doc(
+        self, spec_id: str, doc_name: str
+    ) -> tuple[str, str, ResourceMetadata]:
         path = self.doc_path(spec_id, doc_name)
         body_md = path.read_text(encoding="utf-8")
         return body_md, self._token_for_text(path, body_md), self._metadata_for(path)
@@ -227,14 +233,18 @@ class ProjectStore:
             return None
         body_md = path.read_text(encoding="utf-8")
         return body_md, self._metadata_for(path)
-        return pages
 
     def read_wiki_page(self, page: str) -> tuple[Path, str, str, ResourceMetadata]:
         path = self.wiki_page_path(page)
         if not path.exists():
             raise FileNotFoundError(path)
         body_md = path.read_text(encoding="utf-8")
-        return path, body_md, self._token_for_text(path, body_md), self._metadata_for(path)
+        return (
+            path,
+            body_md,
+            self._token_for_text(path, body_md),
+            self._metadata_for(path),
+        )
 
     def write_wiki_page(
         self,
@@ -249,7 +259,9 @@ class ProjectStore:
         if path.exists():
             self._assert_token(path, current, version_token)
         elif version_token not in {"", "new"}:
-            raise ConflictError("wiki page does not exist yet; use empty token to create it")
+            raise ConflictError(
+                "wiki page does not exist yet; use empty token to create it"
+            )
         self._atomic_write_text(path, self._ensure_trailing_newline(body_md))
         metadata = self.record_activity("wiki.updated", path, actor_name)
         return path, self._token_for_text(path, body_md), metadata
@@ -267,7 +279,9 @@ class ProjectStore:
         config.setdefault("version", 1)
         config.setdefault("aliases", {})
         token = self._token_for_json(path, config)
-        metadata = self._metadata_for(path) if path.exists() else ResourceMetadata("", "")
+        metadata = (
+            self._metadata_for(path) if path.exists() else ResourceMetadata("", "")
+        )
         return config, token, metadata
 
     def write_bindings(
@@ -294,10 +308,17 @@ class ProjectStore:
         metadata = self.record_activity("bindings.updated", path, actor_name)
         return self._token_for_json(path, payload), metadata
 
-    def read_text_target(self, target_path: str) -> tuple[Path, str, str, ResourceMetadata]:
+    def read_text_target(
+        self, target_path: str
+    ) -> tuple[Path, str, str, ResourceMetadata]:
         path = self.resolve_target_path(target_path)
         body_md = path.read_text(encoding="utf-8")
-        return path, body_md, self._token_for_text(path, body_md), self._metadata_for(path)
+        return (
+            path,
+            body_md,
+            self._token_for_text(path, body_md),
+            self._metadata_for(path),
+        )
 
     def resolve_target_path(self, target_path: str) -> Path:
         candidate = (self.root / target_path).resolve()
@@ -351,7 +372,11 @@ class ProjectStore:
             )
         if path.exists():
             stat = path.stat()
-            updated_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+            updated_at = (
+                datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
             return ResourceMetadata(updated_at=updated_at, last_modified_by="")
         return ResourceMetadata(updated_at="", last_modified_by="")
 

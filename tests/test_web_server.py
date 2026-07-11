@@ -96,8 +96,12 @@ print("hello")
     return root
 
 
-def authenticate(client: TestClient, username: str = "Aaron", password: str = "secret") -> None:
-    response = client.post("/api/auth/register", json={"username": username, "password": password})
+def authenticate(
+    client: TestClient, username: str = "Aaron", password: str = "secret"
+) -> None:
+    response = client.post(
+        "/api/auth/register", json={"username": username, "password": password}
+    )
     assert response.status_code == 200
 
 
@@ -136,7 +140,9 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "Design Docs" in home_en.text
     assert "Log Out" in home_en.text
 
-    login_en = TestClient(create_app(root)).get("/login", headers={"accept-language": "en-US,en;q=0.9"})
+    login_en = TestClient(create_app(root)).get(
+        "/login", headers={"accept-language": "en-US,en;q=0.9"}
+    )
     assert login_en.status_code == 200
     assert "Sign In" in login_en.text
     assert "Register &amp; Sign In" in login_en.text
@@ -148,7 +154,9 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "设计文档" in home_zh.text
     assert "退出" in home_zh.text
 
-    login_zh = TestClient(create_app(root)).get("/login", headers={"accept-language": "zh-CN,zh;q=0.9"})
+    login_zh = TestClient(create_app(root)).get(
+        "/login", headers={"accept-language": "zh-CN,zh;q=0.9"}
+    )
     assert login_zh.status_code == 200
     assert "登录" in login_zh.text
     assert "注册并登录" in login_zh.text
@@ -164,7 +172,9 @@ def test_register_login_logout_flow(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
 
-    register = client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+    register = client.post(
+        "/api/auth/register", json={"username": "Aaron", "password": "secret"}
+    )
     assert register.status_code == 200
     assert register.json()["username"] == "Aaron"
     assert SESSION_COOKIE in register.cookies
@@ -175,7 +185,9 @@ def test_register_login_logout_flow(tmp_path: Path) -> None:
     denied = client.get("/api/bindings")
     assert denied.status_code == 401
 
-    login = client.post("/api/auth/login", json={"username": "Aaron", "password": "secret"})
+    login = client.post(
+        "/api/auth/login", json={"username": "Aaron", "password": "secret"}
+    )
     assert login.status_code == 200
     assert login.json()["username"] == "Aaron"
 
@@ -203,7 +215,9 @@ def test_doc_roundtrip_and_conflict(tmp_path: Path) -> None:
     )
     assert saved.status_code == 200
     assert saved.json()["last_modified_by"] == "Aaron"
-    assert "New line." in (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(encoding="utf-8")
+    assert "New line." in (
+        root / ".louke" / "project" / "specs" / "demo" / "spec.md"
+    ).read_text(encoding="utf-8")
 
     stale = client.put(
         "/api/docs/demo/spec",
@@ -235,7 +249,9 @@ def test_wiki_roundtrip(tmp_path: Path) -> None:
     assert saved.status_code == 200
     assert saved.json()["last_modified_by"] == "Aaron"
 
-    nested = client.get("/api/wiki/guides/getting-started", headers={"Accept": "application/json"})
+    nested = client.get(
+        "/api/wiki/guides/getting-started", headers={"Accept": "application/json"}
+    )
     assert nested.status_code == 200
     assert nested.json()["page"] == "guides/getting-started"
 
@@ -293,12 +309,16 @@ def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
     assert created.status_code == 200
     created_payload = created.json()
     assert created_payload["discussion_threads"]
-    content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(encoding="utf-8")
+    content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(
+        encoding="utf-8"
+    )
     assert "> **Aaron**: 需要补充降级策略" in content
 
     thread = created_payload["discussion_threads"][0]
     client.post("/api/auth/logout")
-    register_bob = client.post("/api/auth/register", json={"username": "Bob", "password": "hunter2"})
+    register_bob = client.post(
+        "/api/auth/register", json={"username": "Bob", "password": "hunter2"}
+    )
     assert register_bob.status_code == 200
     replied = client.post(
         "/api/discussions/mutate",
@@ -319,7 +339,9 @@ def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
         },
     )
     assert replied.status_code == 200
-    content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(encoding="utf-8")
+    content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(
+        encoding="utf-8"
+    )
     assert ">> **Bob**: 已收到" in content
 
 
@@ -359,7 +381,9 @@ def test_scan_discussion_blocks_detects_resolved_markers() -> None:
     blocks = scan_discussion_blocks(sample)
 
     discussion_lines = [b for b in blocks if b["line"] > 0]
-    assert len(discussion_lines) == 6, f"expected 6 discussion lines, got {len(discussion_lines)}: {blocks}"
+    assert len(discussion_lines) == 6, (
+        f"expected 6 discussion lines, got {len(discussion_lines)}: {blocks}"
+    )
 
     resolved = [b for b in blocks if b["resolved"]]
     open_blocks = [b for b in blocks if not b["resolved"]]
@@ -378,14 +402,15 @@ def test_scan_discussion_blocks_detects_resolved_markers() -> None:
 def test_doc_page_renders_brand_and_spec_selector(tmp_path: Path) -> None:
     """Verify the sidebar shows Lòukè brand and a spec selector with all specs."""
     root = build_project(tmp_path)
-    spec_dir = root / ".louke" / "project" / "specs" / "demo"
     second = root / ".louke" / "project" / "specs" / "v0.10-001-vditor-redesign"
     second.mkdir(parents=True)
     (second / "spec.md").write_text("# v0.10\n", encoding="utf-8")
     (second / "acceptance.md").write_text("## v0.10\n", encoding="utf-8")
 
     client = TestClient(create_app(root))
-    register = client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
+    register = client.post(
+        "/api/auth/register", json={"username": "Aaron", "password": "secret"}
+    )
     assert register.status_code == 200
 
     doc = client.get("/docs/demo/spec")
@@ -411,10 +436,13 @@ def test_resolve_spec_id_picks_highest_version(tmp_path: Path) -> None:
     """resolve_spec_id() falls back to the highest-version spec when project.toml
     points to a missing directory, and respects the configured spec if present."""
     root = build_project(tmp_path)
-    (root / ".louke" / "project" / "specs" / "v0.10-001-vditor-redesign").mkdir(parents=True)
+    (root / ".louke" / "project" / "specs" / "v0.10-001-vditor-redesign").mkdir(
+        parents=True
+    )
     (root / ".louke" / "project" / "specs" / "v0.8-001-web-server").mkdir(parents=True)
 
     from louke.web.store import ProjectStore
+
     store = ProjectStore(root)
 
     # Configured spec ("demo") exists -> return it
@@ -422,6 +450,7 @@ def test_resolve_spec_id_picks_highest_version(tmp_path: Path) -> None:
 
     # Remove configured spec; should auto-pick the highest version
     import shutil
+
     shutil.rmtree(root / ".louke" / "project" / "specs" / "demo")
     assert store.resolve_spec_id() == "v0.10-001-vditor-redesign"
 
@@ -445,8 +474,8 @@ def test_doc_page_collapses_and_filters_discussions(tmp_path: Path) -> None:
     assert doc.status_code == 200
     body = doc.text
     # Filter/collapse CSS rules: hide [data-resolved] and [data-discussion]
-    assert "[data-resolved=\"1\"]" in body
-    assert "[data-discussion=\"1\"]" in body
+    assert '[data-resolved="1"]' in body
+    assert '[data-discussion="1"]' in body
     # nextDiscussion handler present
     assert "nextDiscussion" in body
     assert "isResolvedText" in body
@@ -573,18 +602,23 @@ def test_wiki_refresh_route_calls_librarian(tmp_path: Path, monkeypatch) -> None
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
     # Pretend lk is on PATH so the endpoint doesn't bail with 503.
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
     captured: dict = {}
+
     def fake_run(cmd, *args, **kwargs):
         captured["cmd"] = cmd
         captured["cwd"] = kwargs.get("cwd")
         captured["timeout"] = kwargs.get("timeout")
+
         class _R:
             returncode = 0
             stdout = "librarian: ok"
             stderr = ""
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     resp = client.post("/api/wiki/refresh")
@@ -615,17 +649,22 @@ def test_wiki_refresh_bypasses_lk_path_lookup(tmp_path: Path, monkeypatch) -> No
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
     # If the old `shutil.which('lk')` check was still here, this would
     # short-circuit to 503. We expect 200 instead.
     monkeypatch.setattr(app_module.shutil, "which", lambda name: None)
     captured: dict = {}
+
     def fake_run(cmd, *args, **kwargs):
         captured["cmd"] = cmd
+
         class _R:
             returncode = 0
             stdout = "ok"
             stderr = ""
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     resp = client.post("/api/wiki/refresh")
@@ -643,8 +682,10 @@ def test_wiki_refresh_503_when_subprocess_missing(tmp_path: Path, monkeypatch) -
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
     def fake_run(cmd, *args, **kwargs):
         raise OSError("python not found")
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     resp = client.post("/api/wiki/refresh")
@@ -660,6 +701,7 @@ def test_wiki_refresh_no_path_dependency() -> None:
     # fix replaces this with `python -m louke agent librarian rewrite`,
     # which works as long as louke is importable.
     import louke.web.app as app_module
+
     src = inspect.getsource(app_module.api_wiki_refresh)
     assert "shutil.which" not in src, (
         "api_wiki_refresh should not call shutil.which() — use "
@@ -682,13 +724,17 @@ def test_wiki_refresh_surfaces_compact_bundle_hint(tmp_path: Path, monkeypatch) 
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
+
     def fake_run(cmd, *args, **kwargs):
         class _R:
             returncode = 1
             stdout = ""
             stderr = "error: .compact-bundle.md does not exist, please run lk agent librarian compact first"
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     resp = client.post("/api/wiki/refresh")
@@ -749,7 +795,9 @@ def test_wiki_index_renders_double_bracket_links(tmp_path: Path) -> None:
     assert "]]" not in body
 
 
-def test_wiki_refresh_logs_subprocess_output(tmp_path: Path, monkeypatch, caplog) -> None:
+def test_wiki_refresh_logs_subprocess_output(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
     """When the librarian subprocess exits non-zero, the server log
     must contain the stdout/stderr so failures are debuggable.
     """
@@ -759,6 +807,7 @@ def test_wiki_refresh_logs_subprocess_output(tmp_path: Path, monkeypatch, caplog
 
     import logging
     import louke.web.app as app_module
+
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
     def fake_run(cmd, *args, **kwargs):
@@ -766,7 +815,9 @@ def test_wiki_refresh_logs_subprocess_output(tmp_path: Path, monkeypatch, caplog
             returncode = 2
             stdout = "librarian step 1 ok\nstep 2 failed: bad input"
             stderr = "ERROR: missing config\nFATAL: giving up"
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     with caplog.at_level(logging.INFO, logger="louke.web"):
@@ -793,6 +844,7 @@ def test_wiki_refresh_logs_on_success(tmp_path: Path, monkeypatch, caplog) -> No
 
     import logging
     import louke.web.app as app_module
+
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
     def fake_run(cmd, *args, **kwargs):
@@ -800,7 +852,9 @@ def test_wiki_refresh_logs_on_success(tmp_path: Path, monkeypatch, caplog) -> No
             returncode = 0
             stdout = "librarian: index.md updated"
             stderr = ""
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     with caplog.at_level(logging.INFO, logger="louke.web"):
@@ -825,6 +879,7 @@ def test_wiki_refresh_auto_runs_compact_when_bundle_missing(
     subprocess before the rewrite, and the click ultimately succeeds.
     """
     import logging
+
     root = build_project(tmp_path)
     # Ensure NO compact bundle exists, but raw/ does (so compact can run).
     bundle = root / ".louke" / "wiki" / ".compact-bundle.md"
@@ -841,18 +896,23 @@ def test_wiki_refresh_auto_runs_compact_when_bundle_missing(
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     import louke.web.app as app_module
+
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
     # Capture every subprocess.run invocation so we can assert compact
     # ran BEFORE rewrite, and that rewrite still ran after.
     calls: list = []
+
     def fake_run(cmd, *args, **kwargs):
         calls.append(list(cmd))
+
         class _R:
             returncode = 0
             stdout = "ok"
             stderr = ""
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     with caplog.at_level(logging.INFO, logger="louke.web"):
@@ -861,7 +921,9 @@ def test_wiki_refresh_auto_runs_compact_when_bundle_missing(
     assert resp.json()["ok"] is True
 
     # Auto-compact must have been called first
-    assert len(calls) >= 2, f"expected at least 2 subprocess calls, got {len(calls)}: {calls}"
+    assert len(calls) >= 2, (
+        f"expected at least 2 subprocess calls, got {len(calls)}: {calls}"
+    )
     assert calls[0][3:] == ["agent", "librarian", "compact"], (
         f"first call should be compact, got {calls[0]}"
     )
@@ -883,6 +945,7 @@ def test_wiki_refresh_skips_auto_compact_when_bundle_present(
     straight to rewrite. This keeps the click fast in the common case.
     """
     import louke.web.app as app_module
+
     root = build_project(tmp_path)
     # Pre-populate a bundle so auto-compact is skipped
     (root / ".louke" / "wiki" / ".compact-bundle.md").write_text(
@@ -896,13 +959,17 @@ def test_wiki_refresh_skips_auto_compact_when_bundle_present(
     monkeypatch.setattr(app_module.shutil, "which", lambda name: "/usr/bin/lk")
 
     calls: list = []
+
     def fake_run(cmd, *args, **kwargs):
         calls.append(list(cmd))
+
         class _R:
             returncode = 0
             stdout = "ok"
             stderr = ""
+
         return _R()
+
     monkeypatch.setattr(app_module.subprocess, "run", fake_run)
 
     resp = client.post("/api/wiki/refresh")
@@ -923,9 +990,11 @@ def test_wiki_refresh_handles_missing_raw_directory(
     """
     import logging
     import louke.web.app as app_module
+
     root = build_project(tmp_path)
     # Remove raw/ so compact can't run
     import shutil
+
     raw_dir = root / ".louke" / "raw"
     if raw_dir.exists():
         shutil.rmtree(raw_dir)
@@ -942,10 +1011,12 @@ def test_wiki_refresh_handles_missing_raw_directory(
     def fake_run(cmd, *args, **kwargs):
         # Simulate rewrite failing because no bundle
         if "rewrite" in cmd:
+
             class _R:
                 returncode = 1
                 stdout = ""
                 stderr = "error: .compact-bundle.md does not exist"
+
             return _R()
         # compact should not be called since raw/ doesn't exist
         raise AssertionError("compact should not be called without raw/")
@@ -984,15 +1055,16 @@ def test_wiki_refresh_progress_modal_present(tmp_path: Path) -> None:
     assert 'data-step="agent"' in body
     assert 'data-step="apply"' in body
     # User-facing labels in Chinese (no mention of "librarian")
-    assert '准备中' in body
+    assert "准备中" in body
     # The "agent" step label describes the action in user terms —
     # "调用 Agent 生成 llm wiki 中" — not the internal name "librarian".
-    assert '调用 Agent 生成 llm wiki 中' in body
-    assert '应用更新' in body
+    assert "调用 Agent 生成 llm wiki 中" in body
+    assert "应用更新" in body
     # The modal must NOT mention "librarian" in any visible label
     for label_match in re.findall(r'class="step-label">([^<]+)<', body):
-        assert 'librarian' not in label_match.lower(), \
+        assert "librarian" not in label_match.lower(), (
             f"step label exposes 'librarian' to user: {label_match!r}"
+        )
     # Animations
     assert "@keyframes wiki-modal-pulse" in body
     assert "@keyframes wiki-refresh-spin" in body

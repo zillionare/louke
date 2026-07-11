@@ -4,7 +4,7 @@
 
 [🇺🇸 English](README.md) · [🇨🇳 中文](README.zh.md)
 
-**LouKe 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。** 
+**LouKe 是一套规格先行、测试驱动、工具对齐 Agent 行为的多 Agent 协作开发方法。**
 
 ---
 

@@ -30,7 +30,6 @@ import re
 import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
 
 
 RE_STATUS_EXPLICIT = re.compile(
@@ -85,11 +84,22 @@ COLUMN_ALIASES = {
     "resolved": "resolved",
 }
 
-KNOWN_AGENT_NAMES = frozenset({
-    "Scout", "Sage", "Lex", "Archer", "Maestro",
-    "Devon", "Prism", "Keeper", "Shield",
-    "Judge", "Warden", "Librarian",
-})
+KNOWN_AGENT_NAMES = frozenset(
+    {
+        "Scout",
+        "Sage",
+        "Lex",
+        "Archer",
+        "Maestro",
+        "Devon",
+        "Prism",
+        "Keeper",
+        "Shield",
+        "Judge",
+        "Warden",
+        "Librarian",
+    }
+)
 
 RE_FENCE = re.compile(r"^\s*(```|~~~)")
 
@@ -106,7 +116,9 @@ class Quote:
     blocked_by: int | None = None
     owner_close_role: str = "user"
     has_explicit_status: bool = False  # explicit status marker (✓/[open]/[wontfix]/...)
-    is_explanatory: bool = False      # inferred from an explanatory `>` block in spec (no unit, no status)
+    is_explanatory: bool = (
+        False  # inferred from an explanatory `>` block in spec (no unit, no status)
+    )
 
 
 @dataclass
@@ -115,12 +127,13 @@ class Unit:
 
     Scope: from a ### US-XXX / ### FR-XXX / ### NFR-XXX heading up to the next ### or ##.
     """
-    id: str                            # e.g. "FR-010", "US-001"
-    kind: str                          # "US" | "FR" | "NFR"
+
+    id: str  # e.g. "FR-010", "US-001"
+    kind: str  # "US" | "FR" | "NFR"
     heading_line: int
-    last_quote: Quote | None = None    # the last quote under this unit
+    last_quote: Quote | None = None  # the last quote under this unit
     open_quotes: list[Quote] = field(default_factory=list)
-    yaml_resolved: str = ""            # resolved value from YAML (✅/⚠️/<empty>)
+    yaml_resolved: str = ""  # resolved value from YAML (✅/⚠️/<empty>)
     yaml_testability: str = ""
     yaml_valid: str = ""
 
@@ -150,7 +163,9 @@ class Unit:
             elif self.yaml_resolved == "⚠️" or self.yaml_resolved == "":
                 blockers.append(f"yaml.resolved={self.yaml_resolved!r} (need ✅)")
             else:
-                blockers.append(f"yaml.resolved={self.yaml_resolved!r} (unknown marker)")
+                blockers.append(
+                    f"yaml.resolved={self.yaml_resolved!r} (unknown marker)"
+                )
             if self.last_quote is not None and self.last_quote.status == "open":
                 blockers.append(
                     f"last quote status=open at L{self.last_quote.line_number} ({self.last_quote.speaker}: {self.last_quote.body[:40]})"
@@ -180,10 +195,14 @@ class ParseResult:
     depth_histogram: dict[int, int] = field(default_factory=dict)
     units: list[Unit] = field(default_factory=list)
     is_ready: bool = False
-    ready_blockers: list[str] = field(default_factory=list)  # detailed description of which units block ready
+    ready_blockers: list[str] = field(
+        default_factory=list
+    )  # detailed description of which units block ready
 
 
-def _emit_quote_block(result: "ParseResult", block: list[tuple[int, str, "re.Match | None"]]) -> None:
+def _emit_quote_block(
+    result: "ParseResult", block: list[tuple[int, str, "re.Match | None"]]
+) -> None:
     """Accumulate a multi-line quote block, extract (depth, speaker, body, status) and append to result.
 
     The first item in `block` must contain a match (the speaker's starting line);
@@ -285,7 +304,9 @@ def parse_spec(spec_path: Path) -> ParseResult:
     # The status marker is only matched on the last line of the block (allowing users to
     # write multiple lines and only mark ✓ at the end).
     in_code_block = False
-    cur_block: list[tuple[int, str, re.Match]] = []  # [(line_no, raw_line, match_or_None)]
+    cur_block: list[
+        tuple[int, str, re.Match]
+    ] = []  # [(line_no, raw_line, match_or_None)]
     for i, line in enumerate(lines, start=1):
         if RE_FENCE.match(line):
             in_code_block = not in_code_block
@@ -360,7 +381,7 @@ def parse_spec(spec_path: Path) -> ParseResult:
                 in_table = True  # mark as inside a table
                 # parse the header
                 header = table_buf[0]
-                col_map: dict[str, int] = {}
+                col_map = {}
                 for idx, col_name in enumerate(header):
                     key = COLUMN_ALIASES.get(col_name.strip())
                     if key:
@@ -409,7 +430,10 @@ def parse_spec(spec_path: Path) -> ParseResult:
             upper = next_u.heading_line if next_u else 10**9
             section_upper = _quote_section_end(u.heading_line)
             for q in result.quotes:
-                if u.heading_line <= q.line_number < upper and q.line_number < section_upper:
+                if (
+                    u.heading_line <= q.line_number < upper
+                    and q.line_number < section_upper
+                ):
                     u.last_quote = q  # the last one wins
                     if q.status == "open":
                         u.open_quotes.append(q)
@@ -431,7 +455,9 @@ def parse_spec(spec_path: Path) -> ParseResult:
     result.resolved_quotes = [q for q in result.resolved_quotes if not q.is_explanatory]
     result.blocked_quotes = [q for q in result.blocked_quotes if not q.is_explanatory]
     result.wontfix_quotes = [q for q in result.wontfix_quotes if not q.is_explanatory]
-    result.superseded_quotes = [q for q in result.superseded_quotes if not q.is_explanatory]
+    result.superseded_quotes = [
+        q for q in result.superseded_quotes if not q.is_explanatory
+    ]
     # a unit's last_quote / open_quotes may also point at a dropped quote; clean them up
     for u in result.units:
         if u.last_quote is not None and u.last_quote.is_explanatory:
@@ -452,8 +478,7 @@ def parse_spec(spec_path: Path) -> ParseResult:
         ready, blockers = u.is_ready()
         if not ready:
             result.ready_blockers.append(f"{u.id}: " + "; ".join(blockers))
-    result.is_ready = (len(result.open_quotes) == 0 and
-                       len(result.ready_blockers) == 0)
+    result.is_ready = len(result.open_quotes) == 0 and len(result.ready_blockers) == 0
     return result
 
 
@@ -493,14 +518,22 @@ def main() -> int:
     if args.check_ready:
         if result.is_ready:
             return 0
-        print(f"spec not ready: {len(result.ready_blockers)} unit(s) blocking", file=sys.stderr)
+        print(
+            f"spec not ready: {len(result.ready_blockers)} unit(s) blocking",
+            file=sys.stderr,
+        )
         for b in result.ready_blockers:
             print(f"  {b}", file=sys.stderr)
         return 1
 
     if args.check_violations:
         violations = []
-        for q in result.resolved_quotes + result.blocked_quotes + result.wontfix_quotes + result.superseded_quotes:
+        for q in (
+            result.resolved_quotes
+            + result.blocked_quotes
+            + result.wontfix_quotes
+            + result.superseded_quotes
+        ):
             if q.owner_close_role == "user" and q.status != "open":
                 violations.append(q)
         if not violations:
@@ -529,7 +562,9 @@ def main() -> int:
             "is_ready": result.is_ready,
             "ready_blockers": result.ready_blockers,
             "speaker_counts": result.speaker_counts,
-            "depth_histogram": {str(k): v for k, v in sorted(result.depth_histogram.items())},
+            "depth_histogram": {
+                str(k): v for k, v in sorted(result.depth_histogram.items())
+            },
             "open_quotes": [asdict(q) for q in result.open_quotes],
             "resolved_quotes": [asdict(q) for q in result.resolved_quotes],
             "blocked_quotes": [asdict(q) for q in result.blocked_quotes],

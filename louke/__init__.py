@@ -12,6 +12,7 @@ Design principles:
    or implement new logic inline
 5. Exit codes follow Unix convention: 0 = success, non-zero = failure
 """
+
 __version__: str
 try:
     # Read the installed package version from wheel METADATA so the
@@ -20,6 +21,7 @@ try:
     # is unavailable (very old Python) or the package is being
     # imported from a source tree without an installed distribution.
     from importlib.metadata import version as _pkg_version, PackageNotFoundError
+
     try:
         __version__ = _pkg_version("louke")
     except PackageNotFoundError:

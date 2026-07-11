@@ -9,7 +9,9 @@ import markdown
 from .._tools.discuss import DiscussParser, RE_QUOTE_LINE
 
 
-RE_REQUIREMENT_HEADING = re.compile(r"^###\s+(?P<kind>FR|NFR)-(?P<num>\d{4})\s+(?P<title>.+?)\s*$")
+RE_REQUIREMENT_HEADING = re.compile(
+    r"^###\s+(?P<kind>FR|NFR)-(?P<num>\d{4})\s+(?P<title>.+?)\s*$"
+)
 RE_TABLE_ROW = re.compile(r"^\s*\|\s*(.+?)\s*\|\s*$")
 RE_RULE = re.compile(r"^\s*---+\s*$")
 RE_FENCE = re.compile(r"^\s*(```|~~~)")
@@ -45,7 +47,11 @@ def render_markdown_view(body_md: str, kind: str, doc_name: str = "") -> RenderR
     rendered_html = render_flow_html(body_md)
     rendered_html = _add_heading_anchors(rendered_html)
     rendered_html = _linkify_references(rendered_html)
-    cards = extract_requirement_cards(body_md) if kind == "doc" and doc_name == "spec" else []
+    cards = (
+        extract_requirement_cards(body_md)
+        if kind == "doc" and doc_name == "spec"
+        else []
+    )
     return RenderResult(
         rendered_html=rendered_html,
         cards=cards,
@@ -68,6 +74,7 @@ def _expand_wiki_links(body_md: str, kind: str = "") -> str:
         display = m.group(2) or page
         # Encode path components (slashes preserved) so nested pages work.
         from urllib.parse import quote
+
         encoded = quote(page, safe="/")
         return f"[{display}](/wiki/{encoded})"
 
@@ -76,6 +83,7 @@ def _expand_wiki_links(body_md: str, kind: str = "") -> str:
 
 def _add_heading_anchors(html_str: str) -> str:
     """Inject <a id="fr-xxxx"> anchors into headings that start with FR-XXXX or NFR-XXXX."""
+
     def replace_heading(m: re.Match) -> str:
         tag = m.group(1)
         attrs = m.group(2)
@@ -85,6 +93,7 @@ def _add_heading_anchors(html_str: str) -> str:
             anchor_id = fr_match.group(1).lower()
             return f'<{tag}{attrs}><a id="{anchor_id}"></a>{content}</{tag}>'
         return m.group(0)
+
     return RE_HEADING_TAG.sub(replace_heading, html_str)
 
 
@@ -127,11 +136,11 @@ def _make_ref_link(m: re.Match) -> str:
         return (
             f'<a class="xref-link xref-cross" href="#" '
             f'data-spec="{html.escape(prefix)}" data-ref="{html.escape(ref)}">'
-            f'{html.escape(prefix)}-{html.escape(ref)}</a>'
+            f"{html.escape(prefix)}-{html.escape(ref)}</a>"
         )
     return (
         f'<a class="xref-link" href="#{ref.lower()}" data-ref="{html.escape(ref)}">'
-        f'{html.escape(ref)}</a>'
+        f"{html.escape(ref)}</a>"
     )
 
 
@@ -175,7 +184,9 @@ def render_flow_html(body_md: str) -> str:
         normal_buffer = []
         if not text.strip():
             return
-        parts.append(f'<section class="markdown-block">{_markdown_html(text)}</section>')
+        parts.append(
+            f'<section class="markdown-block">{_markdown_html(text)}</section>'
+        )
 
     def flush_quote() -> None:
         nonlocal quote_buffer, saw_quote
@@ -244,12 +255,14 @@ def render_discussion_block(lines: list[str]) -> str:
         root = thread[0]
         status_badge = ""
         if root["status"]:
-            status_badge = f'<span class="discussion-status">{html.escape(root["status"])}</span>'
+            status_badge = (
+                f'<span class="discussion-status">{html.escape(root["status"])}</span>'
+            )
         parts.append('<article class="discussion-thread">')
         parts.append(
             f'<header class="discussion-root">'
-            f'<strong>{html.escape(root["speaker"])}</strong>{status_badge}'
-            f'<p>{html.escape(root["body"])}</p>'
+            f"<strong>{html.escape(root['speaker'])}</strong>{status_badge}"
+            f"<p>{html.escape(root['body'])}</p>"
             f"</header>"
         )
         if len(thread) > 1:
@@ -257,8 +270,8 @@ def render_discussion_block(lines: list[str]) -> str:
             for reply in thread[1:]:
                 parts.append(
                     f'<div class="discussion-reply depth-{reply["depth"]}">'
-                    f'<strong>{html.escape(reply["speaker"])}</strong>'
-                    f'<p>{html.escape(reply["body"])}</p>'
+                    f"<strong>{html.escape(reply['speaker'])}</strong>"
+                    f"<p>{html.escape(reply['body'])}</p>"
                     f"</div>"
                 )
             parts.append("</div>")
@@ -288,7 +301,7 @@ def extract_requirement_cards(body_md: str) -> list[dict]:
         if heading:
             flush()
             current = {
-                "id": f'{heading.group("kind")}-{heading.group("num")}',
+                "id": f"{heading.group('kind')}-{heading.group('num')}",
                 "kind": heading.group("kind"),
                 "title": heading.group("title").strip(),
             }
@@ -303,7 +316,12 @@ def extract_requirement_cards(body_md: str) -> list[dict]:
 def extract_summary(lines: list[str]) -> str:
     for line in lines:
         text = line.strip()
-        if not text or text.startswith("|") or text.startswith("#") or RE_RULE.match(text):
+        if (
+            not text
+            or text.startswith("|")
+            or text.startswith("#")
+            or RE_RULE.match(text)
+        ):
             continue
         return text
     return ""
@@ -315,7 +333,11 @@ def extract_status_flags(lines: list[str]) -> dict[str, bool]:
     if len(rows) < 2:
         return status
     headers = [cell.strip() for cell in RE_TABLE_ROW.match(rows[0]).group(1).split("|")]
-    values = [cell.strip() for cell in RE_TABLE_ROW.match(rows[2]).group(1).split("|")] if len(rows) > 2 else []
+    values = (
+        [cell.strip() for cell in RE_TABLE_ROW.match(rows[2]).group(1).split("|")]
+        if len(rows) > 2
+        else []
+    )
     mapping = dict(zip(headers, values))
     status["valid"] = mapping.get("Valid", "") == "✅"
     status["testable"] = mapping.get("Testable", "") == "✅"
@@ -365,5 +387,7 @@ def scan_discussion_blocks(body_md: str) -> list[dict]:
         if not line:
             continue
         if is_discussion_text(line):
-            results.append({"line": i, "text": line, "resolved": is_resolved_text(line)})
+            results.append(
+                {"line": i, "text": line, "resolved": is_resolved_text(line)}
+            )
     return results

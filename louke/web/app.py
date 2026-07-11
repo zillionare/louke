@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import shutil
 import subprocess
 import sys
 from collections import defaultdict
@@ -13,10 +12,24 @@ from urllib.parse import quote, urlencode
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from starlette.routing import Route
 
-from .auth import SESSION_COOKIE, AuthenticatedUser, authenticate_user, current_user, issue_session_cookie, register_user
+from .auth import (
+    SESSION_COOKIE,
+    AuthenticatedUser,
+    authenticate_user,
+    current_user,
+    issue_session_cookie,
+    register_user,
+)
 from .bindings import get_bindings_payload, save_bindings_payload
 from .documents import (
     get_doc_payload,
@@ -53,12 +66,26 @@ def create_app(project_root: str | Path | None = None) -> Starlette:
             Route("/api/bindings", endpoint=api_bindings, methods=["GET", "PUT"]),
             Route("/api/wiki", endpoint=api_wiki_index, methods=["GET"]),
             Route("/api/wiki/refresh", endpoint=api_wiki_refresh, methods=["POST"]),
-            Route("/api/wiki/{page:path}", endpoint=api_wiki_page, methods=["GET", "PUT"]),
-            Route("/api/docs/{spec_id:str}/{doc_name:str}", endpoint=api_doc, methods=["GET", "PUT"]),
-            Route("/api/docs/{spec_id:str}/{doc_name:str}/toggle-status", endpoint=api_toggle_status, methods=["POST"]),
+            Route(
+                "/api/wiki/{page:path}", endpoint=api_wiki_page, methods=["GET", "PUT"]
+            ),
+            Route(
+                "/api/docs/{spec_id:str}/{doc_name:str}",
+                endpoint=api_doc,
+                methods=["GET", "PUT"],
+            ),
+            Route(
+                "/api/docs/{spec_id:str}/{doc_name:str}/toggle-status",
+                endpoint=api_toggle_status,
+                methods=["POST"],
+            ),
             Route("/api/specs", endpoint=api_specs, methods=["GET"]),
             Route("/api/render", endpoint=api_render, methods=["POST"]),
-            Route("/api/discussions/mutate", endpoint=api_discussion_mutate, methods=["POST"]),
+            Route(
+                "/api/discussions/mutate",
+                endpoint=api_discussion_mutate,
+                methods=["POST"],
+            ),
             Route("/api/events", endpoint=api_events, methods=["GET"]),
         ],
     )
@@ -75,7 +102,11 @@ async def asset_file(request: Request) -> Response:
     asset_name = request.path_params["asset_path"]
     asset_path = (_assets_dir() / asset_name).resolve()
     assets_root = _assets_dir().resolve()
-    if not str(asset_path).startswith(str(assets_root)) or not asset_path.exists() or not asset_path.is_file():
+    if (
+        not str(asset_path).startswith(str(assets_root))
+        or not asset_path.exists()
+        or not asset_path.is_file()
+    ):
         return JSONResponse({"error": "asset not found"}, status_code=404)
     return FileResponse(asset_path)
 
@@ -86,7 +117,13 @@ async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
     if user is not None:
         return RedirectResponse(url="/", status_code=303)
     next_path = request.query_params.get("next") or "/"
-    return HTMLResponse(_login_shell(lang=_ui_language(request), next_path=next_path, has_users=bool(store.list_users())))
+    return HTMLResponse(
+        _login_shell(
+            lang=_ui_language(request),
+            next_path=next_path,
+            has_users=bool(store.list_users()),
+        )
+    )
 
 
 async def home_page(request: Request) -> HTMLResponse:
@@ -155,7 +192,11 @@ async def models_page(request: Request) -> HTMLResponse:
     </main>
     """
     script = _models_page_script(lang)
-    return HTMLResponse(_page_shell(_t(lang, "nav.models"), store, user, lang, "models", body, script=script))
+    return HTMLResponse(
+        _page_shell(
+            _t(lang, "nav.models"), store, user, lang, "models", body, script=script
+        )
+    )
 
 
 async def wiki_index_page(request: Request) -> HTMLResponse:
@@ -171,6 +212,7 @@ async def wiki_index_page(request: Request) -> HTMLResponse:
         # librarian agent) as the wiki landing page, with the list of
         # wiki pages as a side card.
         from .render import render_markdown_view
+
         rendered = render_markdown_view(index_entry[0], kind="wiki")
         last_modified = index_entry[1].updated_at or _t(lang, "meta.not_recorded")
         last_modified_by = index_entry[1].last_modified_by or _t(lang, "meta.unknown")
@@ -189,15 +231,20 @@ async def wiki_index_page(request: Request) -> HTMLResponse:
         <section class="grid wiki-layout">
           <article class="card wiki-index-body">
             <div class="wiki-index-content">{rendered.rendered_html}</div>
-            <div class="meta">Last modified by {_escape(last_modified_by)} @ {_escape(last_modified)}</div>
+            <div class="meta">Last modified by {_escape(last_modified_by)} @ {
+            _escape(last_modified)
+        }</div>
           </article>
           <aside class="card wiki-pages-list">
             <h2>Pages ({len(pages)})</h2>
             <ul class="wiki-pages-ul">
-              {''.join(
+              {
+            "".join(
                 f'<li><a href="/wiki/{_quote_path(p["page"])}">{_escape(p["page"])}</a></li>'
                 for p in pages
-              ) or f'<li class="muted">{_escape(_t(lang, "wiki.empty"))}</li>'}
+            )
+            or f'<li class="muted">{_escape(_t(lang, "wiki.empty"))}</li>'
+        }
             </ul>
           </aside>
         </section>
@@ -208,8 +255,8 @@ async def wiki_index_page(request: Request) -> HTMLResponse:
         for page in pages:
             items.append(
                 f'<a class="card card-link wiki-card" href="/wiki/{_quote_path(page["page"])}">'
-                f'<h2>{_escape(page["page"])}</h2>'
-                f'<p>{_escape(page["updated_at"] or _t(lang, "meta.not_recorded"))}</p>'
+                f"<h2>{_escape(page['page'])}</h2>"
+                f"<p>{_escape(page['updated_at'] or _t(lang, 'meta.not_recorded'))}</p>"
                 f"</a>"
             )
         body = f"""
@@ -225,7 +272,7 @@ async def wiki_index_page(request: Request) -> HTMLResponse:
           </div>
         </header>
         <section class="grid cards">
-          {''.join(items) or f'<div class="card"><p>{_escape(_t(lang, "wiki.empty"))}</p></div>'}
+          {"".join(items) or f'<div class="card"><p>{_escape(_t(lang, "wiki.empty"))}</p></div>'}
         </section>
         """
     script = """
@@ -237,7 +284,9 @@ async def wiki_index_page(request: Request) -> HTMLResponse:
     });
     </script>
     """
-    return HTMLResponse(_page_shell("wiki", store, user, lang, "wiki", body, script=script))
+    return HTMLResponse(
+        _page_shell("wiki", store, user, lang, "wiki", body, script=script)
+    )
 
 
 async def wiki_editor_page(request: Request) -> HTMLResponse:
@@ -275,8 +324,15 @@ async def wiki_editor_page(request: Request) -> HTMLResponse:
     )
     return HTMLResponse(
         _page_shell(
-            f"wiki {page}", store, user, lang, "wiki", body,
-            script=script, current_wiki_page=page, head_extra=vditor_head,
+            f"wiki {page}",
+            store,
+            user,
+            lang,
+            "wiki",
+            body,
+            script=script,
+            current_wiki_page=page,
+            head_extra=vditor_head,
         )
     )
 
@@ -290,7 +346,7 @@ async def doc_editor_page(request: Request) -> HTMLResponse:
     spec_id = request.path_params["spec_id"]
     doc_name = request.path_params["doc_name"]
     docs = store.list_spec_documents(spec_id)
-    body = f"""
+    body = """
     <div id="banner" class="banner" hidden><span class="banner-msg"></span><button class="banner-close" type="button">×</button></div>
     <div id="pane-container" class="pane-container"></div>
     """
@@ -307,9 +363,16 @@ async def doc_editor_page(request: Request) -> HTMLResponse:
     )
     return HTMLResponse(
         _page_shell(
-            f"{spec_id} {doc_name}", store, user, lang, "docs", body,
-            script=script, current_doc_name=doc_name,
-            current_spec_id=spec_id, head_extra=vditor_head,
+            f"{spec_id} {doc_name}",
+            store,
+            user,
+            lang,
+            "docs",
+            body,
+            script=script,
+            current_doc_name=doc_name,
+            current_spec_id=spec_id,
+            head_extra=vditor_head,
         )
     )
 
@@ -378,7 +441,10 @@ async def api_bindings(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
     broker.publish_nowait(
         "bindings.updated",
-        {"updated_at": response["updated_at"], "actor_name": response["last_modified_by"]},
+        {
+            "updated_at": response["updated_at"],
+            "actor_name": response["last_modified_by"],
+        },
     )
     return JSONResponse(response)
 
@@ -462,8 +528,12 @@ async def api_wiki_refresh(request: Request) -> JSONResponse:
     # `python -m louke` always works as long as louke is importable,
     # which it must be (this code is in louke.web).
     cmd = [
-        sys.executable, "-m", "louke",
-        "agent", "librarian", "rewrite",
+        sys.executable,
+        "-m",
+        "louke",
+        "agent",
+        "librarian",
+        "rewrite",
     ]
     _logger.info("spawning: %s (cwd=%s)", " ".join(cmd), project_root)
     try:
@@ -486,10 +556,12 @@ async def api_wiki_refresh(request: Request) -> JSONResponse:
 
     # Log everything so non-zero exits are debuggable from the server log.
     log_fn = _logger.info if proc.returncode == 0 else _logger.error
-    log_fn("librarian finished: returncode=%d (stdout=%d bytes, stderr=%d bytes)",
-           proc.returncode,
-           len(proc.stdout or ""),
-           len(proc.stderr or ""))
+    log_fn(
+        "librarian finished: returncode=%d (stdout=%d bytes, stderr=%d bytes)",
+        proc.returncode,
+        len(proc.stdout or ""),
+        len(proc.stderr or ""),
+    )
     if proc.stdout:
         for line in proc.stdout.splitlines():
             log_fn("librarian stdout | %s", line)
@@ -497,8 +569,10 @@ async def api_wiki_refresh(request: Request) -> JSONResponse:
         for line in proc.stderr.splitlines():
             log_fn("librarian stderr | %s", line)
     if proc.returncode != 0:
-        _logger.error("librarian run failed (exit %d). Last 80 lines of combined output:",
-                      proc.returncode)
+        _logger.error(
+            "librarian run failed (exit %d). Last 80 lines of combined output:",
+            proc.returncode,
+        )
         combined = (proc.stderr or "") + "\n" + (proc.stdout or "")
         for line in combined.splitlines()[-80:]:
             _logger.error("  %s", line)
@@ -507,7 +581,9 @@ async def api_wiki_refresh(request: Request) -> JSONResponse:
     index_path = store.wiki_index_path()
     if index_path.exists():
         metadata = store.record_activity(
-            "wiki.updated", index_path, user.username,
+            "wiki.updated",
+            index_path,
+            user.username,
             extra={"action": "librarian.refresh", "returncode": proc.returncode},
         )
     else:
@@ -526,7 +602,9 @@ async def api_wiki_refresh(request: Request) -> JSONResponse:
     # precondition (so the UI message can guide the user to run
     # `lk agent librarian compact` first).
     if proc.returncode != 0 and proc.stderr and "compact-bundle" in proc.stderr:
-        payload["hint"] = "Run `lk agent librarian compact` first to create .compact-bundle.md"
+        payload["hint"] = (
+            "Run `lk agent librarian compact` first to create .compact-bundle.md"
+        )
     return JSONResponse(payload)
 
 
@@ -570,7 +648,9 @@ async def api_wiki_page(request: Request) -> JSONResponse:
             {
                 "target": store.relative_path(store.wiki_page_path(page)),
                 "actor_name": actor_name,
-                "updated_at": store.latest_activity(store.wiki_page_path(page)).updated_at,
+                "updated_at": store.latest_activity(
+                    store.wiki_page_path(page)
+                ).updated_at,
             },
         )
         return JSONResponse({"error": str(exc)}, status_code=409)
@@ -615,7 +695,9 @@ async def api_doc(request: Request) -> JSONResponse:
     except ConflictError as exc:
         try:
             target = store.relative_path(store.doc_path(spec_id, doc_name))
-            updated_at = store.latest_activity(store.doc_path(spec_id, doc_name)).updated_at
+            updated_at = store.latest_activity(
+                store.doc_path(spec_id, doc_name)
+            ).updated_at
         except Exception:
             target = ""
             updated_at = ""
@@ -652,9 +734,13 @@ async def api_toggle_status(request: Request) -> JSONResponse:
         return JSONResponse({"error": "invalid fr_id or field"}, status_code=400)
     try:
         response = toggle_status_payload(
-            store, spec_id=spec_id, doc_name=doc_name,
-            fr_id=fr_id, field=field,
-            version_token=version_token, actor_name=user.username,
+            store,
+            spec_id=spec_id,
+            doc_name=doc_name,
+            fr_id=fr_id,
+            field=field,
+            version_token=version_token,
+            actor_name=user.username,
         )
     except ConflictError as exc:
         return JSONResponse({"error": str(exc)}, status_code=409)
@@ -717,7 +803,9 @@ async def api_discussion_mutate(request: Request) -> JSONResponse:
     except (ValidationError, FileNotFoundError, PermissionError, ValueError) as exc:
         status = 422 if isinstance(exc, PermissionError | ValueError) else 400
         return JSONResponse({"error": str(exc)}, status_code=status)
-    event_name = "document.updated" if payload.get("target_kind") == "doc" else "wiki.updated"
+    event_name = (
+        "document.updated" if payload.get("target_kind") == "doc" else "wiki.updated"
+    )
     broker.publish_nowait(
         event_name,
         {
@@ -768,7 +856,9 @@ def _require_page_user(request: Request) -> AuthenticatedUser | Response:
     next_path = request.url.path
     if request.url.query:
         next_path = f"{next_path}?{request.url.query}"
-    return RedirectResponse(url=f"/login?{urlencode({'next': next_path})}", status_code=303)
+    return RedirectResponse(
+        url=f"/login?{urlencode({'next': next_path})}", status_code=303
+    )
 
 
 _logger = logging.getLogger("louke.web")
@@ -818,11 +908,13 @@ def _page_shell(
     current_spec_id: str = "",
     head_extra: str = "",
 ) -> str:
-    sidebar = _sidebar_html(store, user, lang, section, current_doc_name, current_wiki_page, current_spec_id)
+    sidebar = _sidebar_html(
+        store, user, lang, section, current_doc_name, current_wiki_page, current_spec_id
+    )
     # pane-host class is added dynamically by JS based on pane count and
     # viewport width, not here (so 1 pane keeps the comfortable padding).
     return f"""<!DOCTYPE html>
-<html lang="{_escape('zh-CN' if lang == 'zh' else 'en')}">
+<html lang="{_escape("zh-CN" if lang == "zh" else "en")}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -1745,11 +1837,11 @@ def _sidebar_html(
     </div>
     <div class="nav-section">
       <div class="nav-label">{_escape(_t(lang, "sidebar.main"))}</div>
-      <a class="{_nav_link_class(section == 'models')}" href="/models">{_escape(_t(lang, "nav.models"))}</a>
-      <a class="{_nav_link_class(section == 'docs')}" href="/docs/{_escape(spec_id)}/spec">{_escape(_t(lang, "nav.docs"))}</a>
+      <a class="{_nav_link_class(section == "models")}" href="/models">{_escape(_t(lang, "nav.models"))}</a>
+      <a class="{_nav_link_class(section == "docs")}" href="/docs/{_escape(spec_id)}/spec">{_escape(_t(lang, "nav.docs"))}</a>
       {_docs_sublinks(spec_id, docs, current_doc_name)}
       <div class="nav-link-row">
-        <a class="{_nav_link_class(section == 'wiki')}" href="/wiki" style="flex: 1;">llm wiki</a>
+        <a class="{_nav_link_class(section == "wiki")}" href="/wiki" style="flex: 1;">llm wiki</a>
         <button type="button" class="wiki-refresh-btn" id="wiki-refresh" title="Refresh wiki via librarian">↻</button>
       </div>
       {_wiki_sublinks(wiki_groups, current_wiki_page)}
@@ -1757,7 +1849,9 @@ def _sidebar_html(
     """
 
 
-def _docs_sublinks(spec_id: str, docs: list[dict[str, str]], current_doc_name: str) -> str:
+def _docs_sublinks(
+    spec_id: str, docs: list[dict[str, str]], current_doc_name: str
+) -> str:
     if not docs:
         return ""
     links = []
@@ -1770,13 +1864,15 @@ def _docs_sublinks(spec_id: str, docs: list[dict[str, str]], current_doc_name: s
     <div class="nav-sublinks">
       <div class="nav-subgroup">
         <div class="nav-subtitle">{_escape(spec_id)}</div>
-        {''.join(links)}
+        {"".join(links)}
       </div>
     </div>
     """
 
 
-def _wiki_sublinks(groups: dict[str, list[dict[str, str]]], current_wiki_page: str) -> str:
+def _wiki_sublinks(
+    groups: dict[str, list[dict[str, str]]], current_wiki_page: str
+) -> str:
     if not groups:
         return ""
     chunks = []
@@ -1793,7 +1889,9 @@ def _wiki_sublinks(groups: dict[str, list[dict[str, str]]], current_wiki_page: s
     return f'<div class="nav-sublinks">{"".join(chunks)}</div>'
 
 
-def _group_wiki_pages(pages: list[dict[str, str]], lang: str) -> dict[str, list[dict[str, str]]]:
+def _group_wiki_pages(
+    pages: list[dict[str, str]], lang: str
+) -> dict[str, list[dict[str, str]]]:
     grouped: dict[str, list[dict[str, str]]] = defaultdict(list)
     for item in pages:
         parts = item["page"].split("/")
@@ -2344,19 +2442,19 @@ function nextUnresolved(paneId) {
       }
     }
     unresolved[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showBanner('\u21BB Unresolved discussion (outside FR/NFR/AC)');
+    showBanner('\u21bb Unresolved discussion (outside FR/NFR/AC)');
     return;
   }
   for (const t of targets) {
     if (t.el.getBoundingClientRect().top > mountTop + 20) {
       t.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      showBanner((t.inconsistent ? '\u26A0 INCONSISTENT: ' : '') + t.text.substring(0, 50));
+      showBanner((t.inconsistent ? '\u26a0 INCONSISTENT: ' : '') + t.text.substring(0, 50));
       return;
     }
   }
   const first = targets[0];
   first.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  showBanner('\u21BB ' + (first.inconsistent ? '\u26A0 ' : '') + first.text.substring(0, 50));
+  showBanner('\u21bb ' + (first.inconsistent ? '\u26a0 ' : '') + first.text.substring(0, 50));
 }
 
 createPane(cfg.initialDoc);
@@ -2372,8 +2470,6 @@ def _escape(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
-
-
 
 
 def _quote_path(path: str) -> str:
@@ -2577,10 +2673,9 @@ def _script_strings(lang: str, scope: str) -> dict[str, str]:
 
 def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
     next_json = json.dumps(next_path, ensure_ascii=False)
-    empty_state = _t(lang, "login.subtitle") if has_users else _t(lang, "login.create_first")
     hero_image = "/assets/min-square_97-snk-X32c8tE-unsplash.jpg"
     return f"""<!DOCTYPE html>
-<html lang="{_escape('zh-CN' if lang == 'zh' else 'en')}">
+<html lang="{_escape("zh-CN" if lang == "zh" else "en")}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />

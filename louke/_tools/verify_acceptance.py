@@ -33,7 +33,6 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 # ---------- Regex definitions ----------
 
@@ -61,9 +60,10 @@ PLACEHOLDER_PATTERNS = [
 
 # ---------- Data classes ----------
 
+
 @dataclass
 class AccResult:
-    code: str           # L1/L2/...
+    code: str  # L1/L2/...
     name: str
     passed: bool
     message: str = ""
@@ -72,49 +72,57 @@ class AccResult:
 
 @dataclass
 class SpecFRSpec:
-    fr_id: str          # FR-010
-    nfr: bool           # True if NFR
-    number: int         # 10
+    fr_id: str  # FR-010
+    nfr: bool  # True if NFR
+    number: int  # 10
     title: str = ""
 
 
 # ---------- Utility functions ----------
 
+
 def _project_info_value(label: str) -> str:
     """Read a nested-key string value from project.toml (after fix-002)."""
-    path = Path('.louke/project/project.toml')
+    path = Path(".louke/project/project.toml")
     if not path.exists():
-        return ''
+        return ""
     try:
         import tomllib
     except ImportError:
         try:
             import tomli as tomllib  # type: ignore
         except ImportError:
-            return ''
+            return ""
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             data = tomllib.load(f)
     except Exception:
-        return ''
-    snake = label.lower().replace(' ', '_').replace('-', '_')
-    for section in ('project', 'meta'):
+        return ""
+    snake = label.lower().replace(" ", "_").replace("-", "_")
+    for section in ("project", "meta"):
         if snake in data.get(section, {}):
             return str(data[section][snake])
     if snake in data:
         return str(data[snake])
-    return ''
+    return ""
 
 
-def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
+def gh_api_read(path: str, repo: str = "", branch: str = "") -> str:
     """Read a file via gh api. Returns None on failure (FR-0540 release branch + repo path fix)."""
-    repo = repo or _project_info_value('Repo').replace('github.com/', '')
-    pi_branch = _project_info_value('Release Branch')
+    repo = repo or _project_info_value("Repo").replace("github.com/", "")
+    pi_branch = _project_info_value("Release Branch")
     if not branch:
-        branch = pi_branch or 'main'
+        branch = pi_branch or "main"
         if not pi_branch:
-            print(f'warn: project.toml missing Release Branch; fallback to main', file=sys.stderr)
-    endpoint = f"repos/{repo}/contents/{path}?ref={branch}" if repo else f"contents/{path}?ref={branch}"
+            print(
+                "warn: project.toml missing Release Branch; fallback to main",
+                file=sys.stderr,
+            )
+    endpoint = (
+        f"repos/{repo}/contents/{path}?ref={branch}"
+        if repo
+        else f"contents/{path}?ref={branch}"
+    )
     try:
         out = subprocess.check_output(
             ["gh", "api", endpoint],
@@ -122,6 +130,7 @@ def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
         )
         import base64
         import json
+
         data = json.loads(out)
         return base64.b64decode(data["content"]).decode("utf-8")
     except Exception as e:  # noqa: BLE001
@@ -129,14 +138,18 @@ def gh_api_read(path: str, repo: str = '', branch: str = '') -> str:
         return None
 
 
-def fetch_spec_text(spec_id: str, repo: str = '', branch: str = '') -> str | None:
+def fetch_spec_text(spec_id: str, repo: str = "", branch: str = "") -> str | None:
     """Read .louke/project/specs/{spec_id}/spec.md"""
-    return gh_api_read(f".louke/project/specs/{spec_id}/spec.md", repo=repo, branch=branch)
+    return gh_api_read(
+        f".louke/project/specs/{spec_id}/spec.md", repo=repo, branch=branch
+    )
 
 
-def fetch_acceptance_text(spec_id: str, repo: str = '', branch: str = '') -> str | None:
+def fetch_acceptance_text(spec_id: str, repo: str = "", branch: str = "") -> str | None:
     """Read .louke/project/specs/{spec_id}/acceptance.md"""
-    return gh_api_read(f".louke/project/specs/{spec_id}/acceptance.md", repo=repo, branch=branch)
+    return gh_api_read(
+        f".louke/project/specs/{spec_id}/acceptance.md", repo=repo, branch=branch
+    )
 
 
 def parse_fr_sections(text: str) -> list[SpecFRSpec]:
@@ -144,11 +157,13 @@ def parse_fr_sections(text: str) -> list[SpecFRSpec]:
     result = []
     for m in RE_FR_SECTION.finditer(text):
         is_nfr = m.group(1) == "NFR"
-        result.append(SpecFRSpec(
-            fr_id=f"{m.group(1)}-{m.group(2)}",
-            nfr=is_nfr,
-            number=int(m.group(2)),
-        ))
+        result.append(
+            SpecFRSpec(
+                fr_id=f"{m.group(1)}-{m.group(2)}",
+                nfr=is_nfr,
+                number=int(m.group(2)),
+            )
+        )
     return result
 
 
@@ -227,6 +242,7 @@ def extract_ac_body(text: str, fr_id: str, ac_num: int) -> list[str]:
 
 # ---------- L1-L5 validation ----------
 
+
 def check_L1_exists(acceptance_text: str | None) -> AccResult:
     r = AccResult(code="L1", name="File exists", passed=False)
     if acceptance_text is None:
@@ -242,7 +258,9 @@ def check_L1_exists(acceptance_text: str | None) -> AccResult:
     return r
 
 
-def check_L2_fr_sections(spec_frs: list[SpecFRSpec], acc_sections: dict[str, list[int]]) -> AccResult:
+def check_L2_fr_sections(
+    spec_frs: list[SpecFRSpec], acc_sections: dict[str, list[int]]
+) -> AccResult:
     """Every FR/NFR in spec.md has a same-named section in acceptance.md."""
     r = AccResult(code="L2", name="FR/NFR section exists", passed=False)
     spec_ids = {f.fr_id for f in spec_frs}
@@ -277,7 +295,9 @@ def check_L3_ac_sequential(acc_sections: dict[str, list[int]]) -> AccResult:
     return r
 
 
-def check_L4_ac_content(acceptance_text: str, acc_sections: dict[str, list[int]]) -> AccResult:
+def check_L4_ac_content(
+    acceptance_text: str, acc_sections: dict[str, list[int]]
+) -> AccResult:
     """Each AC has at least 1 bullet, and the content is not a placeholder."""
     r = AccResult(code="L4", name="AC content non-empty", passed=False)
     bad: list[str] = []
@@ -303,7 +323,9 @@ def check_L4_ac_content(acceptance_text: str, acc_sections: dict[str, list[int]]
     return r
 
 
-def check_L5_reverse_cover(spec_frs: list[SpecFRSpec], acc_sections: dict[str, list[int]]) -> AccResult:
+def check_L5_reverse_cover(
+    spec_frs: list[SpecFRSpec], acc_sections: dict[str, list[int]]
+) -> AccResult:
     """Every ## FR/NFR section in acceptance.md corresponds to an FR/NFR in spec.md (prevents ghost FRs)."""
     r = AccResult(code="L5", name="Reverse coverage", passed=False)
     spec_ids = {f.fr_id for f in spec_frs}
@@ -320,6 +342,7 @@ def check_L5_reverse_cover(spec_frs: list[SpecFRSpec], acc_sections: dict[str, l
 
 
 # ---------- Main flow ----------
+
 
 def run_checks(
     spec_text: str,
@@ -358,11 +381,25 @@ def report(results: list[AccResult]) -> int:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="validate whether acceptance.md is compliant (Lex stage one)")
+    p = argparse.ArgumentParser(
+        description="validate whether acceptance.md is compliant (Lex stage one)"
+    )
     p.add_argument("--spec", required=True, help="spec-id, e.g. v0.1-001-louke")
-    p.add_argument("--repo", default='', help="owner/repo, e.g. my-org/my-project (the project running louke, not the louke framework itself)")
-    p.add_argument("--branch", default="", help="branch where the spec lives; defaults to project-info Release Branch")
-    p.add_argument("--offline", action="store_true", help="offline mode: use --spec-file/--acceptance-file directly")
+    p.add_argument(
+        "--repo",
+        default="",
+        help="owner/repo, e.g. my-org/my-project (the project running louke, not the louke framework itself)",
+    )
+    p.add_argument(
+        "--branch",
+        default="",
+        help="branch where the spec lives; defaults to project-info Release Branch",
+    )
+    p.add_argument(
+        "--offline",
+        action="store_true",
+        help="offline mode: use --spec-file/--acceptance-file directly",
+    )
     p.add_argument("--spec-file", help="offline mode: path to spec.md")
     p.add_argument("--acceptance-file", help="offline mode: path to acceptance.md")
     args = p.parse_args()
@@ -379,7 +416,9 @@ def main() -> int:
         # A missing acceptance file is not a hard error: let the L1 check report uniformly
         if args.acceptance_file:
             acc_path = Path(args.acceptance_file)
-            acceptance_text = acc_path.read_text(encoding="utf-8") if acc_path.exists() else None
+            acceptance_text = (
+                acc_path.read_text(encoding="utf-8") if acc_path.exists() else None
+            )
         else:
             acceptance_text = None
     else:
@@ -387,10 +426,15 @@ def main() -> int:
             print("non-offline mode requires --spec SPEC_ID", file=sys.stderr)
             return 1
         spec_text = fetch_spec_text(args.spec, repo=args.repo, branch=args.branch)
-        acceptance_text = fetch_acceptance_text(args.spec, repo=args.repo, branch=args.branch)
+        acceptance_text = fetch_acceptance_text(
+            args.spec, repo=args.repo, branch=args.branch
+        )
         if spec_text is None:
-            branch = args.branch or _project_info_value('Release Branch') or 'main'
-            print(f"unable to read .louke/project/specs/{args.spec}/spec.md on branch {branch}", file=sys.stderr)
+            branch = args.branch or _project_info_value("Release Branch") or "main"
+            print(
+                f"unable to read .louke/project/specs/{args.spec}/spec.md on branch {branch}",
+                file=sys.stderr,
+            )
             return 1
         if acceptance_text is None:
             # Do not error out, fall through to L1 check
