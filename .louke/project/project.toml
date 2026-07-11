@@ -10,38 +10,44 @@ version = "0.11"
 repo = "github.com/zillionare/louke"
 project = "louke-v0.11 (#8)"
 project_id = "https://github.com/users/quantclaws/projects/8"
-spec_id = "v0.11-001-web-ide"
+spec_id = "v0.11-002-web-ui-integration"
 release_branch = "releases/v0.10"
 
 [meta]
 created = "2026-07-05"
-tag = "v0.7.3 (zillionare/louke@v0.7.3)"
-current_stage = "M-MILESTONE"
+tag = "v0.11.0 (zillionare/louke@v0.11.0)"
+current_stage = "M-FOUND"
 security_audit = "disabled"
 smoke_test_issue = "#80 (closed, previous v0.6 milestone 冒烟)"
 smoke_test_pr = "#81 (closed, M-FOUND test PR for v0.7)"
-dod = "e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 37/37；未启用 Security Audit 因本项目为内部工具）"
+dod = "e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 X/X；未启用 Security Audit 因本项目为内部工具）"
 pre_commit = "installed (python + base)"
 test_framework = "pytest"
 acknowledged_orphan_releases = []
 
 story = """
-v0.11-001-web-ide: 在 v0.8-v0.10 web server 基础上, 引入 OpenCode Adapter 抽象、用户意图路由、可追溯 Wiki、项目 .louke 目录规划、FR/NFR task 切换、本地 Story Backlog、文件浏览/diff/Markdown 文档展示、自动化质量门、文件沙箱与浏览器兼容性。
+v0.11-002-web-ui-integration: 把 v0.11-001 已实现的 6 个 starlette sub-app (opencode_api / intent_api / wiki_api / backlog_api / files_api / tasks_api) mount 到 louke/web/app.py, 并补 web UI 路由让用户在浏览器里能完整使用 11 个 FR/3 个 NFR 的功能. 补 NFR-0101 浏览器兼容的 playwright e2e 测试 (实际点击, 不只 hit API endpoint).
+
+范围说明:
+- v0.11-001 spec 已 locked, acceptance.md 中 11 个 FR 的 "Web 页面可访问 / 用户打开页面 / 用户尝试保存" 等 AC 隐含要求 web UI 集成, 但 v0.11-001 M-DEV 只实现了独立 sub-app (不挂到 web/app.py), M-E2E 只用 TestClient 直接 hit API. mount + UI 路由 + playwright e2e 落到 v0.11-002.
+- FR-0101 (Louke Server Agent 工具化, #99) 仍延后, 不在本 spec 范围.
+- 不改 v0.11-001 的 acceptance.md (spec 已 locked); v0.11-002 acceptance.md 仅覆盖 web UI 集成相关 AC.
 """
 
 [meta.known_carryover]
 dirty_files = "louke 工作树里有 ~70 个 pre-existing dirty 文件 (agents/ 目录迁移、Makefile 删除等), 跟当前 spec 无关"
 project_owner = "Project `louke-v0.7` (#8) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN"
 commit_rgr = "`lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数, 后续 v0.7+ 应去掉以保持 R-G-R commit 格式干净"
-v0_11_waiver = "M-SPEC + M-LOCK 各有一条 waiver (verify-issue schema drift, 230+ 脏 legacy issues); #110 在修, 修完后重跑 `lk agent sage record-lock --spec v0.11-001-web-ide --confirm` 解除 waiver"
-v0_11_batch3 = "M-DEV Batch 1+2+3 已完成 (FR-0001/0401/0501/0601/0701/0801 + NFR-0001/0201, 81 passed); Batch 4 待启 (#100 FR-0201 + #101 FR-0301)"
+v0_11_001_waiver = "M-SPEC + M-LOCK 各有一条 waiver (verify-issue schema drift, 230+ 脏 legacy issues); #110 在修, 修完后重跑 `lk agent sage record-lock --spec v0.11-001-web-ide --confirm` 解除 waiver"
+v0_11_002_scope = "v0.11-001 已 release (tag v0.11.0). v0.11-002 补 mount + web UI 路由 + playwright e2e. 不动 v0.11-001 acceptance.md (locked)."
 
 [active_specs]
 # 当前活跃 spec 列表 (post-v0.7 hotfix)
 v0_7_001 = "shipped (2026-07-05, tag v0.7.0)"
 v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
 v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
-v0_11_001 = "in progress (web-ide, M-DEV Batch 4 待启)"
+v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
+v0_11_002 = "in progress (web-ui-integration, mount 6 sub-apps + playwright e2e)"
 
 [e2e]
 # v0.11-001 Web IDE：host-project 正式双浏览器 e2e 编排契约。
