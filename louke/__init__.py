@@ -33,3 +33,6 @@ except ImportError:  # pragma: no cover
 # The permission object format (replacing the deprecated tools field) was
 # introduced in OpenCode v1.1.1
 MIN_OPENCODE_VERSION = "1.1.1"
+
+# NFR-0201: workspace security sandbox module registration
+from . import security  # noqa: E402,F401
