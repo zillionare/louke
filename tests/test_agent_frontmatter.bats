@@ -35,7 +35,9 @@ teardown() {
 snapshot_agent() {
     local agent="$1"
     SNAP_TARGET="$(agent_file $agent)"
-    SNAP_BACKUP="${AGENTS_DIR}/.$(echo "$agent" | awk '{print toupper(substr($0,1,1)) substr($0,2)}').md.bak"
+    # Use a distinct suffix so a later sed -i.bak doesn't overwrite our
+    # pre-modification backup. Teardown uses SNAP_BACKUP to restore.
+    SNAP_BACKUP="${AGENTS_DIR}/.$(echo "$agent" | awk '{print toupper(substr($0,1,1)) substr($0,2)}').md.snapshot.bak"
     cp "$SNAP_TARGET" "$SNAP_BACKUP"
 }
 
@@ -311,9 +313,11 @@ PYEOF
     cd "$REPO_ROOT"
     snapshot_agent sage
     # Make Sage primary (duplicate of Maestro). Use -i.bak which works on
-    # both GNU sed (Linux) and BSD sed (macOS); we discard the .bak backup.
+    # both GNU sed (Linux) and BSD sed (macOS); the .bak file holds the
+    # MODIFIED content and is cleaned up here. Snapshot backup is at
+    # .Sage.md.snapshot.bak (see snapshot_agent), so this doesn't collide.
     sed -i.bak 's/^mode: subagent$/mode: primary/' "$AGENTS_DIR/Sage.md"
-    rm -f "${AGENTS_DIR}/.Sage.md.bak"
+    rm -f "$AGENTS_DIR/Sage.md.bak"
     run python3 -m louke agent lint
     [ "$status" -ne 0 ] || { echo "FAIL: lint should fail with multiple primary"; false; }
     [[ "$output" == *"only maestro can be primary"* ]]
