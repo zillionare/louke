@@ -10,6 +10,13 @@
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 AGENTS_DIR="$REPO_ROOT/louke/agents"
 
+# Agent filenames in louke/agents/ use TitleCase (Warden.md), but tests
+# below iterate with lowercase names for readability. Capitalize the first
+# letter before joining the directory so the path resolves on case-sensitive
+# filesystems (Linux CI). Uses awk because BSD sed and GNU sed disagree on
+# the \U uppercase escape.
+agent_file() { echo "${AGENTS_DIR}/$(echo "$1" | awk '{print toupper(substr($0,1,1)) substr($0,2)}').md"; }
+
 setup() {
     # Snapshot one agent for restoration (per-test modifications)
     export SNAP_BACKUP=""
@@ -27,8 +34,8 @@ teardown() {
 
 snapshot_agent() {
     local agent="$1"
-    SNAP_TARGET="$AGENTS_DIR/${agent}.md"
-    SNAP_BACKUP="$AGENTS_DIR/.${agent}.md.bak"
+    SNAP_TARGET="$(agent_file $agent)"
+    SNAP_BACKUP="${AGENTS_DIR}/.$(echo "$agent" | awk '{print toupper(substr($0,1,1)) substr($0,2)}').md.bak"
     cp "$SNAP_TARGET" "$SNAP_BACKUP"
 }
 
@@ -38,7 +45,7 @@ snapshot_agent() {
 
 @test "FR-0020: 4 role agents + Maestro must contain permission block" {
     for agent in warden judge archer librarian maestro; do
-        run grep -q "^permission:" "$AGENTS_DIR/${agent}.md"
+        run grep -q "^permission:" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent missing permission: block"
             false
@@ -51,7 +58,7 @@ snapshot_agent() {
     # They have permission.question block (FR-0070) but don't need the full 11-key block
     for agent in sage lex devon scout shield keeper prism; do
         # At least mode must be subagent (tested separately below)
-        run grep -q "^mode: subagent" "$AGENTS_DIR/${agent}.md"
+        run grep -q "^mode: subagent" "$(agent_file $agent)"
         [ "$status" -eq 0 ]
     done
 }
@@ -70,7 +77,7 @@ snapshot_agent() {
 
 @test "FR-0060.2: 11 non-Maestro agents have mode: subagent" {
     for agent in sage lex devon scout archer shield keeper prism warden judge librarian; do
-        run grep -E "^mode: subagent" "$AGENTS_DIR/${agent}.md"
+        run grep -E "^mode: subagent" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: ${agent}.md mode must be 'subagent'"
             false
@@ -80,7 +87,7 @@ snapshot_agent() {
 
 @test "NFR-0050: no mode: all remnants" {
     for agent in maestro sage lex devon scout archer shield keeper prism warden judge librarian; do
-        run grep -E "^mode: all" "$AGENTS_DIR/${agent}.md"
+        run grep -E "^mode: all" "$(agent_file $agent)"
         [ "$status" -ne 0 ] || {
             echo "FAIL: ${agent}.md still has 'mode: all' (deprecated)"
             false
@@ -159,10 +166,10 @@ snapshot_agent() {
         # 4 role agents (archer judge) already have permission block with question: allow
         # 2 non-role agents (scout sage) have separate permission block with question: allow
         if [ "$agent" = "archer" ] || [ "$agent" = "judge" ]; then
-            run grep -E "^  question: allow" "$AGENTS_DIR/${agent}.md"
+            run grep -E "^  question: allow" "$(agent_file $agent)"
         else
             # scout / sage separate permission block
-            run grep -E "^  question: allow" "$AGENTS_DIR/${agent}.md"
+            run grep -E "^  question: allow" "$(agent_file $agent)"
         fi
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent must have question: allow"
@@ -173,7 +180,7 @@ snapshot_agent() {
 
 @test "FR-0070.2: 5 non-interactive subagents have permission.question: deny" {
     for agent in lex devon shield keeper prism; do
-        run grep -E "^  question: deny" "$AGENTS_DIR/${agent}.md"
+        run grep -E "^  question: deny" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent must have question: deny"
             false
@@ -198,7 +205,7 @@ assert fm["permission"]["edit"] == "deny"
 assert fm["mode"] == "subagent"
 print("OK")
 PYEOF
-    sed -i '' "s|REPO_ROOT_PLACEHOLDER|$REPO_ROOT|g; s|AGENTS_DIR_PLACEHOLDER|$AGENTS_DIR|g" /tmp/louke_test_parse.py
+    sed -i.bak "s|REPO_ROOT_PLACEHOLDER|$REPO_ROOT|g; s|AGENTS_DIR_PLACEHOLDER|$AGENTS_DIR|g" /tmp/louke_test_parse.py
     run python3 /tmp/louke_test_parse.py
     [ "$status" -eq 0 ] || { echo "FAIL: parse test exit $status: $output"; false; }
     rm -f /tmp/louke_test_parse.py
@@ -303,9 +310,10 @@ PYEOF
 @test "NFR-0050: multiple primary → lint fail" {
     cd "$REPO_ROOT"
     snapshot_agent sage
-    # Make Sage primary (duplicate of Maestro)
-    sed -i '' 's/^mode: subagent$/mode: primary/' "$AGENTS_DIR/Sage.md" 2>/dev/null || \
-    sed -i 's/^mode: subagent$/mode: primary/' "$AGENTS_DIR/Sage.md"
+    # Make Sage primary (duplicate of Maestro). Use -i.bak which works on
+    # both GNU sed (Linux) and BSD sed (macOS); we discard the .bak backup.
+    sed -i.bak 's/^mode: subagent$/mode: primary/' "$AGENTS_DIR/Sage.md"
+    rm -f "${AGENTS_DIR}/.Sage.md.bak"
     run python3 -m louke agent lint
     [ "$status" -ne 0 ] || { echo "FAIL: lint should fail with multiple primary"; false; }
     [[ "$output" == *"only maestro can be primary"* ]]
@@ -317,9 +325,9 @@ PYEOF
 @test "v0.6.14: 11 subagents must have task: deny (prevents question tool hallucination regression)" {
     for agent in sage scout devon keeper lex archer judge librarian warden keeper prism shield; do
         # Skip if file doesn't exist
-        [ -f "$AGENTS_DIR/${agent}.md" ] || continue
+        [ -f "$(agent_file $agent)" ] || continue
         # 11 subagents must have task: deny (excludes Maestro which is primary)
-        run grep -q "^  task: deny" "$AGENTS_DIR/${agent}.md"
+        run grep -q "^  task: deny" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent missing 'task: deny' in permission block"
             echo "  (OpenCode default for unspecified task is 'allow', which lets subagent"
@@ -332,8 +340,8 @@ PYEOF
 
 @test "v0.6.14: 4 interactive subagents (Scout/Sage/Archer/Judge) must have question: allow" {
     for agent in scout sage archer judge; do
-        [ -f "$AGENTS_DIR/${agent}.md" ] || continue
-        run grep -q "^  question: allow" "$AGENTS_DIR/${agent}.md"
+        [ -f "$(agent_file $agent)" ] || continue
+        run grep -q "^  question: allow" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent missing 'question: allow' (interactive subagent needs question tool)"
             false
@@ -343,8 +351,8 @@ PYEOF
 
 @test "v0.6.14: 6 non-interactive subagents must have question: deny" {
     for agent in devon keeper librarian warden prism shield; do
-        [ -f "$AGENTS_DIR/${agent}.md" ] || continue
-        run grep -q "^  question: deny" "$AGENTS_DIR/${agent}.md"
+        [ -f "$(agent_file $agent)" ] || continue
+        run grep -q "^  question: deny" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent missing 'question: deny' (non-interactive subagent should not ask user)"
             false
