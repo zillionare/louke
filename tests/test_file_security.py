@@ -5,6 +5,7 @@ from louke.security import WorkspaceSecurity, SecurityError
 
 
 def test_path_outside_workspace_rejected(tmp_path):
+    """AC-NFR0201-01: 指向工作区外目标的读取/diff/保存请求 -> 拒绝, 目标内容未被读取/修改."""
     ws = tmp_path / "ws"
     ws.mkdir()
     sec = WorkspaceSecurity(ws)
@@ -14,6 +15,7 @@ def test_path_outside_workspace_rejected(tmp_path):
 
 
 def test_symlink_inside_workspace_rejected(tmp_path):
+    """AC-NFR0201-01: symlink 越界 (指向工作区内但逃逸) 同样拒绝读取."""
     ws = tmp_path / "ws"
     ws.mkdir()
     target = ws / "real.md"
@@ -27,6 +29,7 @@ def test_symlink_inside_workspace_rejected(tmp_path):
 
 
 def test_write_to_readonly_file_rejected(tmp_path):
+    """AC-NFR0201-02: 对源代码或未列入可编辑清单的文件发起写请求 -> 拒绝, 字节不变."""
     ws = tmp_path / "ws"
     ws.mkdir()
     src = ws / "src.py"
@@ -38,6 +41,7 @@ def test_write_to_readonly_file_rejected(tmp_path):
 
 
 def test_writable_allowlist_only_three_design_docs(tmp_path):
+    """AC-NFR0201-02: 可编辑清单仅 story/spec/acceptance; 其他设计文档 (test-plan.md) 写入被拒."""
     ws = tmp_path / "ws"
     ws.mkdir()
     sec = WorkspaceSecurity(ws)

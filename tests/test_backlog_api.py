@@ -28,6 +28,7 @@ def test_list_empty(client):
 
 
 def test_create_entry_returns_201(client, workspace):
+    """AC-FR0601-01: 有效 story 条目提交 -> 持久化并出现在本地列表中."""
     r = client.post("/api/backlog", json={"story": "as user, I want X"})
     assert r.status_code == 201
     body = r.json()
@@ -57,6 +58,7 @@ def test_list_after_create(client):
 
 
 def test_delete_with_start_development_removes_entry(client, workspace):
+    """AC-FR0601-02: 选中条目点击进入开发 -> 仅选中项传给 Louke 新 story 开发流程."""
     r1 = client.post("/api/backlog", json={"story": "to-start"})
     entry_id = r1.json()["id"]
     r2 = client.request(
@@ -75,6 +77,7 @@ def test_delete_with_start_development_removes_entry(client, workspace):
 
 
 def test_delete_without_selection_returns_400(client, workspace):
+    """AC-FR0601-03: 未选中条目点击进入开发 -> 不启动新 story 流程并提示需先选择."""
     r1 = client.post("/api/backlog", json={"story": "to-keep"})
     entry_id = r1.json()["id"]
     # Missing "action" key

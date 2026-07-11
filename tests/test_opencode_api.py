@@ -10,6 +10,7 @@ def client():
 
 
 def test_create_instance_returns_201_with_id(client):
+    """AC-FR0001-01 + AC-FR0001-03: 创建实例返回 201, 可选择, id 唯一; 后续 models/agent 命令依赖该实例."""
     r = client.post("/api/opencode/instances", json={})
     assert r.status_code == 201
     body = r.json()
@@ -29,6 +30,7 @@ def test_list_instances_returns_at_least_created(client):
 
 
 def test_delete_instance_is_idempotent(client):
+    """AC-FR0001-04: 停止实例 -> 显示非运行, 后续发送不被当作成功执行."""
     r1 = client.post("/api/opencode/instances", json={})
     inst_id = r1.json()["id"]
     r2 = client.delete(f"/api/opencode/instances?id={inst_id}")

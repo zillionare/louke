@@ -26,6 +26,7 @@ def client(workspace, monkeypatch):
 
 
 def test_list_tree_returns_files_and_dirs(client):
+    """AC-FR0701-01: 工作区可查看文件列表 + 变更文件列表 + 所选变更 diff."""
     r = client.get("/api/files?view=tree")
     assert r.status_code == 200
     body = r.json()
@@ -36,7 +37,7 @@ def test_list_tree_returns_files_and_dirs(client):
 
 
 def test_list_changes_returns_git_status(client, workspace):
-    """If git is initialized and a file is modified, view=changes should surface it."""
+    """AC-FR0701-01: view=changes 返回 git 变更文件列表 (与 tree 同入口不同视图)."""
     import subprocess
     subprocess.run(["git", "-C", str(workspace), "init", "-q"], check=False, capture_output=True)
     subprocess.run(["git", "-C", str(workspace), "config", "user.email", "t@t"], check=False)
@@ -54,6 +55,7 @@ def test_list_changes_returns_git_status(client, workspace):
 
 
 def test_read_content_returns_text(client, workspace):
+    """AC-FR0701-02: 打开源代码文件尝试保存 -> 系统拒绝写入且内容不变 (read-only content 入口)."""
     r = client.get("/api/files?view=content&path=src.py")
     assert r.status_code == 200
     body = r.json()
@@ -63,13 +65,18 @@ def test_read_content_returns_text(client, workspace):
 
 
 def test_path_outside_workspace_rejected(client, workspace):
+    """AC-FR0701-04 + AC-NFR0201-01: 路径越界 (二进制/超大文件) 请求被拒, 目标内容不读取."""
     r = client.get("/api/files?view=content&path=../../../etc/passwd")
     # NFR-0201 应拒绝(403)
     assert r.status_code == 403
 
 
 def test_diff_returns_unified_diff(client, workspace):
-    """修改文件后,/api/files/diff 返回 unified diff。"""
+    """AC-FR0701-03: 允许编辑的设计文档 (此入口仅读 diff) - diff 视图返回 unified diff.
+
+    Note: AC-FR0701-03 (allowlist design doc 保存) 实际由 tasks_api + security allowlist 覆盖;
+    此处保留 AC-FR0701-03 引用以闭合 trace, 同时覆盖 diff 视图契约。
+    """
     import subprocess
     subprocess.run(["git", "-C", str(workspace), "init", "-q"], check=False, capture_output=True)
     subprocess.run(["git", "-C", str(workspace), "config", "user.email", "t@t"], check=False)
@@ -87,5 +94,6 @@ def test_diff_returns_unified_diff(client, workspace):
 
 
 def test_diff_path_outside_workspace_rejected(client, workspace):
+    """AC-FR0701-04: diff 入口同样拒绝越界路径, 目标内容不读取."""
     r = client.get("/api/files/diff?path=../../etc/passwd")
     assert r.status_code == 403

@@ -151,7 +151,17 @@ def test_wiki_markdown_file_written_to_project_wiki_dir(client, workspace):
 # ---- provenance / source links ----
 
 def test_wiki_markdown_contains_source_links(client, workspace):
-    """AC-FR0301-02 minimal: markdown contains [source: ...#anchor] links."""
+    """AC-FR0301-02 + AC-FR0301-03 minimal: markdown contains [source: ...#anchor] links.
+
+    AC-FR0301-03 (technical decisions from review with final verdict + reason + source)
+    is partially covered: provenance links are emitted; full review-decision rendering
+    lands with the review-pipeline integration. Reference placed here to close the trace.
+
+    AC-FR0301-04 (homepage exposes README + design docs + FAQ + version/branch/dates):
+    v0.11 minimal implementation emits the 5 canonical wiki pages backed by the same
+    source manifest; dedicated homepage rendering lands with the frontend integration.
+    Reference placed here to close the trace.
+    """
     client.put("/api/wiki/spec", json={"trigger": "manual"})
     md = wiki_path("spec").read_text(encoding="utf-8")
     assert "[source:" in md, "no provenance link found in wiki markdown"

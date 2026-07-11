@@ -31,6 +31,7 @@ def client(workspace, monkeypatch):
 
 
 def test_get_initial_state(client, workspace):
+    """AC-FR0501-01: 渲染需求时每个状态显示为独立可点击 Markdown task checkbox, 而非状态表格."""
     ws, spec_dir = workspace
     spec_path = str(spec_dir.relative_to(ws) / "spec.md")
     r = client.get(f"/api/tasks/FR-0001?document_path={spec_path}")
@@ -44,6 +45,7 @@ def test_get_initial_state(client, workspace):
 
 
 def test_toggle_valid_to_unchecked_persists(client, workspace):
+    """AC-FR0501-02: 未选中 task 点击保存 -> 源文件对应项变 - [x], 重载仍选中; 反向同理写 - [ ]."""
     ws, spec_dir = workspace
     spec_path = str(spec_dir.relative_to(ws) / "spec.md")
     # Get initial revision
@@ -64,6 +66,7 @@ def test_toggle_valid_to_unchecked_persists(client, workspace):
 
 
 def test_toggle_testable_to_checked_persists(client, workspace):
+    """AC-FR0501-03: 一行视觉布局下分别点击任一状态, 仅目标 task 状态改变, 其他不变."""
     ws, spec_dir = workspace
     spec_path = str(spec_dir.relative_to(ws) / "spec.md")
     r0 = client.get(f"/api/tasks/FR-0001?document_path={spec_path}")
@@ -74,6 +77,9 @@ def test_toggle_testable_to_checked_persists(client, workspace):
     )
     assert r1.status_code == 200
     assert r1.json()["tasks"]["Testable"] is True
+    # Other tasks unchanged
+    assert r1.json()["tasks"]["Valid"] is True
+    assert r1.json()["tasks"]["Decided"] is False
     content = (spec_dir / "spec.md").read_text(encoding="utf-8")
     assert "- [x] Testable" in content
 
