@@ -63,3 +63,6 @@ louke.egg-info/
 /v0.7.3/
 /v0.7-skill-fix/
 .louke/wiki/**
+.louke/agents/
+.louke/templates/
+.opencode/agents/
