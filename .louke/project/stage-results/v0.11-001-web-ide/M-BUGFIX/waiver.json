@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-BUGFIX",
+  "kind": "waiver",
+  "role": "human",
+  "verdict": "waived",
+  "reviewed_targets": [],
+  "blocking_findings": [
+    "v0.11-001-web-ide has no bug fixes needed (M-DEV + M-E2E passed all gates; no # issues reported against v0.11 implementation). M-BUGFIX is a post-release stage for fixing bugs found AFTER a release; v0.11 has not been released yet. Skipping M-BUGFIX to proceed to M-SECURITY -> M-MILESTONE. If any bugs surface after v0.11 release, they will be tracked in a new v0.11-002 spec."
+  ],
+  "accepted_risks": [
+    "v0.11-001-web-ide has no bug fixes needed (M-DEV + M-E2E passed all gates; no # issues reported against v0.11 implementation). M-BUGFIX is a post-release stage for fixing bugs found AFTER a release; v0.11 has not been released yet. Skipping M-BUGFIX to proceed to M-SECURITY -> M-MILESTONE. If any bugs surface after v0.11 release, they will be tracked in a new v0.11-002 spec."
+  ],
+  "created_at": "2026-07-11T14:19:57Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "approved_by": "zillionare (Master user via Maestro session 2026-07-11 22:18 UTC)"
+  },
+  "output_hash": "ebc9c390f984b5ecbf97c730701d1337061fa7c4c5b8602b3f698912b684adba"
+}
