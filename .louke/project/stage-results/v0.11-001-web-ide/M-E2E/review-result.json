@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-001-web-ide",
+  "stage": "M-E2E",
+  "kind": "review-result",
+  "role": "Prism",
+  "verdict": "fail",
+  "reviewed_targets": [
+    "tests/e2e/conftest.py",
+    "tests/e2e/test_opencode_e2e.py",
+    "tests/e2e/test_intent_e2e.py",
+    "tests/e2e/test_wiki_e2e.py",
+    "tests/e2e/test_backlog_e2e.py",
+    "tests/e2e/test_files_e2e.py",
+    "tests/e2e/test_tasks_e2e.py",
+    "tests/e2e/test_security_e2e.py",
+    "tests/e2e/test_browser_compat_e2e.py"
+  ],
+  "blocking_findings": [
+    "trivial-assert - /Users/openclaw/workspace/louke/louke/_tests.py:18 - trivial assert (no real validation)",
+    "skip-without-issue - /Users/openclaw/workspace/louke/louke/_tests.py:37 - pytest.skip without issue link",
+    "mock-overuse - /Users/openclaw/workspace/louke/louke/_tests.py:47 - mocking framework core (should refactor AC or interfaces)"
+  ],
+  "accepted_risks": [],
+  "created_at": "2026-07-11T14:17:56Z",
+  "contract_bundle_hash": "b39ff9c4e0e32a35653c65b37b0d74a1e852860271ba1ed71e260e9fa620d22e",
+  "metadata": {
+    "commit_range": "623d7ba~..38f3a44",
+    "source_command": "review",
+    "diff": "38f3a44"
+  },
+  "output_hash": "820768639817173095c1721a05525596454cf6ff6a3bec50766c0c5140774e78"
+}
