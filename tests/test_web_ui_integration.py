@@ -163,9 +163,10 @@ def test_louke_client_global_exists():
     }
     for ns, methods in expected_methods.items():
         for m in methods:
-            assert re.search(rf"\b{m}\s*:\s*(async\s*)?\(", src), (
-                f"client.js {ns}.{m} missing (interfaces §7.1)"
-            )
+            # accept `m: function (`, `m: async function (`, `m: async (`, `m: (`
+            assert re.search(
+                rf"\b{m}\s*:\s*(async\s+)?(function\s*)?\(", src
+            ), f"client.js {ns}.{m} missing (interfaces §7.1)"
 
 
 # AC-FR0202-01 (static asset served)
