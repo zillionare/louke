@@ -215,93 +215,369 @@ async def home_page(request: Request) -> HTMLResponse:
     store: ProjectStore = request.app.state.store
     lang = _ui_language(request)
     spec_id = store.resolve_spec_id()
-    # v0.11-002-web-ui-integration: home page now hosts live panels for
-    # OpenCode, Backlog, Files, Tasks. Each panel calls the real 6
-    # sub-apps (mounted at /api/<name>) via window.LoukeClient. Old
-    # cards (models / docs / wiki) remain as deep-links at the top.
+    # v0.11-002-web-ui-integration: home page hosts 5 tabs (one per
+    # v0.11 sub-app + Wiki). Each tab is a focused single-panel layout:
+    # list/controls on the left, content preview on the right. Tabs
+    # switch via URL hash (#opencode / #backlog / ...) so the
+    # URL is shareable and the back button works.
     body = f"""
+    <style>
+    /* v0.11-002 home page — tab + side/main layout */
+    .tabs {{
+      display: flex;
+      gap: 0;
+      margin: 16px 0 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0;
+    }}
+    .tab {{
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }}
+    .tab:hover {{ color: var(--text); }}
+    .tab.active {{
+      color: var(--text);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }}
+    .tab-host {{
+      padding: 0;
+    }}
+    .tab-pane {{
+      padding: 24px 8px 8px;
+    }}
+    .tab-pane[hidden] {{ display: none; }}
+    .pane-head {{
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }}
+    .pane-head h2 {{
+      font-size: 18px;
+      margin: 0;
+    }}
+    .pane-head .meta {{
+      font-size: 12px;
+      color: var(--muted);
+    }}
+    .pane-grid {{
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 24px;
+    }}
+    .pane-side {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }}
+    .pane-side h3 {{
+      font-size: 13px;
+      margin: 0;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }}
+    .pane-main {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }}
+    .pane-main h3 {{
+      font-size: 13px;
+      margin: 0 0 8px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }}
+    .pane-actions {{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .field {{
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }}
+    .field > span {{
+      color: var(--muted);
+      font-weight: 500;
+    }}
+    .field input[type="text"], .field textarea, .field select {{
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      font: inherit;
+      resize: vertical;
+    }}
+    .hint {{
+      color: var(--muted);
+      font-size: 12px;
+      margin: 4px 0 12px;
+    }}
+    .instance-list, .backlog-list, .files-list, .tasks-state {{
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 360px;
+      overflow: auto;
+    }}
+    .instance-list li button, .backlog-list li button {{
+      width: 100%;
+      text-align: left;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      cursor: pointer;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }}
+    .instance-list li button.active, .instance-list li button:hover {{
+      background: var(--surface-alt);
+      border-color: var(--border-strong);
+    }}
+    .backlog-list li {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      font-size: 13px;
+    }}
+    .backlog-status {{
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }}
+    .backlog-story {{
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .files-list li {{
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }}
+    .files-list li:hover {{ background: var(--surface-alt); }}
+    .files-path {{ font-weight: 500; }}
+    .files-kind {{ color: var(--muted); font-size: 11px; }}
+    .tasks-state li label {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+    }}
+    .tasks-state li label:hover {{ background: var(--surface-alt); }}
+    .messages-pane, .files-content, .wiki-md {{
+      margin: 0;
+      padding: 12px;
+      background: var(--surface-alt);
+      border-radius: 6px;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 480px;
+      overflow: auto;
+    }}
+    .wiki-md {{ max-height: 600px; }}
+    .empty {{ color: var(--muted); font-style: italic; padding: 8px; }}
+    .error-text {{
+      color: var(--danger);
+      font-size: 12px;
+      margin: 0;
+      padding: 6px 10px;
+      background: rgba(185, 28, 28, 0.06);
+      border-radius: 6px;
+    }}
+    .error-text[hidden] {{ display: none; }}
+    @media (max-width: 880px) {{
+      .pane-grid {{ grid-template-columns: 1fr; }}
+    }}
+    </style>
     <section class="hero">
       <span class="eyebrow">{_escape(_t(lang, "home.eyebrow"))}</span>
       <h1>louke Web Workbench</h1>
       <p class="lede">{_escape(_t(lang, "home.lede_before"))}<code>{_escape(spec_id)}</code>{_escape(_t(lang, "home.lede_after"))}</p>
     </section>
-    <nav class="card-row" data-testid="nav-home">
-      <a class="card-link" data-testid="nav-models" href="/models">models</a>
-      <a class="card-link" data-testid="nav-docs" href="/docs/{_escape(spec_id)}/spec">docs</a>
-      <a class="card-link" data-testid="nav-wiki" href="/wiki">llm wiki</a>
+    <nav class="tabs" role="tablist" data-testid="home-tabs">
+      <a class="tab" data-testid="tab-opencode" data-tab="opencode" href="#opencode">OpenCode</a>
+      <a class="tab" data-testid="tab-backlog" data-tab="backlog" href="#backlog">Backlog</a>
+      <a class="tab" data-testid="tab-files" data-tab="files" href="#files">Files</a>
+      <a class="tab" data-testid="tab-tasks" data-tab="tasks" href="#tasks">Tasks</a>
+      <a class="tab" data-testid="tab-wiki" data-tab="wiki" href="#wiki">Wiki</a>
     </nav>
-    <section class="grid cards webui-panels">
-      <article class="panel" data-testid="panel-opencode">
-        <header><h2>OpenCode</h2><span class="meta" data-testid="opencode-status">—</span></header>
-        <button type="button" class="primary" data-testid="opencode-create">Create instance</button>
-        <ul data-testid="opencode-instance-list" class="instance-list"></ul>
-        <label>Send to selected instance
-          <textarea data-testid="opencode-message-input" rows="3" placeholder="Type a message, or /models or /agent ..."></textarea>
-        </label>
-        <button type="button" data-testid="opencode-send" disabled>Send</button>
-        <p data-testid="opencode-error" class="error-text" hidden></p>
-        <pre data-testid="opencode-messages" class="messages-pane"></pre>
-      </article>
-
-      <article class="panel" data-testid="panel-backlog">
-        <header><h2>Story backlog</h2><span class="meta" data-testid="backlog-count">0</span></header>
-        <label>New story
-          <textarea data-testid="backlog-input" rows="2" placeholder="Describe the story ..."></textarea>
-        </label>
-        <button type="button" class="primary" data-testid="backlog-add">Add to backlog</button>
-        <ul data-testid="backlog-list" class="backlog-list"></ul>
-        <p data-testid="backlog-error" class="error-text" hidden></p>
-      </article>
-
-      <article class="panel" data-testid="panel-files">
-        <header><h2>Files</h2><span class="meta" data-testid="files-root">{_escape(str(project_root_for(store)))}</span></header>
-        <div class="row">
-          <button type="button" data-testid="files-view-tree" class="primary">Tree</button>
-          <button type="button" data-testid="files-view-changes">Changes</button>
-          <button type="button" data-testid="files-view-documents">Docs</button>
+    <main class="tab-host" data-testid="tab-host">
+      <section class="tab-pane" id="pane-opencode" data-pane="opencode" hidden>
+        <header class="pane-head">
+          <h2>OpenCode instances</h2>
+          <span class="meta" data-testid="opencode-status">no instance selected</span>
+        </header>
+        <div class="pane-grid">
+          <aside class="pane-side">
+            <button type="button" class="primary" data-testid="opencode-create">+ Create instance</button>
+            <ul data-testid="opencode-instance-list" class="instance-list"></ul>
+            <p data-testid="opencode-error" class="error-text" hidden></p>
+          </aside>
+          <section class="pane-main">
+            <label class="field">
+              <span>Message to selected instance</span>
+              <textarea data-testid="opencode-message-input" rows="4"
+                placeholder="Type a message, or /models, /agent, ..."></textarea>
+            </label>
+            <div class="pane-actions">
+              <button type="button" data-testid="opencode-send" disabled>Send</button>
+            </div>
+            <h3>Conversation</h3>
+            <pre data-testid="opencode-messages" class="messages-pane">(no messages yet — pick an instance and send one)</pre>
+          </section>
         </div>
-        <ul data-testid="files-list" class="files-list"></ul>
-        <pre data-testid="files-content" class="files-content" hidden></pre>
-        <p data-testid="files-error" class="error-text" hidden></p>
-      </article>
+      </section>
 
-      <article class="panel" data-testid="panel-tasks">
-        <header><h2>FR/NFR tasks</h2><span class="meta" data-testid="tasks-spec">{_escape(spec_id)}</span></header>
-        <label>FR id
-          <input type="text" data-testid="tasks-fr-id" value="FR-0001" />
-        </label>
-        <label>Document path
-          <input type="text" data-testid="tasks-doc-path" value=".louke/project/specs/{_escape(spec_id)}/spec.md" />
-        </label>
-        <div class="row">
-          <button type="button" data-testid="tasks-load" class="primary">Load state</button>
+      <section class="tab-pane" id="pane-backlog" data-pane="backlog" hidden>
+        <header class="pane-head">
+          <h2>Story backlog</h2>
+          <span class="meta"><span data-testid="backlog-count">0</span> entries</span>
+        </header>
+        <div class="pane-grid">
+          <aside class="pane-side">
+            <label class="field">
+              <span>New story</span>
+              <textarea data-testid="backlog-input" rows="4"
+                placeholder="Describe the story you want to develop ..."></textarea>
+            </label>
+            <button type="button" class="primary" data-testid="backlog-add">+ Add to backlog</button>
+            <p data-testid="backlog-error" class="error-text" hidden></p>
+          </aside>
+          <section class="pane-main">
+            <h3>Pending stories</h3>
+            <ul data-testid="backlog-list" class="backlog-list">
+              <li class="empty">No stories yet — add one on the left.</li>
+            </ul>
+          </section>
         </div>
-        <div data-testid="tasks-state" class="tasks-state">
-          <label><input type="checkbox" data-testid="task-valid" /> Valid</label>
-          <label><input type="checkbox" data-testid="task-testable" /> Testable</label>
-          <label><input type="checkbox" data-testid="task-decided" /> Decided</label>
-        </div>
-        <p data-testid="tasks-error" class="error-text" hidden></p>
-      </article>
+      </section>
 
-      <article class="panel" data-testid="panel-wiki">
-        <header><h2>Wiki</h2><span class="meta" data-testid="wiki-status">—</span></header>
-        <div class="row">
-          <label>Type
-            <select data-testid="wiki-type">
-              <option value="story">story</option>
-              <option value="spec" selected>spec</option>
-              <option value="test-plan">test-plan</option>
-              <option value="architecture">architecture</option>
-              <option value="interfaces">interfaces</option>
-            </select>
-          </label>
-          <button type="button" data-testid="wiki-build" class="primary">Build</button>
+      <section class="tab-pane" id="pane-files" data-pane="files" hidden>
+        <header class="pane-head">
+          <h2>Files</h2>
+          <span class="meta">workspace: <code data-testid="files-root">{_escape(str(project_root_for(store)))}</code></span>
+        </header>
+        <div class="pane-grid">
+          <aside class="pane-side">
+            <h3>View</h3>
+            <div class="pane-actions">
+              <button type="button" class="primary" data-testid="files-view-tree">Tree</button>
+              <button type="button" data-testid="files-view-changes">Changes</button>
+              <button type="button" data-testid="files-view-documents">Design docs</button>
+            </div>
+            <p data-testid="files-error" class="error-text" hidden></p>
+          </aside>
+          <section class="pane-main">
+            <h3 data-testid="files-list-title">Tree</h3>
+            <ul data-testid="files-list" class="files-list">
+              <li class="empty">Pick a view on the left.</li>
+            </ul>
+          </section>
         </div>
-        <pre data-testid="wiki-md" class="wiki-md"></pre>
-        <p data-testid="wiki-error" class="error-text" hidden></p>
-      </article>
-    </section>
+      </section>
+
+      <section class="tab-pane" id="pane-tasks" data-pane="tasks" hidden>
+        <header class="pane-head">
+          <h2>FR / NFR tasks</h2>
+          <span class="meta">spec: <code data-testid="tasks-spec">{_escape(spec_id)}</code></span>
+        </header>
+        <div class="pane-grid">
+          <aside class="pane-side">
+            <label class="field">
+              <span>FR id</span>
+              <input type="text" data-testid="tasks-fr-id" value="FR-0001" />
+            </label>
+            <label class="field">
+              <span>Document path (under workspace)</span>
+              <input type="text" data-testid="tasks-doc-path"
+                value=".louke/project/specs/{_escape(spec_id)}/spec.md" />
+            </label>
+            <div class="pane-actions">
+              <button type="button" class="primary" data-testid="tasks-load">Load state</button>
+            </div>
+            <p data-testid="tasks-error" class="error-text" hidden></p>
+          </aside>
+          <section class="pane-main">
+            <h3>Checklist</h3>
+            <p class="hint">Each checkbox persists a `- [x]` / `- [ ]` line into the
+            target spec.md and round-trips back on next load.</p>
+            <ul data-testid="tasks-state" class="tasks-state">
+              <li><label><input type="checkbox" data-testid="task-valid" /> Valid</label></li>
+              <li><label><input type="checkbox" data-testid="task-testable" /> Testable</label></li>
+              <li><label><input type="checkbox" data-testid="task-decided" /> Decided</label></li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-pane" id="pane-wiki" data-pane="wiki" hidden>
+        <header class="pane-head">
+          <h2>Wiki</h2>
+          <span class="meta">type: <code data-testid="wiki-status">—</code></span>
+        </header>
+        <div class="pane-grid">
+          <aside class="pane-side">
+            <h3>Build</h3>
+            <label class="field">
+              <span>Wiki type</span>
+              <select data-testid="wiki-type">
+                <option value="story">story</option>
+                <option value="spec" selected>spec</option>
+                <option value="test-plan">test-plan</option>
+                <option value="architecture">architecture</option>
+                <option value="interfaces">interfaces</option>
+              </select>
+            </label>
+            <div class="pane-actions">
+              <button type="button" class="primary" data-testid="wiki-build">Build / refresh</button>
+            </div>
+            <p data-testid="wiki-error" class="error-text" hidden></p>
+            <p class="hint">Without source changes the server returns
+            <code>unchanged</code> and does not rewrite the file. Manual
+            button or daily task both trigger this path.</p>
+          </aside>
+          <section class="pane-main">
+            <h3>Generated markdown</h3>
+            <pre data-testid="wiki-md" class="wiki-md">(click Build to generate)</pre>
+          </section>
+        </div>
+      </section>
+    </main>
     """
     script = _home_page_script()
     return HTMLResponse(
@@ -315,6 +591,7 @@ def _home_page_script() -> str:
 (function () {
   'use strict';
   var $ = function (sel) { return document.querySelector(sel); };
+  var $$ = function (sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); };
   var client = window.LoukeClient;
   if (!client) {
     console.error('LoukeClient not loaded');
@@ -327,28 +604,59 @@ def _home_page_script() -> str:
   }
   function setStatus(sel, text) { var el = $(sel); if (el) el.textContent = text; }
 
-  // ----- OpenCode panel -----
+  // ----- Tabs (URL hash routing) -----
+  function showTab(name) {
+    $$('.tab').forEach(function (t) {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
+    $$('.tab-pane').forEach(function (p) {
+      var match = p.dataset.pane === name;
+      p.hidden = !match;
+    });
+  }
+  function currentTab() {
+    var h = (location.hash || '').replace(/^#/, '');
+    if (['opencode', 'backlog', 'files', 'tasks', 'wiki'].indexOf(h) >= 0) return h;
+    return 'opencode';
+  }
+  $$('.tab').forEach(function (t) {
+    t.addEventListener('click', function (e) {
+      e.preventDefault();
+      location.hash = '#' + t.dataset.tab;
+    });
+  });
+  window.addEventListener('hashchange', function () { showTab(currentTab()); });
+  showTab(currentTab());
+
+  // ----- OpenCode pane -----
   var selectedOpencodeId = null;
   function renderOpencodeInstances(instances) {
     var list = $('[data-testid=opencode-instance-list]');
     list.innerHTML = '';
-    instances.forEach(function (i) {
-      var li = document.createElement('li');
-      li.dataset.testid = 'opencode-instance-' + i.id;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.dataset.testid = 'opencode-select-' + i.id;
-      btn.dataset.id = i.id;
-      btn.textContent = (i.id.slice(0, 8) + '\u2026 [' + i.status + ']');
-      if (i.id === selectedOpencodeId) btn.setAttribute('aria-pressed', 'true');
-      btn.addEventListener('click', function () {
-        selectedOpencodeId = i.id;
-        renderOpencodeInstances(instances);
-        loadOpencodeMessages();
+    if (!instances || !instances.length) {
+      var empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = 'No instances yet — click + Create.';
+      list.appendChild(empty);
+    } else {
+      instances.forEach(function (i) {
+        var li = document.createElement('li');
+        li.dataset.testid = 'opencode-instance-' + i.id;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.testid = 'opencode-select-' + i.id;
+        btn.dataset.id = i.id;
+        btn.textContent = (i.id.slice(0, 8) + '… [' + i.status + ']');
+        if (i.id === selectedOpencodeId) btn.classList.add('active');
+        btn.addEventListener('click', function () {
+          selectedOpencodeId = i.id;
+          renderOpencodeInstances(instances);
+          loadOpencodeMessages();
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
       });
-      li.appendChild(btn);
-      list.appendChild(li);
-    });
+    }
     var sendBtn = $('[data-testid=opencode-send]');
     if (sendBtn) sendBtn.disabled = !selectedOpencodeId;
   }
@@ -357,13 +665,16 @@ def _home_page_script() -> str:
       .catch(function (e) { showError($('[data-testid=opencode-error]'), e); });
   }
   function loadOpencodeMessages() {
-    if (!selectedOpencodeId) return Promise.resolve();
+    if (!selectedOpencodeId) {
+      setStatus('[data-testid=opencode-status]', 'no instance selected');
+      $('[data-testid=opencode-messages]').textContent = '(no messages yet — pick an instance and send one)';
+      return Promise.resolve();
+    }
     return client.opencode.messages(selectedOpencodeId).then(function (msgs) {
-      $('[data-testid=opencode-messages]').textContent = msgs.map(function (m) {
-        return '[' + m.role + '/' + m.kind + '] ' + m.content;
-      }).join('\n');
-      var inst = msgs.length ? msgs[msgs.length - 1] : null;
-      setStatus('[data-testid=opencode-status]', inst ? 'last: ' + inst.kind : 'empty');
+      $('[data-testid=opencode-messages]').textContent = msgs.length
+        ? msgs.map(function (m) { return '[' + m.role + '/' + m.kind + '] ' + m.content; }).join('\n')
+        : '(no messages yet)';
+      setStatus('[data-testid=opencode-status]', 'instance ' + selectedOpencodeId.slice(0, 8) + '…');
     });
   }
   $('[data-testid=opencode-create]').addEventListener('click', function () {
@@ -381,17 +692,29 @@ def _home_page_script() -> str:
       .then(function () { return loadOpencodeMessages(); })
       .catch(function (e) { showError($('[data-testid=opencode-error]'), e); });
   });
-  loadOpencodeList().catch(function () {});
+  loadOpencodeList().then(loadOpencodeMessages).catch(function () {});
 
-  // ----- Backlog panel -----
+  // ----- Backlog pane -----
   function renderBacklog(entries) {
     var list = $('[data-testid=backlog-list]');
     list.innerHTML = '';
-    setStatus('[data-testid=backlog-count]', String(entries.length));
+    setStatus('[data-testid=backlog-count]', String((entries || []).length));
+    if (!entries || !entries.length) {
+      var empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = 'No stories yet — add one on the left.';
+      list.appendChild(empty);
+      return;
+    }
     entries.forEach(function (e) {
       var li = document.createElement('li');
       li.dataset.testid = 'backlog-item-' + e.id;
-      li.textContent = '[' + e.status + '] ' + e.story;
+      var meta = document.createElement('span');
+      meta.className = 'backlog-status';
+      meta.textContent = e.status;
+      var story = document.createElement('span');
+      story.className = 'backlog-story';
+      story.textContent = e.story;
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.testid = 'backlog-start-' + e.id;
@@ -399,9 +722,12 @@ def _home_page_script() -> str:
       btn.textContent = 'Start';
       btn.addEventListener('click', function () {
         client.backlog.start(btn.dataset.id)
-          .then(function () { return client.backlog.list().then(renderBacklog); })
-          .catch(function (e) { showError($('[data-testid=backlog-error]'), e); });
+          .then(function () { return loadBacklog(); })
+          .catch(function (err) { showError($('[data-testid=backlog-error]'), err); });
       });
+      li.appendChild(meta);
+      li.appendChild(document.createTextNode(' '));
+      li.appendChild(story);
       li.appendChild(document.createTextNode(' '));
       li.appendChild(btn);
       list.appendChild(li);
@@ -422,28 +748,47 @@ def _home_page_script() -> str:
   });
   loadBacklog().catch(function () {});
 
-  // ----- Files panel -----
-  function renderFiles(entries) {
+  // ----- Files pane -----
+  function renderFiles(entries, title) {
     var list = $('[data-testid=files-list]');
     list.innerHTML = '';
-    (entries || []).forEach(function (e) {
+    $('[data-testid=files-list-title]').textContent = title || 'Tree';
+    if (!entries || !entries.length) {
+      var empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = '(empty)';
+      list.appendChild(empty);
+      return;
+    }
+    entries.forEach(function (e) {
       var li = document.createElement('li');
-      li.textContent = e.path + (e.binary ? ' [binary]' : '');
+      var path = document.createElement('span');
+      path.className = 'files-path';
+      path.textContent = e.path || e.name || JSON.stringify(e);
+      li.appendChild(path);
+      if (e.kind) {
+        var kind = document.createElement('span');
+        kind.className = 'files-kind';
+        kind.textContent = ' [' + e.kind + ']';
+        li.appendChild(kind);
+      }
       list.appendChild(li);
     });
   }
-  function bindFiles(btnSel, fn) {
-    $(btnSel).addEventListener('click', function () {
-      fn().then(renderFiles).catch(function (e) {
-        showError($('[data-testid=files-error]'), e);
-      });
-    });
-  }
-  bindFiles('[data-testid=files-view-tree]', function () { return client.files.list('tree'); });
-  bindFiles('[data-testid=files-view-changes]', function () { return client.files.list('changes'); });
-  bindFiles('[data-testid=files-view-documents]', function () { return client.files.list('documents'); });
+  $('[data-testid=files-view-tree]').addEventListener('click', function () {
+    client.files.list('tree').then(function (r) { renderFiles(r.entries, 'Tree'); })
+      .catch(function (e) { showError($('[data-testid=files-error]'), e); });
+  });
+  $('[data-testid=files-view-changes]').addEventListener('click', function () {
+    client.files.list('changes').then(function (r) { renderFiles(r.entries, 'Git changes'); })
+      .catch(function (e) { showError($('[data-testid=files-error]'), e); });
+  });
+  $('[data-testid=files-view-documents]').addEventListener('click', function () {
+    client.files.list('documents').then(function (r) { renderFiles(r.entries, 'Design docs'); })
+      .catch(function (e) { showError($('[data-testid=files-error]'), e); });
+  });
 
-  // ----- Tasks panel -----
+  // ----- Tasks pane -----
   $('[data-testid=tasks-load]').addEventListener('click', function () {
     var frId = $('[data-testid=tasks-fr-id]').value.trim();
     var docPath = $('[data-testid=tasks-doc-path]').value.trim();
@@ -465,16 +810,14 @@ def _home_page_script() -> str:
     });
   });
 
-  // ----- Wiki panel -----
+  // ----- Wiki pane -----
   $('[data-testid=wiki-build]').addEventListener('click', function () {
     var type = $('[data-testid=wiki-type]').value;
     client.wiki.build(type, 'manual')
-      .then(function () {
-        return client.wiki.get(type, true);
-      })
+      .then(function () { return client.wiki.get(type, true); })
       .then(function (page) {
         setStatus('[data-testid=wiki-status]', page.status);
-        $('[data-testid=wiki-md]').textContent = page.markdown || '';
+        $('[data-testid=wiki-md]').textContent = page.markdown || '(empty)';
       })
       .catch(function (e) { showError($('[data-testid=wiki-error]'), e); });
   });
