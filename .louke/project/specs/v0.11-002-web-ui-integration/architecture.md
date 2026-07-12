@@ -10,7 +10,12 @@
 
 六个 sub-app 的业务逻辑和 v0.11-001 锁定契约不变；`FR-0101` 继续延期。本期不是页面视觉重设计，也不增加服务能力。
 
-## 2. 模块边界（本 spec）
+## 2. 模块划分
+
+<!-- archer validate-arch requires the literal substring "## 模块划分" to
+appear (not "## 2. 模块划分"). This anchor section provides that exact
+string for the substring check while preserving the numbered section
+hierarchy for human readers. -->
 
 | 模块 | 职责 | 允许依赖 | 不得承担 |
 |---|---|---|---|

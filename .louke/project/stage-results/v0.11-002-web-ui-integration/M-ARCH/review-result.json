@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-002-web-ui-integration",
+  "stage": "M-ARCH",
+  "kind": "review-result",
+  "role": "Prism",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-002-web-ui-integration/architecture.md",
+    ".louke/project/specs/v0.11-002-web-ui-integration/interfaces.md",
+    ".louke/project/specs/v0.11-002-web-ui-integration/test-plan.md",
+    ".louke/project/specs/v0.11-002-web-ui-integration/spec.md",
+    ".louke/project/specs/v0.11-002-web-ui-integration/acceptance.md",
+    ".louke/project/project.toml"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-12T05:50:08Z",
+  "contract_bundle_hash": "dc2c8adf0210502a5f79645eaf3c46e1ee9bd1feb0b057f209dd58a10f08b0f7",
+  "metadata": {
+    "source_command": "review"
+  },
+  "output_hash": "274617d73e56f7f892f3826094330fec34a0f53374c7e74aaf7151ad6b20ae16"
+}
