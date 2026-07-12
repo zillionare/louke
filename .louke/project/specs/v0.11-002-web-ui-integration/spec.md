@@ -1,3 +1,8 @@
+---
+locked: true
+locked-at: 2026-07-12T05:50:34Z
+locked-by: lk agent sage record-lock
+---
 # Louke Web IDE — Web UI 集成 (v0.11-001 补漏) — Spec
 
 - **Spec ID**: v0.11-002-web-ui-integration
