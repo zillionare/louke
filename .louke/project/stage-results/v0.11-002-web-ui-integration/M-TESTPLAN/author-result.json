@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-002-web-ui-integration",
+  "stage": "M-TESTPLAN",
+  "kind": "author-result",
+  "role": "Archer",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-002-web-ui-integration/test-plan.md"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-12T04:30:43Z",
+  "contract_bundle_hash": "ff866b525e2792d71d76d69508ba72a0f437df5b3b2e5a3da8ea7e0be838b75e",
+  "metadata": {},
+  "output_hash": "e640df47e55584defd364c0d20aadf9f370d124e6d041edb7541bef7e261e046"
+}

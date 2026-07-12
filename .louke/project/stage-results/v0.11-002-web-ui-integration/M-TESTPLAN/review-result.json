@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "spec_id": "v0.11-002-web-ui-integration",
+  "stage": "M-TESTPLAN",
+  "kind": "review-result",
+  "role": "Sage",
+  "verdict": "pass",
+  "reviewed_targets": [
+    ".louke/project/specs/v0.11-002-web-ui-integration/test-plan.md",
+    ".louke/project/specs/v0.11-002-web-ui-integration/spec.md",
+    ".louke/project/specs/v0.11-002-web-ui-integration/acceptance.md",
+    ".louke/project/specs/v0.11-001-web-ide/test-plan.md",
+    ".louke/project/specs/v0.11-001-web-ide/spec.md",
+    ".louke/project/specs/v0.11-001-web-ide/interfaces.md"
+  ],
+  "blocking_findings": [],
+  "accepted_risks": [],
+  "created_at": "2026-07-12T04:30:28Z",
+  "contract_bundle_hash": "ff866b525e2792d71d76d69508ba72a0f437df5b3b2e5a3da8ea7e0be838b75e",
+  "metadata": {
+    "source_command": "review"
+  },
+  "output_hash": "6e85061827eb8e900a70eee5af93a9a7805ed24ba9025031eb1390359dc4fced"
+}
