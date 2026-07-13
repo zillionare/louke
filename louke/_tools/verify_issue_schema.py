@@ -677,13 +677,48 @@ def load_issues_from_gh(repo: str) -> list[dict[str, Any]]:
     return json.loads(out)
 
 
+def _spec_frs_from_anchors(spec_text: str) -> set[str]:
+    """Build the set of requirement ids from spec.md anchor tags.
+
+    Each anchor looks like ``<a id="fr-0001"></a>`` or ``<a id="nfr-0002"></a>``.
+    The ``fr``/``nfr`` prefix is preserved (uppercased) so NFR anchors map to
+    ``NFR-XXXX`` rather than collapsing into phantom ``FR-XXXX`` ids (bug #138).
+
+    Args:
+        spec_text: the spec.md source text.
+
+    Returns:
+        A set of requirement ids in ``FR-XXXX`` / ``NFR-XXXX`` form.
+    """
+    return {
+        f"{a.split('-')[0].upper()}-{a.split('-')[1].zfill(3)}"
+        for a in RE_ANCHOR.findall(spec_text)
+    }
+
+
 def load_spec_frs_from_gh(
     owner: str, repo: str, branch: str, spec_id: str
 ) -> set[str] | None:
+    """Build the set of requirement ids declared as anchors in the spec source.
+
+    Fetches the spec markdown via ``gh api`` and extracts every ``<a id="...">``
+    anchor, normalizing it back to the ``FR-XXXX`` / ``NFR-XXXX`` form. The
+    original ``fr``/``nfr`` prefix is preserved so that NFR anchors do not
+    collapse into phantom ``FR-XXXX`` ids (bug #138).
+
+    Args:
+        owner: GitHub repo owner.
+        repo: GitHub repo name.
+        branch: git branch to read the spec from.
+        spec_id: spec id used to locate the spec file.
+
+    Returns:
+        The set of requirement ids, or ``None`` if the spec could not be fetched.
+    """
     text = fetch_spec_markdown(owner, repo, branch, spec_id)
     if text is None:
         return None
-    return {f"FR-{a.split('-')[1].zfill(3)}" for a in RE_ANCHOR.findall(text)}
+    return _spec_frs_from_anchors(text)
 
 
 def main() -> int:
@@ -711,9 +746,7 @@ def main() -> int:
             sys.stderr.write("--offline requires --spec-file and --issues-json\n")
             return 2
         spec_text = Path(args.spec_file).read_text(encoding="utf-8")
-        spec_frs = {
-            f"FR-{a.split('-')[1].zfill(3)}" for a in RE_ANCHOR.findall(spec_text)
-        }
+        spec_frs = _spec_frs_from_anchors(spec_text)
         with open(args.issues_json, "r", encoding="utf-8") as f:
             issues = json.load(f)
         # Offline mode: any spec_url/ac_url is treated as pointing to the same fixture

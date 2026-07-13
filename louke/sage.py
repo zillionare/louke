@@ -302,6 +302,24 @@ RE_FR_HEADING = re.compile(r"^###\s+(FR|NFR)-(\d{4})\s+([^\n]+)$", re.MULTILINE)
 RE_AC_ANCHOR = re.compile(r'<a\s+id="ac-(fr|nfr)-(\d{4})"></a>', re.I)
 
 
+def _spec_anchor_fragment(fr_id: str) -> str:
+    """Return the lowercase spec.md anchor fragment for a requirement id.
+
+    Args:
+        fr_id: requirement id of the form ``FR-XXXX`` or ``NFR-XXXX``.
+
+    Returns:
+        The lowercase anchor fragment, e.g. ``"fr-0001"`` or ``"nfr-0002"``.
+
+    Raises:
+        ValueError: if ``fr_id`` does not match ``^(FR|NFR)-\\d{4}$``.
+    """
+    m = re.match(r"^(FR|NFR)-(\d{4})$", fr_id)
+    if not m:
+        raise ValueError(f"invalid requirement id: {fr_id!r}")
+    return f"{m.group(1).lower()}-{m.group(2)}"
+
+
 def _read_project_info_value(label: str) -> str:
     # fix-002: delegate to _common. project.toml replaces project-info.md.
     from ._common import _read_project_info_field
@@ -343,15 +361,32 @@ def _acceptance_spec_text(spec_id: str) -> str:
 def _decide_ac_value(
     fr_id: str, spec_id: str, spec_text: str, acc_text: str, branch: str, repo_url: str
 ) -> str:
+    """Decide the Acceptance Criteria field value for an issue body.
+
+    Prefers an acceptance.md AC anchor when present, then falls back to a
+    spec.md section anchor, finally returning the literal ``"None"``.
+
+    Args:
+        fr_id: requirement id (``FR-XXXX`` or ``NFR-XXXX``).
+        spec_id: spec id used in the URL path.
+        spec_text: spec.md source text (used for the spec anchor fallback).
+        acc_text: acceptance.md source text (used for the AC anchor path).
+        branch: git branch used in the URL path.
+        repo_url: fully-qualified repo URL prefix, or empty for relative paths.
+
+    Returns:
+        The AC field value (a URL or the literal ``"None"``).
+    """
     num = fr_id.split("-")[1]
+    prefix = fr_id.split("-")[0].lower()
     if RE_AC_ANCHOR.search(acc_text):
         if repo_url:
-            return f"{repo_url}/blob/{branch}/.louke/project/specs/{spec_id}/acceptance.md#ac-fr-{num}"
-        return f".louke/project/specs/{spec_id}/acceptance.md#ac-fr-{num}"
-    if re.search(rf'<a\s+id="fr-{num}"></a>', spec_text):
+            return f"{repo_url}/blob/{branch}/.louke/project/specs/{spec_id}/acceptance.md#ac-{prefix}-{num}"
+        return f".louke/project/specs/{spec_id}/acceptance.md#ac-{prefix}-{num}"
+    if re.search(rf'<a\s+id="{prefix}-{num}"></a>', spec_text):
         if repo_url:
-            return f"{repo_url}/blob/{branch}/.louke/project/specs/{spec_id}/spec.md#fr-{num}"
-        return f"spec.md#fr-{num}"
+            return f"{repo_url}/blob/{branch}/.louke/project/specs/{spec_id}/spec.md#{prefix}-{num}"
+        return f"spec.md#{prefix}-{num}"
     return "None"
 
 
@@ -476,7 +511,7 @@ def cmd_create_issues(args):
         )
         body = (
             f"### Requirement ID\n{fr_id}\n\n"
-            f"### Spec Link\n{repo_url}/blob/{branch}/.louke/project/specs/{args.spec}/spec.md#fr-{fr_id.split('-')[1]}\n\n"
+            f"### Spec Link\n{repo_url}/blob/{branch}/.louke/project/specs/{args.spec}/spec.md#{_spec_anchor_fragment(fr_id)}\n\n"
             f"### Acceptance Criteria\n{ac_value}\n"
         )
         if args.dry_run:
