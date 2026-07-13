@@ -3,6 +3,7 @@
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.domain import (
     IllegalTransitionError,
+    RevisionConflictError,
     RuntimeCommand,
     UndeclaredResultError,
 )
@@ -125,3 +126,37 @@ def test_ac_fr0101_02_record_diagnostic_on_undeclared_result():
     assert events[0].type == "step.result_undeclared"
     assert events[0].details["result"] == "skipped"
     assert events[0].details["step_id"] == "review"
+
+
+def test_ac_fr0101_03_revision_cas_conflict_on_concurrent_submit():
+    """AC-FR0101-03: the second client to submit on the same revision gets a conflict."""
+    registry = DefinitionRegistry()
+    definition = registry.register(_program_step_definition())
+    store = WorkflowRunStore(catalog=registry)
+    run = store.create_run(definition)
+
+    orchestrator = WorkflowOrchestrator(store)
+    first = RuntimeCommand(
+        run_id=run.run_id,
+        expected_revision=run.revision,
+        result="approved",
+    )
+    outcome = orchestrator.apply_command(first)
+    assert outcome.run.current_step == "next"
+    assert outcome.run.revision == 1
+
+    second = RuntimeCommand(
+        run_id=run.run_id,
+        expected_revision=run.revision,
+        result="approved",
+    )
+    try:
+        orchestrator.apply_command(second)
+    except RevisionConflictError as exc:
+        assert exc.current_revision == 1
+    else:
+        raise AssertionError("expected RevisionConflictError")
+
+    latest = store.get_run(run.run_id)
+    assert latest.revision == 1
+    assert latest.current_step == "next"
