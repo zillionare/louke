@@ -91,89 +91,7 @@ def create_app(project_root: str | Path | None = None) -> Starlette:
     )
     app.state.store = store
     app.state.broker = broker
-    _mount_v011_subapps(app)
     return app
-
-
-# Canonical wiki types served by the v0.11 wiki sub-app (louke.paths.WIKI_TYPES).
-# Any other /api/wiki/{page} falls through to the v0.10 wiki page wildcard above
-# (architecture §3.1: five canonical types/methods take precedence over the
-# {page:path} wildcard; other page routes keep their original behaviour).
-_WIKI_CANONICAL_TYPES = ("story", "spec", "test-plan", "architecture", "interfaces")
-
-
-def _mount_v011_subapps(app: Starlette) -> None:
-    """Compose the six v0.11-001 ASGI sub-apps into the main app's URL space.
-
-    The sub-apps already register their full ``/api/...`` paths internally, so
-    a naive ``Mount("/api/opencode", app)`` would double-prefix them
-    (architecture §3.1 forbids that). Instead we copy each sub-app's Route
-    objects onto the main app. For wiki, the sub-app's ``{type}`` parameter
-    would shadow the v0.10 ``{page:path}`` wildcard, so we wrap the wiki
-    handlers in a dispatcher that only delegates the five canonical types and
-    lets everything else fall through to the v0.10 page API.
-
-    Ordering note: sub-app routes are appended *after* the v0.10 routes list,
-    which keeps v0.10's ``/api/wiki/{page:path}`` wildcard reachable for
-    non-canonical pages via the dispatcher; concrete single-segment canonical
-    types are matched by the dispatcher wrapper, not the bare ``{type}`` route.
-    """
-    from .. import opencode_api, intent_api, backlog_api, files_api, tasks_api
-    from ..wiki_api import get_wiki as _wiki_get, put_wiki as _wiki_put
-
-    for sub in (
-        opencode_api.app,
-        intent_api.app,
-        backlog_api.app,
-        files_api.app,
-        tasks_api.app,
-    ):
-        for route in sub.router.routes:
-            app.router.routes.append(route)
-
-    # Wiki: dispatch canonical types to the sub-app handlers, preserving the
-    # v0.10 {page:path} wildcard for everything else. The two explicit routes
-    # below are inserted before the existing wildcard so they win for the
-    # canonical types (single-segment match), and the wildcard still catches
-    # multi-segment / non-canonical pages.
-    async def _wiki_canonical_get(request: Request) -> JSONResponse:
-        page = request.path_params["page"]
-        if page not in _WIKI_CANONICAL_TYPES:
-            return await api_wiki_page(request)
-        request.path_params["type"] = page
-        return await _wiki_get(request)
-
-    async def _wiki_canonical_put(request: Request) -> JSONResponse:
-        page = request.path_params["page"]
-        if page not in _WIKI_CANONICAL_TYPES:
-            return await api_wiki_page(request)
-        request.path_params["type"] = page
-        return await _wiki_put(request)
-
-    canonical_get = Route(
-        "/api/wiki/{page}",
-        endpoint=_wiki_canonical_get,
-        methods=["GET"],
-    )
-    canonical_put = Route(
-        "/api/wiki/{page}",
-        endpoint=_wiki_canonical_put,
-        methods=["PUT"],
-    )
-    # Insert before the v0.10 {page:path} wildcard so the single-segment
-    # canonical route wins for /api/wiki/spec etc., and the wildcard still
-    # serves /api/wiki/overview and /api/wiki/guides/getting-started.
-    routes = app.router.routes
-    wildcard_idx = next(
-        (
-            i
-            for i, r in enumerate(routes)
-            if getattr(r, "path", None) == "/api/wiki/{page:path}"
-        ),
-        len(routes),
-    )
-    routes.insert(wildcard_idx, canonical_put)
-    routes.insert(wildcard_idx, canonical_get)
 
 
 async def health(request: Request) -> JSONResponse:
@@ -1708,7 +1626,6 @@ def _page_shell(
       color: var(--warning, #f59e0b);
     }}
   </style>
-  <script src="/assets/client.js"></script>
   {head_extra}
 </head>
 <body class="page-{section}" data-actor-name="{_escape(user.username)}" data-ui-lang="{_escape(lang)}">
@@ -2976,7 +2893,6 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
       .auth-panel {{ padding: 32px 24px; }}
     }}
   </style>
-  <script src="/assets/client.js"></script>
 </head>
 <body>
   <main class="auth-shell">
