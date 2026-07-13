@@ -10,6 +10,10 @@ class RuntimeStateError(Exception):
     """Base class for workflow runtime state errors."""
 
 
+class LegacyIsolationError(RuntimeStateError):
+    """Raised when a legacy command tries to mutate a v0.12 runtime store."""
+
+
 class RevisionConflictError(RuntimeStateError):
     """Raised when an update is based on a stale revision."""
 

@@ -100,6 +100,11 @@ def _read_project_info(label):
     return _read_project_info_field(label)
 
 
+def _runtime_store_present() -> bool:
+    """Return True when a v0.12 runtime state store exists in the workspace."""
+    return (Path.cwd() / ".louke" / "runtime" / "state.sqlite3").exists()
+
+
 def _set_project_info_current_stage(stage):
     path = Path(".louke/project/project.toml")
     if not path.exists():
@@ -400,6 +405,14 @@ def _read_current_spec():
 
 def cmd_advance(args):
     """Advance to next stage (FR-0700 auto holdpoint + FR-0710 state update)."""
+    if _runtime_store_present():
+        print(
+            "-> REJECT (v0.12 runtime store present; "
+            "legacy maestro cannot advance new WorkflowRuns)",
+            file=sys.stderr,
+        )
+        return 1
+
     print("=== Advance ===")
     print(f"From: {args.stage}")
     idx = next((i for i, t in enumerate(STAGES) if t[0] == args.stage), None)
