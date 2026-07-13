@@ -158,3 +158,65 @@ def test_ac_fr0301_02_handler_receives_read_only_context_and_returns_valid_resul
     transition_events = [event for event in events if event.type == "step.transition"]
     assert len(transition_events) == 1
     assert transition_events[0].to_step == "end"
+
+
+def test_ac_fr0301_03_handler_exception_records_failure_without_advancing(tmp_path):
+    """AC-FR0301-03: handler exceptions do not mark the attempt successful."""
+    from louke.runtime.program_steps import (
+        HandlerRegistry,
+        HandlerResult,
+        ProgramStepExecutor,
+        StepContext,
+    )
+    from louke.runtime.store import WorkflowRunStore
+
+    def failing_handler(_ctx: StepContext) -> HandlerResult:
+        raise ValueError("something went wrong")
+
+    handler_registry = HandlerRegistry()
+    handler_registry.register("failing_handler", failing_handler)
+
+    definition_registry = DefinitionRegistry()
+    definition = definition_registry.register(
+        WorkflowDefinition(
+            definition_id="ac_fr0301_03",
+            version="1",
+            start_step="start",
+            steps=(
+                _step(
+                    "start",
+                    "program",
+                    handler="failing_handler",
+                    transitions=(_edge("e1", "start", "end", condition="done"),),
+                ),
+                _step("end", "program", handler="failing_handler"),
+            ),
+        )
+    )
+
+    store = WorkflowRunStore(catalog=definition_registry)
+    run = store.create_run(definition)
+
+    executor = ProgramStepExecutor(handler_registry)
+    outcome = executor.execute(
+        store=store,
+        run_id=run.run_id,
+        workspace=str(tmp_path),
+        idempotency_key="exec-fail",
+    )
+
+    assert outcome.run.current_step == "start"
+    assert outcome.run.revision == run.revision
+    assert outcome.error_code == "handler_exception"
+
+    attempts = store.get_step_attempts(run.run_id)
+    assert len(attempts) == 1
+    assert attempts[0].status == "failed"
+    assert attempts[0].result is None
+
+    events = store.get_events(run.run_id)
+    failure_events = [event for event in events if event.type == "step.handler_failed"]
+    assert len(failure_events) == 1
+    assert failure_events[0].details["error_code"] == "handler_exception"
+    assert failure_events[0].details["step_id"] == "start"
+    assert failure_events[0].details["idempotency_key"] == "exec-fail"
