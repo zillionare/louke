@@ -63,6 +63,7 @@ class TraceEntry:
     issue: str = ""
     contract_digest: str = ""
     evidence: Any = None
+    evidence_digest: str = ""
     evidence_status: str = "pending"
     gate: str = ""
 
@@ -129,10 +130,14 @@ class TraceLedger:
 
         Args:
             entry_id: Trace entry identifier.
-            kind: Evidence kind (currently informational).
+            kind: Evidence kind.
             evidence: Structured evidence object or dict.
+
+        Raises:
+            ValueError: If a code kind is paired with non-code evidence.
         """
-        del kind  # reserved for future validation
+        if kind == EvidenceKind.CODE and not isinstance(evidence, CodeEvidence):
+            raise ValueError("CODE evidence must be a CodeEvidence instance")
         entry = self._entries.get(entry_id)
         if entry is None:
             raise KeyError(f"trace entry {entry_id!r} not found")
@@ -185,7 +190,7 @@ class TraceLedger:
         if entry is None:
             raise KeyError(f"trace entry {entry_id!r} not found")
         entry.evidence_status = "closed"
-        entry.evidence_digest = evidence_digest  # type: ignore[attr-defined]
+        entry.evidence_digest = evidence_digest
 
     def validate_all_acs_closed(self) -> None:
         """Validate that every AC is closed.
