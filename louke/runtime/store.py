@@ -7,6 +7,7 @@ catalog before a run is created and never mutates a definition after creation.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
@@ -17,6 +18,10 @@ from louke.runtime.catalog import (
     DefinitionRegistry,
     WorkflowDefinition,
     validate_definition,
+)
+from louke.runtime.domain import (
+    RevisionConflictError,
+    WorkflowEvent,
 )
 
 
@@ -89,6 +94,22 @@ def _row_to_run(row: sqlite3.Row) -> WorkflowRun:
     )
 
 
+def _row_to_event(row: sqlite3.Row) -> WorkflowEvent:
+    """Reconstruct a ``WorkflowEvent`` from a SQLite row."""
+    return WorkflowEvent(
+        event_id=row["event_id"],
+        run_id=row["run_id"],
+        sequence=row["sequence"],
+        type=row["type"],
+        at=row["at"],
+        actor=json.loads(row["actor"]),
+        from_step=row["from_step"],
+        to_step=row["to_step"],
+        revision=row["revision"],
+        details=json.loads(row["details"]),
+    )
+
+
 class WorkflowRunStore:
     """SQLite-backed store for WorkflowRun records.
 
@@ -122,6 +143,22 @@ class WorkflowRunStore:
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS workflow_events (
+                event_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                at TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                from_step TEXT,
+                to_step TEXT,
+                revision INTEGER NOT NULL,
+                details TEXT NOT NULL
             )
             """
         )
@@ -184,6 +221,116 @@ class WorkflowRunStore:
         if row is None:
             raise RunNotFoundError(f"run {run_id!r} not found")
         return _row_to_run(row)
+
+    def update_run(
+        self,
+        run: WorkflowRun,
+        expected_revision: int,
+    ) -> WorkflowRun:
+        """Atomically update ``run`` if its stored revision matches ``expected_revision``.
+
+        The new revision is always ``expected_revision + 1`` so callers cannot
+        skip revisions.
+
+        Args:
+            run: The desired run state (``revision`` is ignored).
+            expected_revision: The revision the caller last observed.
+
+        Returns:
+            The updated ``WorkflowRun`` with the new revision.
+
+        Raises:
+            RunNotFoundError: If the run does not exist.
+            RevisionConflictError: If the stored revision differs from
+                ``expected_revision``.
+        """
+        with self._conn:
+            row = self._conn.execute(
+                "SELECT revision FROM workflow_runs WHERE run_id = ?",
+                (run.run_id,),
+            ).fetchone()
+            if row is None:
+                raise RunNotFoundError(f"run {run.run_id!r} not found")
+            current_revision = row["revision"]
+            if current_revision != expected_revision:
+                raise RevisionConflictError(
+                    f"revision conflict: expected {expected_revision}, "
+                    f"found {current_revision}",
+                    current_revision=current_revision,
+                )
+
+            new_revision = expected_revision + 1
+            now = datetime.now(timezone.utc).isoformat()
+            self._conn.execute(
+                """
+                UPDATE workflow_runs
+                SET current_step = ?, revision = ?, status = ?, updated_at = ?
+                WHERE run_id = ?
+                """,
+                (run.current_step, new_revision, run.status, now, run.run_id),
+            )
+
+        return self.get_run(run.run_id)
+
+    def append_event(self, event: WorkflowEvent) -> WorkflowEvent:
+        """Persist ``event`` to the append-only event stream.
+
+        Args:
+            event: The event to persist.  If ``event.sequence`` is 0, the next
+                sequence number for the run is assigned automatically.
+
+        Returns:
+            The persisted event with its final sequence number.
+        """
+        sequence = event.sequence
+        if sequence == 0:
+            row = self._conn.execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM workflow_events WHERE run_id = ?",
+                (event.run_id,),
+            ).fetchone()
+            sequence = row[0]
+
+        self._conn.execute(
+            """
+            INSERT INTO workflow_events (
+                event_id, run_id, sequence, type, at, actor, from_step, to_step,
+                revision, details
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event.event_id,
+                event.run_id,
+                sequence,
+                event.type,
+                event.at,
+                json.dumps(event.actor),
+                event.from_step,
+                event.to_step,
+                event.revision,
+                json.dumps(event.details),
+            ),
+        )
+        self._conn.commit()
+        return WorkflowEvent(
+            event_id=event.event_id,
+            run_id=event.run_id,
+            sequence=sequence,
+            type=event.type,
+            at=event.at,
+            actor=event.actor,
+            from_step=event.from_step,
+            to_step=event.to_step,
+            revision=event.revision,
+            details=event.details,
+        )
+
+    def get_events(self, run_id: str) -> tuple[WorkflowEvent, ...]:
+        """Return all events for ``run_id`` in ascending sequence order."""
+        rows = self._conn.execute(
+            "SELECT * FROM workflow_events WHERE run_id = ? ORDER BY sequence",
+            (run_id,),
+        ).fetchall()
+        return tuple(_row_to_event(row) for row in rows)
 
     def get_definition(self, run_id: str) -> WorkflowDefinition:
         """Return the definition pinned to the run identified by ``run_id``.
