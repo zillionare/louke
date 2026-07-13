@@ -282,3 +282,81 @@ def test_ac_fr0401_03_human_gap_blocks_with_structured_question(tmp_path):
     assert len(transition_events) == 1
     details = transition_events[0].details
     assert details["result"] == "blocked"
+
+
+def test_ac_fr0401_04_unrecoverable_error_fails_without_advancing(tmp_path):
+    """AC-FR0401-04: unrecoverable errors fail and do not reach the main step."""
+    from louke.runtime.foundation import FoundationError, foundation_ensure_handler
+
+    class FailingAdapter(SpyFoundationAdapter):
+        def check(self, workspace: str) -> list[FoundationGap]:
+            raise FoundationError("disk unreachable", retryable=False)
+
+    adapter = FailingAdapter()
+    handler = foundation_ensure_handler(adapter)
+
+    registry = HandlerRegistry()
+    registry.register("foundation.ensure", handler)
+
+    definition_registry = DefinitionRegistry()
+    definition = definition_registry.register(_foundation_definition())
+
+    store = WorkflowRunStore(catalog=definition_registry)
+    run = store.create_run(definition)
+
+    executor = ProgramStepExecutor(registry)
+    outcome = executor.execute(
+        store=store,
+        run_id=run.run_id,
+        workspace=str(tmp_path),
+        idempotency_key="foundation-04-fail",
+    )
+
+    assert outcome.run.current_step == "failed_step"
+    assert outcome.run.status == "completed"
+    assert outcome.error_code is None
+
+    attempts = store.get_step_attempts(run.run_id)
+    assert len(attempts) == 1
+    assert attempts[0].result == "failed"
+
+    assert len(adapter.create_calls) == 0
+
+
+def test_ac_fr0401_04_retryable_error_goes_to_retry_step(tmp_path):
+    """AC-FR0401-04: retryable policy errors stop at the retry step."""
+    from louke.runtime.foundation import FoundationError, foundation_ensure_handler
+
+    class RetryableAdapter(SpyFoundationAdapter):
+        def check(self, workspace: str) -> list[FoundationGap]:
+            raise FoundationError("network timeout", retryable=True)
+
+    adapter = RetryableAdapter()
+    handler = foundation_ensure_handler(adapter)
+
+    registry = HandlerRegistry()
+    registry.register("foundation.ensure", handler)
+
+    definition_registry = DefinitionRegistry()
+    definition = definition_registry.register(_foundation_definition())
+
+    store = WorkflowRunStore(catalog=definition_registry)
+    run = store.create_run(definition)
+
+    executor = ProgramStepExecutor(registry)
+    outcome = executor.execute(
+        store=store,
+        run_id=run.run_id,
+        workspace=str(tmp_path),
+        idempotency_key="foundation-04-retry",
+    )
+
+    assert outcome.run.current_step == "retry_step"
+    assert outcome.run.status == "completed"
+    assert outcome.error_code is None
+
+    attempts = store.get_step_attempts(run.run_id)
+    assert len(attempts) == 1
+    assert attempts[0].result == "retryable"
+
+    assert len(adapter.create_calls) == 0
