@@ -26,6 +26,7 @@ from louke.runtime.domain import RuntimeCommand
 from louke.runtime.gates import (
     GateNotApprovedError,
     GateService,
+    StaleGateError,
     UnauthenticatedPrincipalError,
 )
 from louke.runtime.orchestrator import WorkflowOrchestrator
@@ -158,3 +159,49 @@ def test_ac_fr0501_03_free_text_approved_by_rejected_without_principal():
 
     pending_gate = orchestrator._store.get_gate(gate.gate_id)
     assert pending_gate.status == "waiting_for_human"
+
+
+def test_ac_fr0501_04_stale_revision_step_or_digest_rejected():
+    """AC-FR0501-04: stale revision, step or digest returns stale-gate error."""
+    store, orchestrator, gate_service, run = _create_fixtures()
+    gate = gate_service.ensure_gate(
+        run_id=run.run_id,
+        step_id="m_lock",
+        bound_digest="sha256:abc123",
+    )
+
+    with pytest.raises(StaleGateError):
+        orchestrator.apply_gate_decision(
+            run_id=run.run_id,
+            gate_id=gate.gate_id,
+            decision="approve",
+            bound_digest="sha256:abc123",
+            expected_revision=run.revision + 1,
+            principal={"kind": "human", "id": "alice"},
+        )
+
+    with pytest.raises(StaleGateError):
+        orchestrator.apply_gate_decision(
+            run_id=run.run_id,
+            gate_id=gate.gate_id,
+            decision="approve",
+            bound_digest="sha256:wrong",
+            expected_revision=run.revision,
+            principal={"kind": "human", "id": "alice"},
+        )
+
+    store.update_run(
+        run.with_step(current_step="design", status="in_progress"), run.revision
+    )
+    with pytest.raises(StaleGateError):
+        orchestrator.apply_gate_decision(
+            run_id=run.run_id,
+            gate_id=gate.gate_id,
+            decision="approve",
+            bound_digest="sha256:abc123",
+            expected_revision=run.revision + 1,
+            principal={"kind": "human", "id": "alice"},
+        )
+
+    final = store.get_run(run.run_id)
+    assert final.current_step != "rework"
