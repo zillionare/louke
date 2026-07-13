@@ -220,3 +220,74 @@ def test_ac_fr0301_03_handler_exception_records_failure_without_advancing(tmp_pa
     assert failure_events[0].details["error_code"] == "handler_exception"
     assert failure_events[0].details["step_id"] == "start"
     assert failure_events[0].details["idempotency_key"] == "exec-fail"
+
+
+def test_ac_fr0301_04_idempotent_replay_does_not_repeat_side_effect(tmp_path):
+    """AC-FR0301-04: replaying a completed key does not repeat side effects."""
+    from louke.runtime.program_steps import (
+        HandlerRegistry,
+        HandlerResult,
+        ProgramStepExecutor,
+        StepContext,
+    )
+    from louke.runtime.store import WorkflowRunStore
+
+    side_effect_count = 0
+
+    def side_effect_handler(_ctx: StepContext) -> HandlerResult:
+        nonlocal side_effect_count
+        side_effect_count += 1
+        return HandlerResult(result="done")
+
+    handler_registry = HandlerRegistry()
+    handler_registry.register("side_effect_handler", side_effect_handler)
+
+    definition_registry = DefinitionRegistry()
+    definition = definition_registry.register(
+        WorkflowDefinition(
+            definition_id="ac_fr0301_04",
+            version="1",
+            start_step="start",
+            steps=(
+                _step(
+                    "start",
+                    "program",
+                    handler="side_effect_handler",
+                    transitions=(_edge("e1", "start", "end", condition="done"),),
+                ),
+                _step("end", "program", handler="side_effect_handler"),
+            ),
+        )
+    )
+
+    store = WorkflowRunStore(catalog=definition_registry)
+    run = store.create_run(definition)
+
+    executor = ProgramStepExecutor(handler_registry)
+    workspace = str(tmp_path)
+    first = executor.execute(
+        store=store,
+        run_id=run.run_id,
+        workspace=workspace,
+        idempotency_key="exec-once",
+    )
+    assert first.run.current_step == "end"
+    assert side_effect_count == 1
+
+    replay = executor.execute(
+        store=store,
+        run_id=run.run_id,
+        workspace=workspace,
+        idempotency_key="exec-once",
+    )
+    assert replay.run.current_step == "end"
+    assert replay.run.revision == first.run.revision
+    assert side_effect_count == 1
+
+    attempts = store.get_step_attempts(run.run_id)
+    assert len(attempts) == 1
+    assert attempts[0].status == "completed"
+
+    events = store.get_events(run.run_id)
+    transition_events = [event for event in events if event.type == "step.transition"]
+    assert len(transition_events) == 1
