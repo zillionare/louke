@@ -227,3 +227,58 @@ def test_ac_fr0401_02_auto_repair_is_idempotent_and_becomes_satisfied(tmp_path):
     assert second_attempts[0].result == "satisfied"
 
     assert len(adapter.create_calls) == 1
+
+
+def test_ac_fr0401_03_human_gap_blocks_with_structured_question(tmp_path):
+    """AC-FR0401-03: human-decidable gaps block without creating resources."""
+    from louke.runtime.foundation import foundation_ensure_handler
+
+    adapter = SpyFoundationAdapter(
+        gaps=[
+            FoundationGap(
+                key="foundation.repo-owner",
+                auto_repairable=False,
+                question={
+                    "question_id": "foundation.repo-owner",
+                    "prompt": "Which GitHub owner should own the new repository?",
+                    "choices": None,
+                },
+            )
+        ]
+    )
+    handler = foundation_ensure_handler(adapter)
+
+    registry = HandlerRegistry()
+    registry.register("foundation.ensure", handler)
+
+    definition_registry = DefinitionRegistry()
+    definition = definition_registry.register(_foundation_definition())
+
+    store = WorkflowRunStore(catalog=definition_registry)
+    run = store.create_run(definition)
+
+    executor = ProgramStepExecutor(registry)
+    outcome = executor.execute(
+        store=store,
+        run_id=run.run_id,
+        workspace=str(tmp_path),
+        idempotency_key="foundation-03",
+    )
+
+    assert outcome.run.current_step == "blocked_step"
+    assert outcome.run.status == "completed"
+    assert outcome.error_code is None
+
+    attempts = store.get_step_attempts(run.run_id)
+    assert len(attempts) == 1
+    assert attempts[0].result == "blocked"
+
+    assert len(adapter.create_calls) == 0
+    assert len(adapter.scout_calls) == 0
+    assert len(adapter.warden_calls) == 0
+
+    events = store.get_events(run.run_id)
+    transition_events = [event for event in events if event.type == "step.transition"]
+    assert len(transition_events) == 1
+    details = transition_events[0].details
+    assert details["result"] == "blocked"
