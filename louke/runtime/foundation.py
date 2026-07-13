@@ -10,7 +10,7 @@ dispatches Scout or Warden agents.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from louke.runtime.program_steps import HandlerResult, StepContext
 
@@ -70,7 +70,9 @@ FAILED = "failed"
 RETRYABLE = "retryable"
 
 
-def foundation_ensure_handler(adapter: FoundationAdapter) -> Any:
+def foundation_ensure_handler(
+    adapter: FoundationAdapter,
+) -> Callable[[StepContext], HandlerResult]:
     """Return a ``foundation.ensure`` handler bound to ``adapter``.
 
     The handler distinguishes ``satisfied``, ``repaired``, ``blocked``,
@@ -86,12 +88,10 @@ def foundation_ensure_handler(adapter: FoundationAdapter) -> Any:
     """
 
     def handler(_ctx: StepContext) -> HandlerResult:
-        try:
-            gaps = adapter.check(_ctx.workspace)
-        except FoundationError as exc:
-            return _error_result(exc)
-        except Exception as exc:  # noqa: BLE001
-            return HandlerResult(result=FAILED, output={"error": str(exc)})
+        gaps_or_error = _safe_check(adapter, _ctx.workspace)
+        if isinstance(gaps_or_error, HandlerResult):
+            return gaps_or_error
+        gaps = gaps_or_error
 
         human_gaps = [gap for gap in gaps if not gap.auto_repairable]
         if human_gaps:
@@ -101,26 +101,39 @@ def foundation_ensure_handler(adapter: FoundationAdapter) -> Any:
             )
 
         auto_gaps = [gap for gap in gaps if gap.auto_repairable]
-        created_keys: list[str] = []
-        if auto_gaps:
-            created_keys = _repair_auto_gaps(adapter, _ctx.workspace, auto_gaps)
-            try:
-                remaining = adapter.check(_ctx.workspace)
-            except FoundationError as exc:
-                return _error_result(exc)
-            except Exception as exc:  # noqa: BLE001
-                return HandlerResult(result=FAILED, output={"error": str(exc)})
+        if not auto_gaps:
+            return HandlerResult(result=SATISFIED)
 
-            if remaining:
-                return HandlerResult(
-                    result=FAILED,
-                    output={"reason": "repair did not resolve all gaps"},
-                )
-            return HandlerResult(result=REPAIRED, output={"created": created_keys})
+        created_keys = _repair_auto_gaps(adapter, _ctx.workspace, auto_gaps)
+        remaining_or_error = _safe_check(adapter, _ctx.workspace)
+        if isinstance(remaining_or_error, HandlerResult):
+            return remaining_or_error
+        remaining = remaining_or_error
 
-        return HandlerResult(result=SATISFIED)
+        if remaining:
+            return HandlerResult(
+                result=FAILED,
+                output={"reason": "repair did not resolve all gaps"},
+            )
+        return HandlerResult(result=REPAIRED, output={"created": created_keys})
 
     return handler
+
+
+def _safe_check(
+    adapter: FoundationAdapter, workspace: str
+) -> list[FoundationGap] | HandlerResult:
+    """Run ``adapter.check`` and classify failures into handler results.
+
+    Returns the gap list on success, otherwise a ``HandlerResult`` carrying
+    ``failed`` or ``retryable`` according to the adapter's policy.
+    """
+    try:
+        return adapter.check(workspace)
+    except FoundationError as exc:
+        return _error_result(exc)
+    except Exception as exc:  # noqa: BLE001
+        return HandlerResult(result=FAILED, output={"error": str(exc)})
 
 
 def _repair_auto_gaps(
