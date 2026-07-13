@@ -1,7 +1,11 @@
 """FR-0101: Runtime is the sole writer of state and transitions."""
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
-from louke.runtime.domain import IllegalTransitionError, RuntimeCommand
+from louke.runtime.domain import (
+    IllegalTransitionError,
+    RuntimeCommand,
+    UndeclaredResultError,
+)
 from louke.runtime.orchestrator import WorkflowOrchestrator
 from louke.runtime.store import WorkflowRunStore
 
@@ -35,6 +39,35 @@ def _lock_definition() -> WorkflowDefinition:
     )
 
 
+def _program_step_definition() -> WorkflowDefinition:
+    review = Step(
+        step_id="review",
+        kind="program",
+        transitions=(
+            Edge(
+                edge_id="e_approved",
+                from_step="review",
+                to_step="next",
+                condition="approved",
+            ),
+            Edge(
+                edge_id="e_rejected",
+                from_step="review",
+                to_step="end",
+                condition="rejected",
+            ),
+        ),
+    )
+    next_step = Step(step_id="next", kind="program")
+    end = Step(step_id="end", kind="program")
+    return WorkflowDefinition(
+        definition_id="ac_fr0101",
+        version="1",
+        start_step="review",
+        steps=(review, next_step, end),
+    )
+
+
 def test_ac_fr0101_01_reject_undeclared_next_step():
     """AC-FR0101-01: a request to jump to an undeclared step is rejected."""
     registry = DefinitionRegistry()
@@ -60,3 +93,35 @@ def test_ac_fr0101_01_reject_undeclared_next_step():
     assert fetched.current_step == "lock"
     assert fetched.revision == run.revision
     assert fetched.status == run.status
+
+
+def test_ac_fr0101_02_record_diagnostic_on_undeclared_result():
+    """AC-FR0101-02: an undeclared executor result is diagnosed but not transitioned."""
+    registry = DefinitionRegistry()
+    definition = registry.register(_program_step_definition())
+    store = WorkflowRunStore(catalog=registry)
+    run = store.create_run(definition)
+
+    orchestrator = WorkflowOrchestrator(store)
+    command = RuntimeCommand(
+        run_id=run.run_id,
+        expected_revision=run.revision,
+        result="skipped",
+    )
+
+    try:
+        orchestrator.apply_command(command)
+    except UndeclaredResultError:
+        pass
+    else:
+        raise AssertionError("expected UndeclaredResultError")
+
+    fetched = store.get_run(run.run_id)
+    assert fetched.current_step == "review"
+    assert fetched.revision == run.revision
+
+    events = store.get_events(run.run_id)
+    assert len(events) == 1
+    assert events[0].type == "step.result_undeclared"
+    assert events[0].details["result"] == "skipped"
+    assert events[0].details["step_id"] == "review"
