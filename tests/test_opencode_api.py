@@ -1,4 +1,5 @@
 """FR-0001: OpenCode instance + message HTTP API."""
+
 import pytest
 from louke.opencode_api import app
 
@@ -6,6 +7,7 @@ from louke.opencode_api import app
 @pytest.fixture
 def client():
     from starlette.testclient import TestClient
+
     return TestClient(app)
 
 
@@ -43,7 +45,9 @@ def test_delete_instance_is_idempotent(client):
 def test_send_message_to_running_instance_returns_202(client):
     r1 = client.post("/api/opencode/instances", json={})
     inst_id = r1.json()["id"]
-    r2 = client.post(f"/api/opencode/instances/{inst_id}/messages", json={"content": "hello"})
+    r2 = client.post(
+        f"/api/opencode/instances/{inst_id}/messages", json={"content": "hello"}
+    )
     assert r2.status_code == 202
     body = r2.json()
     assert body["accepted"] is True
@@ -60,8 +64,12 @@ def test_message_isolation_between_instances(client):
     r1 = client.post("/api/opencode/instances", json={})
     r2 = client.post("/api/opencode/instances", json={})
     id_a, id_b = r1.json()["id"], r2.json()["id"]
-    client.post(f"/api/opencode/instances/{id_a}/messages", json={"content": "msg-to-a"})
-    client.post(f"/api/opencode/instances/{id_b}/messages", json={"content": "msg-to-b"})
+    client.post(
+        f"/api/opencode/instances/{id_a}/messages", json={"content": "msg-to-a"}
+    )
+    client.post(
+        f"/api/opencode/instances/{id_b}/messages", json={"content": "msg-to-b"}
+    )
 
     msgs_a = client.get(f"/api/opencode/instances/{id_a}/messages").json()["messages"]
     msgs_b = client.get(f"/api/opencode/instances/{id_b}/messages").json()["messages"]

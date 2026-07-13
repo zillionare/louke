@@ -1,7 +1,7 @@
 """FR-0601: local story backlog (persisted to .louke/project/backlog.json)."""
+
 import json
 import pytest
-from pathlib import Path
 from louke.backlog_api import app
 
 
@@ -17,6 +17,7 @@ def workspace(tmp_path):
 def client(workspace, monkeypatch):
     monkeypatch.chdir(workspace)
     from starlette.testclient import TestClient
+
     return TestClient(app)
 
 
@@ -62,7 +63,8 @@ def test_delete_with_start_development_removes_entry(client, workspace):
     r1 = client.post("/api/backlog", json={"story": "to-start"})
     entry_id = r1.json()["id"]
     r2 = client.request(
-        "DELETE", "/api/backlog",
+        "DELETE",
+        "/api/backlog",
         json={"id": entry_id, "action": "start_development"},
     )
     assert r2.status_code == 200

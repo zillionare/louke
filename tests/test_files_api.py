@@ -1,6 +1,6 @@
 """FR-0701: workspace file tree + diff."""
+
 import pytest
-from pathlib import Path
 from louke.files_api import app
 
 
@@ -22,6 +22,7 @@ def client(workspace, monkeypatch):
     """Test client with CWD pointing at the workspace so paths resolve correctly."""
     monkeypatch.chdir(workspace)
     from starlette.testclient import TestClient
+
     return TestClient(app)
 
 
@@ -39,12 +40,24 @@ def test_list_tree_returns_files_and_dirs(client):
 def test_list_changes_returns_git_status(client, workspace):
     """AC-FR0701-01: view=changes 返回 git 变更文件列表 (与 tree 同入口不同视图)."""
     import subprocess
-    subprocess.run(["git", "-C", str(workspace), "init", "-q"], check=False, capture_output=True)
-    subprocess.run(["git", "-C", str(workspace), "config", "user.email", "t@t"], check=False)
-    subprocess.run(["git", "-C", str(workspace), "config", "user.name", "t"], check=False)
-    subprocess.run(["git", "-C", str(workspace), "add", "."], check=False, capture_output=True)
-    subprocess.run(["git", "-C", str(workspace), "commit", "-m", "init", "-q"],
-                   check=False, capture_output=True)
+
+    subprocess.run(
+        ["git", "-C", str(workspace), "init", "-q"], check=False, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "config", "user.email", "t@t"], check=False
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "config", "user.name", "t"], check=False
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "add", "."], check=False, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "commit", "-m", "init", "-q"],
+        check=False,
+        capture_output=True,
+    )
     (workspace / "src.py").write_text("print(2)\n")
     r = client.get("/api/files?view=changes")
     assert r.status_code == 200
@@ -78,19 +91,35 @@ def test_diff_returns_unified_diff(client, workspace):
     此处保留 AC-FR0701-03 引用以闭合 trace, 同时覆盖 diff 视图契约。
     """
     import subprocess
-    subprocess.run(["git", "-C", str(workspace), "init", "-q"], check=False, capture_output=True)
-    subprocess.run(["git", "-C", str(workspace), "config", "user.email", "t@t"], check=False)
-    subprocess.run(["git", "-C", str(workspace), "config", "user.name", "t"], check=False)
-    subprocess.run(["git", "-C", str(workspace), "add", "."], check=False, capture_output=True)
-    subprocess.run(["git", "-C", str(workspace), "commit", "-m", "init", "-q"],
-                   check=False, capture_output=True)
+
+    subprocess.run(
+        ["git", "-C", str(workspace), "init", "-q"], check=False, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "config", "user.email", "t@t"], check=False
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "config", "user.name", "t"], check=False
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "add", "."], check=False, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(workspace), "commit", "-m", "init", "-q"],
+        check=False,
+        capture_output=True,
+    )
     (workspace / "src.py").write_text("print(99)\n")
     r = client.get("/api/files/diff?path=src.py")
     assert r.status_code == 200
     body = r.json()
     assert body["path"] == "src.py"
     assert "diff" in body
-    assert "-print(1)" in body["diff"] or "-print(2)" in body["diff"] or "print(1)" in body["diff"]
+    assert (
+        "-print(1)" in body["diff"]
+        or "-print(2)" in body["diff"]
+        or "print(1)" in body["diff"]
+    )
 
 
 def test_diff_path_outside_workspace_rejected(client, workspace):

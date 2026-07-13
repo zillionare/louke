@@ -4,6 +4,7 @@ Subcommands:
   louke e2e start --host HOST --port PORT --opencode mock   # spawn server + mock, write state
   louke e2e stop  --port PORT --cleanup-workspace            # kill server, clean tmp
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,13 +56,17 @@ def cmd_e2e_start(args: argparse.Namespace) -> int:
     env = os.environ.copy()
     env["LOUKE_OPENCODE_BACKEND"] = opencode
     proc = subprocess.Popen(
-        [sys.executable, "-m", "louke", "serve",
-         "--host", host, "--port", str(port)],
-        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        [sys.executable, "-m", "louke", "serve", "--host", host, "--port", str(port)],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     state = {
-        "host": host, "port": port, "opencode": opencode,
-        "pid": proc.pid, "started_at": int(time.time()),
+        "host": host,
+        "port": port,
+        "opencode": opencode,
+        "pid": proc.pid,
+        "started_at": int(time.time()),
     }
     state_file.write_text(json.dumps(state, indent=2), encoding="utf-8")
     print(f"e2e start: pid={proc.pid} port={port} opencode={opencode}")
@@ -91,6 +96,7 @@ def cmd_e2e_stop(args: argparse.Namespace) -> int:
             pass
     if args.cleanup_workspace:
         import shutil
+
         # 仅清理本次 e2e 的 tmp workspace,不删 .louke
         ws = Path(state.get("workspace", ".louke/e2e-ws"))
         if ws.exists():

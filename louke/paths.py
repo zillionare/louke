@@ -4,6 +4,7 @@ All paths are computed off `canonical_root()` which resolves to `<cwd>/.louke/`.
 The four subtrees (`server/`, `reviews/`, `raw/{date}/`, `project/wiki/`) are
 non-overlapping by construction.
 """
+
 from __future__ import annotations
 
 from datetime import date as _date, datetime, timezone

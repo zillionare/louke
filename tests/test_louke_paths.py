@@ -5,6 +5,7 @@ AC references:
 - AC-FR0401-02: new artifacts land in their canonical location, not another category's dir.
 - AC-FR0401-03: at M-SPEC stage, no directory rearrangement occurs from writing this spec.
 """
+
 import pytest
 from datetime import date
 

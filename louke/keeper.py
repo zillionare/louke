@@ -268,7 +268,9 @@ def cmd_gate(args):
                 print("--- AC Trace: PASS ---")
 
     if not args.skip_anti_pattern:
-        legacy_baseline = cwd / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+        legacy_baseline = (
+            cwd / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+        )
         # Exclude tests/fixtures/: check_assertions' own test fixtures contain
         # intentional anti-pattern code (assert True, try/except/pass, etc.).
         anti_pattern_cmd = [

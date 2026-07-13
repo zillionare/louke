@@ -66,7 +66,9 @@ def iter_test_files(paths: list[Path], exclude: list[Path] | None = None) -> lis
     out: list[Path] = []
     for p in paths:
         if p.is_file() and p.suffix in TEST_EXTS:
-            if not any(p.resolve() == e or e in p.resolve().parents for e in exclude_resolved):
+            if not any(
+                p.resolve() == e or e in p.resolve().parents for e in exclude_resolved
+            ):
                 out.append(p)
         elif p.is_dir():
             for child in p.rglob("*"):
@@ -140,7 +142,9 @@ def violation_key(v: dict[str, Any]) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tests", nargs="+", required=True)
-    ap.add_argument("--exclude", nargs="*", default=[], help="paths to exclude from scan")
+    ap.add_argument(
+        "--exclude", nargs="*", default=[], help="paths to exclude from scan"
+    )
     ap.add_argument("--legacy-baseline")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -149,7 +153,9 @@ def main() -> int:
     )
     violations: list[dict[str, Any]] = []
     baseline_hits: list[dict[str, Any]] = []
-    for path in iter_test_files([Path(x) for x in args.tests], exclude=[Path(x) for x in args.exclude]):
+    for path in iter_test_files(
+        [Path(x) for x in args.tests], exclude=[Path(x) for x in args.exclude]
+    ):
         for v in scan_file(path):
             if violation_key(v) in baseline:
                 baseline_hits.append(v)

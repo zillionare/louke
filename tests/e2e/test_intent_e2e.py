@@ -1,4 +1,5 @@
 """FR-0201: user instruction intent routing e2e (story/spec_change/bug_fix/unknown)."""
+
 from __future__ import annotations
 
 import pytest
@@ -52,7 +53,8 @@ def test_unknown_input_clarifies_no_side_effect_e2e(client):
     assert body["executed"] is False
     assert body["clarification_question"]
     # Even with explicit confirmation, unknown intent must not execute
-    r2 = client.post("/api/intent/route",
-                     json={"input": "asdfqwer", "confirmation": True})
+    r2 = client.post(
+        "/api/intent/route", json={"input": "asdfqwer", "confirmation": True}
+    )
     assert r2.json()["executed"] is False
     assert r2.json()["proposed_action"] == "clarify"

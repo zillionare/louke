@@ -1,4 +1,5 @@
 """NFR-0201: workspace security e2e (path traversal rejection + writable allowlist)."""
+
 from __future__ import annotations
 
 import pytest

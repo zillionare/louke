@@ -3,6 +3,7 @@
 本模块是纯规则/关键词分类, 不用 LLM, 不真触发 Backlog/Maestro。
 所有 `executed` 必须为 False, `execution_id` 必须为 None (本期契约)。
 """
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -31,10 +32,13 @@ def test_route_story_intent_requires_choice(client):
 
 def test_route_story_with_start_development_selection_clarifies(client):
     """AC-FR0201-01 续: selection=start_development 后 proposed_action 变为 start_development, 但仍不执行。"""
-    r = client.post("/api/intent/route", json={
-        "input": "开发一个 dashboard",
-        "selection": "start_development",
-    })
+    r = client.post(
+        "/api/intent/route",
+        json={
+            "input": "开发一个 dashboard",
+            "selection": "start_development",
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["intent"] == "story"
@@ -81,10 +85,13 @@ def test_route_unknown_input_returns_clarify(client):
 
 def test_route_with_confirmation_unknown_keeps_clarify(client):
     """AC-FR0201-04 续: 即使 confirmation=true, unknown 也不执行。"""
-    r = client.post("/api/intent/route", json={
-        "input": "今天天气真好",
-        "confirmation": True,
-    })
+    r = client.post(
+        "/api/intent/route",
+        json={
+            "input": "今天天气真好",
+            "confirmation": True,
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["intent"] == "unknown"
@@ -95,7 +102,9 @@ def test_route_with_confirmation_unknown_keeps_clarify(client):
 
 def test_route_low_confidence_story_with_high_signal_returns_story(client):
     """补充: 高信号 story 词 (实现 XXX) 应当 confidence >= 0.7。"""
-    r = client.post("/api/intent/route", json={"input": "实现一个用户登录的 OAuth 集成"})
+    r = client.post(
+        "/api/intent/route", json={"input": "实现一个用户登录的 OAuth 集成"}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["intent"] == "story"

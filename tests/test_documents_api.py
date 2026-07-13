@@ -1,6 +1,6 @@
 """FR-0801: Markdown document discovery + rendering."""
+
 import pytest
-from pathlib import Path
 from louke.files_api import app  # reuse the same ASGI app
 
 
@@ -34,6 +34,7 @@ def workspace(tmp_path):
 def client(workspace, monkeypatch):
     monkeypatch.chdir(workspace)
     from starlette.testclient import TestClient
+
     return TestClient(app)
 
 

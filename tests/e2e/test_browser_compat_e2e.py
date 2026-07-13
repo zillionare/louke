@@ -4,9 +4,8 @@ The browser_page fixture (see tests/e2e/conftest.py) is parametrized over
 chromium + firefox; pytest-playwright also auto-injects a `browser_name` fixture.
 We use the fixture's parametrization to avoid duplicate-parametrize errors.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 
 def test_home_page_loads(browser_page, live_server_url, browser_name):

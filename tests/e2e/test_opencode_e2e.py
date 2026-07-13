@@ -1,4 +1,5 @@
 """FR-0001: OpenCode HTTP API e2e (instance creation + message isolation + stop)."""
+
 from __future__ import annotations
 
 import pytest
@@ -37,7 +38,9 @@ def test_two_instances_message_isolation_e2e(client):
 def test_models_agent_command_passthrough_e2e(client):
     """AC-FR0001-03: '/' commands like /models and /agent are passed through to OpenCode."""
     iid = client.post("/api/opencode/instances", json={}).json()["id"]
-    r = client.post(f"/api/opencode/instances/{iid}/messages", json={"content": "/models"})
+    r = client.post(
+        f"/api/opencode/instances/{iid}/messages", json={"content": "/models"}
+    )
     assert r.status_code == 202, r.text
 
 

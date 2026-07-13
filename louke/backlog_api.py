@@ -7,6 +7,7 @@ The 'start_development' delete action wires the existing Louke workflow
 entry - for unit tests we just simulate 'workflow accepted' (status=removed);
 real wiring to `lk agent maestro status` is left to M-DEV Batch 4 (FR-0201).
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,6 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -49,6 +49,7 @@ def _save(data: dict) -> None:
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     import os
+
     os.replace(tmp, p)
 
 
@@ -80,8 +81,10 @@ async def create_entry(request: Request):
     body = await request.json()
     story = body.get("story", "")
     if not story or not str(story).strip():
-        return JSONResponse({"error_code": "VALIDATION_ERROR",
-                             "message": "story required"}, status_code=400)
+        return JSONResponse(
+            {"error_code": "VALIDATION_ERROR", "message": "story required"},
+            status_code=400,
+        )
     with _lock:
         data = _load()
         entry = {
@@ -100,27 +103,43 @@ async def delete_entry(request: Request):
     target_id = body.get("id", "")
     action = body.get("action", "")
     if not target_id:
-        return JSONResponse({"error_code": "VALIDATION_ERROR",
-                             "message": "id required"}, status_code=400)
+        return JSONResponse(
+            {"error_code": "VALIDATION_ERROR", "message": "id required"},
+            status_code=400,
+        )
     if action != "start_development":
-        return JSONResponse({"error_code": "SELECTION_REQUIRED",
-                             "message": "action must be 'start_development'"}, status_code=400)
+        return JSONResponse(
+            {
+                "error_code": "SELECTION_REQUIRED",
+                "message": "action must be 'start_development'",
+            },
+            status_code=400,
+        )
     with _lock:
         data = _load()
-        idx = next((i for i, e in enumerate(data["entries"]) if e["id"] == target_id), None)
+        idx = next(
+            (i for i, e in enumerate(data["entries"]) if e["id"] == target_id), None
+        )
         if idx is None:
-            return JSONResponse({"error_code": "BACKLOG_NOT_FOUND",
-                                 "message": f"unknown id {target_id}"}, status_code=404)
+            return JSONResponse(
+                {
+                    "error_code": "BACKLOG_NOT_FOUND",
+                    "message": f"unknown id {target_id}",
+                },
+                status_code=404,
+            )
         entry = data["entries"][idx]
         entry["status"] = "dispatching"
         # Simulate workflow accepted -> remove
         data["entries"].pop(idx)
         _save(data)
-    return JSONResponse({
-        "id": target_id,
-        "status": "removed",
-        "workflow_started": True,
-    })
+    return JSONResponse(
+        {
+            "id": target_id,
+            "status": "removed",
+            "workflow_started": True,
+        }
+    )
 
 
 app.add_route("/api/backlog", list_backlog, methods=["GET"])

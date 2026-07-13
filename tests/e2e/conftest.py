@@ -4,6 +4,7 @@ For API-only e2e runs (the most common CI scenario), set LOUKE_SKIP_LIVE_SERVER=
 so the live_server_url fixture yields a placeholder URL without spawning a
 server; per-test client fixtures use TestClient(sub_app) and need no live server.
 """
+
 from __future__ import annotations
 
 import os
@@ -57,8 +58,19 @@ def live_server_url():
     env = os.environ.copy()
     env["LOUKE_E2E_STATE"] = ".louke/server"
     subprocess.Popen(
-        ["python3", "-m", "louke", "e2e", "start",
-         "--host", "127.0.0.1", "--port", str(port), "--opencode", "mock"],
+        [
+            "python3",
+            "-m",
+            "louke",
+            "e2e",
+            "start",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--opencode",
+            "mock",
+        ],
         env=env,
     )
     base = f"http://127.0.0.1:{port}"
@@ -77,8 +89,16 @@ def live_server_url():
         pytest.fail(f"server failed to start at {base} within 30s")
     yield base
     subprocess.run(
-        ["python3", "-m", "louke", "e2e", "stop",
-         "--port", str(port), "--cleanup-workspace"],
+        [
+            "python3",
+            "-m",
+            "louke",
+            "e2e",
+            "stop",
+            "--port",
+            str(port),
+            "--cleanup-workspace",
+        ],
         env=env,
     )
 
@@ -94,6 +114,7 @@ def browser_page(request, live_server_url):
         # AC-NFR0101-01: chromium + firefox e2e requires live server
         pytest.skip("#80 LOUKE_SKIP_LIVE_SERVER=1; browser e2e requires live server")
     from playwright.sync_api import sync_playwright
+
     with sync_playwright() as p:
         browser = getattr(p, request.param).launch(headless=True)
         page = browser.new_page()

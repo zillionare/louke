@@ -1,4 +1,5 @@
 """FR-0601: local story backlog e2e (create / list / delete with workflow start)."""
+
 from __future__ import annotations
 
 import pytest
@@ -36,8 +37,9 @@ def test_delete_backlog_with_selection_removes_only_selected_e2e(client, workspa
     a = client.post("/api/backlog", json={"story": "A"}).json()["id"]
     b = client.post("/api/backlog", json={"story": "B"}).json()["id"]
     c = client.post("/api/backlog", json={"story": "C"}).json()["id"]
-    r = client.request("DELETE", "/api/backlog",
-                       json={"id": b, "action": "start_development"})
+    r = client.request(
+        "DELETE", "/api/backlog", json={"id": b, "action": "start_development"}
+    )
     assert r.status_code == 200, r.text
     assert r.json()["workflow_started"] is True
     ids = [e["id"] for e in client.get("/api/backlog").json()["entries"]]

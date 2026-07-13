@@ -4,6 +4,7 @@ Mounted at /api/tasks. Adds an *internal* GET endpoint to read current state
 + revision (NOT listed in interfaces.md §1.2, see session note 2026-07-11 for
 why). PATCH toggles via WorkspaceSecurity.write for allowlist enforcement.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,8 +39,11 @@ def _is_writable(ws_root: Path, path: Path) -> bool:
         return False
     return rel.name in WRITABLE_BASENAMES
 
+
 # Match markdown task lines that look like:  "- [x] Valid" / "- [ ] Testable"
-_TASK_RE = re.compile(r"^(\s*)-\s+\[(?P<mark>[ xX])\]\s+(?P<name>\S+)\s*$", re.MULTILINE)
+_TASK_RE = re.compile(
+    r"^(\s*)-\s+\[(?P<mark>[ xX])\]\s+(?P<name>\S+)\s*$", re.MULTILINE
+)
 
 
 def _scan_tasks(content: str) -> dict[str, bool]:
@@ -79,20 +83,26 @@ async def get_task_state(request: Request) -> JSONResponse:
     fr_id = request.path_params["fr_id"]
     doc_path = request.query_params.get("document_path", "")
     if not doc_path:
-        return JSONResponse({"error_code": "VALIDATION_ERROR",
-                             "message": "document_path required"}, status_code=400)
+        return JSONResponse(
+            {"error_code": "VALIDATION_ERROR", "message": "document_path required"},
+            status_code=400,
+        )
     ws = Path.cwd().resolve()
     sec = WorkspaceSecurity(ws)
     try:
         fc = sec.read(Path(doc_path))
     except SecurityError as e:
-        return JSONResponse({"error_code": e.code, "message": e.message}, status_code=403)
-    return JSONResponse({
-        "fr_id": fr_id,
-        "document_path": doc_path,
-        "tasks": _scan_tasks(fc.content),
-        "revision": fc.revision,
-    })
+        return JSONResponse(
+            {"error_code": e.code, "message": e.message}, status_code=403
+        )
+    return JSONResponse(
+        {
+            "fr_id": fr_id,
+            "document_path": doc_path,
+            "tasks": _scan_tasks(fc.content),
+            "revision": fc.revision,
+        }
+    )
 
 
 async def patch_task(request: Request) -> JSONResponse:
@@ -111,34 +121,55 @@ async def patch_task(request: Request) -> JSONResponse:
     checked = bool(body.get("checked", False))
     revision = body.get("revision")
     if not doc_path or task not in _VALID_TASKS:
-        return JSONResponse({"error_code": "VALIDATION_ERROR",
-                             "message": "document_path and valid task required"}, status_code=400)
+        return JSONResponse(
+            {
+                "error_code": "VALIDATION_ERROR",
+                "message": "document_path and valid task required",
+            },
+            status_code=400,
+        )
     ws = Path.cwd().resolve()
     sec = WorkspaceSecurity(ws)
     try:
         fc = sec.read(Path(doc_path))
     except SecurityError as e:
-        return JSONResponse({"error_code": e.code, "message": e.message}, status_code=403)
+        return JSONResponse(
+            {"error_code": e.code, "message": e.message}, status_code=403
+        )
     # Writable allowlist check before task lookup: non-design-docs are
     # FILE_READ_ONLY regardless of what's inside them.
     if not _is_writable(ws, fc.path):
-        return JSONResponse({"error_code": "FILE_READ_ONLY",
-                             "message": f"{doc_path} not in writable allowlist"}, status_code=403)
+        return JSONResponse(
+            {
+                "error_code": "FILE_READ_ONLY",
+                "message": f"{doc_path} not in writable allowlist",
+            },
+            status_code=403,
+        )
     new_content = _replace_task(fc.content, task, checked)
     if new_content is None:
-        return JSONResponse({"error_code": "TASK_NOT_FOUND",
-                             "message": f"task {task} not found in {doc_path}"}, status_code=404)
+        return JSONResponse(
+            {
+                "error_code": "TASK_NOT_FOUND",
+                "message": f"task {task} not found in {doc_path}",
+            },
+            status_code=404,
+        )
     try:
         new_rev = sec.write(Path(doc_path), new_content, revision=revision)
     except SecurityError as e:
         status = 409 if e.code == "REVISION_CONFLICT" else 403
-        return JSONResponse({"error_code": e.code, "message": e.message}, status_code=status)
-    return JSONResponse({
-        "fr_id": fr_id,
-        "document_path": doc_path,
-        "tasks": _scan_tasks(new_content),
-        "revision": new_rev,
-    })
+        return JSONResponse(
+            {"error_code": e.code, "message": e.message}, status_code=status
+        )
+    return JSONResponse(
+        {
+            "fr_id": fr_id,
+            "document_path": doc_path,
+            "tasks": _scan_tasks(new_content),
+            "revision": new_rev,
+        }
+    )
 
 
 app.add_route("/api/tasks/{fr_id}", get_task_state, methods=["GET"])

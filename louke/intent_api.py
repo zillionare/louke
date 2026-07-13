@@ -1,4 +1,5 @@
 """FR-0201: 用户指令意图分类与路由. 纯规则/关键词分类, 不用 LLM, 不真触发 Backlog/Maestro."""
+
 from __future__ import annotations
 
 import re
@@ -11,16 +12,42 @@ from starlette.responses import JSONResponse
 
 # Intent 关键词正则 (中英文, 用 search 匹配, 命中数驱动 confidence)
 _STORY_PATTERNS = [
-    r"新做", r"做个", r"开发", r"做一个", r"实现", r"加个", r"增加",
-    r"build", r"create", r"implement", r"develop",
+    r"新做",
+    r"做个",
+    r"开发",
+    r"做一个",
+    r"实现",
+    r"加个",
+    r"增加",
+    r"build",
+    r"create",
+    r"implement",
+    r"develop",
 ]
 _SPEC_PATTERNS = [
-    r"改\s*spec", r"修改\s*spec", r"改一下", r"spec\s*改", r"acceptance\s*改",
-    r"改\s*AC", r"spec\s*变", r"update\s*spec", r"revise\s*spec", r"change\s*spec",
+    r"改\s*spec",
+    r"修改\s*spec",
+    r"改一下",
+    r"spec\s*改",
+    r"acceptance\s*改",
+    r"改\s*AC",
+    r"spec\s*变",
+    r"update\s*spec",
+    r"revise\s*spec",
+    r"change\s*spec",
 ]
 _BUG_PATTERNS = [
-    r"修.*bug", r"fix", r"修复", r"报错", r"异常", r"挂了", r"崩了",
-    r"broken", r"crash", r"修一下", r"出错了",
+    r"修.*bug",
+    r"fix",
+    r"修复",
+    r"报错",
+    r"异常",
+    r"挂了",
+    r"崩了",
+    r"broken",
+    r"crash",
+    r"修一下",
+    r"出错了",
 ]
 
 _CLARIFY_QUESTION = "请问您想做: 新功能 / 改 spec / 修 bug?"
@@ -30,6 +57,7 @@ _STORY_CLARIFY_QUESTION = "请问您想立即进入开发, 还是先存入 backl
 @dataclass
 class IntentRouteResult:
     """意图路由结果。executed 永远 False (本期不真执行), execution_id 永远 None。"""
+
     intent: str  # "story" | "spec_change" | "bug_fix" | "unknown"
     confidence: float
     proposed_action: str  # "choose_story_destination" | "spec_change" | "fix" | "clarify" | "start_development" | "save_backlog"
@@ -50,8 +78,11 @@ def classify(input_str: str) -> IntentRouteResult:
     """
     if not input_str or not input_str.strip():
         return IntentRouteResult(
-            intent="unknown", confidence=0.0, proposed_action="clarify",
-            requires_confirmation=True, clarification_question=_CLARIFY_QUESTION,
+            intent="unknown",
+            confidence=0.0,
+            proposed_action="clarify",
+            requires_confirmation=True,
+            clarification_question=_CLARIFY_QUESTION,
             executed=False,
         )
     s = input_str.lower()
@@ -61,24 +92,35 @@ def classify(input_str: str) -> IntentRouteResult:
 
     if spec_hits > 0 and spec_hits >= max(story_hits, bug_hits):
         return IntentRouteResult(
-            intent="spec_change", confidence=min(0.95, 0.6 + spec_hits * 0.15),
-            proposed_action="spec_change", requires_confirmation=True,
+            intent="spec_change",
+            confidence=min(0.95, 0.6 + spec_hits * 0.15),
+            proposed_action="spec_change",
+            requires_confirmation=True,
             executed=False,
         )
     if bug_hits > 0 and bug_hits >= max(story_hits, spec_hits):
         return IntentRouteResult(
-            intent="bug_fix", confidence=min(0.95, 0.6 + bug_hits * 0.15),
-            proposed_action="fix", requires_confirmation=True, executed=False,
+            intent="bug_fix",
+            confidence=min(0.95, 0.6 + bug_hits * 0.15),
+            proposed_action="fix",
+            requires_confirmation=True,
+            executed=False,
         )
     if story_hits > 0:
         return IntentRouteResult(
-            intent="story", confidence=min(0.95, 0.6 + story_hits * 0.15),
-            proposed_action="choose_story_destination", requires_confirmation=True,
-            clarification_question=_STORY_CLARIFY_QUESTION, executed=False,
+            intent="story",
+            confidence=min(0.95, 0.6 + story_hits * 0.15),
+            proposed_action="choose_story_destination",
+            requires_confirmation=True,
+            clarification_question=_STORY_CLARIFY_QUESTION,
+            executed=False,
         )
     return IntentRouteResult(
-        intent="unknown", confidence=0.0, proposed_action="clarify",
-        requires_confirmation=True, clarification_question=_CLARIFY_QUESTION,
+        intent="unknown",
+        confidence=0.0,
+        proposed_action="clarify",
+        requires_confirmation=True,
+        clarification_question=_CLARIFY_QUESTION,
         executed=False,
     )
 

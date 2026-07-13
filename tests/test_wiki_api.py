@@ -10,6 +10,7 @@
 - 产物写到 <cwd>/.louke/project/wiki/{type}.md (louke.paths.wiki_path)
 - markdown 中含 [source: ...] provenance 链接
 """
+
 import pytest
 from louke.wiki_api import app
 from louke.paths import wiki_path
@@ -27,7 +28,8 @@ def workspace(tmp_path):
         encoding="utf-8",
     )
     (ws / ".louke" / "project" / "specs" / "specB" / "spec.md").write_text(
-        "## FR-0100 Other\n\nContent.\n", encoding="utf-8",
+        "## FR-0100 Other\n\nContent.\n",
+        encoding="utf-8",
     )
     return ws
 
@@ -36,10 +38,12 @@ def workspace(tmp_path):
 def client(workspace, monkeypatch):
     monkeypatch.chdir(workspace)
     from starlette.testclient import TestClient
+
     return TestClient(app)
 
 
 # ---- GET /api/wiki/{type} tests ----
+
 
 def test_get_wiki_spec_returns_page(client, workspace):
     """AC-FR0301-01: GET /api/wiki/spec?include_content=true after build -> 200 WikiPage."""
@@ -73,6 +77,7 @@ def test_get_wiki_no_sources_returns_404(tmp_path, monkeypatch):
     (ws / ".louke" / "project" / "specs").mkdir(parents=True)
     monkeypatch.chdir(ws)
     from starlette.testclient import TestClient
+
     c = TestClient(app)
     r = c.get("/api/wiki/spec")
     assert r.status_code == 404
@@ -101,6 +106,7 @@ def test_get_wiki_canonical_five_types(client, workspace):
 
 # ---- PUT /api/wiki/{type} tests ----
 
+
 def test_put_wiki_unchanged_when_source_digest_same(client, workspace):
     """AC-FR0301-05 + state machine: second PUT with same digest -> status=unchanged."""
     r1 = client.put("/api/wiki/spec", json={"trigger": "manual"})
@@ -116,7 +122,8 @@ def test_put_wiki_triggers_rebuild_after_source_change(client, workspace):
     client.put("/api/wiki/spec", json={"trigger": "manual"})
     # Modify a source spec.md
     (workspace / ".louke" / "project" / "specs" / "specA" / "spec.md").write_text(
-        "## FR-0001 Test Feature\n\nCHANGED content.\n", encoding="utf-8",
+        "## FR-0001 Test Feature\n\nCHANGED content.\n",
+        encoding="utf-8",
     )
     r2 = client.put("/api/wiki/spec", json={"trigger": "manual"})
     assert r2.status_code == 202
@@ -139,6 +146,7 @@ def test_put_wiki_invalid_type_returns_400(client):
 
 # ---- wiki file artifact tests ----
 
+
 def test_wiki_markdown_file_written_to_project_wiki_dir(client, workspace):
     """AC-FR0301-01 + decision: PUT writes to .louke/project/wiki/{type}.md via wiki_path."""
     client.put("/api/wiki/spec", json={"trigger": "manual"})
@@ -149,6 +157,7 @@ def test_wiki_markdown_file_written_to_project_wiki_dir(client, workspace):
 
 
 # ---- provenance / source links ----
+
 
 def test_wiki_markdown_contains_source_links(client, workspace):
     """AC-FR0301-02 + AC-FR0301-03 minimal: markdown contains [source: ...#anchor] links.

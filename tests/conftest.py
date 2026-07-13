@@ -3,7 +3,6 @@
 Registers project-level markers (e.g. ``e2e``) so that ``-m e2e`` selection
 and ``--markers`` listing work without an explicit pytest.ini.
 """
-import pytest
 
 
 def pytest_configure(config):

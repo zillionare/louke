@@ -8,6 +8,7 @@ Implements:
 
 Contracts: see .louke/project/specs/v0.11-001-web-ide/interfaces.md §1.4 + §4.2
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -116,7 +117,9 @@ class WorkspaceSecurity:
         if len(parts) < 5 or parts[0] != ".louke" or parts[1] != "project":
             raise SecurityError("FILE_READ_ONLY", f"{path} not in writable allowlist")
         if rel.name not in WRITABLE_BASENAMES:
-            raise SecurityError("FILE_READ_ONLY", f"{rel.name} not in writable allowlist")
+            raise SecurityError(
+                "FILE_READ_ONLY", f"{rel.name} not in writable allowlist"
+            )
         if rp.exists() and revision is not None:
             cur_rev = _revision_of(rp)
             if cur_rev != revision:

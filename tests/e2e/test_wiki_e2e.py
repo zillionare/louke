@@ -4,6 +4,7 @@ v0.11 minimal wiki API: synchronous build (no SSE pipeline), 5 canonical types
 (story/spec/test-plan/architecture/interfaces), source digest in sidecar file,
 provenance links in built markdown.
 """
+
 from __future__ import annotations
 
 import pytest

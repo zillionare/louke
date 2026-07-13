@@ -1,4 +1,5 @@
 """FR-0701 + FR-0801: workspace files / diff / documents / binary rejection e2e."""
+
 from __future__ import annotations
 
 import subprocess

@@ -4,6 +4,7 @@
 源: <cwd>/.louke/project/specs/*/spec.md (本期只聚合 spec.md, 未来按 wiki_type 路由)
 产物: <cwd>/.louke/project/wiki/{type}.md (louke.paths.wiki_path)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -104,26 +105,36 @@ async def get_wiki(request: Request) -> JSONResponse:
     wiki_type = request.path_params["type"]
     if wiki_type not in WIKI_TYPES:
         return JSONResponse(
-            {"error_code": "WIKI_TYPE_INVALID",
-             "message": f"type must be one of {sorted(WIKI_TYPES)}, got {wiki_type!r}"},
+            {
+                "error_code": "WIKI_TYPE_INVALID",
+                "message": f"type must be one of {sorted(WIKI_TYPES)}, got {wiki_type!r}",
+            },
             status_code=400,
         )
     specs_root = _specs_root()
     if not _has_sources(specs_root):
         return JSONResponse(
-            {"error_code": "WIKI_SOURCE_NOT_FOUND",
-             "message": "no .louke/project/specs/*/spec.md found"},
+            {
+                "error_code": "WIKI_SOURCE_NOT_FOUND",
+                "message": "no .louke/project/specs/*/spec.md found",
+            },
             status_code=404,
         )
     md_path = wiki_path(wiki_type)
-    include_content = request.query_params.get("include_content", "true").lower() != "false"
+    include_content = (
+        request.query_params.get("include_content", "true").lower() != "false"
+    )
     status = "fresh" if md_path.exists() else "stale"
     body: dict[str, Any] = {
         "type": wiki_type,
         "status": status,
-        "markdown": md_path.read_text(encoding="utf-8") if (include_content and md_path.exists()) else "",
+        "markdown": md_path.read_text(encoding="utf-8")
+        if (include_content and md_path.exists())
+        else "",
         "sources": _collect_sources(specs_root),
-        "updated_at": datetime.now(timezone.utc).isoformat() if md_path.exists() else None,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+        if md_path.exists()
+        else None,
     }
     return JSONResponse(body)
 
@@ -138,29 +149,39 @@ async def put_wiki(request: Request) -> JSONResponse:
     wiki_type = request.path_params["type"]
     if wiki_type not in WIKI_TYPES:
         return JSONResponse(
-            {"error_code": "WIKI_TYPE_INVALID",
-             "message": f"type must be one of {sorted(WIKI_TYPES)}, got {wiki_type!r}"},
+            {
+                "error_code": "WIKI_TYPE_INVALID",
+                "message": f"type must be one of {sorted(WIKI_TYPES)}, got {wiki_type!r}",
+            },
             status_code=400,
         )
     body = await request.json()
     trigger = body.get("trigger")
     if trigger not in ("manual", "scheduled"):
         return JSONResponse(
-            {"error_code": "VALIDATION_ERROR",
-             "message": "trigger must be 'manual' or 'scheduled'"},
+            {
+                "error_code": "VALIDATION_ERROR",
+                "message": "trigger must be 'manual' or 'scheduled'",
+            },
             status_code=400,
         )
     specs_root = _specs_root()
     if not _has_sources(specs_root):
         return JSONResponse(
-            {"error_code": "WIKI_SOURCE_NOT_FOUND",
-             "message": "no .louke/project/specs/*/spec.md found"},
+            {
+                "error_code": "WIKI_SOURCE_NOT_FOUND",
+                "message": "no .louke/project/specs/*/spec.md found",
+            },
             status_code=404,
         )
     digest = _source_digest(specs_root)
     md_path = wiki_path(wiki_type)
     digest_path = md_path.with_suffix(".digest")
-    stored = digest_path.read_text(encoding="utf-8").strip() if digest_path.exists() else None
+    stored = (
+        digest_path.read_text(encoding="utf-8").strip()
+        if digest_path.exists()
+        else None
+    )
     if stored == digest:
         return JSONResponse(
             {"build_id": str(uuid.uuid4()), "type": wiki_type, "status": "unchanged"},

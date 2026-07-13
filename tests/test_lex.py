@@ -40,12 +40,15 @@ def _patch_env(monkeypatch, project_url):
     - ``subprocess.check_output`` for the item-list call -> a minimal items JSON
     """
     monkeypatch.setattr(
-        lex, "_read_project_info", lambda label: project_url if label == "Project ID" else ""
+        lex,
+        "_read_project_info",
+        lambda label: project_url if label == "Project ID" else "",
     )
     monkeypatch.setattr(
         lex, "_extract_frs_from_spec", lambda spec_id: ("spec-text", ["0001"])
     )
     monkeypatch.setattr(lex, "_resolve_repo", lambda args: "quantclaws/louke")
+
     def _fake_check_output(cmd, *a, **kw):
         # item-list -> items payload; issue list -> empty issue array.
         if "item-list" in cmd:
@@ -155,7 +158,9 @@ def _patch_env_cross_spec(monkeypatch, project_url, issues):
     The mirror issue is linked to the project; the v0.11-era issue is not.
     """
     monkeypatch.setattr(
-        lex, "_read_project_info", lambda label: project_url if label == "Project ID" else ""
+        lex,
+        "_read_project_info",
+        lambda label: project_url if label == "Project ID" else "",
     )
     monkeypatch.setattr(
         lex, "_extract_frs_from_spec", lambda spec_id: ("spec-text", ["0101"])
@@ -163,9 +168,7 @@ def _patch_env_cross_spec(monkeypatch, project_url, issues):
     monkeypatch.setattr(lex, "_resolve_repo", lambda args: "zillionare/louke")
 
     linked_url = issues[0]["url"]  # mirror issue is linked
-    items_payload = json.dumps(
-        [{"content": {"url": linked_url}, "url": linked_url}]
-    )
+    items_payload = json.dumps([{"content": {"url": linked_url}, "url": linked_url}])
 
     def _fake_check_output(cmd, *a, **kw):
         if "item-list" in cmd:
