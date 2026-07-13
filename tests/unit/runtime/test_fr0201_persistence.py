@@ -131,3 +131,33 @@ def test_ac_fr0201_02_committed_step_is_idempotent_after_resume(tmp_path):
         if event.type == "step.transition"
     ]
     assert len(reloaded_events) == 1
+
+
+def test_ac_fr0201_03_uncertain_interruption_enters_needs_attention(tmp_path):
+    """AC-FR0201-03: an uncertain crash position becomes needs_attention, not auto-success."""
+    registry = DefinitionRegistry()
+    definition = registry.register(_program_step_definition())
+
+    db_path = tmp_path / ".louke" / "runtime" / "state.sqlite3"
+    store = WorkflowRunStore(db_path=str(db_path), catalog=registry)
+    run = store.create_run(definition)
+
+    store.record_step_attempt(
+        run_id=run.run_id,
+        step_id=run.current_step,
+        idempotency_key="exec-uncertain",
+        status="started",
+    )
+
+    from louke.runtime.recovery import recover_run
+
+    recovered = recover_run(store, run.run_id)
+
+    assert recovered.status == "needs_attention"
+    assert recovered.current_step == run.current_step
+    assert recovered.revision == run.revision + 1
+    assert recovered.contract_digest == run.contract_digest
+
+    reloaded = store.get_run(run.run_id)
+    assert reloaded.status == "needs_attention"
+    assert reloaded.current_step == run.current_step
