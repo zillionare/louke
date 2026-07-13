@@ -8,7 +8,10 @@ or persist run state.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+    from louke.runtime.program_steps import HandlerRegistry
 
 SUPPORTED_STEP_KINDS: frozenset[str] = frozenset(
     {"program", "human_gate", "semantic_task", "decision"}
@@ -57,12 +60,16 @@ class Step:
         kind: One of the supported step kinds in ``SUPPORTED_STEP_KINDS``.
         required: Whether the step must be reachable from ``start_step``.
         transitions: Outgoing edges to subsequent steps.
+        handler: Registered handler name for ``program`` steps.
+        shell: Forbidden shell command field; rejected by validation.
     """
 
     step_id: str
     kind: str
     required: bool = True
     transitions: tuple[Edge, ...] = field(default_factory=tuple)
+    handler: str | None = None
+    shell: str | None = None
 
 
 @dataclass(frozen=True)
@@ -101,15 +108,20 @@ class DefinitionValidationError:
 
 def validate_definition(
     definition: WorkflowDefinition,
+    handler_registry: HandlerRegistry | None = None,
 ) -> list[DefinitionValidationError]:
     """Validate ``definition`` and return a list of stable, locatable errors.
 
     The validator checks the five invalid situations required by AC-FR0001-01:
     unknown step, dangling transition, duplicate step/edge id,
-    unreachable required step and unsupported step type.
+    unreachable required step and unsupported step type.  When
+    ``handler_registry`` is supplied, program steps are also checked for
+    registered handlers and forbidden shell command fields (AC-FR0301-01).
 
     Args:
         definition: The workflow definition to validate.
+        handler_registry: Optional registry used to validate program step
+            handler references.
 
     Returns:
         A list of ``DefinitionValidationError``; empty for a valid definition.
@@ -121,6 +133,7 @@ def validate_definition(
     _check_duplicate_step_ids(definition.steps, errors)
     _check_steps_and_edges(definition, step_ids, errors)
     _check_unreachable_required_steps(definition, errors)
+    _check_program_steps(definition, handler_registry, errors)
 
     return errors
 
@@ -213,6 +226,43 @@ def _check_unreachable_required_steps(
                 DefinitionValidationError(
                     code="unreachable_required_step",
                     message=f"required step '{step.step_id}' is unreachable",
+                    step_id=step.step_id,
+                )
+            )
+
+
+def _check_program_steps(
+    definition: WorkflowDefinition,
+    handler_registry: HandlerRegistry | None,
+    errors: list[DefinitionValidationError],
+) -> None:
+    """Reject program steps with unregistered handlers or shell commands."""
+    for step in definition.steps:
+        if step.kind != "program":
+            continue
+
+        if step.shell is not None:
+            errors.append(
+                DefinitionValidationError(
+                    code="shell_command_forbidden",
+                    message=(
+                        f"step '{step.step_id}' contains a forbidden shell command"
+                    ),
+                    step_id=step.step_id,
+                )
+            )
+
+        if handler_registry is None:
+            continue
+
+        if step.handler is None or step.handler not in handler_registry:
+            errors.append(
+                DefinitionValidationError(
+                    code="unregistered_handler",
+                    message=(
+                        f"step '{step.step_id}' references unregistered handler "
+                        f"{step.handler!r}"
+                    ),
                     step_id=step.step_id,
                 )
             )
