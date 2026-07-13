@@ -96,7 +96,7 @@ class ContextManifestBuilder:
         store: The workflow run store (used to persist manifests and results).
     """
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Any | None = None) -> None:
         self._store = store
         self._manifests: dict[tuple[str, str], ContextManifest] = {}
         self._results: dict[tuple[str, str], dict[str, Any]] = {}
