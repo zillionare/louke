@@ -154,6 +154,17 @@ class ResponsibilityCatalog:
             output_schema=dict(output_schema),
         )
 
+    def _lookup(self, name: str) -> ResponsibilityEntry:
+        """Return the catalog entry for ``name``.
+
+        Raises:
+            UnknownResponsibilityError: If ``name`` is not in the catalog.
+        """
+        entry = self._entries.get(name)
+        if entry is None:
+            raise UnknownResponsibilityError(f"unknown responsibility {name!r}")
+        return entry
+
     def kind_of(self, name: str) -> ResponsibilityKind:
         """Return the kind of the responsibility ``name``.
 
@@ -166,10 +177,7 @@ class ResponsibilityCatalog:
         Raises:
             UnknownResponsibilityError: If ``name`` is not in the catalog.
         """
-        entry = self._entries.get(name)
-        if entry is None:
-            raise UnknownResponsibilityError(f"unknown responsibility {name!r}")
-        return entry.kind
+        return self._lookup(name).kind
 
     def validate_result(self, name: str, result: dict[str, Any]) -> None:
         """Validate that ``result`` conforms to the declared output schema.
@@ -183,9 +191,7 @@ class ResponsibilityCatalog:
             ValidationError: If ``result`` is missing required keys or contains
                 unexpected keys.
         """
-        entry = self._entries.get(name)
-        if entry is None:
-            raise UnknownResponsibilityError(f"unknown responsibility {name!r}")
+        entry = self._lookup(name)
         expected = set(entry.output_schema.keys())
         actual = set(result.keys())
         if expected != actual:
