@@ -480,6 +480,17 @@ class WorkflowRunStore:
                     f"ALTER TABLE workflow_events ADD COLUMN {column} {dtype}"
                 )
 
+    @property
+    def schema_columns(self) -> tuple[str, ...]:
+        """Return the column names of the ``workflow_runs`` table.
+
+        This is a stable introspection hook used by contract tests to verify
+        that runtime state is independent of legacy project metadata fields
+        such as ``project.toml current_stage``.
+        """
+        rows = self._conn.execute("PRAGMA table_info(workflow_runs)").fetchall()
+        return tuple(row["name"] for row in rows)
+
     def create_run(self, definition: WorkflowDefinition) -> WorkflowRun:
         """Create and persist a WorkflowRun bound to ``definition``.
 
