@@ -7,16 +7,19 @@ catalog before a run is created and never mutates a definition after creation.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 from louke.runtime.catalog import (
     DefinitionInvalidError,
     DefinitionRegistry,
     WorkflowDefinition,
+    derive_status,
     validate_definition,
 )
 from louke.runtime.domain import (
@@ -39,7 +42,8 @@ class WorkflowRun:
         definition_version: The immutable definition version the run is bound to.
         current_step: The step the run is currently positioned at.
         revision: Monotonic revision starting at 0 for the initial record.
-        status: Run lifecycle status (e.g. ``created``).
+        status: Run lifecycle status (e.g. ``waiting_for_human``).
+        contract_digest: Deterministic digest of the bound definition.
         created_at: ISO 8601 UTC timestamp of run creation.
         updated_at: ISO 8601 UTC timestamp of the last update.
     """
@@ -50,6 +54,7 @@ class WorkflowRun:
     current_step: str
     revision: int
     status: str
+    contract_digest: str
     created_at: str
     updated_at: str
 
@@ -61,12 +66,15 @@ _RUN_COLUMNS: tuple[str, ...] = (
     "current_step",
     "revision",
     "status",
+    "contract_digest",
     "created_at",
     "updated_at",
 )
 
 
-def _run_to_tuple(run: WorkflowRun) -> tuple[str, str, str, str, int, str, str, str]:
+def _run_to_tuple(
+    run: WorkflowRun,
+) -> tuple[str, str, str, str, int, str, str, str, str]:
     """Return a tuple matching ``_RUN_COLUMNS`` for the given ``run``."""
     return (
         run.run_id,
@@ -75,6 +83,7 @@ def _run_to_tuple(run: WorkflowRun) -> tuple[str, str, str, str, int, str, str, 
         run.current_step,
         run.revision,
         run.status,
+        run.contract_digest,
         run.created_at,
         run.updated_at,
     )
@@ -89,6 +98,7 @@ def _row_to_run(row: sqlite3.Row) -> WorkflowRun:
         current_step=row["current_step"],
         revision=row["revision"],
         status=row["status"],
+        contract_digest=row["contract_digest"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -110,6 +120,39 @@ def _row_to_event(row: sqlite3.Row) -> WorkflowEvent:
     )
 
 
+def _definition_digest(definition: WorkflowDefinition) -> str:
+    """Return a deterministic digest of ``definition``.
+
+    The digest covers the definition id, version, start step and the full
+    step/transition graph so that equal definitions always produce the same
+    digest and any structural change produces a different digest.
+    """
+    payload = {
+        "definition_id": definition.definition_id,
+        "version": definition.version,
+        "start_step": definition.start_step,
+        "steps": [
+            {
+                "step_id": step.step_id,
+                "kind": step.kind,
+                "required": step.required,
+                "transitions": [
+                    {
+                        "edge_id": edge.edge_id,
+                        "from_step": edge.from_step,
+                        "to_step": edge.to_step,
+                        "condition": edge.condition,
+                    }
+                    for edge in step.transitions
+                ],
+            }
+            for step in definition.steps
+        ],
+    }
+    content = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return f"sha256:{hashlib.sha256(content.encode()).hexdigest()}"
+
+
 class WorkflowRunStore:
     """SQLite-backed store for WorkflowRun records.
 
@@ -126,7 +169,10 @@ class WorkflowRunStore:
         db_path: str | None = None,
         catalog: DefinitionRegistry | None = None,
     ) -> None:
-        self._conn = sqlite3.connect(db_path or ":memory:")
+        self._db_path = db_path or ":memory:"
+        if self._db_path != ":memory:":
+            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(self._db_path)
         self._conn.row_factory = sqlite3.Row
         self._catalog = catalog
         self._initialize_schema()
@@ -141,6 +187,7 @@ class WorkflowRunStore:
                 current_step TEXT NOT NULL,
                 revision INTEGER NOT NULL,
                 status TEXT NOT NULL,
+                contract_digest TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -190,7 +237,8 @@ class WorkflowRunStore:
             definition_version=definition.version,
             current_step=definition.start_step,
             revision=0,
-            status="created",
+            status=derive_status(definition.start_step, definition),
+            contract_digest=_definition_digest(definition),
             created_at=now,
             updated_at=now,
         )
@@ -221,6 +269,17 @@ class WorkflowRunStore:
         if row is None:
             raise RunNotFoundError(f"run {run_id!r} not found")
         return _row_to_run(row)
+
+    def list_runs(self) -> tuple[WorkflowRun, ...]:
+        """Return all persisted workflow runs ordered by ``updated_at`` desc."""
+        rows = self._conn.execute(
+            "SELECT * FROM workflow_runs ORDER BY updated_at DESC"
+        ).fetchall()
+        return tuple(_row_to_run(row) for row in rows)
+
+    def close(self) -> None:
+        """Close the underlying database connection."""
+        self._conn.close()
 
     def update_run(
         self,

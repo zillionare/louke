@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from louke.runtime.catalog import Edge, Step, WorkflowDefinition
+from louke.runtime.catalog import Edge, Step, WorkflowDefinition, derive_status
 from dataclasses import dataclass
 
 from louke.runtime.domain import (
@@ -96,6 +96,7 @@ class WorkflowOrchestrator:
                 current_step=edge.to_step,
                 revision=run.revision,
                 status=new_status,
+                contract_digest=run.contract_digest,
                 created_at=run.created_at,
                 updated_at=run.updated_at,
             ),
@@ -159,10 +160,7 @@ def _transitions_for_result(step: Step, result: str) -> list[Edge]:
 
 
 def _derive_status(current_step: str, definition: WorkflowDefinition) -> str:
-    step = _step_by_id(definition, current_step)
-    if not step.transitions:
-        return "completed"
-    return "in_progress"
+    return derive_status(current_step, definition)
 
 
 def _build_event(

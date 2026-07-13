@@ -239,6 +239,30 @@ def _reachable_step_ids(definition: WorkflowDefinition) -> set[str]:
     return reachable
 
 
+def derive_status(step_id: str, definition: WorkflowDefinition) -> str:
+    """Return the runtime status for a run positioned at ``step_id``.
+
+    Args:
+        step_id: The step the run is currently positioned at.
+        definition: The bound workflow definition.
+
+    Returns:
+        ``waiting_for_human`` for ``human_gate`` steps, ``completed`` for
+        terminal steps and ``in_progress`` for all other steps.
+    """
+    step = next(
+        (step for step in definition.steps if step.step_id == step_id),
+        None,
+    )
+    if step is None:
+        return "in_progress"
+    if step.kind == "human_gate":
+        return "waiting_for_human"
+    if not step.transitions:
+        return "completed"
+    return "in_progress"
+
+
 class DefinitionRegistry:
     """Immutable versioned catalog of workflow definitions.
 
