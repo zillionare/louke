@@ -123,13 +123,7 @@ class InitWizard:
 
         if not self._initialized:
             self._initialized = True
-            new_resources = [".louke/project/project.toml", ".louke/store"]
-            for resource in new_resources:
-                if resource in self._existing_files:
-                    conflicts.append(resource)
-                elif resource not in self._resources:
-                    self._resources.add(resource)
-                    created.append(resource)
+            created, conflicts = self._create_default_resources()
             self._log("init wizard completed")
         else:
             self._log("init wizard re-run; no new resources created")
@@ -142,6 +136,22 @@ class InitWizard:
             created_resources=created,
             conflicts=conflicts,
         )
+
+    def _create_default_resources(self) -> tuple[list[str], list[str]]:
+        """Create default metadata resources unless they already exist.
+
+        Returns:
+            Tuple of (created resources, conflicting resources).
+        """
+        created: list[str] = []
+        conflicts: list[str] = []
+        for resource in (".louke/project/project.toml", ".louke/store"):
+            if resource in self._existing_files:
+                conflicts.append(resource)
+            elif resource not in self._resources:
+                self._resources.add(resource)
+                created.append(resource)
+        return created, conflicts
 
     def create_first_principal(self, principal: WorkspacePrincipal) -> None:
         """Create the first local human principal.
