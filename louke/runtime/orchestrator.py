@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from louke.runtime.catalog import Edge, Step, WorkflowDefinition, derive_status
+from louke.runtime.contract_gates import RequirementGateCoordinator
 from louke.runtime.domain import (
     IllegalTransitionError,
     RevisionConflictError,
@@ -18,7 +19,7 @@ from louke.runtime.events import EventBuilder, digest_value
 from louke.runtime.store import WorkflowRun, WorkflowRunStore
 
 if TYPE_CHECKING:
-    from louke.runtime.gates import GateService
+    from louke.runtime.gates import Gate, GateService
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +40,11 @@ class WorkflowOrchestrator:
     ) -> None:
         self._store = store
         self._gate_service = gate_service
+        self._requirements_coordinator: RequirementGateCoordinator | None = None
+        if gate_service is not None:
+            self._requirements_coordinator = RequirementGateCoordinator(
+                store, gate_service
+            )
 
     def apply_command(
         self,
@@ -137,6 +143,37 @@ class WorkflowOrchestrator:
                 event_id=event.event_id,
             )
         return TransitionOutcome(run=committed_run, event=event)
+
+    def ensure_requirements_gate(
+        self,
+        run_id: str,
+        story_digest: str,
+        spec_digest: str,
+        acceptance_digest: str,
+    ) -> "Gate":
+        """Ensure the requirements approval gate is bound to the current digest.
+
+        Args:
+            run_id: The run to ensure the gate for.
+            story_digest: Digest of the story document.
+            spec_digest: Digest of the spec document.
+            acceptance_digest: Digest of the acceptance document.
+
+        Returns:
+            The active requirements gate record.
+
+        Raises:
+            RuntimeError: If the orchestrator was created without a gate
+                service.
+        """
+        if self._requirements_coordinator is None:
+            raise RuntimeError("orchestrator has no gate service")
+        return self._requirements_coordinator.ensure_gate(
+            run_id=run_id,
+            story_digest=story_digest,
+            spec_digest=spec_digest,
+            acceptance_digest=acceptance_digest,
+        )
 
     def apply_gate_decision(
         self,
