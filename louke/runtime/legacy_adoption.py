@@ -64,6 +64,9 @@ class WorkflowRunRef:
     version: str
 
 
+_INCOMPATIBLE_AFTER_COMMIT = frozenset({"current_stage"})
+
+
 class MigrationWizard:
     """Wizard for adopting a pre-v0.12 workspace."""
 
@@ -175,7 +178,11 @@ class MigrationWizard:
         Raises:
             RuntimeError: If the command is incompatible after commit.
         """
-        if self._committed and not self._rolled_back and command == "current_stage":
+        if (
+            self._committed
+            and not self._rolled_back
+            and command in _INCOMPATIBLE_AFTER_COMMIT
+        ):
             raise RuntimeError(
                 f"old pipeline command {command!r} is incompatible after migration"
             )
