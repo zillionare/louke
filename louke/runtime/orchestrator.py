@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from louke.runtime.catalog import Edge, Step, WorkflowDefinition, derive_status
-from louke.runtime.contract_gates import RequirementGateCoordinator
+from louke.runtime.contract_gates import (
+    MLockGateCoordinator,
+    RequirementGateCoordinator,
+)
 from louke.runtime.domain import (
     IllegalTransitionError,
     RevisionConflictError,
@@ -41,10 +44,12 @@ class WorkflowOrchestrator:
         self._store = store
         self._gate_service = gate_service
         self._requirements_coordinator: RequirementGateCoordinator | None = None
+        self._m_lock_coordinator: MLockGateCoordinator | None = None
         if gate_service is not None:
             self._requirements_coordinator = RequirementGateCoordinator(
                 store, gate_service
             )
+            self._m_lock_coordinator = MLockGateCoordinator(store, gate_service)
 
     def apply_command(
         self,
@@ -117,6 +122,8 @@ class WorkflowOrchestrator:
             )
 
         edge = matching[0]
+        target_step = _step_by_id(definition, edge.to_step)
+        self._check_implementation_gate(run, target_step, actor)
         new_status = derive_status(edge.to_step, definition)
         new_run = run.with_step(current_step=edge.to_step, status=new_status)
         transition_event = EventBuilder(run).step_transition(
@@ -174,6 +181,44 @@ class WorkflowOrchestrator:
             spec_digest=spec_digest,
             acceptance_digest=acceptance_digest,
         )
+
+    def check_requirements_approval(self, run_id: str) -> "Gate":
+        """Verify that the requirements approval gate is approved for ``run_id``.
+
+        Args:
+            run_id: The run to check.
+
+        Returns:
+            The approved requirements gate.
+
+        Raises:
+            RuntimeError: If the orchestrator was created without a gate
+                service.
+            GateNotApprovedError: If the requirements gate is missing or not
+                approved.
+        """
+        if self._requirements_coordinator is None:
+            raise RuntimeError("orchestrator has no gate service")
+        return self._requirements_coordinator.check_approval(run_id)
+
+    def check_m_lock_approval(self, run_id: str) -> "Gate":
+        """Verify that the M-LOCK gate is approved for ``run_id``.
+
+        Args:
+            run_id: The run to check.
+
+        Returns:
+            The approved M-LOCK gate.
+
+        Raises:
+            RuntimeError: If the orchestrator was created without a gate
+                service.
+            GateNotApprovedError: If the M-LOCK gate is missing or not
+                approved.
+        """
+        if self._m_lock_coordinator is None:
+            raise RuntimeError("orchestrator has no gate service")
+        return self._m_lock_coordinator.check_approval(run_id)
 
     def apply_gate_decision(
         self,
@@ -281,6 +326,48 @@ class WorkflowOrchestrator:
         return GateNotApprovedError(
             f"step '{step.step_id}' is a human gate awaiting a host-authenticated decision"
         )
+
+    def _check_implementation_gate(
+        self,
+        run: WorkflowRun,
+        target_step: Step,
+        actor: dict[str, str] | None,
+    ) -> None:
+        """Block transitions into implementation steps before M-LOCK approval.
+
+        Implementation steps (``semantic_task`` and ``decision``) must not
+        start until the M-LOCK human gate has a current approved decision. The
+        check is skipped when the orchestrator has no gate service, since gate
+        enforcement is only meaningful for runs that carry artifact-bound
+        gates.
+
+        Args:
+            run: The run attempting the transition.
+            target_step: The step the run is trying to enter.
+            actor: Optional actor metadata for the blocked event.
+
+        Raises:
+            GateNotApprovedError: If the target step is an implementation step
+                and the M-LOCK gate is missing or not approved.
+        """
+        from louke.runtime.gates import GateNotApprovedError
+
+        if target_step.kind not in {"semantic_task", "decision"}:
+            return
+
+        if self._m_lock_coordinator is None:
+            return
+
+        try:
+            self._m_lock_coordinator.check_approval(run.run_id)
+        except GateNotApprovedError:
+            blocked_event = EventBuilder(run).step_blocked(
+                step_id=target_step.step_id,
+                reason="implementation steps require M-LOCK approval",
+                actor=actor,
+            )
+            self._store.append_event(blocked_event)
+            raise
 
 
 def _step_by_id(definition: WorkflowDefinition, step_id: str) -> Step:
