@@ -1,10 +1,11 @@
 """InMemoryOpenCodeAdapter - for unit/integration tests (no real OpenCode)."""
+
 from __future__ import annotations
 
 import threading
-from typing import Optional
+from typing import List, Optional
 
-from .adapter import Instance, Message, new_id, OpenCodeAdapter
+from .adapter import Instance, Message, new_id
 
 
 class InMemoryOpenCodeAdapter:
@@ -20,7 +21,7 @@ class InMemoryOpenCodeAdapter:
             self._messages.setdefault(inst.id, [])
             return inst
 
-    def list(self) -> list[Instance]:
+    def list(self) -> List[Instance]:
         with self._lock:
             return list(self._instances.values())
 
@@ -32,33 +33,45 @@ class InMemoryOpenCodeAdapter:
             inst.status = "stopped"
             return inst
 
-    def send_message(self, instance_id: str, content: str, *, correlation_id: str) -> tuple[Message, bool]:
+    def send_message(
+        self, instance_id: str, content: str, *, correlation_id: str
+    ) -> tuple[Message, bool]:
         with self._lock:
             inst = self._instances.get(instance_id)
             if inst is None:
                 raise KeyError(instance_id)
             if inst.status != "running":
-                raise RuntimeError(f"instance {instance_id} not running (status={inst.status})")
+                raise RuntimeError(
+                    f"instance {instance_id} not running (status={inst.status})"
+                )
             user_msg = Message(
-                id=new_id(), instance_id=inst.id, role="user",
-                kind="message", content=content,
+                id=new_id(),
+                instance_id=inst.id,
+                role="user",
+                kind="message",
+                content=content,
             )
             self._messages[inst.id].append(user_msg)
             echo = Message(
-                id=new_id(), instance_id=inst.id, role="assistant",
-                kind="message", content=f"echo: {content}",
+                id=new_id(),
+                instance_id=inst.id,
+                role="assistant",
+                kind="message",
+                content=f"echo: {content}",
             )
             self._messages[inst.id].append(echo)
             return user_msg, True
 
-    def list_messages(self, instance_id: str, *, after_message_id: Optional[str]) -> list[Message]:
+    def list_messages(
+        self, instance_id: str, *, after_message_id: Optional[str]
+    ) -> List[Message]:
         with self._lock:
             msgs = list(self._messages.get(instance_id, []))
         if not after_message_id:
             return msgs
         for i, m in enumerate(msgs):
             if m.id == after_message_id:
-                return msgs[i + 1:]
+                return msgs[i + 1 :]
         return msgs
 
 

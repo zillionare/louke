@@ -1,10 +1,11 @@
 """Public adapter protocol + dataclasses for OpenCode instances and messages."""
+
 from __future__ import annotations
 
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Protocol
+from typing import List, Literal, Optional, Protocol
 
 
 InstanceStatus = Literal["starting", "running", "stopping", "stopped", "error"]
@@ -45,15 +46,22 @@ class Message:
 
     def to_dict(self):
         return {
-            "id": self.id, "instance_id": self.instance_id,
-            "role": self.role, "kind": self.kind, "content": self.content,
+            "id": self.id,
+            "instance_id": self.instance_id,
+            "role": self.role,
+            "kind": self.kind,
+            "content": self.content,
             "created_at": _iso(self.created_at),
         }
 
 
 class OpenCodeAdapter(Protocol):
     def create(self, *, correlation_id: str) -> Instance: ...
-    def list(self) -> list[Instance]: ...
+    def list(self) -> List[Instance]: ...
     def stop(self, instance_id: str) -> Instance: ...
-    def send_message(self, instance_id: str, content: str, *, correlation_id: str) -> tuple[Message, bool]: ...
-    def list_messages(self, instance_id: str, *, after_message_id: Optional[str]) -> list[Message]: ...
+    def send_message(
+        self, instance_id: str, content: str, *, correlation_id: str
+    ) -> tuple[Message, bool]: ...
+    def list_messages(
+        self, instance_id: str, *, after_message_id: Optional[str]
+    ) -> List[Message]: ...
