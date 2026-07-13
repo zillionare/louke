@@ -70,6 +70,7 @@ def test_revision_conflict(tmp_path):
     rev1 = sec.read(p).revision
     p.write_text("v2")
     rev2 = sec.read(p).revision
+    assert rev2 != rev1
     with pytest.raises(SecurityError) as exc:
         sec.write(p, "v3", revision=rev1)
     assert exc.value.code == "REVISION_CONFLICT"
