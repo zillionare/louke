@@ -25,9 +25,7 @@ def _step(step_id: str, kind: str, **kwargs: Any) -> Step:
     return Step(step_id=step_id, kind=kind, **kwargs)
 
 
-def _edge(
-    edge_id: str, from_step: str, to_step: str, condition: str = ""
-) -> Edge:
+def _edge(edge_id: str, from_step: str, to_step: str, condition: str = "") -> Edge:
     return Edge(
         edge_id=edge_id,
         from_step=from_step,
@@ -54,12 +52,8 @@ def _foundation_definition() -> WorkflowDefinition:
                     _edge(
                         "e_rep", "foundation", "contract_verify", condition="repaired"
                     ),
-                    _edge(
-                        "e_blk", "foundation", "blocked_step", condition="blocked"
-                    ),
-                    _edge(
-                        "e_fail", "foundation", "failed_step", condition="failed"
-                    ),
+                    _edge("e_blk", "foundation", "blocked_step", condition="blocked"),
+                    _edge("e_fail", "foundation", "failed_step", condition="failed"),
                     _edge(
                         "e_retry",
                         "foundation",
@@ -96,6 +90,7 @@ class SpyFoundationAdapter:
 
     def __init__(self, gaps: list[FoundationGap] | None = None) -> None:
         self._gaps = list(gaps or [])
+        self._created_keys: set[str] = set()
         self.check_calls: list[str] = []
         self.create_calls: list[tuple[str, FoundationGap]] = []
         self.scout_calls: list[Any] = []
@@ -111,7 +106,12 @@ class SpyFoundationAdapter:
         return list(self._gaps)
 
     def create(self, workspace: str, gap: FoundationGap) -> None:
-        """Record the repair request and remove the gap."""
+        """Record the repair request, enforce key idempotency and remove the gap."""
+        if gap.key in self._created_keys:
+            raise AssertionError(
+                f"resource {gap.key!r} was already created; adapter must be idempotent"
+            )
+        self._created_keys.add(gap.key)
         self.create_calls.append((workspace, gap))
         self._gaps = [g for g in self._gaps if g.key != gap.key]
 
@@ -169,3 +169,61 @@ def test_ac_fr0401_01_complete_foundation_advances_without_agent_calls(tmp_path)
 
     assert len(adapter.scout_calls) == 0
     assert len(adapter.warden_calls) == 0
+
+
+def test_ac_fr0401_02_auto_repair_is_idempotent_and_becomes_satisfied(tmp_path):
+    """AC-FR0401-02: auto-repairable gaps repair once and re-execute as satisfied."""
+    from louke.runtime.foundation import foundation_ensure_handler
+
+    adapter = SpyFoundationAdapter(
+        gaps=[FoundationGap(key="workspace/config", auto_repairable=True)]
+    )
+    handler = foundation_ensure_handler(adapter)
+
+    registry = HandlerRegistry()
+    registry.register("foundation.ensure", handler)
+
+    definition_registry = DefinitionRegistry()
+    definition = definition_registry.register(_foundation_definition())
+
+    store = WorkflowRunStore(catalog=definition_registry)
+    executor = ProgramStepExecutor(registry)
+    workspace = str(tmp_path)
+
+    first_run = store.create_run(definition)
+    first = executor.execute(
+        store=store,
+        run_id=first_run.run_id,
+        workspace=workspace,
+        idempotency_key="foundation-02-first",
+    )
+
+    assert first.run.current_step == "contract_verify"
+    assert first.run.status == "completed"
+    assert first.error_code is None
+
+    first_attempts = store.get_step_attempts(first_run.run_id)
+    assert len(first_attempts) == 1
+    assert first_attempts[0].result == "repaired"
+
+    assert len(adapter.create_calls) == 1
+    created_key = adapter.create_calls[0][1].key
+    assert created_key == "workspace/config"
+
+    second_run = store.create_run(definition)
+    second = executor.execute(
+        store=store,
+        run_id=second_run.run_id,
+        workspace=workspace,
+        idempotency_key="foundation-02-second",
+    )
+
+    assert second.run.current_step == "contract_verify"
+    assert second.run.status == "completed"
+    assert second.error_code is None
+
+    second_attempts = store.get_step_attempts(second_run.run_id)
+    assert len(second_attempts) == 1
+    assert second_attempts[0].result == "satisfied"
+
+    assert len(adapter.create_calls) == 1
