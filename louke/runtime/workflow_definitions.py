@@ -178,6 +178,33 @@ class WorkflowRunBinding:
         self.classification = classification
 
     @classmethod
+    def _ensure_single_main_run(
+        cls,
+        definition: WorkflowDefinition,
+        run_id: str,
+        active_main_runs: set[str] | None,
+    ) -> None:
+        """Enforce the single-active-main-run rule.
+
+        Raises:
+            RuntimeError: If ``run_id`` already holds or would create a second
+                active main workflow.
+        """
+        if not definition.is_main_workflow:
+            return
+        active = active_main_runs or set()
+        if run_id in active:
+            raise RuntimeError(f"run {run_id!r} already has an active main workflow")
+        existing = active - {run_id}
+        if existing:
+            raise RuntimeError(
+                "only one active main workflow is allowed; existing runs: "
+                f"{sorted(existing)}"
+            )
+        if active_main_runs is not None:
+            active_main_runs.add(run_id)
+
+    @classmethod
     def start(
         cls,
         run_id: str,
@@ -221,18 +248,7 @@ class WorkflowRunBinding:
                 "either definition_name/version or classification must be provided"
             )
 
-        if definition.is_main_workflow:
-            active = active_main_runs or set()
-            if run_id in active:
-                raise RuntimeError(f"run {run_id!r} already has an active main workflow")
-            existing = active - {run_id}
-            if existing:
-                raise RuntimeError(
-                    "only one active main workflow is allowed; existing runs: "
-                    f"{sorted(existing)}"
-                )
-            if active_main_runs is not None:
-                active_main_runs.add(run_id)
+        cls._ensure_single_main_run(definition, run_id, active_main_runs)
 
         return cls(
             run_id=run_id,
