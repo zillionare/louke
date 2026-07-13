@@ -205,3 +205,44 @@ def test_ac_fr0501_04_stale_revision_step_or_digest_rejected():
 
     final = store.get_run(run.run_id)
     assert final.current_step != "rework"
+
+
+def test_ac_fr0501_05_artifact_change_after_approval_invalidates_old_decision():
+    """AC-FR0501-05: changed artifact digest invalidates an approved gate."""
+    store, orchestrator, gate_service, run = _create_fixtures()
+    gate = gate_service.ensure_gate(
+        run_id=run.run_id,
+        step_id="m_lock",
+        bound_digest="sha256:abc123",
+    )
+    orchestrator.apply_gate_decision(
+        run_id=run.run_id,
+        gate_id=gate.gate_id,
+        decision="approve",
+        bound_digest="sha256:abc123",
+        expected_revision=run.revision,
+        principal={"kind": "human", "id": "alice"},
+    )
+    approved_gate = store.get_gate(gate.gate_id)
+    assert approved_gate.status == "approved"
+
+    new_gate = gate_service.ensure_gate(
+        run_id=run.run_id,
+        step_id="m_lock",
+        bound_digest="sha256:def456",
+    )
+
+    assert new_gate.gate_id == gate.gate_id
+    assert new_gate.status == "waiting_for_human"
+    assert new_gate.bound_digest == "sha256:def456"
+    assert new_gate.challenge_id != gate.challenge_id
+
+    with pytest.raises(StaleGateError):
+        orchestrator.apply_gate_decision(
+            run_id=run.run_id,
+            gate_id=gate.gate_id,
+            decision="approve",
+            bound_digest="sha256:abc123",
+            expected_revision=store.get_run(run.run_id).revision,
+            principal={"kind": "human", "id": "alice"},
+        )
