@@ -399,16 +399,39 @@ class EventBuilder:
         attempt_id: str | None = None,
         *,
         actor: dict[str, str] | None = None,
+        reason: str | None = None,
+        bound_digest: str | None = None,
         input_digest: str | None = None,
         output_digest: str | None = None,
     ) -> WorkflowEvent:
-        """Build a ``step.transition`` event."""
+        """Build a ``step.transition`` event.
+
+        Args:
+            from_step: Source step id.
+            to_step: Target step id.
+            result: Transition result label (e.g. ``approved``/``rejected``).
+            edge_id: Edge identifier that fired.
+            attempt_id: Optional idempotency attempt id.
+            actor: Optional actor metadata.
+            reason: Optional human-readable reason recorded on the transition,
+                used when the transition is the audit trail of a gate
+                rejection (FR-0801 AC-5).
+            bound_digest: Optional artifact digest the transition was decided
+                against, recorded on rejection transitions so the bound
+                artifact is auditable from the transition event alone.
+            input_digest: Optional explicit input digest.
+            output_digest: Optional explicit output digest.
+        """
         details: dict[str, Any] = {
             "result": result,
             "edge_id": edge_id,
         }
         if attempt_id is not None:
             details["attempt_id"] = attempt_id
+        if reason is not None:
+            details["reason"] = reason
+        if bound_digest is not None:
+            details["bound_digest"] = bound_digest
         return _build_event(
             self._run,
             "step.transition",

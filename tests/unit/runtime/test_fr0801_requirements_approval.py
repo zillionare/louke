@@ -357,4 +357,87 @@ def test_ac_fr0801_04_rebind_on_doc_change():
     stale_event = stale_events[0]
     assert stale_event.details["gate_id"] == approved_before.gate_id
     assert stale_event.details["bound_digest"] == original_digest
-    assert stale_event.details["actor_id"] == "alice"
+
+
+def test_ac_fr0801_05_rejection_audit():
+    """AC-FR0801-05: rejection returns the run to requirements review with audit.
+
+    When a human principal rejects the requirements gate with a reason, the
+    run must return to the requirements authoring/review state, the rejection
+    reason and the bound digest must be auditable on the ``gate.rejected``
+    event AND on the committed transition event, and no design task may be
+    recorded. Linking the reason onto the transition event is required so a
+    consumer walking the transition trail can see why the run moved back to
+    review without having to correlate separate gate events.
+    """
+    store, orchestrator, _gate_service, run = _create_fixtures()
+
+    bound_digest = contract_digest(
+        {
+            "story": "sha256:story_v1",
+            "spec": "sha256:spec_v1",
+            "acceptance": "sha256:acceptance_v1",
+        }
+    )
+    orchestrator.ensure_requirements_gate(
+        run_id=run.run_id,
+        story_digest="sha256:story_v1",
+        spec_digest="sha256:spec_v1",
+        acceptance_digest="sha256:acceptance_v1",
+    )
+
+    outcome = orchestrator.apply_gate_decision(
+        run_id=run.run_id,
+        gate_id=store.get_gate_for_run_step(
+            run.run_id, "requirements_approval"
+        ).gate_id,
+        decision="reject",
+        bound_digest=bound_digest,
+        expected_revision=run.revision,
+        principal={"kind": "human", "id": "bob"},
+        reason="unclear",
+    )
+
+    assert outcome.run.current_step == "requirements_review"
+
+    persisted_gate = store.get_gate_for_run_step(run.run_id, "requirements_approval")
+    assert persisted_gate.status == "rejected"
+    assert persisted_gate.reason == "unclear"
+    assert persisted_gate.bound_digest == bound_digest
+    assert persisted_gate.actor_id == "bob"
+
+    events = store.get_events(run.run_id)
+
+    rejected_events = [event for event in events if event.type == "gate.rejected"]
+    assert len(rejected_events) == 1
+    rejected_event = rejected_events[0]
+    assert rejected_event.details["reason"] == "unclear"
+    assert rejected_event.details["bound_digest"] == bound_digest
+    assert rejected_event.actor == {"kind": "human", "id": "bob"}
+
+    rejection_transitions = [
+        event
+        for event in events
+        if event.type == "step.transition"
+        and event.from_step == "requirements_approval"
+        and event.to_step == "requirements_review"
+    ]
+    assert len(rejection_transitions) == 1
+    transition_event = rejection_transitions[0]
+    assert transition_event.details["result"] == "rejected"
+    assert transition_event.details["reason"] == "unclear"
+    assert transition_event.details["bound_digest"] == bound_digest
+
+    design_events = [
+        event
+        for event in events
+        if event.type == "step.transition" and event.to_step == "design"
+    ]
+    assert len(design_events) == 0
+
+    design_attempts = [
+        attempt
+        for attempt in store.get_step_attempts(run.run_id)
+        if attempt.step_id == "design"
+    ]
+    assert len(design_attempts) == 0

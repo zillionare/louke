@@ -290,6 +290,8 @@ class WorkflowOrchestrator:
             result=transition_result,
             edge_id=edge.edge_id,
             actor=principal,
+            reason=reason if gate.status == "rejected" else None,
+            bound_digest=gate.bound_digest if gate.status == "rejected" else None,
         )
         committed_run, committed_events = self._store.commit_transition(
             new_run,
