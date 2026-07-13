@@ -1,45 +1,43 @@
 # .louke/project/project.toml
-# 当前活跃版本的元信息 + 工具配置 (fix-002 后从 project-info.md 迁移).
-# 历史版本在 history.md (Markdown, agent 不解析).
+# 当前活跃版本的元信息 + 工具配置。历史版本在 history.md（Markdown，agent 不解析）。
 #
-# 读取方: Maestro / Lex / Sage / Scout / Warden / Shield
-# 写入方: Scout (M-FOUND 初始化), Archer (M-ARCH [e2e]), M-MILESTONE 收尾迁移到 history.md
+# 读取方: v0.12 Runtime / Web / CLI / 设计与测试工具。
+# v0.12 以 Runtime 为工作流状态与转移权威；Maestro 只能作为受控语义任务 provider。
 
 [project]
-version = "0.11"
+version = "0.12"
 repo = "github.com/zillionare/louke"
-project = "louke-v0.11 (#8)"
-project_id = "https://github.com/users/quantclaws/projects/8"
-spec_id = "v0.11-002-web-ui-integration"
-release_branch = "releases/v0.10"
+project = "louke-v0.12"
+project_id = "https://github.com/users/quantclaws/projects/15"
+spec_id = "v0.12-001-programmatic-workflow-runtime"
+release_branch = "main"
 
 [meta]
-created = "2026-07-05"
-tag = "v0.11.0 (zillionare/louke@v0.11.0)"
-current_stage = "M-ARCH"
+created = "2026-07-13"
+tag = "unreleased"
+current_stage = "M-DEV"
+m_lock_status = "approved (2026-07-13); M-DEV explicitly not started"
 security_audit = "disabled"
-smoke_test_issue = "#80 (closed, previous v0.6 milestone 冒烟)"
-smoke_test_pr = "#81 (closed, M-FOUND test PR for v0.7)"
-dod = "e2e 全通过 + 单元测试覆盖率 ≥95%（AC 引用闭合 X/X；未启用 Security Audit 因本项目为内部工具）"
+smoke_test_issue = "to be created after M-LOCK"
+smoke_test_pr = "to be created after M-LOCK"
+dod = "144/144 AC 引用闭合且通过；unit/integration/e2e 全通过；覆盖率 ≥95%；真实 OpenCode smoke 有明确证据；requirements approval 与 M-LOCK 均已批准"
 pre_commit = "installed (python + base)"
 test_framework = "pytest"
 acknowledged_orphan_releases = []
 
 story = """
-v0.11-002-web-ui-integration: 把 v0.11-001 已实现的 6 个 starlette sub-app (opencode_api / intent_api / wiki_api / backlog_api / files_api / tasks_api) mount 到 louke/web/app.py, 并补 web UI 路由让用户在浏览器里能完整使用 11 个 FR/3 个 NFR 的功能. 补 NFR-0101 浏览器兼容的 playwright e2e 测试 (实际点击, 不只 hit API endpoint).
+v0.12-001-programmatic-workflow-runtime：以程序固定 workflow、持久状态、两次不可跳过的人类批准和完整证据闭环；Agent 只做受限语义工作。产品包含 Projects UI、OpenCode session/context、new feature 与 bug fix 的完整闭环、旧 workspace 显式采用，以及项目内 Louke 安装/明确 global 回退。
 
-范围说明:
-- v0.11-001 spec 已 locked, acceptance.md 中 11 个 FR 的 "Web 页面可访问 / 用户打开页面 / 用户尝试保存" 等 AC 隐含要求 web UI 集成, 但 v0.11-001 M-DEV 只实现了独立 sub-app (不挂到 web/app.py), M-E2E 只用 TestClient 直接 hit API. mount + UI 路由 + playwright e2e 落到 v0.11-002.
-- FR-0101 (Louke Server Agent 工具化, #99) 仍延后, 不在本 spec 范围.
-- 不改 v0.11-001 的 acceptance.md (spec 已 locked); v0.11-002 acceptance.md 仅覆盖 web UI 集成相关 AC.
+范围说明：v0.11-002 的 Web UI integration 暂停并作为历史工作；v0.12 重新定义可用产品路径。浏览器兼容性矩阵不属于本版本，E2E 只验证一个受支持浏览器的产品路径。
 """
 
 [meta.known_carryover]
 dirty_files = "louke 工作树里有 ~70 个 pre-existing dirty 文件 (agents/ 目录迁移、Makefile 删除等), 跟当前 spec 无关"
-project_owner = "Project `louke-v0.7` (#8) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN"
+project_owner = "Project `louker-v0.12` (#15) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN"
 commit_rgr = "`lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数, 后续 v0.7+ 应去掉以保持 R-G-R commit 格式干净"
-v0_11_001_waiver = "M-SPEC + M-LOCK 各有一条 waiver (verify-issue schema drift, 230+ 脏 legacy issues); #110 在修, 修完后重跑 `lk agent sage record-lock --spec v0.11-001-web-ide --confirm` 解除 waiver"
-v0_11_002_scope = "v0.11-001 已 release (tag v0.11.0). v0.11-002 补 mount + web UI 路由 + playwright e2e. 不动 v0.11-001 acceptance.md (locked)."
+v0_11_001_waiver = "保留既有 waiver 历史；不作为 v0.12 gate 的替代证据"
+v0_11_002_scope = "paused：旧 Web UI integration 计划不在 v0.12 实施范围；必要能力由 v0.12 Projects UI 合同重新定义"
+v0_12_arch_scope = "M-ARCH 只产出 architecture.md、interfaces.md、test-plan.md 与本 E2E contract；M-LOCK 前禁止业务实现"
 
 [active_specs]
 # 当前活跃 spec 列表 (post-v0.7 hotfix)
@@ -47,17 +45,16 @@ v0_7_001 = "shipped (2026-07-05, tag v0.7.0)"
 v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
 v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
 v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
-v0_11_002 = "in progress (web-ui-integration, mount 6 sub-apps + playwright e2e)"
+v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
+v0_12_001 = "M-LOCK approved (programmatic-workflow-runtime; M-DEV not started)"
 
 [e2e]
-# v0.11-001 Web IDE：host-project 正式双浏览器 e2e 编排契约。
+# v0.12：host-project E2E 编排契约。浏览器矩阵不在本版本范围。
 start = "python -m louke e2e start --host 127.0.0.1 --port 8765 --opencode mock"
 ready = "curl -sf http://127.0.0.1:8765/health"
 ready_timeout_seconds = 60
-run = "python -m pytest -m e2e tests/e2e --browser chromium --browser firefox"
+run = "python -m pytest -m e2e tests/e2e"
 framework = "pytest"
-browsers = ["chromium", "firefox"]
 cwd = "."
-# 当前已存在的 host test asset root；Shield 在其下新增 tests/e2e。
-paths = ["tests", "tests/fixtures"]
+paths = ["tests/e2e", "tests/fixtures"]
 teardown = "python -m louke e2e stop --port 8765 --cleanup-workspace"

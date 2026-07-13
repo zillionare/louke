@@ -16,6 +16,8 @@ locked-by: lk agent sage record-lock
 
 作为 Louke 内部使用者，我希望既有 Web 页面连接 v0.11-001 已交付的六个 sub-app，并能通过浏览器完成关键操作，以便 Web IDE 不再只展示静态或 mock 页面，而是真正使用已锁定的 API 能力。
 
+> **Aaron:** 哪6个？
+
 ## Decided
 
 - Web UI 集成范围为：在 `louke/web/app.py` mount 六个 sub-app、为既有页面增加 JavaScript client、升级 Playwright e2e。
@@ -33,9 +35,10 @@ locked-by: lk agent sage record-lock
 
 ### FR-0202 Web UI 路由与导航
 
+
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
-| ✅ | ✅ | ✅ |
+| ✅    | ✅       | ✅      |
 
 - `louke/web/app.py` 必须接入六个 sub-app，使 v0.11-001 `interfaces.md` 锁定的 `/api/opencode`、`/api/intent`、`/api/wiki`、`/api/backlog`、`/api/files`、`/api/tasks` 公共端点可由同一 Web server 访问。
 - 既有 home（`/`）、wiki（`/wiki`）、models（`/models`）和 docs（`/docs/...`）页面及其功能导航必须可访问，并通过 JavaScript client 调用对应真实 API。
@@ -46,9 +49,10 @@ locked-by: lk agent sage record-lock
 
 ### FR-0203 OpenCode Web 交互
 
+
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
-| ✅ | ✅ | ✅ |
+| ✅    | ✅       | ✅      |
 
 - home 页面必须允许用户创建实例、选择实例、向选中实例发送消息并看到该实例的消息与状态回显。
 - 页面实例列表和消息结果必须来自已接入的 OpenCode API；切换实例不得混淆会话输出。
@@ -58,9 +62,10 @@ locked-by: lk agent sage record-lock
 
 ### FR-0204 Backlog Web 交互
 
+
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
-| ✅ | ✅ | ✅ |
+| ✅    | ✅       | ✅      |
 
 - backlog 页面必须允许用户填写并提交 story、查看 API 返回的 backlog 列表、选择条目并触发“进入开发”。
 - 未选择条目时不得启动开发，并须显示可观察反馈；成功进入开发的条目须从页面列表移除。
@@ -70,9 +75,10 @@ locked-by: lk agent sage record-lock
 
 ### FR-0205 Files Web 交互
 
+
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
-| ✅ | ✅ | ✅ |
+| ✅    | ✅       | ✅      |
 
 - files 页面必须通过 Files API 展示工作区树、Git 变更列表和选中变更的 diff。
 - 用户必须能打开允许编辑的设计文档、修改并保存；刷新或重新打开后显示已持久化内容。
@@ -83,9 +89,10 @@ locked-by: lk agent sage record-lock
 
 ### FR-0206 Tasks Web 交互
 
+
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
-| ✅ | ✅ | ✅ |
+| ✅    | ✅       | ✅      |
 
 - docs 页面必须显示所选 FR/NFR 的 `Valid`、`Testable`、`Decided` 三个 task checkbox，并通过 Tasks API 分别切换。
 - 切换只能改变目标 task；页面重新加载后必须显示持久化状态。
@@ -97,9 +104,10 @@ locked-by: lk agent sage record-lock
 
 ### NFR-0102 Playwright 真 UI e2e
 
+
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
-| ✅ | ✅ | ✅ |
+| ✅    | ✅       | ✅      |
 
 - Playwright 必须通过真实浏览器的导航、点击、表单填写及页面状态断言覆盖 FR-0203 至 FR-0206 的关键成功路径，不得以直接调用 API 代替 UI 操作。
 - UI e2e 必须与既有 API e2e 分层保留，并至少在 v0.11-001 NFR-0101 已承诺的 Chromium 与 Firefox 中执行。

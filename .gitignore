@@ -66,3 +66,4 @@ louke.egg-info/
 .louke/agents/
 .louke/templates/
 .opencode/agents/
+.louke/project/stage-results
