@@ -99,16 +99,8 @@ class GatePanel:
     approve_scope: str = ""
     decision: DecisionRecord | None = None
 
-    def approve(self, decision: DecisionRecord) -> None:
-        """Record an approval decision after validating gate conditions.
-
-        Args:
-            decision: The decision to record.
-
-        Raises:
-            GateBlockedError: If open discussions, stale digest, failed checks
-                or digest mismatch exist.
-        """
+    def _collect_blockers(self) -> list[str]:
+        """Return human-readable reasons why the gate cannot be approved."""
         blockers: list[str] = []
         for artifact in self.artifacts:
             if artifact.open_discussions > 0:
@@ -120,6 +112,19 @@ class GatePanel:
                     blockers.append(f"{artifact.artifact_id} check {check} is {result}")
         if self.is_stale:
             blockers.append("gate is stale")
+        return blockers
+
+    def approve(self, decision: DecisionRecord) -> None:
+        """Record an approval decision after validating gate conditions.
+
+        Args:
+            decision: The decision to record.
+
+        Raises:
+            GateBlockedError: If open discussions, stale digest, failed checks
+                or digest mismatch exist.
+        """
+        blockers = self._collect_blockers()
         if blockers:
             raise GateBlockedError(f"gate {self.gate_id!r} blocked: {', '.join(blockers)}")
         self.decision = decision
