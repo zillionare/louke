@@ -12,13 +12,17 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from louke.runtime.catalog import WorkflowDefinition, validate_definition
+from louke.runtime.catalog import (
+    DefinitionValidationError,
+    WorkflowDefinition,
+    validate_definition,
+)
 
 
 class DefinitionInvalidError(ValueError):
     """Raised when a WorkflowRun is requested for an invalid definition."""
 
-    def __init__(self, errors: list[object]) -> None:
+    def __init__(self, errors: list[DefinitionValidationError]) -> None:
         self.errors = errors
         super().__init__(f"definition invalid: {errors!r}")
 
@@ -50,6 +54,46 @@ class WorkflowRun:
     status: str
     created_at: str
     updated_at: str
+
+
+_RUN_COLUMNS: tuple[str, ...] = (
+    "run_id",
+    "definition_id",
+    "definition_version",
+    "current_step",
+    "revision",
+    "status",
+    "created_at",
+    "updated_at",
+)
+
+
+def _run_to_tuple(run: WorkflowRun) -> tuple[str, str, str, str, int, str, str, str]:
+    """Return a tuple matching ``_RUN_COLUMNS`` for the given ``run``."""
+    return (
+        run.run_id,
+        run.definition_id,
+        run.definition_version,
+        run.current_step,
+        run.revision,
+        run.status,
+        run.created_at,
+        run.updated_at,
+    )
+
+
+def _row_to_run(row: sqlite3.Row) -> WorkflowRun:
+    """Reconstruct a ``WorkflowRun`` from a SQLite row."""
+    return WorkflowRun(
+        run_id=row["run_id"],
+        definition_id=row["definition_id"],
+        definition_version=row["definition_version"],
+        current_step=row["current_step"],
+        revision=row["revision"],
+        status=row["status"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
 
 
 class WorkflowRunStore:
@@ -109,29 +153,11 @@ class WorkflowRunStore:
             created_at=now,
             updated_at=now,
         )
+        column_list = ", ".join(_RUN_COLUMNS)
+        placeholders = ", ".join("?" for _ in _RUN_COLUMNS)
         self._conn.execute(
-            """
-            INSERT INTO workflow_runs (
-                run_id,
-                definition_id,
-                definition_version,
-                current_step,
-                revision,
-                status,
-                created_at,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                run.run_id,
-                run.definition_id,
-                run.definition_version,
-                run.current_step,
-                run.revision,
-                run.status,
-                run.created_at,
-                run.updated_at,
-            ),
+            f"INSERT INTO workflow_runs ({column_list}) VALUES ({placeholders})",
+            _run_to_tuple(run),
         )
         self._conn.commit()
         return run
@@ -153,13 +179,4 @@ class WorkflowRunStore:
         ).fetchone()
         if row is None:
             raise RunNotFoundError(f"run {run_id!r} not found")
-        return WorkflowRun(
-            run_id=row["run_id"],
-            definition_id=row["definition_id"],
-            definition_version=row["definition_version"],
-            current_step=row["current_step"],
-            revision=row["revision"],
-            status=row["status"],
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-        )
+        return _row_to_run(row)
