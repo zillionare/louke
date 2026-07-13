@@ -7,9 +7,9 @@ idempotent request validation with replay detection.
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import json
+import secrets
 from typing import Any
 
 
@@ -44,16 +44,22 @@ class CredentialStore:
     """Store principal credentials without persisting plaintext."""
 
     def __init__(self) -> None:
+        self._secret = secrets.token_hex(32)
         self._credentials: dict[str, str] = {}
         self._valid_sessions: set[str] = set()
+
+    def _hash(self, credential: str) -> str:
+        """Return an HMAC digest of ``credential`` using the store secret."""
+        return hmac.new(
+            self._secret.encode(), credential.encode(), "sha256"
+        ).hexdigest()
 
     def set_principal_credential(self, principal_id: str, credential: str) -> None:
         """Store a credential for ``principal_id``.
 
-        The credential is hashed with a simple HMAC so the plaintext is not
-        retained.
+        The credential is hashed with an HMAC so the plaintext is not retained.
         """
-        self._credentials[principal_id] = hashlib.sha256(credential.encode()).hexdigest()
+        self._credentials[principal_id] = self._hash(credential)
         self._valid_sessions.add(principal_id)
 
     def verify(self, principal_id: str, credential: str) -> bool:
@@ -61,9 +67,7 @@ class CredentialStore:
         stored = self._credentials.get(principal_id)
         if stored is None:
             return False
-        return hmac.compare_digest(
-            stored, hashlib.sha256(credential.encode()).hexdigest()
-        )
+        return hmac.compare_digest(stored, self._hash(credential))
 
     def invalidate_session(self, principal_id: str) -> None:
         """Invalidate the session for ``principal_id``."""
