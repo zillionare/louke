@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -17,6 +14,7 @@ from louke.runtime.domain import (
     UndeclaredResultError,
     WorkflowEvent,
 )
+from louke.runtime.events import EventBuilder, digest_value
 from louke.runtime.store import WorkflowRun, WorkflowRunStore
 
 if TYPE_CHECKING:
@@ -88,6 +86,12 @@ class WorkflowOrchestrator:
         current_step = _step_by_id(definition, run.current_step)
 
         if current_step.kind == "human_gate":
+            blocked_event = EventBuilder(run).step_blocked(
+                step_id=current_step.step_id,
+                reason="human_gate awaits host-authenticated decision",
+                actor=actor,
+            )
+            self._store.append_event(blocked_event)
             raise self._gate_blocked_error(run, current_step)
 
         if command.requested_next_step is not None and command.result is None:
@@ -112,13 +116,15 @@ class WorkflowOrchestrator:
             run.with_step(current_step=edge.to_step, status=new_status),
             command.expected_revision,
         )
-
-        event = self._append_transition_event(
-            new_run,
-            current_step.step_id,
-            edge,
-            command.result,
-            actor,
+        event = self._store.append_event(
+            EventBuilder(new_run).step_transition(
+                from_step=current_step.step_id,
+                to_step=edge.to_step,
+                result=command.result,
+                edge_id=edge.edge_id,
+                attempt_id=command.idempotency_key,
+                actor=actor,
+            )
         )
         if command.idempotency_key:
             self._store.record_step_attempt(
@@ -198,13 +204,14 @@ class WorkflowOrchestrator:
             run.with_step(current_step=edge.to_step, status=new_status),
             run.revision,
         )
-
-        event = self._append_transition_event(
-            new_run,
-            current_step.step_id,
-            edge,
-            transition_result,
-            principal,
+        event = self._store.append_event(
+            EventBuilder(new_run).step_transition(
+                from_step=current_step.step_id,
+                to_step=edge.to_step,
+                result=transition_result,
+                edge_id=edge.edge_id,
+                actor=principal,
+            )
         )
         return TransitionOutcome(run=new_run, event=event)
 
@@ -215,33 +222,17 @@ class WorkflowOrchestrator:
         result: str,
         actor: dict[str, str] | None,
     ) -> None:
-        event = _build_event(
-            run=run,
+        event = EventBuilder(run).build(
             event_type="step.result_undeclared",
+            step_id=step.step_id,
             from_step=step.step_id,
             to_step=None,
             details={"result": result, "step_id": step.step_id},
             actor=actor,
+            input_digest=digest_value(step.step_id),
+            output_digest=digest_value(result),
         )
         self._store.append_event(event)
-
-    def _append_transition_event(
-        self,
-        run: WorkflowRun,
-        from_step: str,
-        edge: Edge,
-        result: str,
-        actor: dict[str, str] | None,
-    ) -> WorkflowEvent:
-        event = _build_event(
-            run=run,
-            event_type="step.transition",
-            from_step=from_step,
-            to_step=edge.to_step,
-            details={"result": result, "edge_id": edge.edge_id},
-            actor=actor,
-        )
-        return self._store.append_event(event)
 
     def _gate_blocked_error(
         self, run: WorkflowRun, step: Step
@@ -253,26 +244,6 @@ class WorkflowOrchestrator:
             f"step '{step.step_id}' is a human gate awaiting a host-authenticated decision"
         )
 
-    def _append_gate_event(
-        self,
-        run_id: str,
-        event_type: str,
-        step_id: str,
-        details: dict,
-        actor: dict[str, str] | None = None,
-    ) -> WorkflowEvent:
-        """Append a gate-related event to the run's event stream."""
-        run = self._store.get_run(run_id)
-        event = _build_event(
-            run=run,
-            event_type=event_type,
-            from_step=step_id,
-            to_step=None,
-            details=details,
-            actor=actor,
-        )
-        return self._store.append_event(event)
-
 
 def _step_by_id(definition: WorkflowDefinition, step_id: str) -> Step:
     for step in definition.steps:
@@ -283,25 +254,3 @@ def _step_by_id(definition: WorkflowDefinition, step_id: str) -> Step:
 
 def _transitions_for_result(step: Step, result: str) -> list[Edge]:
     return [edge for edge in step.transitions if edge.condition == result]
-
-
-def _build_event(
-    run: WorkflowRun,
-    event_type: str,
-    from_step: str | None,
-    to_step: str | None,
-    details: dict,
-    actor: dict[str, str] | None,
-) -> WorkflowEvent:
-    return WorkflowEvent(
-        event_id=f"evt_{uuid.uuid4().hex[:12]}",
-        run_id=run.run_id,
-        sequence=0,
-        type=event_type,
-        at=datetime.now(timezone.utc).isoformat(),
-        actor=actor or {"kind": "runtime", "id": "runtime"},
-        from_step=from_step,
-        to_step=to_step,
-        revision=run.revision,
-        details=details,
-    )

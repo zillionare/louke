@@ -69,6 +69,11 @@ class WorkflowEvent:
         to_step: New step, if applicable.
         revision: Run revision at which the event was committed.
         details: Redacted event details.
+        step_id: The step this event primarily concerns.
+        attempt_id: The step attempt this event primarily concerns, if any.
+        correlation_id: Correlation id shared by events from a single request.
+        input_digest: Digest of the input that produced the event, if any.
+        output_digest: Digest of the output produced by the event, if any.
     """
 
     event_id: str
@@ -81,3 +86,8 @@ class WorkflowEvent:
     to_step: str | None = None
     revision: int = 0
     details: dict[str, Any] = field(default_factory=dict)
+    step_id: str | None = None
+    attempt_id: str | None = None
+    correlation_id: str = ""
+    input_digest: str | None = None
+    output_digest: str | None = None

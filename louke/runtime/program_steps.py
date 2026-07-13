@@ -6,13 +6,12 @@ executor that invokes handlers with a read-only StepContext.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable
 
 from louke.runtime.catalog import derive_status
 from louke.runtime.domain import WorkflowEvent
+from louke.runtime.events import EventBuilder
 
 if TYPE_CHECKING:
     from louke.runtime.store import WorkflowRun, WorkflowRunStore
@@ -160,6 +159,12 @@ class ProgramStepExecutor:
             idempotency_key=idempotency_key,
         )
 
+        started_event = EventBuilder(run).step_started(
+            step_id=current_step.step_id,
+            attempt_id=attempt.attempt_id,
+        )
+        store.append_event(started_event)
+
         try:
             context = StepContext(
                 run_id=run.run_id,
@@ -197,12 +202,21 @@ class ProgramStepExecutor:
             run.with_step(current_step=edge.to_step, status=new_status),
             run.revision,
         )
-        event = self._append_transition_event(
-            store,
-            new_run,
-            current_step.step_id,
-            edge,
-            handler_result.result,
+        event = store.append_event(
+            EventBuilder(new_run).step_transition(
+                from_step=current_step.step_id,
+                to_step=edge.to_step,
+                result=handler_result.result,
+                edge_id=edge.edge_id,
+                attempt_id=attempt.attempt_id,
+            )
+        )
+        store.append_event(
+            EventBuilder(new_run).step_completed(
+                step_id=current_step.step_id,
+                attempt_id=attempt.attempt_id,
+                result=handler_result.result,
+            )
         )
         store.update_step_attempt(
             attempt.with_status(
@@ -256,16 +270,12 @@ class ProgramStepExecutor:
         message: str,
     ) -> ExecutionOutcome:
         """Record a failed attempt and a diagnostic event."""
-        event = self._build_event(
-            run=run,
-            event_type="step.handler_failed",
-            from_step=attempt.step_id,
-            details={
-                "error_code": error_code,
-                "message": message,
-                "step_id": attempt.step_id,
-                "idempotency_key": attempt.idempotency_key,
-            },
+        event = EventBuilder(run).step_handler_failed(
+            step_id=attempt.step_id,
+            attempt_id=attempt.attempt_id,
+            error_code=error_code,
+            message=message,
+            idempotency_key=attempt.idempotency_key,
         )
         store.append_event(event)
         store.update_step_attempt(attempt.with_status(status="failed"))
@@ -281,41 +291,3 @@ class ProgramStepExecutor:
     @staticmethod
     def _transitions_for_result(step, result: str):
         return [edge for edge in step.transitions if edge.condition == result]
-
-    def _append_transition_event(
-        self,
-        store: WorkflowRunStore,
-        run,
-        from_step: str,
-        edge,
-        result: str,
-    ) -> WorkflowEvent:
-        event = self._build_event(
-            run=run,
-            event_type="step.transition",
-            from_step=from_step,
-            to_step=edge.to_step,
-            details={"result": result, "edge_id": edge.edge_id},
-        )
-        return store.append_event(event)
-
-    def _build_event(
-        self,
-        run,
-        event_type: str,
-        from_step: str | None,
-        details: dict,
-        to_step: str | None = None,
-    ) -> WorkflowEvent:
-        return WorkflowEvent(
-            event_id=f"evt_{uuid.uuid4().hex[:12]}",
-            run_id=run.run_id,
-            sequence=0,
-            type=event_type,
-            at=datetime.now(timezone.utc).isoformat(),
-            actor={"kind": "runtime", "id": "program_step_executor"},
-            from_step=from_step,
-            to_step=to_step,
-            revision=run.revision,
-            details=details,
-        )

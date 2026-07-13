@@ -11,7 +11,7 @@ import hashlib
 import json
 import sqlite3
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,6 +25,11 @@ from louke.runtime.catalog import (
 from louke.runtime.domain import (
     RevisionConflictError,
     WorkflowEvent,
+)
+from louke.runtime.events import (
+    EventBuilder,
+    EventSchemaValidator,
+    new_correlation_id,
 )
 from louke.runtime.gates import Gate
 
@@ -150,6 +155,11 @@ def _row_to_event(row: sqlite3.Row) -> WorkflowEvent:
         to_step=row["to_step"],
         revision=row["revision"],
         details=json.loads(row["details"]),
+        step_id=row["step_id"],
+        attempt_id=row["attempt_id"],
+        correlation_id=row["correlation_id"] or "",
+        input_digest=row["input_digest"],
+        output_digest=row["output_digest"],
     )
 
 
@@ -389,10 +399,16 @@ class WorkflowRunStore:
                 from_step TEXT,
                 to_step TEXT,
                 revision INTEGER NOT NULL,
-                details TEXT NOT NULL
+                details TEXT NOT NULL,
+                step_id TEXT,
+                attempt_id TEXT,
+                correlation_id TEXT,
+                input_digest TEXT,
+                output_digest TEXT
             )
             """
         )
+        self._migrate_event_columns()
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS step_attempts (
@@ -445,6 +461,24 @@ class WorkflowRunStore:
         )
         self._conn.commit()
 
+    def _migrate_event_columns(self) -> None:
+        """Add FR-0601 event columns to existing databases without dropping data."""
+        existing = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(workflow_events)")
+        }
+        additions = (
+            ("step_id", "TEXT"),
+            ("attempt_id", "TEXT"),
+            ("correlation_id", "TEXT"),
+            ("input_digest", "TEXT"),
+            ("output_digest", "TEXT"),
+        )
+        for column, dtype in additions:
+            if column not in existing:
+                self._conn.execute(
+                    f"ALTER TABLE workflow_events ADD COLUMN {column} {dtype}"
+                )
+
     def create_run(self, definition: WorkflowDefinition) -> WorkflowRun:
         """Create and persist a WorkflowRun bound to ``definition``.
 
@@ -478,12 +512,13 @@ class WorkflowRunStore:
         )
         column_list = ", ".join(_RUN_COLUMNS)
         placeholders = ", ".join("?" for _ in _RUN_COLUMNS)
-        self._conn.execute(
-            f"INSERT INTO workflow_runs ({column_list}) VALUES ({placeholders})",
-            _run_to_tuple(run),
-        )
-        self._conn.commit()
-        return run
+        with self._conn:
+            self._conn.execute(
+                f"INSERT INTO workflow_runs ({column_list}) VALUES ({placeholders})",
+                _run_to_tuple(run),
+            )
+            self._append_event_in_tx(EventBuilder(run).run_created())
+        return self.get_run(run.run_id)
 
     def get_run(self, run_id: str) -> WorkflowRun:
         """Retrieve the persisted ``WorkflowRun`` for ``run_id``.
@@ -565,6 +600,54 @@ class WorkflowRunStore:
 
         return self.get_run(run.run_id)
 
+    def _sanitize_event(self, event: WorkflowEvent) -> WorkflowEvent:
+        """Validate ``event`` and ensure it has a correlation id."""
+        sanitized = replace(
+            event,
+            correlation_id=event.correlation_id or new_correlation_id(),
+        )
+        EventSchemaValidator().validate(sanitized)
+        return sanitized
+
+    def _append_event_in_tx(self, event: WorkflowEvent) -> WorkflowEvent:
+        """Insert ``event`` inside the current transaction without committing."""
+        sanitized = self._sanitize_event(event)
+        sequence = sanitized.sequence
+        if sequence == 0:
+            row = self._conn.execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM workflow_events WHERE run_id = ?",
+                (sanitized.run_id,),
+            ).fetchone()
+            sequence = row[0]
+
+        self._conn.execute(
+            """
+            INSERT INTO workflow_events (
+                event_id, run_id, sequence, type, at, actor, from_step, to_step,
+                revision, details, step_id, attempt_id, correlation_id,
+                input_digest, output_digest
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                sanitized.event_id,
+                sanitized.run_id,
+                sequence,
+                sanitized.type,
+                sanitized.at,
+                json.dumps(sanitized.actor),
+                sanitized.from_step,
+                sanitized.to_step,
+                sanitized.revision,
+                json.dumps(sanitized.details),
+                sanitized.step_id,
+                sanitized.attempt_id,
+                sanitized.correlation_id,
+                sanitized.input_digest,
+                sanitized.output_digest,
+            ),
+        )
+        return replace(sanitized, sequence=sequence)
+
     def append_event(self, event: WorkflowEvent) -> WorkflowEvent:
         """Persist ``event`` to the append-only event stream.
 
@@ -575,47 +658,8 @@ class WorkflowRunStore:
         Returns:
             The persisted event with its final sequence number.
         """
-        sequence = event.sequence
-        if sequence == 0:
-            row = self._conn.execute(
-                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM workflow_events WHERE run_id = ?",
-                (event.run_id,),
-            ).fetchone()
-            sequence = row[0]
-
-        self._conn.execute(
-            """
-            INSERT INTO workflow_events (
-                event_id, run_id, sequence, type, at, actor, from_step, to_step,
-                revision, details
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                event.event_id,
-                event.run_id,
-                sequence,
-                event.type,
-                event.at,
-                json.dumps(event.actor),
-                event.from_step,
-                event.to_step,
-                event.revision,
-                json.dumps(event.details),
-            ),
-        )
-        self._conn.commit()
-        return WorkflowEvent(
-            event_id=event.event_id,
-            run_id=event.run_id,
-            sequence=sequence,
-            type=event.type,
-            at=event.at,
-            actor=event.actor,
-            from_step=event.from_step,
-            to_step=event.to_step,
-            revision=event.revision,
-            details=event.details,
-        )
+        with self._conn:
+            return self._append_event_in_tx(event)
 
     def get_events(self, run_id: str) -> tuple[WorkflowEvent, ...]:
         """Return all events for ``run_id`` in ascending sequence order."""

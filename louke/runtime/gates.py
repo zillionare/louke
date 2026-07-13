@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING
 from louke.runtime.domain import (
     IllegalTransitionError,
     RuntimeStateError,
-    WorkflowEvent,
 )
+from louke.runtime.events import EventBuilder
 
 if TYPE_CHECKING:
     from louke.runtime.store import WorkflowRun, WorkflowRunStore
@@ -278,22 +278,13 @@ class GateService:
             reason=reason,
         )
         self._store.update_gate(decided_gate)
-        event_type = f"gate.{status}"
-        details: dict[str, object] = {
-            "gate_id": gate.gate_id,
-            "challenge_id": gate.challenge_id,
-            "bound_digest": gate.bound_digest,
-        }
-        if reason is not None:
-            details["reason"] = reason
-        self._store.append_event(
-            self._build_gate_event(
-                run=run,
-                gate=decided_gate,
-                event_type=event_type,
-                details=details,
-            )
+        event = EventBuilder(run).gate_decision(
+            gate=decided_gate,
+            decision=status,
+            actor_id=actor_id,
+            reason=reason,
         )
+        self._store.append_event(event)
         return decided_gate
 
     def _validate_principal(self, principal: dict[str, str] | None) -> None:
@@ -327,24 +318,3 @@ class GateService:
                 "artifact digest has changed since the gate was created",
                 current_digest=gate.bound_digest,
             )
-
-    def _build_gate_event(
-        self,
-        run: "WorkflowRun",
-        gate: Gate,
-        event_type: str,
-        details: dict,
-    ) -> WorkflowEvent:
-        """Build a gate-related workflow event."""
-        return WorkflowEvent(
-            event_id=f"evt_{uuid.uuid4().hex[:12]}",
-            run_id=run.run_id,
-            sequence=0,
-            type=event_type,
-            at=datetime.now(timezone.utc).isoformat(),
-            actor={"kind": "human", "id": gate.actor_id or "unknown"},
-            from_step=gate.step_id,
-            to_step=None,
-            revision=run.revision,
-            details=details,
-        )

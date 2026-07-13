@@ -122,10 +122,12 @@ def test_ac_fr0101_02_record_diagnostic_on_undeclared_result():
     assert fetched.revision == run.revision
 
     events = store.get_events(run.run_id)
-    assert len(events) == 1
-    assert events[0].type == "step.result_undeclared"
-    assert events[0].details["result"] == "skipped"
-    assert events[0].details["step_id"] == "review"
+    result_events = [
+        event for event in events if event.type == "step.result_undeclared"
+    ]
+    assert len(result_events) == 1
+    assert result_events[0].details["result"] == "skipped"
+    assert result_events[0].details["step_id"] == "review"
 
 
 def test_ac_fr0101_03_revision_cas_conflict_on_concurrent_submit():
