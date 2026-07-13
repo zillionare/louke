@@ -26,6 +26,7 @@ from louke.runtime.domain import RuntimeCommand
 from louke.runtime.gates import (
     GateNotApprovedError,
     GateService,
+    UnauthenticatedPrincipalError,
 )
 from louke.runtime.orchestrator import WorkflowOrchestrator
 from louke.runtime.store import WorkflowRunStore
@@ -129,3 +130,31 @@ def test_ac_fr0501_02_valid_principal_approval_advances_run():
     assert len(transition_events) == 1
     assert transition_events[0].to_step == "design"
     assert transition_events[0].actor == {"kind": "human", "id": "alice"}
+
+
+def test_ac_fr0501_03_free_text_approved_by_rejected_without_principal():
+    """AC-FR0501-03: a free-text approved_by string cannot replace a host principal."""
+    _store, orchestrator, gate_service, run = _create_fixtures()
+    gate = gate_service.ensure_gate(
+        run_id=run.run_id,
+        step_id="m_lock",
+        bound_digest="sha256:abc123",
+    )
+
+    with pytest.raises(UnauthenticatedPrincipalError):
+        orchestrator.apply_gate_decision(
+            run_id=run.run_id,
+            gate_id=gate.gate_id,
+            decision="approve",
+            bound_digest="sha256:abc123",
+            expected_revision=run.revision,
+            principal={"approved_by": "mallory"},
+        )
+
+    after = orchestrator._store.get_run(run.run_id)
+    assert after.current_step == "m_lock"
+    assert after.revision == run.revision
+    assert after.status == "waiting_for_human"
+
+    pending_gate = orchestrator._store.get_gate(gate.gate_id)
+    assert pending_gate.status == "waiting_for_human"
