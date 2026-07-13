@@ -17,7 +17,7 @@ from louke.runtime.gates import GateNotApprovedError
 
 if TYPE_CHECKING:
     from louke.runtime.gates import Gate, GateService
-    from louke.runtime.store import WorkflowRunStore
+    from louke.runtime.store import WorkflowRun, WorkflowRunStore
 
 #: Step id of the requirements approval human gate (FR-0801).
 REQUIREMENTS_APPROVAL_STEP_ID: str = "requirements_approval"
@@ -87,6 +87,10 @@ class RequirementGateCoordinator:
     ) -> "Gate":
         """Ensure a requirements approval gate bound to the current digest.
 
+        When the bound documents change after a prior approval, the old approval
+        is recorded as stale before the gate is rebound to the new digest, so
+        the design flow cannot continue on the old approval (FR-0801 AC-4).
+
         Args:
             run_id: The run to ensure the gate for.
             story_digest: Digest of the story document.
@@ -101,12 +105,17 @@ class RequirementGateCoordinator:
             spec=spec_digest,
             acceptance=acceptance_digest,
         )
+        new_digest = artifacts.digest()
+        run = self._store.get_run(run_id)
+        existing = self._store.get_gate_for_run_step(run_id, self._STEP_ID)
+        if self._is_stale_approval(existing, new_digest):
+            self._append_stale_event(run, existing)
         gate = self._gate_service.ensure_gate(
             run_id=run_id,
             step_id=self._STEP_ID,
-            bound_digest=artifacts.digest(),
+            bound_digest=new_digest,
         )
-        event = EventBuilder(self._store.get_run(run_id)).build(
+        event = EventBuilder(run).build(
             event_type="gate.created",
             step_id=self._STEP_ID,
             details={
@@ -114,11 +123,42 @@ class RequirementGateCoordinator:
                 "step_id": self._STEP_ID,
                 "bound_digest": gate.bound_digest,
             },
-            input_digest=artifacts.digest(),
+            input_digest=new_digest,
             output_digest=gate.bound_digest,
         )
         self._store.append_event(event)
         return gate
+
+    @staticmethod
+    def _is_stale_approval(existing: "Gate | None", new_digest: str) -> bool:
+        """Return True if ``existing`` is an approved gate whose digest changed."""
+        return (
+            existing is not None
+            and existing.status == "approved"
+            and existing.bound_digest != new_digest
+        )
+
+    def _append_stale_event(self, run: "WorkflowRun", gate: "Gate") -> None:
+        """Append a ``gate.stale`` event recording the invalidated approval.
+
+        Args:
+            run: The run the gate belongs to.
+            gate: The previously approved gate whose digest has changed.
+        """
+        event = EventBuilder(run).build(
+            event_type="gate.stale",
+            step_id=self._STEP_ID,
+            details={
+                "gate_id": gate.gate_id,
+                "step_id": self._STEP_ID,
+                "bound_digest": gate.bound_digest,
+                "actor_id": gate.actor_id,
+                "reason": gate.reason,
+            },
+            input_digest=gate.bound_digest,
+            output_digest=gate.bound_digest,
+        )
+        self._store.append_event(event)
 
     def check_approval(self, run_id: str) -> "Gate":
         """Return the requirements gate only if it is approved.

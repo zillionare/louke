@@ -131,6 +131,7 @@ class EventSchemaValidator:
         "gate.created": ("step_id", "input_digest", "output_digest"),
         "gate.approved": ("step_id", "input_digest", "output_digest"),
         "gate.rejected": ("step_id", "input_digest", "output_digest"),
+        "gate.stale": ("step_id", "input_digest", "output_digest"),
     }
 
     def validate(self, event: WorkflowEvent) -> None:

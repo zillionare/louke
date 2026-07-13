@@ -23,7 +23,11 @@ import pytest
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.contract_gates import contract_digest
 from louke.runtime.domain import RuntimeCommand
-from louke.runtime.gates import GateNotApprovedError, GateService
+from louke.runtime.gates import (
+    GateNotApprovedError,
+    GateService,
+    StaleGateError,
+)
 from louke.runtime.orchestrator import WorkflowOrchestrator
 from louke.runtime.store import WorkflowRunStore
 
@@ -281,3 +285,76 @@ def test_ac_fr0801_03_approval_unlocks_design_only():
         if event.type == "step.transition" and event.to_step == "implementation"
     ]
     assert len(implementation_transitions) == 0
+
+
+def test_ac_fr0801_04_rebind_on_doc_change():
+    """AC-FR0801-04: changing a bound requirement document invalidates the prior approval.
+
+    After the requirements gate is approved for the combined digest of story,
+    spec and acceptance, changing any one of the three documents produces a new
+    combined digest. Calling ``ensure_gate`` with the new digests must mark the
+    prior approval as stale (so the design flow cannot continue on the old
+    approval) and bind the gate to the new digest. ``check_approval`` must then
+    raise a stale-gate / state-conflict error, and the persisted gate must
+    carry the new digest.
+    """
+    store, orchestrator, _gate_service, run = _create_fixtures()
+
+    original_digest = contract_digest(
+        {
+            "story": "sha256:story_v1",
+            "spec": "sha256:spec_v1",
+            "acceptance": "sha256:acceptance_v1",
+        }
+    )
+    orchestrator.ensure_requirements_gate(
+        run_id=run.run_id,
+        story_digest="sha256:story_v1",
+        spec_digest="sha256:spec_v1",
+        acceptance_digest="sha256:acceptance_v1",
+    )
+    orchestrator.apply_gate_decision(
+        run_id=run.run_id,
+        gate_id=store.get_gate_for_run_step(
+            run.run_id, "requirements_approval"
+        ).gate_id,
+        decision="approve",
+        bound_digest=original_digest,
+        expected_revision=run.revision,
+        principal={"kind": "human", "id": "alice"},
+    )
+
+    approved_before = store.get_gate_for_run_step(run.run_id, "requirements_approval")
+    assert approved_before.status == "approved"
+    assert approved_before.bound_digest == original_digest
+
+    new_gate = orchestrator.ensure_requirements_gate(
+        run_id=run.run_id,
+        story_digest="sha256:story_v2",
+        spec_digest="sha256:spec_v1",
+        acceptance_digest="sha256:acceptance_v1",
+    )
+
+    new_digest = contract_digest(
+        {
+            "story": "sha256:story_v2",
+            "spec": "sha256:spec_v1",
+            "acceptance": "sha256:acceptance_v1",
+        }
+    )
+    assert new_gate.bound_digest == new_digest
+    assert new_digest != original_digest
+
+    persisted = store.get_gate_for_run_step(run.run_id, "requirements_approval")
+    assert persisted.bound_digest == new_digest
+
+    with pytest.raises((StaleGateError, GateNotApprovedError)):
+        orchestrator.check_requirements_approval(run.run_id)
+
+    events = store.get_events(run.run_id)
+    stale_events = [event for event in events if event.type == "gate.stale"]
+    assert len(stale_events) == 1
+    stale_event = stale_events[0]
+    assert stale_event.details["gate_id"] == approved_before.gate_id
+    assert stale_event.details["bound_digest"] == original_digest
+    assert stale_event.details["actor_id"] == "alice"

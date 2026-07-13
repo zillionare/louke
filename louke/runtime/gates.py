@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 GATE_WAITING: str = "waiting_for_human"
 GATE_APPROVED: str = "approved"
 GATE_REJECTED: str = "rejected"
+GATE_STALE: str = "stale"
 
 DECISION_APPROVE: str = "approve"
 DECISION_REJECT: str = "reject"
