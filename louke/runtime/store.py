@@ -216,6 +216,27 @@ class StepAttempt:
     created_at: str
     updated_at: str
 
+    def with_status(
+        self,
+        status: str,
+        result: str | None = None,
+        event_id: str | None = None,
+    ) -> "StepAttempt":
+        """Return a new attempt with the given status and updated timestamp."""
+        from datetime import datetime, timezone
+
+        return StepAttempt(
+            attempt_id=self.attempt_id,
+            run_id=self.run_id,
+            step_id=self.step_id,
+            idempotency_key=self.idempotency_key,
+            status=status,
+            result=result if result is not None else self.result,
+            event_id=event_id if event_id is not None else self.event_id,
+            created_at=self.created_at,
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
+
 
 _ATTEMPT_COLUMNS: tuple[str, ...] = (
     "attempt_id",
