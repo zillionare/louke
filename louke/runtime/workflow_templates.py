@@ -222,51 +222,64 @@ class WorkflowTemplateRegistry:
             )
         )
         if high_impact:
-            nodes = {
-                "issue_source_contract_validation",
-                "test_plan_author",
-                "test_plan_review",
-                "architecture_author",
-                "interfaces_author",
-                "architecture_review",
-                "interfaces_review",
-                "m_lock",
-                "devon_rgr",
-                "review",
-                "authoritative_regression",
-                "policy_release_confirmation",
-                "history",
-            }
-            required = {
-                "issue_source_contract_validation",
-                "test_plan_author",
-                "architecture_author",
-                "interfaces_author",
-                "m_lock",
-                "devon_rgr",
-                "review",
-                "authoritative_regression",
-                "policy_release_confirmation",
-            }
-        else:
-            nodes = {
-                "issue_source_contract_validation",
-                "quick_rgr",
-                "design_skipped",
-                "m_lock",
-                "review",
-                "authoritative_regression",
-                "policy_release_confirmation",
-                "history",
-            }
-            required = {
-                "issue_source_contract_validation",
-                "quick_rgr",
-                "m_lock",
-                "review",
-                "authoritative_regression",
-                "policy_release_confirmation",
-            }
+            return self._build_high_impact_hotfix()
+        return self._build_quick_hotfix()
+
+    def _build_high_impact_hotfix(self) -> CompletableWorkflow:
+        """Build the design-required hotfix template."""
+        nodes = {
+            "issue_source_contract_validation",
+            "test_plan_author",
+            "test_plan_review",
+            "architecture_author",
+            "interfaces_author",
+            "architecture_review",
+            "interfaces_review",
+            "m_lock",
+            "devon_rgr",
+            "review",
+            "authoritative_regression",
+            "policy_release_confirmation",
+            "history",
+        }
+        required = {
+            "issue_source_contract_validation",
+            "test_plan_author",
+            "architecture_author",
+            "interfaces_author",
+            "m_lock",
+            "devon_rgr",
+            "review",
+            "authoritative_regression",
+            "policy_release_confirmation",
+        }
+        return CompletableWorkflow(
+            workflow_type=WorkflowType.BUG_FIX,
+            nodes=nodes,
+            preflight_steps={"foundation_preflight"},
+            required_completion_nodes=required,
+        )
+
+    def _build_quick_hotfix(self) -> CompletableWorkflow:
+        """Build the quick_rgr hotfix template."""
+        nodes = {
+            "issue_source_contract_validation",
+            "quick_rgr",
+            "design_skipped",
+            "m_lock",
+            "review",
+            "authoritative_regression",
+            "policy_release_confirmation",
+            "history",
+        }
+        required = {
+            "issue_source_contract_validation",
+            "quick_rgr",
+            "m_lock",
+            "review",
+            "authoritative_regression",
+            "policy_release_confirmation",
+        }
         return CompletableWorkflow(
             workflow_type=WorkflowType.BUG_FIX,
             nodes=nodes,
