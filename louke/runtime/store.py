@@ -13,18 +13,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from louke.runtime.catalog import (
-    DefinitionValidationError,
+    DefinitionInvalidError,
+    DefinitionRegistry,
     WorkflowDefinition,
     validate_definition,
 )
-
-
-class DefinitionInvalidError(ValueError):
-    """Raised when a WorkflowRun is requested for an invalid definition."""
-
-    def __init__(self, errors: list[DefinitionValidationError]) -> None:
-        self.errors = errors
-        super().__init__(f"definition invalid: {errors!r}")
 
 
 class RunNotFoundError(ValueError):
@@ -102,11 +95,19 @@ class WorkflowRunStore:
     Args:
         db_path: Path to the SQLite database.  Defaults to an in-memory
             database so unit tests are isolated by default.
+        catalog: Optional registry used to validate and pin definitions by
+            id/version.  When provided, runs are bound to the registered
+            definition rather than the caller-supplied object.
     """
 
-    def __init__(self, db_path: str | None = None) -> None:
+    def __init__(
+        self,
+        db_path: str | None = None,
+        catalog: DefinitionRegistry | None = None,
+    ) -> None:
         self._conn = sqlite3.connect(db_path or ":memory:")
         self._conn.row_factory = sqlite3.Row
+        self._catalog = catalog
         self._initialize_schema()
 
     def _initialize_schema(self) -> None:
@@ -141,6 +142,9 @@ class WorkflowRunStore:
         validation_errors = validate_definition(definition)
         if validation_errors:
             raise DefinitionInvalidError(validation_errors)
+
+        if self._catalog is not None:
+            definition = self._catalog.get(definition.definition_id, definition.version)
 
         now = datetime.now(timezone.utc).isoformat()
         run = WorkflowRun(
@@ -180,3 +184,25 @@ class WorkflowRunStore:
         if row is None:
             raise RunNotFoundError(f"run {run_id!r} not found")
         return _row_to_run(row)
+
+    def get_definition(self, run_id: str) -> WorkflowDefinition:
+        """Return the definition pinned to the run identified by ``run_id``.
+
+        Args:
+            run_id: The opaque run identifier returned by :meth:`create_run`.
+
+        Returns:
+            The ``WorkflowDefinition`` the run is bound to, looked up from the
+            catalog by ``definition_id`` and ``definition_version``.
+
+        Raises:
+            RunNotFoundError: If no run with the given id exists.
+            DefinitionNotFoundError: If the pinned definition is not present
+                in the attached catalog.
+            RuntimeError: If the store was created without a catalog.
+        """
+        if self._catalog is None:
+            raise RuntimeError("store has no catalog to resolve definitions")
+
+        run = self.get_run(run_id)
+        return self._catalog.get(run.definition_id, run.definition_version)

@@ -15,6 +15,22 @@ SUPPORTED_STEP_KINDS: frozenset[str] = frozenset(
 )
 
 
+class DefinitionInvalidError(ValueError):
+    """Raised when a workflow definition fails catalog validation."""
+
+    def __init__(self, errors: list["DefinitionValidationError"]) -> None:
+        self.errors = errors
+        super().__init__(f"definition invalid: {errors!r}")
+
+
+class DefinitionNotFoundError(KeyError):
+    """Raised when a requested definition id/version is not registered."""
+
+
+class DefinitionVersionExistsError(ValueError):
+    """Raised when re-registering a definition version with different content."""
+
+
 @dataclass(frozen=True)
 class Edge:
     """A directed transition between two workflow steps.
@@ -221,3 +237,68 @@ def _reachable_step_ids(definition: WorkflowDefinition) -> set[str]:
                 queue.append(edge.to_step)
 
     return reachable
+
+
+class DefinitionRegistry:
+    """Immutable versioned catalog of workflow definitions.
+
+    Definitions are keyed by ``(definition_id, version)``.  Once a version is
+    registered it cannot be replaced with a different definition, so runs that
+    are pinned to a version always see the same steps and transitions.
+    """
+
+    def __init__(self) -> None:
+        self._definitions: dict[tuple[str, str], WorkflowDefinition] = {}
+
+    def register(self, definition: WorkflowDefinition) -> WorkflowDefinition:
+        """Register ``definition`` after validating it.
+
+        Args:
+            definition: The workflow definition to register.
+
+        Returns:
+            The registered definition.  If the exact same definition is
+            registered again, the existing copy is returned.
+
+        Raises:
+            DefinitionInvalidError: If the definition fails catalog validation.
+            DefinitionVersionExistsError: If the same id/version is already
+                registered with a different definition.
+        """
+        errors = validate_definition(definition)
+        if errors:
+            raise DefinitionInvalidError(errors)
+
+        key = (definition.definition_id, definition.version)
+        existing = self._definitions.get(key)
+        if existing is not None:
+            if existing == definition:
+                return existing
+            raise DefinitionVersionExistsError(
+                f"definition {definition.definition_id!r} version "
+                f"{definition.version!r} is already registered"
+            )
+        self._definitions[key] = definition
+        return definition
+
+    def get(self, definition_id: str, version: str) -> WorkflowDefinition:
+        """Return the registered definition for ``definition_id``/``version``.
+
+        Args:
+            definition_id: The stable definition identifier.
+            version: The immutable version string.
+
+        Returns:
+            The matching ``WorkflowDefinition``.
+
+        Raises:
+            DefinitionNotFoundError: If no definition with that id/version
+                has been registered.
+        """
+        key = (definition_id, version)
+        definition = self._definitions.get(key)
+        if definition is None:
+            raise DefinitionNotFoundError(
+                f"definition {definition_id!r} version {version!r} not found"
+            )
+        return definition
