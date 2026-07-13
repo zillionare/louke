@@ -246,3 +246,47 @@ def test_ac_fr0501_05_artifact_change_after_approval_invalidates_old_decision():
             expected_revision=store.get_run(run.run_id).revision,
             principal={"kind": "human", "id": "alice"},
         )
+
+
+def test_ac_fr0501_06_valid_rejection_records_audit_and_blocks_approved_path():
+    """AC-FR0501-06: rejection blocks the approved path and records audit evidence."""
+    store, orchestrator, gate_service, run = _create_fixtures()
+    gate = gate_service.ensure_gate(
+        run_id=run.run_id,
+        step_id="m_lock",
+        bound_digest="sha256:abc123",
+    )
+
+    outcome = orchestrator.apply_gate_decision(
+        run_id=run.run_id,
+        gate_id=gate.gate_id,
+        decision="reject",
+        bound_digest="sha256:abc123",
+        expected_revision=run.revision,
+        principal={"kind": "human", "id": "bob"},
+        reason="requirements unclear",
+    )
+
+    assert outcome.run.current_step == "rework"
+    assert outcome.run.status == "completed"
+
+    rejected_gate = store.get_gate(gate.gate_id)
+    assert rejected_gate.status == "rejected"
+    assert rejected_gate.actor_id == "bob"
+    assert rejected_gate.reason == "requirements unclear"
+    assert rejected_gate.bound_digest == "sha256:abc123"
+    assert rejected_gate.decided_at is not None
+
+    events = store.get_events(run.run_id)
+    rejected_events = [event for event in events if event.type == "gate.rejected"]
+    assert len(rejected_events) == 1
+    assert rejected_events[0].actor == {"kind": "human", "id": "bob"}
+    assert rejected_events[0].details["reason"] == "requirements unclear"
+    assert rejected_events[0].details["bound_digest"] == "sha256:abc123"
+
+    design_events = [
+        event
+        for event in events
+        if event.type == "step.transition" and event.to_step == "design"
+    ]
+    assert len(design_events) == 0

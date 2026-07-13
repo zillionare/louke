@@ -176,10 +176,6 @@ class WorkflowOrchestrator:
             reason=reason,
         )
 
-        if gate.status != "approved":
-            run = self._store.get_run(run_id)
-            return TransitionOutcome(run=run, event=None)
-
         run = self._store.get_run(run_id)
         definition = self._store.get_definition(run_id)
         current_step = _step_by_id(definition, run.current_step)
@@ -189,10 +185,11 @@ class WorkflowOrchestrator:
                 f"run is no longer at a human gate (step {run.current_step!r})"
             )
 
-        matching = _transitions_for_result(current_step, "approved")
+        transition_result = "approved" if gate.status == "approved" else "rejected"
+        matching = _transitions_for_result(current_step, transition_result)
         if not matching:
             raise GateNotApprovedError(
-                f"step {current_step.step_id!r} has no approved transition"
+                f"step {current_step.step_id!r} has no {transition_result} transition"
             )
 
         edge = matching[0]
@@ -206,7 +203,7 @@ class WorkflowOrchestrator:
             new_run,
             current_step.step_id,
             edge,
-            "approved",
+            transition_result,
             principal,
         )
         return TransitionOutcome(run=new_run, event=event)
