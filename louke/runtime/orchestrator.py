@@ -79,6 +79,14 @@ class WorkflowOrchestrator:
                 declared transition.
         """
         run = self._store.get_run(command.run_id)
+
+        _READONLY_RUN_STATUSES = frozenset({"archived", "cancelled"})
+        if run.status in _READONLY_RUN_STATUSES:
+            raise IllegalTransitionError(
+                f"run {run.run_id!r} is read-only (status {run.status!r}); "
+                "no transitions are allowed"
+            )
+
         if command.idempotency_key:
             existing_attempt = self._store.get_step_attempt_by_key(
                 command.run_id, command.idempotency_key

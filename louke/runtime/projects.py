@@ -473,6 +473,9 @@ class ProjectStore:
     def archive_project(self, project_id: str) -> Project:
         """Mark ``project_id`` as archived and move it to history.
 
+        The run's status is also set to ``archived`` so the orchestrator
+        rejects any further transitions on it.
+
         Args:
             project_id: The project to archive.
 
@@ -486,6 +489,11 @@ class ProjectStore:
         if existing is None:
             raise ProjectNotFoundError(f"project {project_id!r} not found")
         now = datetime.now(timezone.utc).isoformat()
+        run = self._run_store.get_run(existing.run_id)
+        self._run_store.update_run(
+            run.with_status(ProjectTerminalStatus.ARCHIVED),
+            run.revision,
+        )
         archived = Project(
             project_id=existing.project_id,
             run_id=existing.run_id,
