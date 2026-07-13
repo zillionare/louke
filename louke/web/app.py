@@ -215,282 +215,31 @@ async def home_page(request: Request) -> HTMLResponse:
     store: ProjectStore = request.app.state.store
     lang = _ui_language(request)
     spec_id = store.resolve_spec_id()
-    # v0.11-002-web-ui-integration: home page now hosts live panels for
-    # OpenCode, Backlog, Files, Tasks. Each panel calls the real 6
-    # sub-apps (mounted at /api/<name>) via window.LoukeClient. Old
-    # cards (models / docs / wiki) remain as deep-links at the top.
     body = f"""
     <section class="hero">
       <span class="eyebrow">{_escape(_t(lang, "home.eyebrow"))}</span>
       <h1>louke Web Workbench</h1>
       <p class="lede">{_escape(_t(lang, "home.lede_before"))}<code>{_escape(spec_id)}</code>{_escape(_t(lang, "home.lede_after"))}</p>
     </section>
-    <nav class="card-row" data-testid="nav-home">
-      <a class="card-link" data-testid="nav-models" href="/models">models</a>
-      <a class="card-link" data-testid="nav-docs" href="/docs/{_escape(spec_id)}/spec">docs</a>
-      <a class="card-link" data-testid="nav-wiki" href="/wiki">llm wiki</a>
-    </nav>
-    <section class="grid cards webui-panels">
-      <article class="panel" data-testid="panel-opencode">
-        <header><h2>OpenCode</h2><span class="meta" data-testid="opencode-status">—</span></header>
-        <button type="button" class="primary" data-testid="opencode-create">Create instance</button>
-        <ul data-testid="opencode-instance-list" class="instance-list"></ul>
-        <label>Send to selected instance
-          <textarea data-testid="opencode-message-input" rows="3" placeholder="Type a message, or /models or /agent ..."></textarea>
-        </label>
-        <button type="button" data-testid="opencode-send" disabled>Send</button>
-        <p data-testid="opencode-error" class="error-text" hidden></p>
-        <pre data-testid="opencode-messages" class="messages-pane"></pre>
-      </article>
-
-      <article class="panel" data-testid="panel-backlog">
-        <header><h2>Story backlog</h2><span class="meta" data-testid="backlog-count">0</span></header>
-        <label>New story
-          <textarea data-testid="backlog-input" rows="2" placeholder="Describe the story ..."></textarea>
-        </label>
-        <button type="button" class="primary" data-testid="backlog-add">Add to backlog</button>
-        <ul data-testid="backlog-list" class="backlog-list"></ul>
-        <p data-testid="backlog-error" class="error-text" hidden></p>
-      </article>
-
-      <article class="panel" data-testid="panel-files">
-        <header><h2>Files</h2><span class="meta" data-testid="files-root">{_escape(str(project_root_for(store)))}</span></header>
-        <div class="row">
-          <button type="button" data-testid="files-view-tree" class="primary">Tree</button>
-          <button type="button" data-testid="files-view-changes">Changes</button>
-          <button type="button" data-testid="files-view-documents">Docs</button>
-        </div>
-        <ul data-testid="files-list" class="files-list"></ul>
-        <pre data-testid="files-content" class="files-content" hidden></pre>
-        <p data-testid="files-error" class="error-text" hidden></p>
-      </article>
-
-      <article class="panel" data-testid="panel-tasks">
-        <header><h2>FR/NFR tasks</h2><span class="meta" data-testid="tasks-spec">{_escape(spec_id)}</span></header>
-        <label>FR id
-          <input type="text" data-testid="tasks-fr-id" value="FR-0001" />
-        </label>
-        <label>Document path
-          <input type="text" data-testid="tasks-doc-path" value=".louke/project/specs/{_escape(spec_id)}/spec.md" />
-        </label>
-        <div class="row">
-          <button type="button" data-testid="tasks-load" class="primary">Load state</button>
-        </div>
-        <div data-testid="tasks-state" class="tasks-state">
-          <label><input type="checkbox" data-testid="task-valid" /> Valid</label>
-          <label><input type="checkbox" data-testid="task-testable" /> Testable</label>
-          <label><input type="checkbox" data-testid="task-decided" /> Decided</label>
-        </div>
-        <p data-testid="tasks-error" class="error-text" hidden></p>
-      </article>
-
-      <article class="panel" data-testid="panel-wiki">
-        <header><h2>Wiki</h2><span class="meta" data-testid="wiki-status">—</span></header>
-        <div class="row">
-          <label>Type
-            <select data-testid="wiki-type">
-              <option value="story">story</option>
-              <option value="spec" selected>spec</option>
-              <option value="test-plan">test-plan</option>
-              <option value="architecture">architecture</option>
-              <option value="interfaces">interfaces</option>
-            </select>
-          </label>
-          <button type="button" data-testid="wiki-build" class="primary">Build</button>
-        </div>
-        <pre data-testid="wiki-md" class="wiki-md"></pre>
-        <p data-testid="wiki-error" class="error-text" hidden></p>
-      </article>
+    <section class="grid cards">
+      <a class="card card-link" href="/models">
+        <div class="card-kicker">models</div>
+        <h2>{_escape(_t(lang, "nav.models"))}</h2>
+        <p>{_escape(_t(lang, "home.models_desc"))}</p>
+      </a>
+      <a class="card card-link" href="/docs/{_escape(spec_id)}/spec">
+        <div class="card-kicker">docs</div>
+        <h2>{_escape(_t(lang, "nav.docs"))}</h2>
+        <p>{_escape(_t(lang, "home.docs_desc"))}</p>
+      </a>
+       <a class="card card-link" href="/wiki">
+         <div class="card-kicker">llm wiki</div>
+         <h2>llm wiki</h2>
+         <p>{_escape(_t(lang, "home.wiki_desc"))}</p>
+       </a>
     </section>
     """
-    script = _home_page_script()
-    return HTMLResponse(
-        _page_shell("louke web", store, user, lang, "home", body, script=script)
-    )
-
-
-def _home_page_script() -> str:
-    return r"""
-<script>
-(function () {
-  'use strict';
-  var $ = function (sel) { return document.querySelector(sel); };
-  var client = window.LoukeClient;
-  if (!client) {
-    console.error('LoukeClient not loaded');
-    return;
-  }
-  function showError(el, err) {
-    if (!err) { el.hidden = true; el.textContent = ''; return; }
-    el.hidden = false;
-    el.textContent = (err && err.message) || JSON.stringify(err);
-  }
-  function setStatus(sel, text) { var el = $(sel); if (el) el.textContent = text; }
-
-  // ----- OpenCode panel -----
-  var selectedOpencodeId = null;
-  function renderOpencodeInstances(instances) {
-    var list = $('[data-testid=opencode-instance-list]');
-    list.innerHTML = '';
-    instances.forEach(function (i) {
-      var li = document.createElement('li');
-      li.dataset.testid = 'opencode-instance-' + i.id;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.dataset.testid = 'opencode-select-' + i.id;
-      btn.dataset.id = i.id;
-      btn.textContent = (i.id.slice(0, 8) + '\u2026 [' + i.status + ']');
-      if (i.id === selectedOpencodeId) btn.setAttribute('aria-pressed', 'true');
-      btn.addEventListener('click', function () {
-        selectedOpencodeId = i.id;
-        renderOpencodeInstances(instances);
-        loadOpencodeMessages();
-      });
-      li.appendChild(btn);
-      list.appendChild(li);
-    });
-    var sendBtn = $('[data-testid=opencode-send]');
-    if (sendBtn) sendBtn.disabled = !selectedOpencodeId;
-  }
-  function loadOpencodeList() {
-    return client.opencode.list().then(renderOpencodeInstances)
-      .catch(function (e) { showError($('[data-testid=opencode-error]'), e); });
-  }
-  function loadOpencodeMessages() {
-    if (!selectedOpencodeId) return Promise.resolve();
-    return client.opencode.messages(selectedOpencodeId).then(function (msgs) {
-      $('[data-testid=opencode-messages]').textContent = msgs.map(function (m) {
-        return '[' + m.role + '/' + m.kind + '] ' + m.content;
-      }).join('\n');
-      var inst = msgs.length ? msgs[msgs.length - 1] : null;
-      setStatus('[data-testid=opencode-status]', inst ? 'last: ' + inst.kind : 'empty');
-    });
-  }
-  $('[data-testid=opencode-create]').addEventListener('click', function () {
-    client.opencode.create()
-      .then(function (i) { selectedOpencodeId = i.id; return loadOpencodeList().then(loadOpencodeMessages); })
-      .catch(function (e) { showError($('[data-testid=opencode-error]'), e); });
-  });
-  $('[data-testid=opencode-send]').addEventListener('click', function () {
-    if (!selectedOpencodeId) return;
-    var input = $('[data-testid=opencode-message-input]');
-    var content = (input.value || '').trim();
-    if (!content) return;
-    input.value = '';
-    client.opencode.send(selectedOpencodeId, content)
-      .then(function () { return loadOpencodeMessages(); })
-      .catch(function (e) { showError($('[data-testid=opencode-error]'), e); });
-  });
-  loadOpencodeList().catch(function () {});
-
-  // ----- Backlog panel -----
-  function renderBacklog(entries) {
-    var list = $('[data-testid=backlog-list]');
-    list.innerHTML = '';
-    setStatus('[data-testid=backlog-count]', String(entries.length));
-    entries.forEach(function (e) {
-      var li = document.createElement('li');
-      li.dataset.testid = 'backlog-item-' + e.id;
-      li.textContent = '[' + e.status + '] ' + e.story;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.dataset.testid = 'backlog-start-' + e.id;
-      btn.dataset.id = e.id;
-      btn.textContent = 'Start';
-      btn.addEventListener('click', function () {
-        client.backlog.start(btn.dataset.id)
-          .then(function () { return client.backlog.list().then(renderBacklog); })
-          .catch(function (e) { showError($('[data-testid=backlog-error]'), e); });
-      });
-      li.appendChild(document.createTextNode(' '));
-      li.appendChild(btn);
-      list.appendChild(li);
-    });
-  }
-  function loadBacklog() {
-    return client.backlog.list().then(renderBacklog)
-      .catch(function (e) { showError($('[data-testid=backlog-error]'), e); });
-  }
-  $('[data-testid=backlog-add]').addEventListener('click', function () {
-    var input = $('[data-testid=backlog-input]');
-    var story = (input.value || '').trim();
-    if (!story) return;
-    input.value = '';
-    client.backlog.create(story)
-      .then(function () { return loadBacklog(); })
-      .catch(function (e) { showError($('[data-testid=backlog-error]'), e); });
-  });
-  loadBacklog().catch(function () {});
-
-  // ----- Files panel -----
-  function renderFiles(entries) {
-    var list = $('[data-testid=files-list]');
-    list.innerHTML = '';
-    (entries || []).forEach(function (e) {
-      var li = document.createElement('li');
-      li.textContent = e.path + (e.binary ? ' [binary]' : '');
-      list.appendChild(li);
-    });
-  }
-  function bindFiles(btnSel, fn) {
-    $(btnSel).addEventListener('click', function () {
-      fn().then(renderFiles).catch(function (e) {
-        showError($('[data-testid=files-error]'), e);
-      });
-    });
-  }
-  bindFiles('[data-testid=files-view-tree]', function () { return client.files.list('tree'); });
-  bindFiles('[data-testid=files-view-changes]', function () { return client.files.list('changes'); });
-  bindFiles('[data-testid=files-view-documents]', function () { return client.files.list('documents'); });
-
-  // ----- Tasks panel -----
-  $('[data-testid=tasks-load]').addEventListener('click', function () {
-    var frId = $('[data-testid=tasks-fr-id]').value.trim();
-    var docPath = $('[data-testid=tasks-doc-path]').value.trim();
-    client.tasks.get(frId, docPath).then(function (st) {
-      $('[data-testid=task-valid]').checked = !!st.tasks.Valid;
-      $('[data-testid=task-testable]').checked = !!st.tasks.Testable;
-      $('[data-testid=task-decided]').checked = !!st.tasks.Decided;
-    }).catch(function (e) { showError($('[data-testid=tasks-error]'), e); });
-  });
-  ['valid', 'testable', 'decided'].forEach(function (name) {
-    var el = $('[data-testid=task-' + name + ']');
-    el.addEventListener('change', function () {
-      var frId = $('[data-testid=tasks-fr-id]').value.trim();
-      var docPath = $('[data-testid=tasks-doc-path]').value.trim();
-      var checked = el.checked;
-      var taskName = name[0].toUpperCase() + name.slice(1);
-      client.tasks.toggle(frId, docPath, taskName, checked)
-        .catch(function (e) { showError($('[data-testid=tasks-error]'), e); });
-    });
-  });
-
-  // ----- Wiki panel -----
-  $('[data-testid=wiki-build]').addEventListener('click', function () {
-    var type = $('[data-testid=wiki-type]').value;
-    client.wiki.build(type, 'manual')
-      .then(function () {
-        return client.wiki.get(type, true);
-      })
-      .then(function (page) {
-        setStatus('[data-testid=wiki-status]', page.status);
-        $('[data-testid=wiki-md]').textContent = page.markdown || '';
-      })
-      .catch(function (e) { showError($('[data-testid=wiki-error]'), e); });
-  });
-})();
-</script>
-"""
-
-
-def project_root_for(store: ProjectStore) -> Path:
-    """Return the workspace root path used for files list views.
-
-    Used by home_page to display the workspace root in the Files panel
-    (data-testid=files-root). Pulls from ProjectStore.root (initialised
-    in create_app() with the resolved project root).
-    """
-    return store.root
+    return HTMLResponse(_page_shell("louke web", store, user, lang, "home", body))
 
 
 async def models_page(request: Request) -> HTMLResponse:
