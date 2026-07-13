@@ -37,8 +37,8 @@ def test_ac_fr0701_01_runtime_state_ignores_project_toml_current_stage(
     """AC-FR0701-01: new run state is independent of project.toml current_stage."""
     project_dir = tmp_path / ".louke" / "project"
     project_dir.mkdir(parents=True)
-    project_toml = project_dir / "project.toml"
-    project_toml.write_text(_project_toml("M-ARCH"), encoding="utf-8")
+    project_toml_file = project_dir / "project.toml"
+    project_toml_file.write_text(_project_toml("M-ARCH"), encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
     registry = DefinitionRegistry()
@@ -56,7 +56,7 @@ def test_ac_fr0701_01_runtime_state_ignores_project_toml_current_stage(
     assert "current_stage" not in store.schema_columns
 
     # Change the legacy current_stage field and reload/recover the run.
-    project_toml.write_text(_project_toml("M-DEV"), encoding="utf-8")
+    project_toml_file.write_text(_project_toml("M-DEV"), encoding="utf-8")
     reloaded_store = WorkflowRunStore(db_path=str(db_path), catalog=registry)
     recovered = recover_run(reloaded_store, run.run_id)
 

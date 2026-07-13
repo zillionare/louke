@@ -46,6 +46,10 @@ class CapabilityRegistry:
     """
 
     _KNOWN_CAPABILITIES: tuple[str, ...] = ("agent_task", "decision")
+    _DESCRIPTIONS: dict[str, str] = {
+        "agent_task": "Dispatch a task to a registered agent adapter.",
+        "decision": "Request a structured choice from a registered decision advisor.",
+    }
 
     def __init__(self) -> None:
         self._adapters: dict[str, Adapter] = {}
@@ -106,10 +110,6 @@ class CapabilityRegistry:
             raise UnsupportedCapabilityError(f"capability {name!r} is not registered")
         return adapter(**kwargs)
 
-    @staticmethod
-    def _description(name: str) -> str:
-        descriptions = {
-            "agent_task": "Dispatch a task to a registered agent adapter.",
-            "decision": "Request a structured choice from a registered decision advisor.",
-        }
-        return descriptions.get(name, "Custom runtime capability.")
+    @classmethod
+    def _description(cls, name: str) -> str:
+        return cls._DESCRIPTIONS.get(name, "Custom runtime capability.")

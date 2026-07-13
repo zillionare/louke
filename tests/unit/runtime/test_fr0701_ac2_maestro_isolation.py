@@ -37,8 +37,8 @@ def test_ac_fr0701_02_old_maestro_advance_does_not_touch_new_run(tmp_path, monke
     """AC-FR0701-02: legacy maestro advance cannot mutate a v0.12 WorkflowRun."""
     project_dir = tmp_path / ".louke" / "project"
     project_dir.mkdir(parents=True)
-    project_toml = project_dir / "project.toml"
-    project_toml.write_text(_project_toml("M-DEV"), encoding="utf-8")
+    project_toml_file = project_dir / "project.toml"
+    project_toml_file.write_text(_project_toml("M-DEV"), encoding="utf-8")
 
     registry = DefinitionRegistry()
     definition = registry.register(_simple_program_definition())
@@ -62,7 +62,7 @@ def test_ac_fr0701_02_old_maestro_advance_does_not_touch_new_run(tmp_path, monke
 
     # Legacy advance must be rejected when a v0.12 runtime store is present.
     assert result != 0
-    assert _read_current_stage(project_toml) == "M-DEV"
+    assert _read_current_stage(project_toml_file) == "M-DEV"
 
     reloaded = WorkflowRunStore(db_path=str(db_path), catalog=registry)
     rerun = reloaded.get_run(run.run_id)
