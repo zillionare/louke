@@ -26,6 +26,7 @@ from louke.runtime.domain import (
     RevisionConflictError,
     WorkflowEvent,
 )
+from louke.runtime.gates import Gate
 
 
 class RunNotFoundError(ValueError):
@@ -283,6 +284,59 @@ def _row_to_attempt(row: sqlite3.Row) -> StepAttempt:
     )
 
 
+_GATE_COLUMNS: tuple[str, ...] = (
+    "gate_id",
+    "challenge_id",
+    "run_id",
+    "step_id",
+    "expected_revision",
+    "bound_digest",
+    "status",
+    "actor_id",
+    "reason",
+    "decided_at",
+    "created_at",
+)
+
+
+def _gate_to_tuple(
+    gate: Gate,
+) -> tuple[
+    str, str, str, str, int, str, str, str | None, str | None, str | None, str | None
+]:
+    """Return a tuple matching ``_GATE_COLUMNS`` for the given ``gate``."""
+    return (
+        gate.gate_id,
+        gate.challenge_id,
+        gate.run_id,
+        gate.step_id,
+        gate.expected_revision,
+        gate.bound_digest,
+        gate.status,
+        gate.actor_id,
+        gate.reason,
+        gate.decided_at,
+        gate.created_at,
+    )
+
+
+def _row_to_gate(row: sqlite3.Row) -> Gate:
+    """Reconstruct a ``Gate`` from a SQLite row."""
+    return Gate(
+        gate_id=row["gate_id"],
+        challenge_id=row["challenge_id"],
+        run_id=row["run_id"],
+        step_id=row["step_id"],
+        expected_revision=row["expected_revision"],
+        bound_digest=row["bound_digest"],
+        status=row["status"],
+        actor_id=row["actor_id"],
+        reason=row["reason"],
+        decided_at=row["decided_at"],
+        created_at=row["created_at"],
+    )
+
+
 class WorkflowRunStore:
     """SQLite-backed store for WorkflowRun records.
 
@@ -364,6 +418,29 @@ class WorkflowRunStore:
             """
             CREATE UNIQUE INDEX IF NOT EXISTS idx_step_attempts_idempotency
             ON step_attempts(run_id, idempotency_key)
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gates (
+                gate_id TEXT PRIMARY KEY,
+                challenge_id TEXT NOT NULL,
+                run_id TEXT NOT NULL,
+                step_id TEXT NOT NULL,
+                expected_revision INTEGER NOT NULL,
+                bound_digest TEXT NOT NULL,
+                status TEXT NOT NULL,
+                actor_id TEXT,
+                reason TEXT,
+                decided_at TEXT,
+                created_at TEXT
+            )
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_gates_run_step
+            ON gates(run_id, step_id)
             """
         )
         self._conn.commit()
@@ -687,6 +764,108 @@ class WorkflowRunStore:
             (attempt.attempt_id,),
         ).fetchone()
         return _row_to_attempt(row)
+
+    def create_gate(self, gate: Gate) -> Gate:
+        """Persist a new ``Gate`` record.
+
+        Args:
+            gate: The gate to persist.
+
+        Returns:
+            The persisted gate.
+        """
+        column_list = ", ".join(_GATE_COLUMNS)
+        placeholders = ", ".join("?" for _ in _GATE_COLUMNS)
+        self._conn.execute(
+            f"INSERT INTO gates ({column_list}) VALUES ({placeholders})",
+            _gate_to_tuple(gate),
+        )
+        self._conn.commit()
+        return gate
+
+    def get_gate(self, gate_id: str) -> Gate:
+        """Retrieve the ``Gate`` for ``gate_id``.
+
+        Args:
+            gate_id: The opaque gate identifier.
+
+        Returns:
+            The matching ``Gate``.
+
+        Raises:
+            GateNotFoundError: If no gate with the given id exists.
+        """
+        from louke.runtime.gates import GateNotFoundError
+
+        row = self._conn.execute(
+            "SELECT * FROM gates WHERE gate_id = ?", (gate_id,)
+        ).fetchone()
+        if row is None:
+            raise GateNotFoundError(f"gate {gate_id!r} not found")
+        return _row_to_gate(row)
+
+    def update_gate(self, gate: Gate) -> Gate:
+        """Update an existing ``Gate`` record.
+
+        Args:
+            gate: The gate with updated fields.
+
+        Returns:
+            The updated gate.
+
+        Raises:
+            GateNotFoundError: If the gate does not exist.
+        """
+        from louke.runtime.gates import GateNotFoundError
+
+        cursor = self._conn.execute(
+            """
+            UPDATE gates
+            SET challenge_id = ?, run_id = ?, step_id = ?, expected_revision = ?,
+                bound_digest = ?, status = ?, actor_id = ?, reason = ?,
+                decided_at = ?, created_at = ?
+            WHERE gate_id = ?
+            """,
+            (
+                gate.challenge_id,
+                gate.run_id,
+                gate.step_id,
+                gate.expected_revision,
+                gate.bound_digest,
+                gate.status,
+                gate.actor_id,
+                gate.reason,
+                gate.decided_at,
+                gate.created_at,
+                gate.gate_id,
+            ),
+        )
+        if cursor.rowcount == 0:
+            raise GateNotFoundError(f"gate {gate.gate_id!r} not found")
+        self._conn.commit()
+        return self.get_gate(gate.gate_id)
+
+    def get_gate_for_run_step(
+        self,
+        run_id: str,
+        step_id: str,
+    ) -> Gate | None:
+        """Return the gate for ``run_id``/``step_id`` if one exists.
+
+        Args:
+            run_id: The run to search within.
+            step_id: The human_gate step the gate controls.
+
+        Returns:
+            The matching ``Gate`` or ``None``.
+        """
+        row = self._conn.execute(
+            "SELECT * FROM gates WHERE run_id = ? AND step_id = ?",
+            (run_id, step_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return _row_to_gate(row)
 
     def get_definition(self, run_id: str) -> WorkflowDefinition:
         """Return the definition pinned to the run identified by ``run_id``.

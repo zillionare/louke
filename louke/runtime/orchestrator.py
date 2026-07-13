@@ -5,9 +5,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from louke.runtime.catalog import Edge, Step, WorkflowDefinition, derive_status
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+from louke.runtime.catalog import Edge, Step, WorkflowDefinition, derive_status
 from louke.runtime.domain import (
     IllegalTransitionError,
     RevisionConflictError,
@@ -17,6 +18,9 @@ from louke.runtime.domain import (
     WorkflowEvent,
 )
 from louke.runtime.store import WorkflowRun, WorkflowRunStore
+
+if TYPE_CHECKING:
+    from louke.runtime.gates import GateService
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,8 +34,13 @@ class TransitionOutcome:
 class WorkflowOrchestrator:
     """Enforce definition-bound state transitions with revision CAS."""
 
-    def __init__(self, store: WorkflowRunStore) -> None:
+    def __init__(
+        self,
+        store: WorkflowRunStore,
+        gate_service: "GateService | None" = None,
+    ) -> None:
         self._store = store
+        self._gate_service = gate_service
 
     def apply_command(
         self,
@@ -77,6 +86,9 @@ class WorkflowOrchestrator:
 
         definition = self._store.get_definition(command.run_id)
         current_step = _step_by_id(definition, run.current_step)
+
+        if current_step.kind == "human_gate":
+            raise self._gate_blocked_error(run, current_step)
 
         if command.requested_next_step is not None and command.result is None:
             raise IllegalTransitionError(
@@ -150,6 +162,36 @@ class WorkflowOrchestrator:
             from_step=from_step,
             to_step=edge.to_step,
             details={"result": result, "edge_id": edge.edge_id},
+            actor=actor,
+        )
+        return self._store.append_event(event)
+
+    def _gate_blocked_error(
+        self, run: WorkflowRun, step: Step
+    ) -> IllegalTransitionError:
+        """Return an error indicating the current human gate blocks progress."""
+        from louke.runtime.gates import GateNotApprovedError
+
+        return GateNotApprovedError(
+            f"step '{step.step_id}' is a human gate awaiting a host-authenticated decision"
+        )
+
+    def _append_gate_event(
+        self,
+        run_id: str,
+        event_type: str,
+        step_id: str,
+        details: dict,
+        actor: dict[str, str] | None = None,
+    ) -> WorkflowEvent:
+        """Append a gate-related event to the run's event stream."""
+        run = self._store.get_run(run_id)
+        event = _build_event(
+            run=run,
+            event_type=event_type,
+            from_step=step_id,
+            to_step=None,
+            details=details,
             actor=actor,
         )
         return self._store.append_event(event)
