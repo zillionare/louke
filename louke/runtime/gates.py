@@ -20,7 +20,6 @@ from louke.runtime.domain import (
 )
 
 if TYPE_CHECKING:
-    from louke.runtime.orchestrator import WorkflowOrchestrator
     from louke.runtime.store import WorkflowRun, WorkflowRunStore
 
 
@@ -147,7 +146,6 @@ class GateService:
         run_id: str,
         step_id: str,
         bound_digest: str,
-        orchestrator: "WorkflowOrchestrator | None" = None,
     ) -> Gate:
         """Return an existing active gate for ``run_id``/``step_id`` or create one.
 
@@ -159,7 +157,6 @@ class GateService:
             run_id: The run to ensure a gate for.
             step_id: The human_gate step the gate controls.
             bound_digest: Artifact digest to bind the gate to.
-            orchestrator: Optional orchestrator used to emit rebind events.
 
         Returns:
             The active gate record.
@@ -170,17 +167,6 @@ class GateService:
                 return existing
             new_gate = existing.with_digest(bound_digest)
             self._store.update_gate(new_gate)
-            if orchestrator is not None:
-                orchestrator._append_gate_event(
-                    run_id=run_id,
-                    event_type="gate.rebound",
-                    step_id=step_id,
-                    details={
-                        "gate_id": new_gate.gate_id,
-                        "old_digest": existing.bound_digest,
-                        "new_digest": new_gate.bound_digest,
-                    },
-                )
             return new_gate
 
         now = datetime.now(timezone.utc).isoformat()
@@ -206,7 +192,7 @@ class GateService:
         expected_revision: int,
         principal: dict[str, str] | None,
         reason: str | None = None,
-    ) -> "WorkflowRun":
+    ) -> Gate:
         """Submit a human decision for ``gate_id``.
 
         Args:
@@ -220,7 +206,7 @@ class GateService:
             reason: Required when ``decision`` is ``reject``.
 
         Returns:
-            The updated run after applying the decision transition.
+            The gate record after recording the decision.
 
         Raises:
             UnauthenticatedPrincipalError: If ``principal`` is missing or not a
@@ -271,7 +257,7 @@ class GateService:
                     },
                 )
             )
-            return run
+            return rejected_gate
 
         if decision == "approve":
             approved_gate = gate.with_decision(
@@ -279,7 +265,19 @@ class GateService:
                 actor_id=actor_id,
             )
             self._store.update_gate(approved_gate)
-            return run
+            self._store.append_event(
+                self._build_gate_event(
+                    run=run,
+                    gate=approved_gate,
+                    event_type="gate.approved",
+                    details={
+                        "gate_id": gate.gate_id,
+                        "challenge_id": gate.challenge_id,
+                        "bound_digest": gate.bound_digest,
+                    },
+                )
+            )
+            return approved_gate
 
         raise GateError(f"unknown decision {decision!r}")
 

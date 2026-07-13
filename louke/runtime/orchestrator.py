@@ -131,6 +131,86 @@ class WorkflowOrchestrator:
             )
         return TransitionOutcome(run=new_run, event=event)
 
+    def apply_gate_decision(
+        self,
+        run_id: str,
+        gate_id: str,
+        decision: str,
+        bound_digest: str,
+        expected_revision: int,
+        principal: dict[str, str] | None,
+        reason: str | None = None,
+    ) -> TransitionOutcome:
+        """Apply a host-authenticated human decision to a gate.
+
+        The orchestrator delegates validation to the gate service, then advances
+        the run through the ``approved`` transition if the decision is valid.
+
+        Args:
+            run_id: The run the gate belongs to.
+            gate_id: The gate identifier.
+            decision: ``approve`` or ``reject``.
+            bound_digest: The artifact digest the principal is deciding on.
+            expected_revision: The run revision the caller last observed.
+            principal: Host-authenticated principal metadata.
+            reason: Required when ``decision`` is ``reject``.
+
+        Returns:
+            The updated run and the committed transition event, if any.
+
+        Raises:
+            GateNotApprovedError: If the gate service rejects the decision.
+        """
+        from louke.runtime.gates import GateNotApprovedError
+
+        if self._gate_service is None:
+            raise RuntimeError("orchestrator has no gate service")
+
+        gate = self._gate_service.submit_decision(
+            run_id=run_id,
+            gate_id=gate_id,
+            decision=decision,
+            bound_digest=bound_digest,
+            expected_revision=expected_revision,
+            principal=principal,
+            reason=reason,
+        )
+
+        if gate.status != "approved":
+            run = self._store.get_run(run_id)
+            return TransitionOutcome(run=run, event=None)
+
+        run = self._store.get_run(run_id)
+        definition = self._store.get_definition(run_id)
+        current_step = _step_by_id(definition, run.current_step)
+
+        if current_step.kind != "human_gate":
+            raise GateNotApprovedError(
+                f"run is no longer at a human gate (step {run.current_step!r})"
+            )
+
+        matching = _transitions_for_result(current_step, "approved")
+        if not matching:
+            raise GateNotApprovedError(
+                f"step {current_step.step_id!r} has no approved transition"
+            )
+
+        edge = matching[0]
+        new_status = derive_status(edge.to_step, definition)
+        new_run = self._store.update_run(
+            run.with_step(current_step=edge.to_step, status=new_status),
+            run.revision,
+        )
+
+        event = self._append_transition_event(
+            new_run,
+            current_step.step_id,
+            edge,
+            "approved",
+            principal,
+        )
+        return TransitionOutcome(run=new_run, event=event)
+
     def _record_diagnostic(
         self,
         run: WorkflowRun,

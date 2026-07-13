@@ -94,3 +94,38 @@ def test_ac_fr0501_01_run_blocks_at_human_gate_without_decision():
     assert after.current_step == "m_lock"
     assert after.revision == run.revision
     assert after.status == "waiting_for_human"
+
+
+def test_ac_fr0501_02_valid_principal_approval_advances_run():
+    """AC-FR0501-02: matching approval records evidence and transitions."""
+    store, orchestrator, gate_service, run = _create_fixtures()
+    gate = gate_service.ensure_gate(
+        run_id=run.run_id,
+        step_id="m_lock",
+        bound_digest="sha256:abc123",
+    )
+
+    outcome = orchestrator.apply_gate_decision(
+        run_id=run.run_id,
+        gate_id=gate.gate_id,
+        decision="approve",
+        bound_digest="sha256:abc123",
+        expected_revision=run.revision,
+        principal={"kind": "human", "id": "alice"},
+    )
+
+    assert outcome.run.current_step == "design"
+    assert outcome.run.revision == 1
+    assert outcome.run.status == "completed"
+
+    approved_gate = store.get_gate(gate.gate_id)
+    assert approved_gate.status == "approved"
+    assert approved_gate.actor_id == "alice"
+    assert approved_gate.bound_digest == "sha256:abc123"
+
+    events = store.get_events(run.run_id)
+    assert any(event.type == "gate.approved" for event in events)
+    transition_events = [event for event in events if event.type == "step.transition"]
+    assert len(transition_events) == 1
+    assert transition_events[0].to_step == "design"
+    assert transition_events[0].actor == {"kind": "human", "id": "alice"}
