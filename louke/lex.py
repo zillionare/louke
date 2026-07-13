@@ -166,12 +166,52 @@ def _extract_frs_from_spec(spec_id: str):
     return text, frs
 
 
+def _parse_project_url(project_url: str):
+    """Extract (project_number, owner) from a GitHub Projects URL.
+
+    Accepts both user-scoped and repo-scoped project URLs::
+
+        https://github.com/users/{owner}/projects/{number}
+        https://github.com/{owner}/{repo}/projects/{number}
+
+    Args:
+        project_url: full HTTPS GitHub Projects URL.
+
+    Returns:
+        ``(project_number, owner)`` tuple of strings, or ``(None, None)`` when the
+        URL does not match either shape.
+    """
+    m_num = re.search(r"/projects/(\d+)", project_url)
+    if not m_num:
+        return None, None
+    # Path after host: ["users", "{owner}", "projects", "{num}"]
+    # or ["{owner}", "{repo}", "projects", "{num}"]. Owner is first non-users seg.
+    m_path = re.search(r"github\.com/(.+)", project_url)
+    if not m_path:
+        return None, None
+    segments = m_path.group(1).split("/")
+    if len(segments) < 3 or "projects" not in segments:
+        return None, None
+    if segments[0] == "users":
+        owner = segments[1]
+    else:
+        owner = segments[0]
+    return m_num.group(1), owner
+
+
 def cmd_verify_project(args):
     """FR-0740: validate that all FR issues in the spec are linked to the Project."""
     project_url = _read_project_info("Project ID")
     if not project_url or not project_url.startswith("https://"):
         print(
             "Project URL missing in project.toml; run lk agent scout foundation first",
+            file=sys.stderr,
+        )
+        return 1
+    project_number, owner = _parse_project_url(project_url)
+    if not project_number or not owner:
+        print(
+            f"cannot parse project number/owner from {project_url}",
             file=sys.stderr,
         )
         return 1
@@ -191,7 +231,16 @@ def cmd_verify_project(args):
         return 0
     try:
         items_out = subprocess.check_output(
-            ["gh", "project", "item-list", str(project_url), "--format", "json"],
+            [
+                "gh",
+                "project",
+                "item-list",
+                project_number,
+                "--owner",
+                owner,
+                "--format",
+                "json",
+            ],
             text=True,
             stderr=subprocess.DEVNULL,
         )
