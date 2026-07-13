@@ -32,17 +32,4 @@ def recover_run(store: WorkflowRunStore, run_id: str) -> WorkflowRun:
     if run.status == "needs_attention":
         return run
 
-    return store.update_run(
-        WorkflowRun(
-            run_id=run.run_id,
-            definition_id=run.definition_id,
-            definition_version=run.definition_version,
-            current_step=run.current_step,
-            revision=run.revision,
-            status="needs_attention",
-            contract_digest=run.contract_digest,
-            created_at=run.created_at,
-            updated_at=run.updated_at,
-        ),
-        run.revision,
-    )
+    return store.update_run(run.with_status("needs_attention"), run.revision)

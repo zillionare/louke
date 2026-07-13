@@ -95,19 +95,9 @@ class WorkflowOrchestrator:
             )
 
         edge = matching[0]
-        new_status = _derive_status(edge.to_step, definition)
+        new_status = derive_status(edge.to_step, definition)
         new_run = self._store.update_run(
-            WorkflowRun(
-                run_id=run.run_id,
-                definition_id=run.definition_id,
-                definition_version=run.definition_version,
-                current_step=edge.to_step,
-                revision=run.revision,
-                status=new_status,
-                contract_digest=run.contract_digest,
-                created_at=run.created_at,
-                updated_at=run.updated_at,
-            ),
+            run.with_step(current_step=edge.to_step, status=new_status),
             command.expected_revision,
         )
 
@@ -174,10 +164,6 @@ def _step_by_id(definition: WorkflowDefinition, step_id: str) -> Step:
 
 def _transitions_for_result(step: Step, result: str) -> list[Edge]:
     return [edge for edge in step.transitions if edge.condition == result]
-
-
-def _derive_status(current_step: str, definition: WorkflowDefinition) -> str:
-    return derive_status(current_step, definition)
 
 
 def _build_event(

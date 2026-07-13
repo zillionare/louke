@@ -58,6 +58,38 @@ class WorkflowRun:
     created_at: str
     updated_at: str
 
+    def with_status(self, status: str) -> "WorkflowRun":
+        """Return a new run with the given ``status`` and updated timestamp."""
+        from datetime import datetime, timezone
+
+        return WorkflowRun(
+            run_id=self.run_id,
+            definition_id=self.definition_id,
+            definition_version=self.definition_version,
+            current_step=self.current_step,
+            revision=self.revision,
+            status=status,
+            contract_digest=self.contract_digest,
+            created_at=self.created_at,
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    def with_step(self, current_step: str, status: str) -> "WorkflowRun":
+        """Return a new run positioned at ``current_step`` with ``status``."""
+        from datetime import datetime, timezone
+
+        return WorkflowRun(
+            run_id=self.run_id,
+            definition_id=self.definition_id,
+            definition_version=self.definition_version,
+            current_step=current_step,
+            revision=self.revision,
+            status=status,
+            contract_digest=self.contract_digest,
+            created_at=self.created_at,
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
+
 
 _RUN_COLUMNS: tuple[str, ...] = (
     "run_id",
