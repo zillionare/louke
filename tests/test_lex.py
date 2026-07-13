@@ -15,6 +15,7 @@ Two URL shapes are covered (both valid GitHub Projects URLs):
 
 from __future__ import annotations
 
+import json
 import types
 from unittest import mock
 
@@ -115,3 +116,106 @@ def test_verify_project_rejects_unrecognized_url(monkeypatch):
     assert lex.cmd_verify_project(_make_args()) == 1
     argv = _item_list_call(lex.subprocess.check_output)
     assert argv is None, "gh project item-list must not be called for bad URL"
+
+
+# --- Bug #153: cross-spec [FR-] title search misreports v0.11 issues as unlinked ---
+
+
+_V012_SPEC = "v0.12-001-programmatic-workflow-runtime"
+
+
+def _issue(number, title, body):
+    """Build a minimal gh issue dict with number/title/body/url."""
+    url = f"https://github.com/zillionare/louke/issues/{number}"
+    return {"number": number, "title": title, "body": body, "url": url}
+
+
+_V011_ERA_BODY = (
+    "### Requirement ID\nFR-0101\n\n"
+    "### Spec Link\n"
+    "https://github.com/zillionare/louke/blob/releases/v0.8/"
+    ".louke/project/specs/v0.11-001-web-ide/spec.md#fr-0101\n\n"
+    "### Acceptance Criteria\nNone\n"
+)
+
+_V012_MIRROR_BODY = (
+    "### Requirement ID\nFR-0101\n\n"
+    "### Spec Link\n"
+    "https://github.com/zillionare/louke/blob/main/"
+    f".louke/project/specs/{_V012_SPEC}/spec.md#fr-0101\n\n"
+    "### Acceptance Criteria\n"
+    f"https://github.com/zillionare/louke/blob/main/"
+    f".louke/project/specs/{_V012_SPEC}/acceptance.md#ac-fr-0101\n"
+)
+
+
+def _patch_env_cross_spec(monkeypatch, project_url, issues):
+    """Like _patch_env but lets the issue-list call return custom issues.
+
+    The mirror issue is linked to the project; the v0.11-era issue is not.
+    """
+    monkeypatch.setattr(
+        lex, "_read_project_info", lambda label: project_url if label == "Project ID" else ""
+    )
+    monkeypatch.setattr(
+        lex, "_extract_frs_from_spec", lambda spec_id: ("spec-text", ["0101"])
+    )
+    monkeypatch.setattr(lex, "_resolve_repo", lambda args: "zillionare/louke")
+
+    linked_url = issues[0]["url"]  # mirror issue is linked
+    items_payload = json.dumps(
+        [{"content": {"url": linked_url}, "url": linked_url}]
+    )
+
+    def _fake_check_output(cmd, *a, **kw):
+        if "item-list" in cmd:
+            return items_payload
+        if "issue" in cmd and "list" in cmd:
+            return json.dumps(issues)
+        return "[]"
+
+    monkeypatch.setattr(
+        lex.subprocess,
+        "check_output",
+        mock.Mock(side_effect=_fake_check_output),
+    )
+
+
+def _make_args_v012():
+    return types.SimpleNamespace(spec=_V012_SPEC, repo="", dry_run=False)
+
+
+def test_verify_project_filters_cross_spec_v011_issue(monkeypatch):
+    """Bug #153: a v0.11-era issue with [FR-0101] title must not be flagged unlinked
+    when verifying v0.12-001, because its body Spec Link points at v0.11-001-web-ide.
+
+    Setup:
+      - mirror issue #141: title [FR-0101], body -> v0.12-001 spec, linked to project
+      - v0.11-era issue #99:  title [FR-0101], body -> v0.11-001-web-ide, NOT linked
+    Expected: exit 0 (no unlinked), because #99 is cross-spec and must be filtered out.
+    """
+    issues = [
+        _issue(141, "[FR-0101] Runtime 是状态与转移的唯一写入者", _V012_MIRROR_BODY),
+        _issue(99, "[FR-0101] Louke Server 工作流推进与 Agent 工具化", _V011_ERA_BODY),
+    ]
+    _patch_env_cross_spec(
+        monkeypatch, "https://github.com/users/quantclaws/projects/15", issues
+    )
+    assert lex.cmd_verify_project(_make_args_v012()) == 0
+
+
+def test_verify_project_still_flags_unlinked_same_spec_issue(monkeypatch):
+    """A genuine v0.12-001 issue that is NOT linked must still be flagged unlinked.
+
+    This guards against the fix over-filtering: the cross-spec filter must only drop
+    issues whose body points at a different spec, not issues of the same spec.
+    """
+    issues = [
+        _issue(141, "[FR-0101] Runtime 是状态与转移的唯一写入者", _V012_MIRROR_BODY),
+        _issue(200, "[FR-0101] unlinked v0.12 issue", _V012_MIRROR_BODY),
+    ]
+    _patch_env_cross_spec(
+        monkeypatch, "https://github.com/users/quantclaws/projects/15", issues
+    )
+    rc = lex.cmd_verify_project(_make_args_v012())
+    assert rc == 1, "an unlinked same-spec issue must still be flagged"

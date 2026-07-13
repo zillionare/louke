@@ -274,17 +274,21 @@ def cmd_verify_project(args):
             "--search",
             "in:title [FR-]",
             "--json",
-            "number,title,url",
+            "number,title,body,url",
         ],
         text=True,
         stderr=subprocess.DEVNULL,
     )
     issues = json.loads(issues_out) or []
+    spec_path_marker = f"specs/{args.spec}/spec.md"
     unlinked = []
     for issue in issues:
         title = issue.get("title", "")
         m = re.search(r"\[FR-(\d{4})\]", title)
         if not m or m.group(1) not in frs:
+            continue
+        body = issue.get("body") or ""
+        if spec_path_marker not in body:
             continue
         if issue.get("url") not in linked_urls:
             unlinked.append(issue.get("number"))
