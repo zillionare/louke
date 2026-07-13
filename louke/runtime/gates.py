@@ -26,6 +26,11 @@ GATE_WAITING: str = "waiting_for_human"
 GATE_APPROVED: str = "approved"
 GATE_REJECTED: str = "rejected"
 GATE_STALE: str = "stale"
+#: A gate whose approval was inherited from an approved source contract by a
+#: bug_fix run (FR-0801 AC-6). Such a gate was never ``waiting_for_human`` on
+#: the inheriting run: it was created already-approved to record the carried
+#: over approval without a new human decision.
+GATE_INHERITED: str = "inherited"
 
 DECISION_APPROVE: str = "approve"
 DECISION_REJECT: str = "reject"

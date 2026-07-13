@@ -21,7 +21,12 @@ from __future__ import annotations
 import pytest
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
-from louke.runtime.contract_gates import contract_digest
+from louke.runtime.contract_gates import (
+    BugFixInheritanceVerifier,
+    HotfixInheritanceError,
+    SourceContract,
+    contract_digest,
+)
 from louke.runtime.domain import RuntimeCommand
 from louke.runtime.gates import (
     GateNotApprovedError,
@@ -441,3 +446,197 @@ def test_ac_fr0801_05_rejection_audit():
         if attempt.step_id == "design"
     ]
     assert len(design_attempts) == 0
+
+
+def _bug_fix_definition() -> WorkflowDefinition:
+    """Return a bug_fix definition with a source_contract_verify program step.
+
+    The bug_fix quick path begins with a ``source_contract_verify`` program step
+    that runs the inheritance verifier. When verification succeeds the run
+    advances directly to ``reproduce_failure`` (an implementation-adjacent
+    step) without passing through a ``requirements_approval`` human gate; the
+    inherited approval is recorded separately. When verification fails the
+    hotfix path is rejected.
+    """
+    verify = Step(
+        step_id="source_contract_verify",
+        kind="program",
+        transitions=(
+            Edge(
+                edge_id="e_bug_verified",
+                from_step="source_contract_verify",
+                to_step="reproduce_failure",
+                condition="verified",
+            ),
+            Edge(
+                edge_id="e_bug_rejected",
+                from_step="source_contract_verify",
+                to_step="requirements_review",
+                condition="rejected",
+            ),
+        ),
+    )
+    reproduce = Step(step_id="reproduce_failure", kind="program")
+    review = Step(step_id="requirements_review", kind="program")
+    return WorkflowDefinition(
+        definition_id="bug_fix",
+        version="1",
+        start_step="source_contract_verify",
+        steps=(verify, reproduce, review),
+    )
+
+
+def _seed_approved_source_run(
+    store: WorkflowRunStore,
+    orchestrator: WorkflowOrchestrator,
+) -> tuple[str, str, str, str]:
+    """Create and approve a source run, returning its approval evidence.
+
+    Returns a tuple of ``(source_run_id, source_gate_id, source_bound_digest,
+    source_spec_digest)`` so a bug_fix run can reference the inherited
+    approval.
+    """
+    source_run = store.create_run(
+        store._catalog.get("fr0801", "1")
+        if store._catalog is not None
+        else _requirements_approval_definition()
+    )
+    source_spec_digest = "sha256:source_spec_v1"
+    source_acceptance_digest = "sha256:source_acceptance_v1"
+    source_bound_digest = contract_digest(
+        {
+            "story": "sha256:source_story_v1",
+            "spec": source_spec_digest,
+            "acceptance": source_acceptance_digest,
+        }
+    )
+    orchestrator.ensure_requirements_gate(
+        run_id=source_run.run_id,
+        story_digest="sha256:source_story_v1",
+        spec_digest=source_spec_digest,
+        acceptance_digest=source_acceptance_digest,
+    )
+    source_gate_id = store.get_gate_for_run_step(
+        source_run.run_id, "requirements_approval"
+    ).gate_id
+    orchestrator.apply_gate_decision(
+        run_id=source_run.run_id,
+        gate_id=source_gate_id,
+        decision="approve",
+        bound_digest=source_bound_digest,
+        expected_revision=source_run.revision,
+        principal={"kind": "human", "id": "alice"},
+    )
+    return (
+        source_run.run_id,
+        source_gate_id,
+        source_bound_digest,
+        source_spec_digest,
+    )
+
+
+def _create_bug_fix_fixtures() -> tuple[WorkflowRunStore, WorkflowOrchestrator, object]:
+    """Create fixtures for AC-6 with both a source (approved) and bug_fix run."""
+    registry = DefinitionRegistry()
+    registry.register(_requirements_approval_definition())
+    registry.register(_bug_fix_definition())
+    store = WorkflowRunStore(catalog=registry)
+    gate_service = GateService(store)
+    orchestrator = WorkflowOrchestrator(store, gate_service=gate_service)
+    bug_fix_run = store.create_run(registry.get("bug_fix", "1"))
+    return store, orchestrator, bug_fix_run
+
+
+def test_ac_fr0801_06_bug_fix_inheritance():
+    """AC-FR0801-06: bug_fix inherits source approval or is rejected.
+
+    A ``bug_fix`` run that references an existing GitHub Issue and an already
+    approved source spec/AC, and that only fixes an implementation deviation
+    (no behavior change), must inherit the source requirements approval. The
+    verifier returns an ``InheritedApproval`` and the orchestrator records it
+    without creating a new ``waiting_for_human`` requirements gate; the
+    inherited approval satisfies ``check_requirements_approval``.
+
+    When the source contract claims a behavior change, lacks a GitHub Issue
+    mapping, or references a source approval that is not actually approved,
+    the verifier raises ``HotfixInheritanceError`` and the hotfix quick path
+    is rejected.
+    """
+    store, orchestrator, bug_fix_run = _create_bug_fix_fixtures()
+    _source_run_id, source_gate_id, source_bound_digest, source_spec_digest = (
+        _seed_approved_source_run(store, orchestrator)
+    )
+
+    verifier = BugFixInheritanceVerifier(store)
+
+    valid_contract = SourceContract(
+        github_issue="owner/repo#42",
+        source_spec_digest=source_spec_digest,
+        source_acceptance_digest="sha256:source_acceptance_v1",
+        source_approval_gate_id=source_gate_id,
+        source_approval_bound_digest=source_bound_digest,
+        behavior_change="implementation_deviation_only",
+    )
+
+    inherited = verifier.verify(bug_fix_run.run_id, valid_contract)
+
+    assert inherited.run_id == bug_fix_run.run_id
+    assert inherited.source_approval_gate_id == source_gate_id
+    assert inherited.github_issue == "owner/repo#42"
+
+    orchestrator.apply_inherited_requirements_approval(
+        run_id=bug_fix_run.run_id,
+        inherited=inherited,
+    )
+
+    approved_gate = orchestrator.check_requirements_approval(bug_fix_run.run_id)
+    assert approved_gate.status == "inherited"
+    assert approved_gate.bound_digest == source_bound_digest
+
+    pending_gates = [
+        gate for gate in [approved_gate] if gate.status == "waiting_for_human"
+    ]
+    assert len(pending_gates) == 0
+
+    events = store.get_events(bug_fix_run.run_id)
+    inherited_events = [
+        event for event in events if event.type == "requirements.approval.inherited"
+    ]
+    assert len(inherited_events) == 1
+    inherited_event = inherited_events[0]
+    assert inherited_event.details["source_approval_gate_id"] == source_gate_id
+    assert inherited_event.details["github_issue"] == "owner/repo#42"
+    assert inherited_event.details["bound_digest"] == source_bound_digest
+
+    behavior_change_contract = SourceContract(
+        github_issue="owner/repo#42",
+        source_spec_digest=source_spec_digest,
+        source_acceptance_digest="sha256:source_acceptance_v1",
+        source_approval_gate_id=source_gate_id,
+        source_approval_bound_digest=source_bound_digest,
+        behavior_change="behavior_change",
+    )
+    with pytest.raises(HotfixInheritanceError):
+        verifier.verify(bug_fix_run.run_id, behavior_change_contract)
+
+    missing_issue_contract = SourceContract(
+        github_issue="",
+        source_spec_digest=source_spec_digest,
+        source_acceptance_digest="sha256:source_acceptance_v1",
+        source_approval_gate_id=source_gate_id,
+        source_approval_bound_digest=source_bound_digest,
+        behavior_change="implementation_deviation_only",
+    )
+    with pytest.raises(HotfixInheritanceError):
+        verifier.verify(bug_fix_run.run_id, missing_issue_contract)
+
+    unapproved_contract = SourceContract(
+        github_issue="owner/repo#42",
+        source_spec_digest="sha256:different_spec",
+        source_acceptance_digest="sha256:source_acceptance_v1",
+        source_approval_gate_id=source_gate_id,
+        source_approval_bound_digest="sha256:wrong_bound_digest",
+        behavior_change="implementation_deviation_only",
+    )
+    with pytest.raises(HotfixInheritanceError):
+        verifier.verify(bug_fix_run.run_id, unapproved_contract)

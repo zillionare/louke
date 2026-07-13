@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from louke.runtime.catalog import Edge, Step, WorkflowDefinition, derive_status
 from louke.runtime.contract_gates import (
+    InheritedApproval,
     MLockGateCoordinator,
     RequirementGateCoordinator,
 )
@@ -200,6 +201,40 @@ class WorkflowOrchestrator:
         if self._requirements_coordinator is None:
             raise RuntimeError("orchestrator has no gate service")
         return self._requirements_coordinator.check_approval(run_id)
+
+    def apply_inherited_requirements_approval(
+        self,
+        run_id: str,
+        inherited: InheritedApproval,
+    ) -> "Gate":
+        """Record an inherited requirements approval on a bug_fix run.
+
+        Used by the ``source_contract.verify`` step of a ``bug_fix`` workflow
+        definition after the :class:`~louke.runtime.contract_gates.BugFixInheritanceVerifier`
+        has accepted the source contract. Records the inherited approval on
+        the run without creating a new ``waiting_for_human`` requirements
+        gate, so the run can advance to design/implementation without a new
+        human approval (FR-0801 AC-6).
+
+        Args:
+            run_id: The bug_fix run inheriting the source approval.
+            inherited: The inherited approval record returned by the verifier.
+
+        Returns:
+            The persisted inherited requirements gate.
+
+        Raises:
+            RuntimeError: If the orchestrator was created without a gate
+                service.
+            HotfixInheritanceError: If a requirements gate already exists for
+                the run.
+        """
+        if self._requirements_coordinator is None:
+            raise RuntimeError("orchestrator has no gate service")
+        return self._requirements_coordinator.apply_inherited_approval(
+            run_id=run_id,
+            inherited=inherited,
+        )
 
     def check_m_lock_approval(self, run_id: str) -> "Gate":
         """Verify that the M-LOCK gate is approved for ``run_id``.
