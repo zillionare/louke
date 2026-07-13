@@ -30,6 +30,7 @@ from louke.runtime.events import (
     EventBuilder,
     EventSchemaValidator,
     new_correlation_id,
+    redact,
 )
 from louke.runtime.gates import Gate
 
@@ -601,9 +602,11 @@ class WorkflowRunStore:
         return self.get_run(run.run_id)
 
     def _sanitize_event(self, event: WorkflowEvent) -> WorkflowEvent:
-        """Validate ``event`` and ensure it has a correlation id."""
+        """Redact and validate ``event``, generating a correlation id if missing."""
         sanitized = replace(
             event,
+            actor=redact(event.actor),
+            details=redact(event.details),
             correlation_id=event.correlation_id or new_correlation_id(),
         )
         EventSchemaValidator().validate(sanitized)

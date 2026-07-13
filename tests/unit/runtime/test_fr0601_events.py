@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
@@ -217,3 +219,76 @@ def test_ac_fr0601_02_state_and_last_event_revision_consistent_and_atomic():
     after_rollback = store.get_run(run.run_id)
     assert after_rollback.revision == current.revision
     assert after_rollback.current_step == current.current_step
+
+
+def test_ac_fr0601_03_event_redacts_secrets_and_credentials():
+    """AC-FR0601-03: events keep identity identifiers but not secrets or credentials."""
+    registry = DefinitionRegistry()
+    definition = registry.register(
+        WorkflowDefinition(
+            definition_id="fr0601_redaction",
+            version="1",
+            start_step="start",
+            steps=(
+                Step(
+                    step_id="start",
+                    kind="program",
+                    transitions=(
+                        Edge(
+                            edge_id="e1",
+                            from_step="start",
+                            to_step="end",
+                            condition="done",
+                        ),
+                    ),
+                ),
+                Step(step_id="end", kind="program"),
+            ),
+        )
+    )
+    store = WorkflowRunStore(catalog=registry)
+    run = store.create_run(definition)
+
+    actor = {
+        "kind": "human",
+        "id": "alice",
+        "token": "super-secret-token",
+        "credential": "super-secret-credential",
+    }
+    details = {
+        "step_id": "start",
+        "idempotency_key": "attempt-secret",
+        "input": {"password": "hunter2", "api_key": "AKIA..."},
+    }
+
+    event = EventBuilder(run).step_started(
+        step_id="start",
+        attempt_id="attempt-secret",
+        actor=actor,
+        details=details,
+        input_digest="sha256:input",
+        output_digest="sha256:output",
+    )
+    persisted = store.append_event(event)
+
+    serialized = json.dumps(
+        {
+            "actor": persisted.actor,
+            "details": persisted.details,
+        },
+        sort_keys=True,
+    )
+    assert "super-secret-token" not in serialized
+    assert "super-secret-credential" not in serialized
+    assert "hunter2" not in serialized
+    assert "AKIA..." not in serialized
+
+    # Allowed identity identifiers survive redaction.
+    assert persisted.actor.get("kind") == "human"
+    assert persisted.actor.get("id") == "alice"
+
+    # Secrets are replaced by stable digests.
+    assert persisted.actor.get("token", "").startswith("sha256:")
+    assert persisted.actor.get("credential", "").startswith("sha256:")
+    assert persisted.details["input"]["password"].startswith("sha256:")
+    assert persisted.details["input"]["api_key"].startswith("sha256:")

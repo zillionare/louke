@@ -1,8 +1,8 @@
-"""Workflow event schema and builder for FR-0601.
+"""Workflow event schema, redaction and builder for FR-0601.
 
 This module formalises the append-only event stream required by FR-0601.  It
-provides a stable event schema, a builder that produces events, and a validator
-that rejects events missing required fields.
+provides a stable event schema, a builder that produces redacted events, and a
+validator that rejects events missing required fields.
 """
 
 from __future__ import annotations
@@ -10,8 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
 
 from louke.runtime.domain import WorkflowEvent
 
@@ -58,6 +59,49 @@ def digest_value(value: Any) -> str:
             "utf-8"
         )
     return f"sha256:{hashlib.sha256(content).hexdigest()}"
+
+
+# Keys whose values must never appear in clear text inside an event.  The list
+# is intentionally conservative: only exact matches are scrubbed.
+SENSITIVE_KEYS: frozenset[str] = frozenset(
+    {
+        "secret",
+        "secrets",
+        "credential",
+        "credentials",
+        "token",
+        "tokens",
+        "password",
+        "passwords",
+        "api_key",
+        "api_keys",
+        "auth_token",
+        "access_token",
+        "private_key",
+        "authorization",
+    }
+)
+
+
+def redact(value: Any) -> Any:
+    """Recursively replace sensitive values with stable digests.
+
+    Dict keys matching ``SENSITIVE_KEYS`` have their values replaced by a
+    digest.  Everything else is preserved, including allowed identity
+    identifiers such as ``kind`` and ``id``.
+    """
+    if is_dataclass(value) and not isinstance(value, type):
+        return redact(asdict(value))
+    if isinstance(value, Mapping):
+        return {
+            key: (
+                digest_value(inner) if key.lower() in SENSITIVE_KEYS else redact(inner)
+            )
+            for key, inner in value.items()
+        }
+    if isinstance(value, list):
+        return [redact(item) for item in value]
+    return value
 
 
 class EventSchemaValidator:
@@ -140,11 +184,11 @@ def _build_event(
         sequence=0,
         type=event_type,
         at=datetime.now(timezone.utc).isoformat(),
-        actor=actor or {"kind": "runtime", "id": "runtime"},
+        actor=redact(actor or {"kind": "runtime", "id": "runtime"}),
         from_step=from_step,
         to_step=to_step,
         revision=run.revision,
-        details=details or {},
+        details=redact(details or {}),
         step_id=step_id,
         attempt_id=attempt_id,
         correlation_id=correlation_id or new_correlation_id(),
