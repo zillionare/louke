@@ -10,10 +10,18 @@ second main project is blocked, the story is saved to backlog for later use.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from louke.runtime.contract_gates import (
+    BugFixInheritanceVerifier,
+    HotfixInheritanceError,
+    InheritedApproval,
+    SourceContract,
+)
 
 if TYPE_CHECKING:
     from louke.runtime.store import WorkflowRunStore
@@ -139,6 +147,60 @@ class ProjectTerminalStatus:
     ARCHIVED = "archived"
 
 
+@dataclass(frozen=True, slots=True)
+class CatalogEntry:
+    """A selectable workflow definition in the project creation catalog.
+
+    Attributes:
+        definition_id: The workflow definition id (e.g. ``new_feature``).
+        version: The immutable definition version.
+        label: Human-readable label for the workflow.
+        is_hotfix: ``True`` for bug_fix workflows (published product hotfix).
+    """
+
+    definition_id: str
+    version: str
+    label: str
+    is_hotfix: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectPreview:
+    """A non-persisted preview of a project before confirmation.
+
+    Attributes:
+        preview_id: Opaque stable identifier for the preview, used by
+            :meth:`ProjectStore.confirm_project` to create the project.
+        story_excerpt: Truncated story text for display.
+        release_version: The release version the project targets.
+        workflow_definition_id: The workflow definition id.
+        workflow_version: The workflow definition version.
+        project_id: Always ``None`` until the preview is confirmed.
+        source_contract: The source contract for bug_fix previews, if any.
+    """
+
+    preview_id: str
+    story_excerpt: str
+    release_version: str
+    workflow_definition_id: str
+    workflow_version: str
+    project_id: str | None = None
+    source_contract: dict[str, Any] | None = None
+
+
+#: The set of workflow definition ids directly offered in the first-version
+#: catalog. ``spec_change`` is intentionally excluded.
+_CATALOG_DEFINITION_IDS: tuple[str, ...] = ("new_feature", "bug_fix")
+
+_CATALOG_LABELS: dict[str, str] = {
+    "new_feature": "New feature",
+    "bug_fix": "Bug fix (hotfix)",
+}
+
+#: Regex for validating release version strings like ``v0.12.0``.
+_RELEASE_VERSION_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+
 def _derive_name(story: str) -> str:
     """Return a display title derived from ``story``.
 
@@ -173,6 +235,124 @@ class ProjectStore:
         self._run_store = run_store
         self._projects: dict[str, Project] = {}
         self._backlog: list[BacklogEntry] = []
+        self._previews: dict[str, ProjectPreview] = {}
+
+    def list_workflow_catalog(self) -> tuple[CatalogEntry, ...]:
+        """Return the selectable workflow definitions for project creation.
+
+        Only ``new_feature`` and ``bug_fix`` are directly offered.
+        ``spec_change`` is excluded from the first-version catalog.
+
+        Returns:
+            A tuple of :class:`CatalogEntry`.
+        """
+        return tuple(
+            CatalogEntry(
+                definition_id=def_id,
+                version="1",
+                label=_CATALOG_LABELS.get(def_id, def_id),
+                is_hotfix=def_id in HOTFIX_DEFINITION_IDS,
+            )
+            for def_id in _CATALOG_DEFINITION_IDS
+        )
+
+    def preview_project(
+        self,
+        story: str,
+        release_version: str,
+        definition_id: str,
+        definition_version: str,
+        source_contract: dict[str, Any] | None = None,
+    ) -> ProjectPreview:
+        """Validate inputs and return a preview without creating a project.
+
+        Args:
+            story: The story text describing the project goal.
+            release_version: The release version (must match ``vX.Y.Z``).
+            definition_id: The workflow definition id.
+            definition_version: The workflow definition version.
+            source_contract: Required for bug_fix; must reference a GitHub
+                Issue and an approved source spec/AC.
+
+        Returns:
+            A :class:`ProjectPreview` that can be confirmed via
+            :meth:`confirm_project`.
+
+        Raises:
+            ValueError: If story is empty, release version is invalid, or
+                bug_fix is missing a valid source contract.
+            KeyError: If the workflow definition is not in the catalog.
+            ProjectConflictError: If a second active main project would be
+                created; the story is saved to backlog.
+        """
+        if not story.strip():
+            raise ValueError("story is required")
+
+        if not _RELEASE_VERSION_RE.match(release_version):
+            raise ValueError(
+                f"invalid release version {release_version!r}; expected format vX.Y.Z"
+            )
+
+        if definition_id not in _CATALOG_DEFINITION_IDS:
+            raise KeyError(f"workflow {definition_id!r} is not in the catalog")
+
+        if definition_id == "bug_fix" and source_contract is None:
+            raise ValueError("bug_fix requires a source_contract")
+
+        if (
+            self._has_active_main_project()
+            and definition_id not in HOTFIX_DEFINITION_IDS
+        ):
+            entry = BacklogEntry(
+                entry_id=f"bl_{uuid.uuid4().hex[:12]}",
+                story=story,
+                release_version=release_version,
+                workflow_definition_id=definition_id,
+                workflow_version=definition_version,
+                created_at=datetime.now(timezone.utc).isoformat(),
+            )
+            self._backlog.append(entry)
+            raise ProjectConflictError(
+                "an active non-hotfix project already exists; story saved to backlog"
+            )
+
+        preview = ProjectPreview(
+            preview_id=f"prev_{uuid.uuid4().hex[:12]}",
+            story_excerpt=_excerpt(story),
+            release_version=release_version,
+            workflow_definition_id=definition_id,
+            workflow_version=definition_version,
+            project_id=None,
+            source_contract=source_contract,
+        )
+        self._previews[preview.preview_id] = preview
+        return preview
+
+    def confirm_project(self, preview_id: str) -> Project:
+        """Create the project from a previously returned preview.
+
+        Args:
+            preview_id: The preview id returned by :meth:`preview_project`.
+
+        Returns:
+            The newly created :class:`Project`.
+
+        Raises:
+            KeyError: If the preview id does not exist.
+        """
+        preview = self._previews.get(preview_id)
+        if preview is None:
+            raise KeyError(f"preview {preview_id!r} not found")
+
+        project = self.create_project(
+            story=preview.story_excerpt,
+            release_version=preview.release_version,
+            definition_id=preview.workflow_definition_id,
+            definition_version=preview.workflow_version,
+            source_contract=preview.source_contract,
+        )
+        del self._previews[preview_id]
+        return project
 
     def create_project(
         self,
@@ -180,6 +360,7 @@ class ProjectStore:
         release_version: str,
         definition_id: str,
         definition_version: str,
+        source_contract: dict[str, Any] | None = None,
     ) -> Project:
         """Create a new project and its first workflow run.
 
@@ -188,6 +369,8 @@ class ProjectStore:
             release_version: The release version the project targets.
             definition_id: The workflow definition id (e.g. ``new_feature``).
             definition_version: The workflow definition version.
+            source_contract: Required for bug_fix; must reference a GitHub
+                Issue and an approved source spec/AC.
 
         Returns:
             The newly created :class:`Project`.
@@ -196,6 +379,7 @@ class ProjectStore:
             ProjectConflictError: If an active non-hotfix project already
                 exists and the new project is also non-hotfix. The story is
                 saved to backlog before the error is raised.
+            ValueError: If bug_fix is missing a valid source contract.
         """
         if (
             self._has_active_main_project()
@@ -227,6 +411,10 @@ class ProjectStore:
 
         run = self._run_store.create_run(definition)
         now = datetime.now(timezone.utc).isoformat()
+
+        if definition_id == "bug_fix" and source_contract is not None:
+            self._apply_bug_fix_inheritance(run.run_id, source_contract)
+
         project = Project(
             project_id=f"prj_{uuid.uuid4().hex[:12]}",
             run_id=run.run_id,
@@ -241,6 +429,46 @@ class ProjectStore:
         )
         self._projects[project.project_id] = project
         return project
+
+    def _apply_bug_fix_inheritance(
+        self, run_id: str, source_contract: dict[str, Any]
+    ) -> None:
+        """Verify source contract and record inherited requirements approval.
+
+        Args:
+            run_id: The bug_fix run inheriting the approval.
+            source_contract: The source contract dict referencing a GitHub
+                Issue and an approved source spec/AC.
+
+        Raises:
+            ValueError: If the source contract is invalid or the referenced
+                source approval is not actually approved.
+        """
+        try:
+            contract = SourceContract(
+                github_issue=source_contract["github_issue"],
+                source_spec_digest=source_contract["source_spec_digest"],
+                source_acceptance_digest=source_contract["source_acceptance_digest"],
+                source_approval_gate_id=source_contract["source_approval_gate_id"],
+                source_approval_bound_digest=source_contract[
+                    "source_approval_bound_digest"
+                ],
+                behavior_change=source_contract["behavior_change"],
+            )
+        except KeyError as exc:
+            raise ValueError(f"source_contract missing field: {exc}") from exc
+
+        verifier = BugFixInheritanceVerifier(self._run_store)
+        try:
+            inherited = verifier.verify(run_id, contract)
+        except HotfixInheritanceError as exc:
+            raise ValueError(str(exc)) from exc
+
+        _record_inherited_gate(
+            self._run_store,
+            run_id=run_id,
+            inherited=inherited,
+        )
 
     def archive_project(self, project_id: str) -> Project:
         """Mark ``project_id`` as archived and move it to history.
@@ -355,3 +583,30 @@ class ProjectStore:
             updated_at=updated_at,
             archived_at=project.archived_at,
         )
+
+
+def _record_inherited_gate(
+    run_store: "WorkflowRunStore",
+    run_id: str,
+    inherited: InheritedApproval,
+) -> None:
+    """Persist an inherited requirements gate for a bug_fix run.
+
+    Args:
+        run_store: The workflow run store.
+        run_id: The bug_fix run inheriting the approval.
+        inherited: The inherited approval record.
+    """
+    from louke.runtime.contract_gates import _make_inherited_gate
+
+    run = run_store.get_run(run_id)
+    now = datetime.now(timezone.utc).isoformat()
+    gate = _make_inherited_gate(
+        run_id=run_id,
+        step_id="requirements_approval",
+        bound_digest=inherited.bound_digest,
+        expected_revision=run.revision,
+        created_at=now,
+        decided_at=inherited.inherited_at,
+    )
+    run_store.create_gate(gate)
