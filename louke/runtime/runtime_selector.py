@@ -105,6 +105,29 @@ class RuntimeSelector:
             return self._project_root[: -len("/subdir")]
         return self._project_root
 
+    def _validate_local_runtime(self, effective_root: str) -> None:
+        """Validate the local runtime installation.
+
+        Raises:
+            InvalidRuntimeError: If the local runtime is missing.
+            VersionMismatchError: If the version does not match the pin.
+            IntegrityError: If integrity or management checks fail.
+        """
+        if not self._local_present:
+            raise InvalidRuntimeError(
+                f"local runtime missing for {effective_root}; "
+                "install or switch to global mode"
+            )
+        if self._actual_version != self._declared_version:
+            raise VersionMismatchError(
+                f"local runtime version mismatch: "
+                f"expected {self._declared_version!r}, got {self._actual_version!r}"
+            )
+        if not self._integrity_ok:
+            raise IntegrityError("local runtime integrity check failed")
+        if not self._managed:
+            raise IntegrityError("runtime is not Louke-managed")
+
     def resolve(self) -> RuntimeIdentity:
         """Resolve and return the runtime identity.
 
@@ -137,20 +160,7 @@ class RuntimeSelector:
                 executable_path="/usr/local/bin/lk",
             )
         else:
-            if not self._local_present:
-                raise InvalidRuntimeError(
-                    f"local runtime missing for {effective_root}; "
-                    "install or switch to global mode"
-                )
-            if self._actual_version != self._declared_version:
-                raise VersionMismatchError(
-                    f"local runtime version mismatch: "
-                    f"expected {self._declared_version!r}, got {self._actual_version!r}"
-                )
-            if not self._integrity_ok:
-                raise IntegrityError("local runtime integrity check failed")
-            if not self._managed:
-                raise IntegrityError("runtime is not Louke-managed")
+            self._validate_local_runtime(effective_root)
             executable = f"{effective_root}/.louke/runtime/lk"
             build = hashlib.sha256(
                 f"{self._declared_version}:{executable}".encode()
