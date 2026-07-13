@@ -236,6 +236,50 @@ class WorkflowOrchestrator:
             inherited=inherited,
         )
 
+    def ensure_m_lock_gate(
+        self,
+        run_id: str,
+        story_digest: str,
+        spec_digest: str,
+        acceptance_digest: str,
+        test_plan_digest: str,
+        architecture_digest: str,
+        interfaces_digest: str,
+    ) -> "Gate":
+        """Ensure the M-LOCK gate is bound to the current contract digest.
+
+        The M-LOCK contract digest covers the approved requirements
+        documents and the reviewed design documents, so any change to any
+        bound document invalidates a prior approval (FR-0901 AC-2, AC-5).
+
+        Args:
+            run_id: The run to ensure the gate for.
+            story_digest: Digest of the story document.
+            spec_digest: Digest of the spec document.
+            acceptance_digest: Digest of the acceptance document.
+            test_plan_digest: Digest of the test-plan document.
+            architecture_digest: Digest of the architecture document.
+            interfaces_digest: Digest of the interfaces document.
+
+        Returns:
+            The active M-LOCK gate record.
+
+        Raises:
+            RuntimeError: If the orchestrator was created without a gate
+                service.
+        """
+        if self._m_lock_coordinator is None:
+            raise RuntimeError("orchestrator has no gate service")
+        return self._m_lock_coordinator.ensure_gate(
+            run_id=run_id,
+            story_digest=story_digest,
+            spec_digest=spec_digest,
+            acceptance_digest=acceptance_digest,
+            test_plan_digest=test_plan_digest,
+            architecture_digest=architecture_digest,
+            interfaces_digest=interfaces_digest,
+        )
+
     def check_m_lock_approval(self, run_id: str) -> "Gate":
         """Verify that the M-LOCK gate is approved for ``run_id``.
 

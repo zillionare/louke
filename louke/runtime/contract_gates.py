@@ -261,8 +261,11 @@ class MLockGateCoordinator:
 
     A run may only enter implementation steps (``semantic_task`` or
     ``decision``) after the M-LOCK human gate has been approved. This
-    coordinator exposes the read-side check used by the orchestrator to block
-    implementation transitions before M-LOCK approval.
+    coordinator binds the gate to the common contract digest of the approved
+    requirements documents (story, spec, acceptance) and the current design
+    documents (test-plan, architecture, interfaces). When the bound digest
+    changes after a prior approval, the old approval is invalidated and a new
+    pending gate is created.
 
     Args:
         store: The workflow run store used for persistence and event logging.
@@ -278,6 +281,98 @@ class MLockGateCoordinator:
     ) -> None:
         self._store = store
         self._gate_service = gate_service
+
+    def ensure_gate(
+        self,
+        run_id: str,
+        story_digest: str,
+        spec_digest: str,
+        acceptance_digest: str,
+        test_plan_digest: str,
+        architecture_digest: str,
+        interfaces_digest: str,
+    ) -> "Gate":
+        """Ensure an M-LOCK gate bound to the current combined contract digest.
+
+        The M-LOCK contract digest covers the three approved requirements
+        documents and the three reviewed design documents, so any change to
+        any of the six documents invalidates a prior approval (FR-0901 AC-2,
+        AC-5).
+
+        Args:
+            run_id: The run to ensure the gate for.
+            story_digest: Digest of the story document.
+            spec_digest: Digest of the spec document.
+            acceptance_digest: Digest of the acceptance document.
+            test_plan_digest: Digest of the test-plan document.
+            architecture_digest: Digest of the architecture document.
+            interfaces_digest: Digest of the interfaces document.
+
+        Returns:
+            The active M-LOCK gate record.
+        """
+        artifacts = MLockArtifacts(
+            story=story_digest,
+            spec=spec_digest,
+            acceptance=acceptance_digest,
+            test_plan=test_plan_digest,
+            architecture=architecture_digest,
+            interfaces=interfaces_digest,
+        )
+        new_digest = artifacts.digest()
+        run = self._store.get_run(run_id)
+        existing = self._store.get_gate_for_run_step(run_id, self._STEP_ID)
+        if self._is_stale_approval(existing, new_digest):
+            self._append_stale_event(run, existing)
+        gate = self._gate_service.ensure_gate(
+            run_id=run_id,
+            step_id=self._STEP_ID,
+            bound_digest=new_digest,
+        )
+        event = EventBuilder(run).build(
+            event_type="gate.created",
+            step_id=self._STEP_ID,
+            details={
+                "gate_id": gate.gate_id,
+                "step_id": self._STEP_ID,
+                "bound_digest": gate.bound_digest,
+            },
+            input_digest=new_digest,
+            output_digest=gate.bound_digest,
+        )
+        self._store.append_event(event)
+        return gate
+
+    @staticmethod
+    def _is_stale_approval(existing: "Gate | None", new_digest: str) -> bool:
+        """Return True if ``existing`` is an approved gate whose digest changed."""
+        return (
+            existing is not None
+            and existing.status == "approved"
+            and existing.bound_digest != new_digest
+        )
+
+    def _append_stale_event(self, run: "WorkflowRun", gate: "Gate") -> None:
+        """Append a ``gate.stale`` event recording the invalidated M-LOCK approval.
+
+        Args:
+            run: The run the gate belongs to.
+            gate: The previously approved gate whose digest has changed.
+        """
+        event = EventBuilder(run).build(
+            event_type="gate.stale",
+            step_id=self._STEP_ID,
+            details={
+                "gate_id": gate.gate_id,
+                "step_id": self._STEP_ID,
+                "bound_digest": gate.bound_digest,
+                "actor_id": gate.actor_id,
+                "reason": gate.reason,
+            },
+            input_digest=gate.bound_digest,
+            output_digest=gate.bound_digest,
+        )
+        self._store.append_event(event)
 
     def check_approval(self, run_id: str) -> "Gate":
         """Return the M-LOCK gate only if it is approved.
@@ -298,6 +393,31 @@ class MLockGateCoordinator:
                 "M-LOCK approval is required before implementation steps"
             )
         return gate
+
+
+@dataclass(frozen=True, slots=True)
+class MLockArtifacts:
+    """Digest bundle for the M-LOCK contract: requirements + design docs."""
+
+    story: str
+    spec: str
+    acceptance: str
+    test_plan: str
+    architecture: str
+    interfaces: str
+
+    def digest(self) -> str:
+        """Return the combined digest of all six M-LOCK contract documents."""
+        return contract_digest(
+            {
+                "story": self.story,
+                "spec": self.spec,
+                "acceptance": self.acceptance,
+                "test_plan": self.test_plan,
+                "architecture": self.architecture,
+                "interfaces": self.interfaces,
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)
