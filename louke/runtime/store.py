@@ -661,6 +661,64 @@ class WorkflowRunStore:
         with self._conn:
             return self._append_event_in_tx(event)
 
+    def commit_transition(
+        self,
+        run: WorkflowRun,
+        expected_revision: int,
+        events: tuple[WorkflowEvent, ...] | list[WorkflowEvent],
+    ) -> tuple[WorkflowRun, tuple[WorkflowEvent, ...]]:
+        """Atomically advance ``run`` and append ``events``.
+
+        The run revision is advanced by exactly one and all events are written
+        in the same transaction.  If any event fails validation or the revision
+        check fails, neither the run nor any event is committed.
+
+        Args:
+            run: The desired run state (``revision`` is ignored).
+            expected_revision: The revision the caller last observed.
+            events: Events to append atomically with the run update.
+
+        Returns:
+            The updated run and the persisted events.
+
+        Raises:
+            RunNotFoundError: If the run does not exist.
+            RevisionConflictError: If the stored revision differs from
+                ``expected_revision``.
+            EventValidationError: If an event violates the required schema.
+        """
+        with self._conn:
+            row = self._conn.execute(
+                "SELECT revision FROM workflow_runs WHERE run_id = ?",
+                (run.run_id,),
+            ).fetchone()
+            if row is None:
+                raise RunNotFoundError(f"run {run.run_id!r} not found")
+            current_revision = row["revision"]
+            if current_revision != expected_revision:
+                raise RevisionConflictError(
+                    f"revision conflict: expected {expected_revision}, "
+                    f"found {current_revision}",
+                    current_revision=current_revision,
+                )
+
+            new_revision = expected_revision + 1
+            now = datetime.now(timezone.utc).isoformat()
+            self._conn.execute(
+                """
+                UPDATE workflow_runs
+                SET current_step = ?, revision = ?, status = ?, updated_at = ?
+                WHERE run_id = ?
+                """,
+                (run.current_step, new_revision, run.status, now, run.run_id),
+            )
+            persisted = tuple(
+                self._append_event_in_tx(replace(event, revision=new_revision))
+                for event in events
+            )
+
+        return self.get_run(run.run_id), persisted
+
     def get_events(self, run_id: str) -> tuple[WorkflowEvent, ...]:
         """Return all events for ``run_id`` in ascending sequence order."""
         rows = self._conn.execute(

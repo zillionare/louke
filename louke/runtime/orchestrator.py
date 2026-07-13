@@ -112,20 +112,21 @@ class WorkflowOrchestrator:
 
         edge = matching[0]
         new_status = derive_status(edge.to_step, definition)
-        new_run = self._store.update_run(
-            run.with_step(current_step=edge.to_step, status=new_status),
+        new_run = run.with_step(current_step=edge.to_step, status=new_status)
+        transition_event = EventBuilder(run).step_transition(
+            from_step=current_step.step_id,
+            to_step=edge.to_step,
+            result=command.result,
+            edge_id=edge.edge_id,
+            attempt_id=command.idempotency_key,
+            actor=actor,
+        )
+        committed_run, committed_events = self._store.commit_transition(
+            new_run,
             command.expected_revision,
+            (transition_event,),
         )
-        event = self._store.append_event(
-            EventBuilder(new_run).step_transition(
-                from_step=current_step.step_id,
-                to_step=edge.to_step,
-                result=command.result,
-                edge_id=edge.edge_id,
-                attempt_id=command.idempotency_key,
-                actor=actor,
-            )
-        )
+        event = committed_events[0]
         if command.idempotency_key:
             self._store.record_step_attempt(
                 run_id=run.run_id,
@@ -135,7 +136,7 @@ class WorkflowOrchestrator:
                 result=command.result,
                 event_id=event.event_id,
             )
-        return TransitionOutcome(run=new_run, event=event)
+        return TransitionOutcome(run=committed_run, event=event)
 
     def apply_gate_decision(
         self,
@@ -200,20 +201,20 @@ class WorkflowOrchestrator:
 
         edge = matching[0]
         new_status = derive_status(edge.to_step, definition)
-        new_run = self._store.update_run(
-            run.with_step(current_step=edge.to_step, status=new_status),
+        new_run = run.with_step(current_step=edge.to_step, status=new_status)
+        transition_event = EventBuilder(run).step_transition(
+            from_step=current_step.step_id,
+            to_step=edge.to_step,
+            result=transition_result,
+            edge_id=edge.edge_id,
+            actor=principal,
+        )
+        committed_run, committed_events = self._store.commit_transition(
+            new_run,
             run.revision,
+            (transition_event,),
         )
-        event = self._store.append_event(
-            EventBuilder(new_run).step_transition(
-                from_step=current_step.step_id,
-                to_step=edge.to_step,
-                result=transition_result,
-                edge_id=edge.edge_id,
-                actor=principal,
-            )
-        )
-        return TransitionOutcome(run=new_run, event=event)
+        return TransitionOutcome(run=committed_run, event=committed_events[0])
 
     def _record_diagnostic(
         self,

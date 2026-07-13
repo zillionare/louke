@@ -6,7 +6,8 @@ import pytest
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.domain import RuntimeCommand
-from louke.runtime.events import EventBuilder
+from louke.runtime.domain import WorkflowEvent
+from louke.runtime.events import EventBuilder, EventValidationError
 from louke.runtime.gates import GateNotApprovedError, GateService
 from louke.runtime.orchestrator import WorkflowOrchestrator
 from louke.runtime.program_steps import (
@@ -146,3 +147,73 @@ def test_ac_fr0601_01_event_stream_covers_lifecycle_and_schema(tmp_path):
         assert event.input_digest is not None
         assert event.output_digest is not None
         assert event.step_id is not None
+
+
+def test_ac_fr0601_02_state_and_last_event_revision_consistent_and_atomic():
+    """AC-FR0601-02: successful state changes leave state and last event aligned."""
+    registry = DefinitionRegistry()
+    definition = registry.register(
+        WorkflowDefinition(
+            definition_id="fr0601_consistency",
+            version="1",
+            start_step="start",
+            steps=(
+                Step(
+                    step_id="start",
+                    kind="program",
+                    transitions=(
+                        Edge(
+                            edge_id="e1",
+                            from_step="start",
+                            to_step="end",
+                            condition="done",
+                        ),
+                    ),
+                ),
+                Step(step_id="end", kind="program"),
+            ),
+        )
+    )
+    store = WorkflowRunStore(catalog=registry)
+    orchestrator = WorkflowOrchestrator(store)
+
+    run = store.create_run(definition)
+    orchestrator.apply_command(
+        RuntimeCommand(
+            run_id=run.run_id,
+            expected_revision=run.revision,
+            result="done",
+        )
+    )
+
+    current = store.get_run(run.run_id)
+    events = store.get_events(run.run_id)
+    last_event = events[-1]
+
+    assert current.revision == last_event.revision
+    assert last_event.type == "step.transition"
+
+    # An invalid event must not produce a partially committed state change.
+    bad_event = WorkflowEvent(
+        event_id="evt_bad",
+        run_id=current.run_id,
+        sequence=0,
+        type="step.transition",
+        at="2026-01-01T00:00:00+00:00",
+        step_id="end",
+        from_step="end",
+        to_step="nowhere",
+        input_digest=None,
+        output_digest="sha256:out",
+    )
+
+    with pytest.raises(EventValidationError):
+        store.commit_transition(
+            current.with_step(current_step="nowhere", status="in_progress"),
+            current.revision,
+            [bad_event],
+        )
+
+    after_rollback = store.get_run(run.run_id)
+    assert after_rollback.revision == current.revision
+    assert after_rollback.current_step == current.current_step

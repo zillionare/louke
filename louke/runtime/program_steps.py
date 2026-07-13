@@ -198,26 +198,25 @@ class ProgramStepExecutor:
 
         edge = matching[0]
         new_status = derive_status(edge.to_step, definition)
-        new_run = store.update_run(
-            run.with_step(current_step=edge.to_step, status=new_status),
+        new_run = run.with_step(current_step=edge.to_step, status=new_status)
+        transition_event = EventBuilder(new_run).step_transition(
+            from_step=current_step.step_id,
+            to_step=edge.to_step,
+            result=handler_result.result,
+            edge_id=edge.edge_id,
+            attempt_id=attempt.attempt_id,
+        )
+        completed_event = EventBuilder(new_run).step_completed(
+            step_id=current_step.step_id,
+            attempt_id=attempt.attempt_id,
+            result=handler_result.result,
+        )
+        committed_run, committed_events = store.commit_transition(
+            new_run,
             run.revision,
+            (transition_event, completed_event),
         )
-        event = store.append_event(
-            EventBuilder(new_run).step_transition(
-                from_step=current_step.step_id,
-                to_step=edge.to_step,
-                result=handler_result.result,
-                edge_id=edge.edge_id,
-                attempt_id=attempt.attempt_id,
-            )
-        )
-        store.append_event(
-            EventBuilder(new_run).step_completed(
-                step_id=current_step.step_id,
-                attempt_id=attempt.attempt_id,
-                result=handler_result.result,
-            )
-        )
+        event = committed_events[0]
         store.update_step_attempt(
             attempt.with_status(
                 status="completed",
@@ -225,7 +224,7 @@ class ProgramStepExecutor:
                 event_id=event.event_id,
             )
         )
-        return ExecutionOutcome(run=new_run, event=event)
+        return ExecutionOutcome(run=committed_run, event=event)
 
     def _cached_outcome(
         self,
