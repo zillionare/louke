@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.runtime.recovery import (
+from louke.runtime.failure_recovery import (
     ArchiveGuard,
     CancellationRecord,
     FailureCategory,
