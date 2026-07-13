@@ -14,6 +14,10 @@ import uuid
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from louke.runtime.capabilities import CapabilityRegistry
 
 from louke.runtime.catalog import (
     DefinitionInvalidError,
@@ -180,6 +184,7 @@ def _definition_digest(definition: WorkflowDefinition) -> str:
                 "step_id": step.step_id,
                 "kind": step.kind,
                 "required": step.required,
+                "capability": step.capability,
                 "transitions": [
                     {
                         "edge_id": edge.edge_id,
@@ -357,12 +362,15 @@ class WorkflowRunStore:
         catalog: Optional registry used to validate and pin definitions by
             id/version.  When provided, runs are bound to the registered
             definition rather than the caller-supplied object.
+        capabilities: Optional capability registry used to validate
+            ``semantic_task`` and ``decision`` steps at run creation time.
     """
 
     def __init__(
         self,
         db_path: str | None = None,
         catalog: DefinitionRegistry | None = None,
+        capabilities: "CapabilityRegistry | None" = None,
     ) -> None:
         self._db_path = db_path or ":memory:"
         if self._db_path != ":memory:":
@@ -370,6 +378,7 @@ class WorkflowRunStore:
         self._conn = sqlite3.connect(self._db_path)
         self._conn.row_factory = sqlite3.Row
         self._catalog = catalog
+        self._capabilities = capabilities
         self._initialize_schema()
 
     def _initialize_schema(self) -> None:
@@ -503,7 +512,9 @@ class WorkflowRunStore:
         Raises:
             DefinitionInvalidError: If the definition fails catalog validation.
         """
-        validation_errors = validate_definition(definition)
+        validation_errors = validate_definition(
+            definition, capability_registry=self._capabilities
+        )
         if validation_errors:
             raise DefinitionInvalidError(validation_errors)
 
