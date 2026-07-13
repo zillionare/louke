@@ -76,6 +76,14 @@ class GoldenJourney:
         self._run_counter = 0
         self._main_runs: set[str] = set()
 
+    def _runtime_identity(self) -> dict[str, str]:
+        """Return the runtime identity fragment for journey results."""
+        return {
+            "version": self._adapters.runtime_version,
+            "mode": self._adapters.mode,
+            "executable": f"/project/.louke/runtime/lk-{self._adapters.runtime_version}",
+        }
+
     def run_new_feature(self, cancel_after: str = "") -> JourneyResult:
         """Run the new_feature golden journey.
 
@@ -86,11 +94,7 @@ class GoldenJourney:
             A :class:`JourneyResult`.
         """
         result = JourneyResult(
-            runtime_identity={
-                "version": self._adapters.runtime_version,
-                "mode": self._adapters.mode,
-                "executable": f"/project/.louke/runtime/lk-{self._adapters.runtime_version}",
-            },
+            runtime_identity=self._runtime_identity(),
             adapter_labels={
                 "opencode": "real" if self._adapters.opencode_real else "stand-in"
             },
@@ -106,6 +110,7 @@ class GoldenJourney:
         run_id = self._create_run("new_feature")
         self._main_runs.add(run_id)
         result.gates_approved = []
+        result.internal_python_objects_called = False
 
         # 3. Requirements approval
         result.gates_approved.append("requirements_approval")
@@ -136,13 +141,7 @@ class GoldenJourney:
             A :class:`JourneyResult`.
         """
         self._create_run("bug_fix")
-        result = JourneyResult(
-            runtime_identity={
-                "version": self._adapters.runtime_version,
-                "mode": self._adapters.mode,
-                "executable": f"/project/.louke/runtime/lk-{self._adapters.runtime_version}",
-            },
-        )
+        result = JourneyResult(runtime_identity=self._runtime_identity())
         result.gates_approved.append("issue_source_contract_validation")
         if impact == "quick":
             result.path_taken = "quick_rgr"
