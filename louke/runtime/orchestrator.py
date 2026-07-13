@@ -60,6 +60,14 @@ class WorkflowOrchestrator:
                 declared transition.
         """
         run = self._store.get_run(command.run_id)
+        if command.idempotency_key:
+            existing_attempt = self._store.get_step_attempt_by_key(
+                command.run_id, command.idempotency_key
+            )
+            if existing_attempt is not None and existing_attempt.event_id is not None:
+                existing_event = self._store.get_event(existing_attempt.event_id)
+                return TransitionOutcome(run=run, event=existing_event)
+
         if run.revision != command.expected_revision:
             raise RevisionConflictError(
                 f"revision conflict: expected {command.expected_revision}, "
@@ -110,6 +118,15 @@ class WorkflowOrchestrator:
             command.result,
             actor,
         )
+        if command.idempotency_key:
+            self._store.record_step_attempt(
+                run_id=run.run_id,
+                step_id=current_step.step_id,
+                idempotency_key=command.idempotency_key,
+                status="completed",
+                result=command.result,
+                event_id=event.event_id,
+            )
         return TransitionOutcome(run=new_run, event=event)
 
     def _record_diagnostic(

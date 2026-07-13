@@ -153,6 +153,83 @@ def _definition_digest(definition: WorkflowDefinition) -> str:
     return f"sha256:{hashlib.sha256(content.encode()).hexdigest()}"
 
 
+class StepAttemptNotFoundError(ValueError):
+    """Raised when a requested step attempt does not exist in the store."""
+
+
+@dataclass(frozen=True, slots=True)
+class StepAttempt:
+    """A recorded attempt to execute a workflow step.
+
+    Attributes:
+        attempt_id: Opaque stable identifier for the attempt.
+        run_id: Opaque run identifier the attempt belongs to.
+        step_id: Step that was being attempted.
+        idempotency_key: Stable key used to deduplicate the attempt.
+        status: Lifecycle status of the attempt (``started``, ``completed``,
+            ``failed`` or ``uncertain``).
+        result: Result produced by the step, if already known.
+        event_id: Id of the committed transition event, when completed.
+        created_at: ISO 8601 UTC timestamp of attempt creation.
+        updated_at: ISO 8601 UTC timestamp of the last update.
+    """
+
+    attempt_id: str
+    run_id: str
+    step_id: str
+    idempotency_key: str
+    status: str
+    result: str | None
+    event_id: str | None
+    created_at: str
+    updated_at: str
+
+
+_ATTEMPT_COLUMNS: tuple[str, ...] = (
+    "attempt_id",
+    "run_id",
+    "step_id",
+    "idempotency_key",
+    "status",
+    "result",
+    "event_id",
+    "created_at",
+    "updated_at",
+)
+
+
+def _attempt_to_tuple(
+    attempt: StepAttempt,
+) -> tuple[str, str, str, str, str, str | None, str | None, str, str]:
+    """Return a tuple matching ``_ATTEMPT_COLUMNS`` for the given ``attempt``."""
+    return (
+        attempt.attempt_id,
+        attempt.run_id,
+        attempt.step_id,
+        attempt.idempotency_key,
+        attempt.status,
+        attempt.result,
+        attempt.event_id,
+        attempt.created_at,
+        attempt.updated_at,
+    )
+
+
+def _row_to_attempt(row: sqlite3.Row) -> StepAttempt:
+    """Reconstruct a ``StepAttempt`` from a SQLite row."""
+    return StepAttempt(
+        attempt_id=row["attempt_id"],
+        run_id=row["run_id"],
+        step_id=row["step_id"],
+        idempotency_key=row["idempotency_key"],
+        status=row["status"],
+        result=row["result"],
+        event_id=row["event_id"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
 class WorkflowRunStore:
     """SQLite-backed store for WorkflowRun records.
 
@@ -207,6 +284,33 @@ class WorkflowRunStore:
                 revision INTEGER NOT NULL,
                 details TEXT NOT NULL
             )
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS step_attempts (
+                attempt_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                step_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT,
+                event_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_step_attempts_run_id
+            ON step_attempts(run_id)
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_step_attempts_idempotency
+            ON step_attempts(run_id, idempotency_key)
             """
         )
         self._conn.commit()
@@ -390,6 +494,146 @@ class WorkflowRunStore:
             (run_id,),
         ).fetchall()
         return tuple(_row_to_event(row) for row in rows)
+
+    def get_event(self, event_id: str) -> WorkflowEvent:
+        """Retrieve a single event by ``event_id``.
+
+        Args:
+            event_id: The opaque event identifier.
+
+        Returns:
+            The matching ``WorkflowEvent``.
+
+        Raises:
+            ValueError: If no event with the given id exists.
+        """
+        row = self._conn.execute(
+            "SELECT * FROM workflow_events WHERE event_id = ?", (event_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"event {event_id!r} not found")
+        return _row_to_event(row)
+
+    def record_step_attempt(
+        self,
+        run_id: str,
+        step_id: str,
+        idempotency_key: str,
+        status: str = "started",
+        result: str | None = None,
+        event_id: str | None = None,
+    ) -> StepAttempt:
+        """Persist a new step attempt.
+
+        Args:
+            run_id: The run the attempt belongs to.
+            step_id: The step being attempted.
+            idempotency_key: Stable key used to deduplicate the attempt.
+            status: Attempt status (``started``, ``completed``, ``failed`` or
+                ``uncertain``).
+            result: Step result, when already known.
+            event_id: Committed transition event id, when completed.
+
+        Returns:
+            The newly created ``StepAttempt``.
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        attempt = StepAttempt(
+            attempt_id=f"att_{uuid.uuid4().hex[:12]}",
+            run_id=run_id,
+            step_id=step_id,
+            idempotency_key=idempotency_key,
+            status=status,
+            result=result,
+            event_id=event_id,
+            created_at=now,
+            updated_at=now,
+        )
+        column_list = ", ".join(_ATTEMPT_COLUMNS)
+        placeholders = ", ".join("?" for _ in _ATTEMPT_COLUMNS)
+        self._conn.execute(
+            f"INSERT INTO step_attempts ({column_list}) VALUES ({placeholders})",
+            _attempt_to_tuple(attempt),
+        )
+        self._conn.commit()
+        return attempt
+
+    def get_step_attempts(self, run_id: str) -> tuple[StepAttempt, ...]:
+        """Return all step attempts for ``run_id`` ordered by ``created_at`` asc."""
+        rows = self._conn.execute(
+            "SELECT * FROM step_attempts WHERE run_id = ? ORDER BY created_at",
+            (run_id,),
+        ).fetchall()
+        return tuple(_row_to_attempt(row) for row in rows)
+
+    def get_step_attempt_by_key(
+        self,
+        run_id: str,
+        idempotency_key: str,
+    ) -> StepAttempt | None:
+        """Return the completed step attempt matching ``run_id`` and ``idempotency_key``.
+
+        Args:
+            run_id: The run to search within.
+            idempotency_key: The stable idempotency key.
+
+        Returns:
+            The matching ``StepAttempt`` if one exists, otherwise ``None``.
+        """
+        row = self._conn.execute(
+            """
+            SELECT * FROM step_attempts
+            WHERE run_id = ? AND idempotency_key = ? AND status = 'completed'
+            """,
+            (run_id, idempotency_key),
+        ).fetchone()
+        if row is None:
+            return None
+        return _row_to_attempt(row)
+
+    def update_step_attempt(
+        self,
+        attempt: StepAttempt,
+    ) -> StepAttempt:
+        """Update an existing step attempt.
+
+        Args:
+            attempt: The attempt with updated fields.
+
+        Returns:
+            The updated ``StepAttempt``.
+
+        Raises:
+            StepAttemptNotFoundError: If the attempt does not exist.
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = self._conn.execute(
+            """
+            UPDATE step_attempts
+            SET step_id = ?, idempotency_key = ?, status = ?, result = ?,
+                event_id = ?, updated_at = ?
+            WHERE attempt_id = ?
+            """,
+            (
+                attempt.step_id,
+                attempt.idempotency_key,
+                attempt.status,
+                attempt.result,
+                attempt.event_id,
+                now,
+                attempt.attempt_id,
+            ),
+        )
+        if cursor.rowcount == 0:
+            raise StepAttemptNotFoundError(
+                f"step attempt {attempt.attempt_id!r} not found"
+            )
+        self._conn.commit()
+        row = self._conn.execute(
+            "SELECT * FROM step_attempts WHERE attempt_id = ?",
+            (attempt.attempt_id,),
+        ).fetchone()
+        return _row_to_attempt(row)
 
     def get_definition(self, run_id: str) -> WorkflowDefinition:
         """Return the definition pinned to the run identified by ``run_id``.

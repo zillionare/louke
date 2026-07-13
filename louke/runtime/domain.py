@@ -41,12 +41,17 @@ class RuntimeCommand:
         requested_next_step: A caller-supplied target step; Runtime ignores it
             when a matching declared transition exists and rejects the command
             when it is the only payload.
+        idempotency_key: Optional stable key for the step attempt.  When a
+            command with the same key has already been committed, Runtime
+            returns the previously committed outcome without re-executing the
+            step or advancing state again.
     """
 
     run_id: str
     expected_revision: int
     result: str | None = None
     requested_next_step: str | None = None
+    idempotency_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
