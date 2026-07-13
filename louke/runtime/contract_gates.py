@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING
 
 from louke.runtime.domain import RuntimeStateError
 from louke.runtime.events import EventBuilder
-from louke.runtime.gates import GATE_INHERITED, GateNotApprovedError
+from louke.runtime.gates import GATE_INHERITED, Gate, GateNotApprovedError
 
 if TYPE_CHECKING:
-    from louke.runtime.gates import Gate, GateService
+    from louke.runtime.gates import GateService
     from louke.runtime.store import WorkflowRun, WorkflowRunStore
 
 #: Step id of the requirements approval human gate (FR-0801).
@@ -32,9 +32,6 @@ M_LOCK_STEP_ID: str = "m_lock"
 
 #: Behavior change claim that allows a bug_fix to inherit source approval.
 BEHAVIOR_DEVIATION_ONLY: str = "implementation_deviation_only"
-
-#: Behavior change claim that disqualifies a bug_fix from inheritance.
-BEHAVIOR_CHANGE: str = "behavior_change"
 
 
 def contract_digest(artifacts: dict[str, str]) -> str:
@@ -473,8 +470,6 @@ def _make_inherited_gate(
     Returns:
         A :class:`~louke.runtime.gates.Gate` with status ``inherited``.
     """
-    from louke.runtime.gates import Gate
-
     return Gate(
         gate_id=f"gate_{uuid.uuid4().hex[:12]}",
         challenge_id=f"chal_inherited_{uuid.uuid4().hex[:8]}",

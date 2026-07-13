@@ -592,11 +592,7 @@ def test_ac_fr0801_06_bug_fix_inheritance():
     approved_gate = orchestrator.check_requirements_approval(bug_fix_run.run_id)
     assert approved_gate.status == "inherited"
     assert approved_gate.bound_digest == source_bound_digest
-
-    pending_gates = [
-        gate for gate in [approved_gate] if gate.status == "waiting_for_human"
-    ]
-    assert len(pending_gates) == 0
+    assert approved_gate.status != "waiting_for_human"
 
     events = store.get_events(bug_fix_run.run_id)
     inherited_events = [
