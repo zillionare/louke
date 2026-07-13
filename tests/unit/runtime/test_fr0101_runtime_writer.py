@@ -160,3 +160,32 @@ def test_ac_fr0101_03_revision_cas_conflict_on_concurrent_submit():
     latest = store.get_run(run.run_id)
     assert latest.revision == 1
     assert latest.current_step == "next"
+
+
+def test_ac_fr0101_04_next_step_must_be_definition_target():
+    """AC-FR0101-04: a valid result uses the definition target, not a client override."""
+    registry = DefinitionRegistry()
+    definition = registry.register(_program_step_definition())
+    store = WorkflowRunStore(catalog=registry)
+    run = store.create_run(definition)
+
+    orchestrator = WorkflowOrchestrator(store)
+    command = RuntimeCommand(
+        run_id=run.run_id,
+        expected_revision=run.revision,
+        result="approved",
+        requested_next_step="end",
+    )
+    outcome = orchestrator.apply_command(command)
+
+    assert outcome.run.current_step == "next"
+    assert outcome.run.revision == 1
+
+    fetched = store.get_run(run.run_id)
+    assert fetched.current_step == "next"
+    assert fetched.revision == 1
+
+    events = store.get_events(run.run_id)
+    transition_events = [event for event in events if event.type == "step.transition"]
+    assert len(transition_events) == 1
+    assert transition_events[0].to_step == "next"
