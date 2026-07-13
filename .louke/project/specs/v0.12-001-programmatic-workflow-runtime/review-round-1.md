@@ -131,7 +131,7 @@ Clarification Log 中已记录多处用户确认:
 
 **位置**: story.md "场景六" (批准后规格变化) + "场景十六" (采用旧 workspace) vs spec.md 12 个 scenario
 
-**分析**: 
+**分析**:
 - 场景六 (批准后规格变化 → 旧批准失效) 是核心安全机制，在 FR-0501 AC-5 中有覆盖，但作为 scenario 独立列出有助于理解 "stale detection" 行为。
 - 场景十六 (采用旧 workspace) 涉及复杂的迁移流程，FR-2301 有完整覆盖，但 scenario 缺失使实施者难以直观理解用户旅程。
 
