@@ -22,6 +22,13 @@ from louke.runtime.domain import (
 if TYPE_CHECKING:
     from louke.runtime.store import WorkflowRun, WorkflowRunStore
 
+GATE_WAITING: str = "waiting_for_human"
+GATE_APPROVED: str = "approved"
+GATE_REJECTED: str = "rejected"
+
+DECISION_APPROVE: str = "approve"
+DECISION_REJECT: str = "reject"
+
 
 class GateError(RuntimeStateError):
     """Base class for human gate errors."""
@@ -82,7 +89,7 @@ class Gate:
     step_id: str
     expected_revision: int
     bound_digest: str
-    status: str = "waiting_for_human"
+    status: str = GATE_WAITING
     actor_id: str | None = None
     reason: str | None = None
     decided_at: str | None = None
@@ -119,7 +126,7 @@ class Gate:
             step_id=self.step_id,
             expected_revision=self.expected_revision,
             bound_digest=new_digest,
-            status="waiting_for_human",
+            status=GATE_WAITING,
             actor_id=None,
             reason=None,
             decided_at=None,
@@ -177,7 +184,7 @@ class GateService:
             step_id=step_id,
             expected_revision=self._store.get_run(run_id).revision,
             bound_digest=bound_digest,
-            status="waiting_for_human",
+            status=GATE_WAITING,
             created_at=now,
         )
         self._store.create_gate(gate)
@@ -230,56 +237,64 @@ class GateService:
 
         self._validate_freshness(gate, run, bound_digest, expected_revision)
 
-        if gate.status in ("approved", "rejected"):
+        if gate.status in (GATE_APPROVED, GATE_REJECTED):
             raise DuplicateDecisionError(
                 f"gate {gate_id!r} already has status {gate.status!r}"
             )
 
-        if decision == "reject":
+        if decision == DECISION_REJECT:
             if not reason:
                 raise GateError("reject decision requires a reason")
-            rejected_gate = gate.with_decision(
-                status="rejected",
+            return self._persist_decision(
+                gate=gate,
+                run=run,
+                status=GATE_REJECTED,
                 actor_id=actor_id,
                 reason=reason,
             )
-            self._store.update_gate(rejected_gate)
-            self._store.append_event(
-                self._build_gate_event(
-                    run=run,
-                    gate=rejected_gate,
-                    event_type="gate.rejected",
-                    details={
-                        "gate_id": gate.gate_id,
-                        "challenge_id": gate.challenge_id,
-                        "bound_digest": gate.bound_digest,
-                        "reason": reason,
-                    },
-                )
-            )
-            return rejected_gate
 
-        if decision == "approve":
-            approved_gate = gate.with_decision(
-                status="approved",
+        if decision == DECISION_APPROVE:
+            return self._persist_decision(
+                gate=gate,
+                run=run,
+                status=GATE_APPROVED,
                 actor_id=actor_id,
             )
-            self._store.update_gate(approved_gate)
-            self._store.append_event(
-                self._build_gate_event(
-                    run=run,
-                    gate=approved_gate,
-                    event_type="gate.approved",
-                    details={
-                        "gate_id": gate.gate_id,
-                        "challenge_id": gate.challenge_id,
-                        "bound_digest": gate.bound_digest,
-                    },
-                )
-            )
-            return approved_gate
 
         raise GateError(f"unknown decision {decision!r}")
+
+    def _persist_decision(
+        self,
+        gate: Gate,
+        run: "WorkflowRun",
+        status: str,
+        actor_id: str,
+        reason: str | None = None,
+    ) -> Gate:
+        """Persist a gate decision and emit an evidence event."""
+        decided_gate = gate.with_decision(
+            status=status,
+            actor_id=actor_id,
+            reason=reason,
+        )
+        self._store.update_gate(decided_gate)
+        event_type = f"gate.{status}"
+        details: dict[str, object] = {
+            "gate_id": gate.gate_id,
+            "challenge_id": gate.challenge_id,
+            "bound_digest": gate.bound_digest,
+        }
+        if reason is not None:
+            details["reason"] = reason
+        self._store.append_event(
+            self._build_gate_event(
+                run=run,
+                gate=decided_gate,
+                event_type=event_type,
+                details=details,
+            )
+        )
+        return decided_gate
 
     def _validate_principal(self, principal: dict[str, str] | None) -> None:
         """Ensure ``principal`` represents a host-authenticated human actor."""
