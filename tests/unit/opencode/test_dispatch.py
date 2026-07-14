@@ -136,7 +136,7 @@ def test_process_start_parses_url_from_stdout(tmp_path: Path):
     try:
         assert url == "http://127.0.0.1:41999"
         assert proc.base_url == "http://127.0.0.1:41999"
-        assert proc.pid is not None
+        assert isinstance(proc.pid, int) and proc.pid > 0
     finally:
         proc.stop()
 
@@ -203,7 +203,7 @@ def test_process_stop_clears_state(tmp_path: Path):
     fake = _make_fake_bin(tmp_path, ["listening on http://127.0.0.1:42101"])
     proc = OpenCodeServerProcess(opencode_bin=str(fake), startup_timeout=5.0)
     proc.start()
-    assert proc.pid is not None
+    assert isinstance(proc.pid, int) and proc.pid > 0
 
     proc.stop()
 
