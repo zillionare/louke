@@ -66,12 +66,11 @@ def _opencode_available() -> bool:
 @pytest.mark.skipif(
     not _opencode_available(),
     reason=(
-        "L3 smoke requires LOUKE_RUN_REAL_OPENCODE=1 + reachable "
-        "LOUKE_OPENCODE_BASE_URL; see issue #170 "
-        "(https://github.com/zillionare/louke/issues/170)"
+        "#170: L3 smoke requires LOUKE_RUN_REAL_OPENCODE=1 + reachable "
+        "LOUKE_OPENCODE_BASE_URL (AC-FR1401-01)"
     ),
 )
-def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
+def test_real_opencode_fr_1401_01_create_attach_send_detach_end_l3_smoke() -> None:
     """AC-FR1401-01 / test-plan §5.3 / AC-NFR0301-04: minimal real-OpenCode lifecycle.
 
     Tracked in issue #170 (https://github.com/zillionare/louke/issues/170).
