@@ -29,19 +29,11 @@ def _request(method: str, path: str, *, body=None):
     req = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            payload = resp.read().decode("utf-8")
-            if not payload:
-                return None
-            return json.loads(payload)
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode("utf-8", errors="replace")
-        print(f"lk: HTTP {e.code} on {method} {path}: {body_text}", file=sys.stderr)
-        raise SystemExit(2)
-    except urllib.error.URLError as e:
-        print(f"lk: cannot reach louke server at {_api_base()}: {e.reason}", file=sys.stderr)
-        raise SystemExit(3)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        payload = resp.read().decode("utf-8")
+        if not payload:
+            return None
+        return json.loads(payload)
 
 
 def _print(obj):
