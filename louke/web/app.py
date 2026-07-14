@@ -66,7 +66,9 @@ security_app = _create_security_app()
 discussions_app = _create_discussions_app()
 
 
-def create_app(project_root: str | Path | None = None) -> Starlette:
+def create_app(
+    project_root: str | Path | None = None, *, setup_only: bool = False
+) -> Starlette:
     if project_root is None:
         project_root = Path.cwd()
     store = ProjectStore(Path(project_root))
@@ -124,6 +126,7 @@ def create_app(project_root: str | Path | None = None) -> Starlette:
     )
     app.state.store = store
     app.state.broker = broker
+    app.state.setup_only = setup_only
     return app
 
 
