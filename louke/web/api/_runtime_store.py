@@ -130,6 +130,31 @@ def build_run_store() -> WorkflowRunStore:
     return WorkflowRunStore(catalog=build_catalog())
 
 
+def get_definition(store: WorkflowRunStore, definition_id: str, version: str):
+    """Look up a registered workflow definition by id/version.
+
+    Args:
+        store: The ``WorkflowRunStore`` whose catalog holds the definition.
+        definition_id: The stable definition identifier.
+        version: The immutable version string.
+
+    Returns:
+        The matching ``WorkflowDefinition``.
+
+    Raises:
+        DefinitionNotFoundError: If no definition with that id/version is
+            registered.
+    """
+    from louke.runtime.catalog import DefinitionNotFoundError
+
+    catalog = store._catalog
+    if catalog is None:
+        raise DefinitionNotFoundError(
+            f"store has no catalog; definition {definition_id!r} not found"
+        )
+    return catalog.get(definition_id, version)
+
+
 def get_or_create_store(app: "Starlette") -> WorkflowRunStore:
     """Return the per-app singleton ``WorkflowRunStore``, creating it lazily.
 
