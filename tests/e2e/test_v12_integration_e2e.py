@@ -202,7 +202,7 @@ def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
         # merely be a non-null object reference. The ``and`` short-circuits so
         # ``catalog.get`` only runs once ``catalog`` itself is confirmed.
         definition = catalog.get("new_feature", "1") if catalog is not None else None
-        assert definition is not None, (
+        assert definition is not None and definition.definition_id == "new_feature" and definition.version == "1", (
             "store catalog missing or has no new_feature v1 definition"
         )
         source_run = store.create_run(definition)

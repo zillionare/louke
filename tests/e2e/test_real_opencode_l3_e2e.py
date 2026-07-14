@@ -74,6 +74,8 @@ def _opencode_available() -> bool:
 def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
     """AC-FR1401-01 / test-plan §5.3 / AC-NFR0301-04: minimal real-OpenCode lifecycle.
 
+    Tracked in issue #170 (https://github.com/zillionare/louke/issues/170).
+
     1. Create a session via POST /session on the real OpenCode server.
     2. Send a uniquely-marked message via POST /session/{id}/prompt_async.
     3. Poll GET /session/{id}/message until our marker appears (real reply).
