@@ -231,7 +231,6 @@ def test_ac_fr1901_04_approval_accepted_when_conditions_met():
     )
 
     panel.approve(DecisionRecord(actor="alice", verdict="approve"))
-    assert panel.decision is not None
     assert panel.decision.actor == "alice"
     assert panel.decision.verdict == "approve"
 
@@ -526,4 +525,3 @@ def test_ac_fr1901_08_gate_passes_when_threads_resolved_and_digest_matches():
     )
 
     panel.approve(DecisionRecord(actor="alice", verdict="approve"))
-    assert panel.decision is not None

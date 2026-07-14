@@ -223,7 +223,6 @@ def test_ac_nfr0301_03_cancellation_records_audit_and_cleanup():
 
     assert result.cancelled is True
     assert result.cleanup_run is True
-    assert result.audit_record is not None
     assert result.audit_record["actor"] == "user"
     assert "reason" in result.audit_record
     assert result.status == "cancelled"
