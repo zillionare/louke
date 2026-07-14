@@ -14,6 +14,7 @@ Endpoints:
     POST   /confirm             - confirm a preview and create the project.
     POST   /create              - create a project directly.
     GET    /{project_id}        - get a project's detail.
+    GET    /{project_id}/graph   - get the project's workflow graph view.
     POST   /{project_id}/archive - archive a project.
 
 Error envelope (shared across v0.12 sub-apps)::
@@ -38,6 +39,7 @@ from louke.runtime.projects import (
     ProjectNotFoundError,
     ProjectStore,
 )
+from louke.runtime.workflow_graph import WorkflowGraphBuilder
 
 from ._common import (
     CONFLICT,
@@ -103,6 +105,7 @@ def _routes() -> list[Route]:
         Route("/confirm", endpoint=confirm_project, methods=["POST"]),
         Route("/create", endpoint=create_project, methods=["POST"]),
         Route("/{project_id}", endpoint=get_project),
+        Route("/{project_id}/graph", endpoint=get_project_graph),
         Route("/{project_id}/archive", endpoint=archive_project, methods=["POST"]),
     ]
 
@@ -247,6 +250,39 @@ async def get_project(request: Request) -> JSONResponse:
             detail=error_detail(NOT_FOUND, str(exc)),
         ) from exc
     return JSONResponse(asdict(project))
+
+
+async def get_project_graph(request: Request) -> JSONResponse:
+    """AC-FR1201-01: get the workflow graph view for a project's run.
+
+    Path params:
+        project_id: The opaque project identifier.
+
+    Returns:
+        ``200`` with ``{"nodes": [...], "edges": [...], "current_step": ...,
+        "definition_id": ..., "definition_version": ..., "revision": ...}``.
+    """
+    project_id = request.path_params["project_id"]
+    store = _project_store(request)
+    try:
+        project = store.get_project(project_id)
+    except ProjectNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=error_detail(NOT_FOUND, str(exc)),
+        ) from exc
+    graph = WorkflowGraphBuilder(store._run_store).build(project.run_id)
+    return JSONResponse(
+        {
+            "run_id": graph.run_id,
+            "definition_id": graph.definition_id,
+            "definition_version": graph.definition_version,
+            "nodes": [asdict(n) for n in graph.nodes],
+            "edges": [asdict(e) for e in graph.edges],
+            "current_step": graph.current_node_id,
+            "revision": graph.revision,
+        }
+    )
 
 
 async def archive_project(request: Request) -> JSONResponse:

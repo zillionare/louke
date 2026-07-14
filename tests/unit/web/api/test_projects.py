@@ -268,3 +268,41 @@ def test_principal_header_propagated(client: TestClient) -> None:
         headers={"x-louke-principal": "alice"},
     )
     assert resp.status_code == 201
+
+
+# -- GET /{project_id}/graph (FR-1201) ---------------------------------------
+
+
+def test_project_graph_returns_nodes_and_edges(client: TestClient) -> None:
+    """AC-FR1201-01: GET /{project_id}/graph returns the run's graph view.
+
+    The graph exposes the run's bound definition id/version, the nodes
+    (with their current state) and the edges.
+    """
+    create = client.post(
+        "/create",
+        json={
+            "story": "Graph feature",
+            "release_version": "v0.12.0",
+            "definition_id": "new_feature",
+            "definition_version": "1",
+        },
+    )
+    project_id = create.json()["project_id"]
+
+    resp = client.get(f"/{project_id}/graph")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["definition_id"] == "new_feature"
+    assert body["definition_version"] == "1"
+    assert len(body["nodes"]) >= 1
+    assert len(body["edges"]) >= 1
+    # The first node is the start step, which is the current node initially.
+    assert body["current_step"] == body["nodes"][0]["step_id"]
+
+
+def test_project_graph_unknown_project_returns_not_found(client: TestClient) -> None:
+    """GET /{project_id}/graph on an unknown project returns 404 NOT_FOUND."""
+    resp = client.get("/prj_unknown/graph")
+    assert resp.status_code == 404
+    assert resp.json()["error_code"] == "NOT_FOUND"
