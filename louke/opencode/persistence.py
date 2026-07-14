@@ -132,13 +132,7 @@ class OpenCodeInstanceStore:
         updated: List[ManagedInstanceState] = []
         for row in data.values():
             row["last_seen"] = now
-            if not _pid_alive(row.get("pid")):
-                row["status"] = _STATUS_LOST
-            elif adapter is not None:
-                row["status"] = (
-                    _STATUS_RUNNING if row["instance_id"] in (live_ids or set())
-                    else _STATUS_NEEDS_ATTENTION
-                )
+            row["status"] = _recovery_status(row, adapter, live_ids)
             updated.append(ManagedInstanceState(**row))
         self._write_raw(data)
         return updated
@@ -180,6 +174,37 @@ class OpenCodeInstanceStore:
             return {inst.id for inst in adapter.list()}
         except Exception:
             return set()
+
+
+def _recovery_status(
+    row: dict,
+    adapter: Optional[OpenCodeAdapter],
+    live_ids: Optional[set[str]],
+) -> str:
+    """Decide the recovery status for a single persisted row.
+
+    The pid check is authoritative: a dead pid always wins over a (possibly
+    lying) adapter and yields ``lost``. A live pid with an adapter is
+    confirmed via the adapter's reported ids. A live pid without an adapter
+    keeps its previously persisted status.
+
+    Args:
+        row: The persisted dict row.
+        adapter: The adapter passed to recovery_scan, or None.
+        live_ids: Ids reported by the adapter (already fetched), or None
+            when no adapter was given.
+
+    Returns:
+        One of ``running``, ``lost``, ``needs_attention``, or the row's
+        existing status.
+    """
+    if not _pid_alive(row.get("pid")):
+        return _STATUS_LOST
+    if adapter is None:
+        return row.get("status", _STATUS_RUNNING)
+    if row["instance_id"] in (live_ids or set()):
+        return _STATUS_RUNNING
+    return _STATUS_NEEDS_ATTENTION
 
 
 def _pid_alive(pid: Optional[int]) -> bool:
