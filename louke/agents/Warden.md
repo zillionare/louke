@@ -120,3 +120,11 @@ Blocking issues:
 ## 5. Session save
 
 At the end of each session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.
+
+## v0.12 - foundation gate moved to program
+
+The `lk project.toml` + `.louke/` schema validation and the readiness report
+are produced by `louke.runtime.workspace_init.InitWizard.wizard()` /
+`.readiness()`. Warden's M-FOUND foundation-check is no longer the gate; the
+runtime raises `setup_incomplete` and the wizard drives remediation. Warden
+remains available for ad-hoc repository audit and governance advice.

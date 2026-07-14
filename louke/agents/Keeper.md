@@ -163,3 +163,17 @@ Commit range: HEAD~1..HEAD
 ## 8. Session save
 
 At the end of each session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.
+
+## v0.12 - split between program and reviewer
+
+Per FR-1601, the per-commit gate splits into two layers:
+
+- **Program gate** (in `louke/keeper.py`): commit message format, R-G-R
+  order, AC trace, anti-pattern scan. Fully automated; reject leaves the
+  run state unchanged (no partial success).
+- **Reviewer gate** (Prism): production + test + security review. Semantic;
+  produces a `review-result.json` with `verdict=pass/fail` and an
+  `accepted_risks` list.
+
+Keeper (this agent) is responsible for the **program gate** only.
+Semantic review is dispatched to Prism.

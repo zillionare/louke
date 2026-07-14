@@ -203,3 +203,10 @@ Workspace: {directory_path}    Agent availability: {count} prompt files
 ## 9. Session save
 
 At the end of each session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.
+
+## v0.12 - role shifted to program
+
+As of v0.12, foundation work (project metadata, catalog, store setup) is
+performed by program handlers in `louke.runtime.workspace_init`. Scout is
+no longer invoked in the M-FOUND stage; the agent remains for ad-hoc
+project onboarding and story discovery.
