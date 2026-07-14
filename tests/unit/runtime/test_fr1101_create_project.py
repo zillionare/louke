@@ -323,4 +323,5 @@ def test_ac_fr1101_07_bug_fix_with_source_contract_created_alongside_main():
 
     gate = store.get_gate_for_run_step(project.run_id, "requirements_approval")
     assert gate is not None
+    assert gate.gate_id != ""
     assert gate.status == GATE_INHERITED

@@ -132,7 +132,7 @@ class InterruptionHarness:
 
     def create_run(self, definition_id: str = "nfr0001_chain", version: str = "1"):
         """Create a run bound to the registered definition."""
-        assert self._store._catalog is not None  # noqa: SLF001 - test boundary
+        assert isinstance(self._store._catalog, DefinitionRegistry)  # noqa: SLF001 - test boundary
         definition = self._store._catalog.get(definition_id, version)  # noqa: SLF001
         return self._store.create_run(definition)
 
