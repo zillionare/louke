@@ -8,8 +8,8 @@ AC references covered:
 - AC-FR2001-01: a needs_attention run can be recovered via POST /runs/{id}/recover.
 - AC-FR0101-02: applying a command advances the run (apply_command).
 - AC-FR0101-03: a stale expected_revision returns 409 STALE.
-- AC-FR0101-04: an unknown run id returns 404 NOT_FOUND.
-- AC-FR0101-04: missing required body fields return 400 VALIDATION_ERROR.
+- AC-FR0101-04: an unknown run id returns 404 NOT_FOUND; missing required body
+  fields return 400 VALIDATION_ERROR.
 """
 
 from __future__ import annotations
