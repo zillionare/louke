@@ -190,19 +190,7 @@ async def migration_index(request: Request) -> Response:
     Reads the latest preview / confirm / rollback / error values stashed on
     ``app.state`` by the POST handlers so a re-render shows the latest result.
     """
-    state = request.app.state
-    preview = getattr(state, _PREVIEW_ATTR, None)
-    confirm_msg = getattr(state, _CONFIRM_MSG_ATTR, "")
-    rollback_msg = getattr(state, _ROLLBACK_MSG_ATTR, "")
-    error = getattr(state, _ERROR_ATTR, "")
-    return HTMLResponse(
-        _render(
-            preview=preview,
-            confirm_message=confirm_msg,
-            rollback_message=rollback_msg,
-            error=error,
-        )
-    )
+    return _render_page(request.app.state)
 
 
 async def preview(request: Request) -> Response:
@@ -213,29 +201,19 @@ async def preview(request: Request) -> Response:
     a user-facing error message. Always returns status 200.
     """
     api_base = _api_base(request)
-    form = _parse_form(await request.body())
-    workspace_path = form.get("workspace_path", "")
+    workspace_path = _parse_form(await request.body()).get("workspace_path", "")
     state = request.app.state
     try:
         result = await _fetch_preview(api_base, workspace_path)
     except Exception as exc:
         _reset_results(state)
         setattr(state, _ERROR_ATTR, str(exc))
-        return HTMLResponse(
-            _render(preview=None, confirm_message="", rollback_message="", error=str(exc))
-        )
+        return _render_page(state)
     setattr(state, _PREVIEW_ATTR, result)
     setattr(state, _CONFIRM_MSG_ATTR, "")
     setattr(state, _ROLLBACK_MSG_ATTR, "")
     setattr(state, _ERROR_ATTR, "")
-    return HTMLResponse(
-        _render(
-            preview=result,
-            confirm_message="",
-            rollback_message="",
-            error="",
-        )
-    )
+    return _render_page(state)
 
 
 async def confirm(request: Request) -> Response:
@@ -249,30 +227,16 @@ async def confirm(request: Request) -> Response:
     workspace_path = form.get("workspace_path", "")
     mode = form.get("mode", "local")
     state = request.app.state
-    preview = getattr(state, _PREVIEW_ATTR, None)
     try:
         await _post_confirm(api_base, workspace_path, mode)
     except Exception as exc:
+        setattr(state, _CONFIRM_MSG_ATTR, "")
         setattr(state, _ERROR_ATTR, str(exc))
-        return HTMLResponse(
-            _render(
-                preview=preview,
-                confirm_message="",
-                rollback_message="",
-                error=str(exc),
-            )
-        )
+        return _render_page(state)
     message = f"Migration applied for {workspace_path} (mode={mode})."
     setattr(state, _CONFIRM_MSG_ATTR, message)
     setattr(state, _ERROR_ATTR, "")
-    return HTMLResponse(
-        _render(
-            preview=preview,
-            confirm_message=message,
-            rollback_message="",
-            error="",
-        )
-    )
+    return _render_page(state)
 
 
 async def rollback(request: Request) -> Response:
@@ -282,37 +246,34 @@ async def rollback(request: Request) -> Response:
     the forms. Always returns 200.
     """
     api_base = _api_base(request)
-    form = _parse_form(await request.body())
-    workspace_path = form.get("workspace_path", "")
+    workspace_path = _parse_form(await request.body()).get("workspace_path", "")
     state = request.app.state
-    preview = getattr(state, _PREVIEW_ATTR, None)
     try:
         await _post_rollback(api_base, workspace_path)
     except Exception as exc:
+        setattr(state, _ROLLBACK_MSG_ATTR, "")
         setattr(state, _ERROR_ATTR, str(exc))
-        return HTMLResponse(
-            _render(
-                preview=preview,
-                confirm_message="",
-                rollback_message="",
-                error=str(exc),
-            )
-        )
+        return _render_page(state)
     message = f"Migration rolled back for {workspace_path}."
     setattr(state, _ROLLBACK_MSG_ATTR, message)
     setattr(state, _ERROR_ATTR, "")
+    return _render_page(state)
+
+
+def _render_page(state: Any) -> HTMLResponse:
+    """Render the page from the latest preview/confirm/rollback/error on state."""
     return HTMLResponse(
         _render(
-            preview=preview,
-            confirm_message="",
-            rollback_message=message,
-            error="",
+            preview=getattr(state, _PREVIEW_ATTR, None),
+            confirm_message=getattr(state, _CONFIRM_MSG_ATTR, ""),
+            rollback_message=getattr(state, _ROLLBACK_MSG_ATTR, ""),
+            error=getattr(state, _ERROR_ATTR, ""),
         )
     )
 
 
 def _reset_results(state: Any) -> None:
-    """Clear all stashed result/error attributes on ``state``."""
+    """Clear all stashed result attributes on ``state`` (keeps error separate)."""
     setattr(state, _PREVIEW_ATTR, None)
     setattr(state, _CONFIRM_MSG_ATTR, "")
     setattr(state, _ROLLBACK_MSG_ATTR, "")
