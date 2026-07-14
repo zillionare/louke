@@ -71,12 +71,18 @@ def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
         f"create returned unexpected status: {instance.status!r}"
     )
 
+    # `sent` tracks whether prompt_async was accepted, so the finally block
+    # can cancel an in-flight turn before deleting the session. Defined on
+    # every path (including the one where send_message raises) so teardown
+    # ordering is deterministic.
+    sent = False
     try:
         # 2. send message (async)
         marker = f"l3-smoke-marker-{uuid.uuid4().hex[:8]}"
         msg, accepted = adapter.send_message(
             instance.id, f"echo {marker}", correlation_id="l3-smoke",
         )
+        sent = accepted
         assert isinstance(msg, Message)
         assert accepted is True, (
             "send_message did not return accepted=True; real OpenCode prompt_async "
@@ -103,7 +109,14 @@ def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
         )
 
     finally:
-        # 4. always tear down (even on assertion failure)
+        # 4. deterministic teardown: cancel any in-flight turn first, then
+        #    delete the session. Each step is best-effort so a failure in one
+        #    does not mask the assertion that triggered the finally.
+        if sent:
+            try:
+                adapter.cancel(instance.id, correlation_id="l3-smoke-teardown")
+            except Exception:
+                pass
         try:
             adapter.stop(instance.id)
         except Exception:
