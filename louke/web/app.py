@@ -20,7 +20,7 @@ from starlette.responses import (
     Response,
     StreamingResponse,
 )
-from starlette.routing import Route
+from starlette.routing import Mount, Route
 
 from .auth import (
     SESSION_COOKIE,
@@ -42,6 +42,28 @@ from .documents import (
 )
 from .events import EventBroker
 from .store import ConflictError, ProjectStore, ValidationError
+
+from .api.projects import create_app as _create_projects_app
+from .api.runtime import create_app as _create_runtime_app
+from .api.gates import create_app as _create_gates_app
+from .api.bindings import create_app as _create_bindings_app
+from .api.opencode import create_app as _create_opencode_app
+from .api.readiness import create_app as _create_readiness_app
+from .api.setup import create_app as _create_setup_app
+from .api.migration import create_app as _create_migration_app
+from .api.security import create_app as _create_security_app
+from .api.discussions import create_app as _create_discussions_app
+
+projects_app = _create_projects_app()
+runtime_app = _create_runtime_app()
+gates_app = _create_gates_app()
+bindings_app = _create_bindings_app()
+opencode_app = _create_opencode_app()
+readiness_app = _create_readiness_app()
+setup_app = _create_setup_app()
+migration_app = _create_migration_app()
+security_app = _create_security_app()
+discussions_app = _create_discussions_app()
 
 
 def create_app(project_root: str | Path | None = None) -> Starlette:
@@ -87,6 +109,17 @@ def create_app(project_root: str | Path | None = None) -> Starlette:
                 methods=["POST"],
             ),
             Route("/api/events", endpoint=api_events, methods=["GET"]),
+            # === v0.12 mounts ===
+            Mount("/api/projects", app=projects_app),
+            Mount("/api/runtime", app=runtime_app),
+            Mount("/api/gates", app=gates_app),
+            Mount("/api/runtime/bindings", app=bindings_app),
+            Mount("/api/opencode", app=opencode_app),
+            Mount("/api/readiness", app=readiness_app),
+            Mount("/api/setup", app=setup_app),
+            Mount("/api/migration", app=migration_app),
+            Mount("/api/security", app=security_app),
+            Mount("/api/v12/discussions", app=discussions_app),
         ],
     )
     app.state.store = store
