@@ -27,6 +27,15 @@ from louke.runtime.workspace_init import InitWizard, WorkspacePrincipal
 
 from ._common import install_error_handlers, json_body, require_str
 
+#: Attribute on ``app.state`` holding the lazily-created ``InitWizard``.
+_WIZARD_ATTR: str = "init_wizard"
+
+#: Attribute on ``app.state`` holding the lazily-created ``CredentialStore``.
+_CRED_STORE_ATTR: str = "credential_store"
+
+#: Attribute on ``app.state`` holding the first principal id (if any).
+_FIRST_PRINCIPAL_ATTR: str = "first_principal_id"
+
 
 def create_app() -> Starlette:
     """Return a self-contained Starlette sub-app for ``/api/setup``.
@@ -50,20 +59,20 @@ def _routes() -> list[Route]:
 def _wizard(request: Request) -> InitWizard:
     """Return the per-app ``InitWizard``, creating it lazily on first use."""
     app = request.app
-    wizard = getattr(app.state, "init_wizard", None)
+    wizard = getattr(app.state, _WIZARD_ATTR, None)
     if wizard is None:
         wizard = InitWizard(repo_path=".", opcodes_available=False)
-        app.state.init_wizard = wizard
+        setattr(app.state, _WIZARD_ATTR, wizard)
     return wizard
 
 
 def _credential_store(request: Request) -> CredentialStore:
     """Return the per-app ``CredentialStore``, creating it lazily on first use."""
     app = request.app
-    store = getattr(app.state, "credential_store", None)
+    store = getattr(app.state, _CRED_STORE_ATTR, None)
     if store is None:
         store = CredentialStore()
-        app.state.credential_store = store
+        setattr(app.state, _CRED_STORE_ATTR, store)
     return store
 
 
@@ -76,7 +85,7 @@ async def get_status(request: Request) -> JSONResponse:
     wizard = _wizard(request)
     # InitWizard has no public accessor for the principal id; track it in
     # app state so we avoid reaching into private attributes.
-    principal_id = getattr(request.app.state, "first_principal_id", None)
+    principal_id = getattr(request.app.state, _FIRST_PRINCIPAL_ATTR, None)
     return JSONResponse(
         {
             "initialized": wizard.can_make_gate_decision(),
@@ -100,7 +109,7 @@ async def create_first_user(request: Request) -> JSONResponse:
     principal = WorkspacePrincipal(name=name)
     _wizard(request).create_first_principal(principal)
     _credential_store(request).set_principal_credential(principal.id, credential)
-    request.app.state.first_principal_id = principal.id
+    setattr(request.app.state, _FIRST_PRINCIPAL_ATTR, principal.id)
     return JSONResponse(
         {"principal_id": principal.id, "name": principal.name},
         status_code=201,
