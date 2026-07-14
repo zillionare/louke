@@ -120,6 +120,28 @@ def _project_store(request: Request) -> ProjectStore:
     return project_store
 
 
+def _require_project(request: Request, project_id: str):
+    """Return the project for ``project_id`` or raise 404 NOT_FOUND.
+
+    Args:
+        request: The incoming request (used to access the per-app store).
+        project_id: The opaque project identifier.
+
+    Returns:
+        The matching :class:`Project`.
+
+    Raises:
+        HTTPException: ``404 NOT_FOUND`` if the project does not exist.
+    """
+    try:
+        return _project_store(request).get_project(project_id)
+    except ProjectNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=error_detail(NOT_FOUND, str(exc)),
+        ) from exc
+
+
 async def list_active(request: Request) -> JSONResponse:
     """AC-FR1001-01: list non-terminal, non-archived projects.
 
@@ -242,13 +264,7 @@ async def get_project(request: Request) -> JSONResponse:
         ``200`` with the :class:`Project`.
     """
     project_id = request.path_params["project_id"]
-    try:
-        project = _project_store(request).get_project(project_id)
-    except ProjectNotFoundError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
+    project = _require_project(request, project_id)
     return JSONResponse(asdict(project))
 
 
@@ -263,14 +279,8 @@ async def get_project_graph(request: Request) -> JSONResponse:
         "definition_id": ..., "definition_version": ..., "revision": ...}``.
     """
     project_id = request.path_params["project_id"]
+    project = _require_project(request, project_id)
     store = _project_store(request)
-    try:
-        project = store.get_project(project_id)
-    except ProjectNotFoundError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
     graph = WorkflowGraphBuilder(store._run_store).build(project.run_id)
     return JSONResponse(
         {
