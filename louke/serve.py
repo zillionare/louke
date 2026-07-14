@@ -108,66 +108,53 @@ def run(args: argparse.Namespace) -> int:
 
     if not project_toml.exists() or not _current_stage_valid(project_toml):
         created = _ensure_minimal_project_toml(project_toml)
-        if created:
-            print(
-                f"lk serve: setup-only mode; created minimal project.toml at {project_toml}. "
-                f"Visit {setup_url} to complete init.",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"lk serve: setup-only mode; {project_toml} has unrecognized current_stage. "
-                f"Visit {setup_url} to complete init.",
-                file=sys.stderr,
-            )
+        detail = (
+            f"created minimal project.toml at {project_toml}"
+            if created
+            else f"{project_toml} has unrecognized current_stage"
+        )
+        _setup_only(f"{detail}. Visit {setup_url} to complete init.")
         return _start_or_dry_run(args, root, setup_only=True)
 
-    principal_ok = _has_first_principal(root)
-    if not principal_ok:
-        print(
-            f"lk serve: readiness incomplete; visiting {setup_url} completes init.",
-            file=sys.stderr,
-        )
+    if not _has_first_principal(root):
+        _setup_only(f"readiness incomplete; visiting {setup_url} completes init.")
         return _start_or_dry_run(args, root, setup_only=True)
 
     return _serve_ready(args, root)
 
 
-def _serve_ready(
-    args: argparse.Namespace, root: Path
-) -> int:
-    declared_version = "0.12.0"
-    selector = RuntimeSelector(
-        project_root=str(root), declared_version=declared_version
-    )
+def _setup_only(message: str) -> None:
+    print(f"lk serve: setup-only mode; {message}", file=sys.stderr)
+
+
+def _fail(message: str) -> int:
+    print(f"lk serve: {message}", file=sys.stderr)
+    return 1
+
+
+def _serve_ready(args: argparse.Namespace, root: Path) -> int:
+    selector = RuntimeSelector(project_root=str(root), declared_version="0.12.0")
     try:
         identity = selector.resolve()
     except (IntegrityError, VersionMismatchError, InvalidRuntimeError, GlobalModeError) as exc:
-        print(
-            f"lk serve: runtime selection failed: {exc}. "
-            f"Inspect .louke/project/project.toml (version/declared) and the local "
-            f"runtime under {root}/.louke/runtime. No global fallback.",
-            file=sys.stderr,
+        return _fail(
+            f"runtime selection failed: {exc}. Inspect .louke/project/project.toml "
+            f"(version/declared) and the local runtime under {root}/.louke/runtime. "
+            "No global fallback."
         )
-        return 1
     except Exception as exc:
-        print(f"lk serve: unexpected error resolving runtime: {exc}", file=sys.stderr)
-        return 1
+        return _fail(f"unexpected error resolving runtime: {exc}")
 
     if args.opencode_backend == "real":
         # B4 wires the real OpenCode adapter; until then fail-closed so no
         # semantic task is dispatched against a non-existent backend.
-        print(
-            "lk serve: opencode backend 'real' is not yet available; "
-            "use --opencode-backend=mock or wait for the B4 adapter. "
-            "No global fallback.",
-            file=sys.stderr,
+        return _fail(
+            "opencode backend 'real' is not yet available; "
+            "use --opencode-backend=mock or wait for the B4 adapter. No global fallback."
         )
-        return 1
 
     print(
-        f"lk serve: runtime = {identity.mode.name}, mode=local, "
-        f'version="{identity.version}"'
+        f'lk serve: runtime = {identity.mode.name}, mode=local, version="{identity.version}"'
     )
     print(f"lk serve: effective root = {identity.effective_root}")
     print(f"lk serve: listening on http://{args.host}:{args.port}")
