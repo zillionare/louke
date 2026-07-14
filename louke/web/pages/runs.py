@@ -329,32 +329,37 @@ def _derive_graph(
     seen: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, Any]] = []
     edge_keys: set[tuple[str, str]] = set()
-
     completed: set[str] = set()
+
     for event in events:
-        from_step = event.get("from_step")
-        to_step = event.get("to_step")
-        step_id = event.get("step_id")
+        from_step, to_step, step_id = _event_steps(event)
         for sid in (from_step, to_step, step_id):
-            if sid and str(sid) not in seen:
-                seen[str(sid)] = {"step_id": str(sid)}
-        if from_step and to_step and str(from_step) != str(to_step):
-            key = (str(from_step), str(to_step))
+            if sid and sid not in seen:
+                seen[sid] = {"step_id": sid}
+        if from_step and to_step and from_step != to_step:
+            key = (from_step, to_step)
             if key not in edge_keys:
                 edge_keys.add(key)
-                edges.append({"from_step": str(from_step), "to_step": str(to_step)})
-        if to_step and str(to_step) != current_step:
-            completed.add(str(to_step))
+                edges.append({"from_step": from_step, "to_step": to_step})
+        if to_step and to_step != current_step:
+            completed.add(to_step)
 
     if current_step and current_step not in seen:
         seen[current_step] = {"step_id": current_step}
 
-    nodes: list[dict[str, Any]] = []
-    for node in seen.values():
-        sid = str(node["step_id"])
-        node["state"] = _node_state(sid, current_step, completed)
-        nodes.append(node)
+    nodes = [
+        {"step_id": sid, "state": _node_state(sid, current_step, completed)}
+        for sid in seen
+    ]
     return nodes, edges
+
+
+def _event_steps(event: dict[str, Any]) -> tuple[str, str, str]:
+    """Return the (from_step, to_step, step_id) strings from an event."""
+    from_step = str(event.get("from_step") or "")
+    to_step = str(event.get("to_step") or "")
+    step_id = str(event.get("step_id") or "")
+    return from_step, to_step, step_id
 
 
 def _node_state(
@@ -394,6 +399,19 @@ def _build_svg(
         labels.append(
             f'<text x="{x}" y="{y + 40}" text-anchor="middle" font-size="11">{_esc(sid)}</text>'
         )
+    arrows = _render_edges(edges, positions)
+    return (
+        f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">'
+        f'<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">'
+        f'<path d="M0,0 L8,3 L0,6 Z" fill="#6b7280" /></marker></defs>'
+        f'{"".join(arrows)}{"".join(circles)}{"".join(labels)}</svg>'
+    )
+
+
+def _render_edges(
+    edges: list[dict[str, Any]], positions: dict[str, tuple[int, int]]
+) -> list[str]:
+    """Return SVG line elements for each graph edge."""
     arrows: list[str] = []
     for edge in edges:
         src = str(edge["from_step"])
@@ -403,14 +421,10 @@ def _build_svg(
         x1, y1 = positions[src]
         x2, y2 = positions[dst]
         arrows.append(
-            f'<line x1="{x1 + 20}" y1="{y1}" x2="{x2 - 20}" y2="{y2}" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow)" />'
+            f'<line x1="{x1 + 20}" y1="{y1}" x2="{x2 - 20}" y2="{y2}" '
+            f'stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow)" />'
         )
-    return f"""<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6b7280" /></marker></defs>
-  {"".join(arrows)}
-  {"".join(circles)}
-  {"".join(labels)}
-</svg>"""
+    return arrows
 
 
 def _node_fill(state: str, step_id: str, current_step: str, run_status: str) -> str:
