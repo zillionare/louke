@@ -34,7 +34,14 @@ from starlette.routing import Route
 
 from louke.opencode.in_memory import InMemoryOpenCodeAdapter
 
-from ._common import NOT_FOUND, VALIDATION_ERROR, error_detail, install_error_handlers, json_body, require_str
+from ._common import (
+    NOT_FOUND,
+    VALIDATION_ERROR,
+    error_detail,
+    install_error_handlers,
+    json_body,
+    require_str,
+)
 
 #: Adapter kind label included in every response so the frontend can warn.
 _ADAPTER_KIND: str = "mock"
@@ -147,7 +154,7 @@ async def send_message(request: Request) -> JSONResponse:
         ``{"content": str}``.
 
     Returns:
-        ``200`` with ``{"adapter_kind": "mock", "reply": {...}}``.
+        ``200`` with ``{"adapter_kind": "mock", "message": {...}}``.
     """
     instance_id = request.path_params["instance_id"]
     payload = await json_body(request)
