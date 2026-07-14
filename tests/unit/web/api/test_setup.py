@@ -4,7 +4,7 @@ AC references covered:
 - AC-FR1801-03: GET /status returns initialized flag and first principal id.
 - AC-FR1801-03: POST /first-user creates the first principal and stores the
   credential hash via CredentialStore.
-- AC-FR0101-05: missing required body fields return 400 VALIDATION_ERROR.
+- AC-FR0101-04: missing required body fields return 400 VALIDATION_ERROR.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def test_status_after_first_user(client: TestClient) -> None:
 
 
 def test_create_first_user_missing_fields(client: TestClient) -> None:
-    """AC-FR0101-05: missing required fields return 400 VALIDATION_ERROR."""
+    """AC-FR0101-04: missing required fields return 400 VALIDATION_ERROR."""
     resp = client.post("/first-user", json={"name": "alice"})
     assert resp.status_code == 400
     assert resp.json()["error_code"] == "VALIDATION_ERROR"

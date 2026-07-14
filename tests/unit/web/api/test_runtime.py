@@ -9,7 +9,7 @@ AC references covered:
 - AC-FR0101-02: applying a command advances the run (apply_command).
 - AC-FR0101-03: a stale expected_revision returns 409 STALE.
 - AC-FR0101-04: an unknown run id returns 404 NOT_FOUND.
-- AC-FR0101-05: missing required body fields return 400 VALIDATION_ERROR.
+- AC-FR0101-04: missing required body fields return 400 VALIDATION_ERROR.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def test_create_run_happy_path(client: TestClient) -> None:
 
 
 def test_create_run_validation_error_missing_definition_id(client: TestClient) -> None:
-    """AC-FR0101-05: missing definition_id returns 400 VALIDATION_ERROR."""
+    """AC-FR0101-04: missing definition_id returns 400 VALIDATION_ERROR."""
     resp = client.post("/runs", json={"definition_version": "1"})
     assert resp.status_code == 400
     assert resp.json()["error_code"] == "VALIDATION_ERROR"
@@ -149,7 +149,7 @@ def test_apply_command_unknown_run(client: TestClient) -> None:
 
 
 def test_apply_command_validation_error_missing_result(client: TestClient) -> None:
-    """AC-FR0101-05: applying a command without a result returns 400."""
+    """AC-FR0101-04: applying a command without a result returns 400."""
     created = _create_run(client)
     resp = client.post(
         f"/runs/{created['run_id']}/commands",
