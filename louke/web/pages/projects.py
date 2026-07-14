@@ -228,23 +228,30 @@ def _truncate(text: str, max_len: int = 12) -> str:
 async def projects_index(request: Request) -> Response:
     """GET /: render the projects list with Active, History and Backlog sections."""
     api_base = _api_base(request)
-    active: list[dict[str, Any]] = []
-    history: list[dict[str, Any]] = []
-    backlog: list[dict[str, Any]] = []
-    error = ""
-    try:
-        active = await _fetch_active(api_base)
-    except Exception as exc:
-        error = str(exc)
-    try:
-        history = await _fetch_history(api_base)
-    except Exception as exc:
-        error = error or str(exc)
-    try:
-        backlog = await _fetch_backlog(api_base)
-    except Exception as exc:
-        error = error or str(exc)
+    active, err1 = await _safe_fetch(_fetch_active, api_base)
+    history, err2 = await _safe_fetch(_fetch_history, api_base)
+    backlog, err3 = await _safe_fetch(_fetch_backlog, api_base)
+    error = err1 or err2 or err3
     return HTMLResponse(_render_index(active, history, backlog, error=error))
+
+
+async def _safe_fetch(
+    fetch: "Any", api_base: str
+) -> tuple[list[dict[str, Any]], str]:
+    """Return ``(items, error)`` from ``fetch(api_base)``, never raising.
+
+    Args:
+        fetch: An async seam function taking ``api_base``.
+        api_base: The upstream API base URL.
+
+    Returns:
+        A tuple of the fetched items (empty on failure) and an error string
+        (empty on success).
+    """
+    try:
+        return await fetch(api_base), ""
+    except Exception as exc:
+        return [], str(exc)
 
 
 async def new_project_form(request: Request) -> Response:
@@ -257,12 +264,7 @@ async def new_project_form(request: Request) -> Response:
 
 async def _render_new_form(api_base: str) -> Response:
     """Render the new-project form, fetching the catalog for the select."""
-    catalog: list[dict[str, Any]] = []
-    error = ""
-    try:
-        catalog = await _fetch_catalog(api_base)
-    except Exception as exc:
-        error = str(exc)
+    catalog, error = await _safe_fetch(_fetch_catalog, api_base)
     return HTMLResponse(_render_new(catalog, preview=None, error=error))
 
 
@@ -278,11 +280,7 @@ async def _handle_new_preview(api_base: str, body: bytes) -> Response:
             definition_version=form.get("workflow_version", ""),
         )
     except Exception as exc:
-        catalog: list[dict[str, Any]] = []
-        try:
-            catalog = await _fetch_catalog(api_base)
-        except Exception:
-            pass
+        catalog, _ = await _safe_fetch(_fetch_catalog, api_base)
         return HTMLResponse(_render_new(catalog, preview=None, error=str(exc)))
     return HTMLResponse(_render_new([], preview=preview, error=""))
 
