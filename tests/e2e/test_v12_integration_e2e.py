@@ -45,6 +45,23 @@ from starlette.routing import Mount
 from starlette.testclient import TestClient
 
 
+#: The module-level v0.12 sub-apps that cache a shared ``WorkflowRunStore``.
+#: Listed in the same order they are mounted in ``louke.web.app.create_app``.
+_V12_SUBAPPS_ATTR: str = "v12_run_store"
+
+
+def _v12_subapps() -> tuple[Any, ...]:
+    """Return the four module-level v0.12 sub-apps that share the run store."""
+    import louke.web.app as appmod
+
+    return (
+        appmod.projects_app,
+        appmod.runtime_app,
+        appmod.gates_app,
+        appmod.bindings_app,
+    )
+
+
 def _write_project_toml(root: Any) -> None:
     """Write a minimal project.toml so ``create_app`` does not fail on meta reads."""
     project_dir = root / ".louke" / "project"
@@ -71,14 +88,7 @@ def _reset_subapp_state() -> None:
     (and thus across tests). This clears the internal ``_state`` dict of each
     sub-app so the next request lazily rebuilds from scratch.
     """
-    import louke.web.app as appmod
-
-    for sub_app in (
-        appmod.projects_app,
-        appmod.runtime_app,
-        appmod.gates_app,
-        appmod.bindings_app,
-    ):
+    for sub_app in _v12_subapps():
         sub_app.state._state.clear()
 
 
@@ -91,17 +101,11 @@ def _inject_shared_store(client: TestClient) -> Any:
     endpoint yet (e.g. ``ensure_m_lock_gate`` / ``apply_gate_decision``).
     """
     from louke.web.api._runtime_store import build_run_store
-    import louke.web.app as appmod
 
     def _setup() -> Any:
         store = build_run_store()
-        for sub_app in (
-            appmod.projects_app,
-            appmod.runtime_app,
-            appmod.gates_app,
-            appmod.bindings_app,
-        ):
-            sub_app.state.v12_run_store = store
+        for sub_app in _v12_subapps():
+            setattr(sub_app.state, _V12_SUBAPPS_ATTR, store)
         return store
 
     return client.portal.call(_setup)
@@ -144,6 +148,33 @@ def _create_project(
     resp = client.post("/api/projects/create", json=payload)
     assert resp.status_code == 201, resp.text
     return resp.json()
+
+
+def _approve_gate(
+    store: Any,
+    run_id: str,
+    gate: Any,
+) -> Any:
+    """Approve a gate via the orchestrator and return the transition outcome.
+
+    This helper exists because there is no HTTP endpoint for
+    ``orchestrator.apply_gate_decision``; tests that need to advance a run
+    through a human gate must reach into the store via the portal. The
+    principal is a fixed test actor (``alice``).
+    """
+    from louke.runtime.gates import GateService
+    from louke.runtime.orchestrator import WorkflowOrchestrator
+
+    gs = GateService(store)
+    orch = WorkflowOrchestrator(store, gate_service=gs)
+    return orch.apply_gate_decision(
+        run_id=run_id,
+        gate_id=gate.gate_id,
+        decision="approve",
+        bound_digest=gate.bound_digest,
+        expected_revision=store.get_run(run_id).revision,
+        principal={"kind": "human", "id": "alice"},
+    )
 
 
 def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
@@ -196,14 +227,7 @@ def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
             spec_digest=spec_digest,
             acceptance_digest=acceptance_digest,
         )
-        orch.apply_gate_decision(
-            run_id=source_run.run_id,
-            gate_id=gate.gate_id,
-            decision="approve",
-            bound_digest=bound_digest,
-            expected_revision=store.get_run(source_run.run_id).revision,
-            principal={"kind": "human", "id": "alice"},
-        )
+        _approve_gate(store, source_run.run_id, gate)
         return {
             "gate_id": gate.gate_id,
             "bound_digest": bound_digest,
@@ -344,14 +368,7 @@ def test_e2e_fr_0901_m_lock_gate_semantics(client: TestClient) -> None:
             spec_digest="sha256:spec",
             acceptance_digest="sha256:acc",
         )
-        return orch.apply_gate_decision(
-            run_id=run_id,
-            gate_id=gate.gate_id,
-            decision="approve",
-            bound_digest=gate.bound_digest,
-            expected_revision=store.get_run(run_id).revision,
-            principal={"kind": "human", "id": "alice"},
-        )
+        return _approve_gate(store, run_id, gate)
 
     outcome = client.portal.call(_approve_req)
     assert outcome.run.current_step == "design"
@@ -382,14 +399,7 @@ def test_e2e_fr_0901_m_lock_gate_semantics(client: TestClient) -> None:
             architecture_digest="sha256:arch",
             interfaces_digest="sha256:iface",
         )
-        return orch.apply_gate_decision(
-            run_id=run_id,
-            gate_id=gate.gate_id,
-            decision="approve",
-            bound_digest=gate.bound_digest,
-            expected_revision=store.get_run(run_id).revision,
-            principal={"kind": "human", "id": "alice"},
-        )
+        return _approve_gate(store, run_id, gate)
 
     m_outcome = client.portal.call(_approve_m_lock)
     assert m_outcome.run.current_step == "implementation"
@@ -555,7 +565,7 @@ def test_e2e_fr_1301_agent_bindings_default_and_override(
 
     # Build a dedicated wrapper so the bindings sub-app is reachable.
     # The sub-apps are the real module-level singletons; we mount them at
-    # non-shadowed paths and inject a fresh shared store into all of them.
+    # non-shadowed paths and inject a fresh shared store into both.
     _reset_subapp_state()
     wrapper = Starlette(
         routes=[
@@ -568,8 +578,8 @@ def test_e2e_fr_1301_agent_bindings_default_and_override(
         # Inject a shared store into both sub-apps inside the portal thread.
         def _setup_store() -> Any:
             store = build_run_store()
-            appmod.runtime_app.state.v12_run_store = store
-            appmod.bindings_app.state.v12_run_store = store
+            setattr(appmod.runtime_app.state, _V12_SUBAPPS_ATTR, store)
+            setattr(appmod.bindings_app.state, _V12_SUBAPPS_ATTR, store)
             return store
 
         bindings_client.portal.call(_setup_store)
