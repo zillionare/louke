@@ -14,12 +14,12 @@ release_branch = "main"
 
 [meta]
 created = "2026-07-13"
-tag = "unreleased"
-current_stage = "M-DEV"
+tag = "v0.12.0 (zillionare/louke@v0.12.0)"
+current_stage = "M-MILESTONE"
 m_lock_status = "approved (2026-07-13); M-DEV explicitly not started"
 security_audit = "disabled"
-smoke_test_issue = "to be created after M-LOCK"
-smoke_test_pr = "to be created after M-LOCK"
+smoke_test_issue = "#161 (M-MILESTONE v0.12.0 真实 OpenCode L3 smoke)"
+smoke_test_pr = "#162 (M-MILESTONE v0.12.0 真实 OpenCode L3 smoke PR)"
 dod = "144/144 AC 引用闭合且通过；unit/integration/e2e 全通过；覆盖率 ≥95%；真实 OpenCode smoke 有明确证据；requirements approval 与 M-LOCK 均已批准"
 pre_commit = "installed (python + base)"
 test_framework = "pytest"
@@ -46,7 +46,7 @@ v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
 v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
 v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
-v0_12_001 = "M-LOCK approved (programmatic-workflow-runtime; M-DEV not started)"
+v0_12_001 = "shipped (2026-07-14, tag v0.12.0; programmatic-workflow-runtime)"
 
 [e2e]
 # v0.12：host-project E2E 编排契约。浏览器矩阵不在本版本范围。
