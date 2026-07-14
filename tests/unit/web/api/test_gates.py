@@ -12,6 +12,7 @@ AC references covered:
 
 from __future__ import annotations
 
+import uuid
 from typing import NamedTuple
 
 import pytest
@@ -42,8 +43,6 @@ def _make_gate(
     This helper MUST be called from the same thread that owns the store's
     sqlite connection (i.e. inside the TestClient portal).
     """
-    import uuid
-
     gate = Gate(
         gate_id=f"gate_{uuid.uuid4().hex[:8]}",
         challenge_id=f"chal_{uuid.uuid4().hex[:8]}",
