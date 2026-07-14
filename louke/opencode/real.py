@@ -180,8 +180,7 @@ class RealOpenCodeAdapter:
             RuntimeError: On a non-2xx response or transport failure.
         """
         resp = self._request("GET", _SESSION_PATH)
-        payload = resp.json()
-        items = payload.get("data", []) if isinstance(payload, dict) else payload
+        items = _unwrap_data_envelope(resp.json())
         return [
             Instance(
                 id=item["id"],
@@ -244,11 +243,11 @@ class RealOpenCodeAdapter:
         msg_id = new_id()
         try:
             data = resp.json()
-            if isinstance(data, dict) and isinstance(data.get("data"), dict):
-                msg_id = data["data"].get("id") or msg_id
         except ValueError:
-            # Non-JSON 2xx body: keep the locally generated id.
-            pass
+            # Non-JSON 2xx body: keep the locally generated id and accept.
+            data = None
+        if isinstance(data, dict) and isinstance(data.get("data"), dict):
+            msg_id = data["data"].get("id") or msg_id
         user_msg = Message(
             id=msg_id,
             instance_id=instance_id,
@@ -284,10 +283,7 @@ class RealOpenCodeAdapter:
         resp = self._request(
             "GET", _session_path(instance_id, _MESSAGE_SUFFIX),
         )
-        payload = resp.json()
-        raw_messages = (
-            payload.get("data", []) if isinstance(payload, dict) else payload
-        )
+        raw_messages = _unwrap_data_envelope(resp.json())
         messages = [_parse_message(instance_id, m) for m in raw_messages]
         if not after_message_id:
             return messages
@@ -387,6 +383,29 @@ class RealOpenCodeAdapter:
         return resp
 
 
+def _unwrap_data_envelope(payload: Any) -> list[dict[str, Any]]:
+    """Return the ``data`` array from an opencode envelope, tolerant of shape.
+
+    The real opencode 1.17.15 list/message endpoints wrap their payload in
+    ``{"data": [...], "cursor": {...}}``. Older or partial responses may
+    return a bare list. This helper accepts both and always returns a list,
+    filtering out non-dict items so a malformed body cannot crash the caller.
+
+    Args:
+        payload: The decoded JSON body (dict with ``data`` or a bare list).
+
+    Returns:
+        A list of message/instance dicts (possibly empty).
+    """
+    if isinstance(payload, dict):
+        items = payload.get("data", [])
+    else:
+        items = payload
+    if not isinstance(items, list):
+        return []
+    return [it for it in items if isinstance(it, dict)]
+
+
 def _parse_message(instance_id: str, raw: dict[str, Any]) -> Message:
     """Flatten an OpenCode message item into a :class:`Message`.
 
@@ -402,7 +421,7 @@ def _parse_message(instance_id: str, raw: dict[str, Any]) -> Message:
 
     The role is read from ``type`` (values ``"assistant"`` / ``"user"``).
     The content text is the concatenation of every ``content[i].text``
-    whose ``type == "text"``.
+    whose ``type == "text"`` (delegated to :func:`_concat_text_parts`).
 
     Args:
         instance_id: The session id (taken from the request, not the body,
@@ -415,11 +434,7 @@ def _parse_message(instance_id: str, raw: dict[str, Any]) -> Message:
         valid message record).
     """
     parts = raw.get("content") or []
-    text = "".join(
-        p.get("text", "")
-        for p in parts
-        if isinstance(p, dict) and p.get("type") == "text"
-    )
+    text = _concat_text_parts(parts)
     role = raw.get("type") or "assistant"
     if role not in ("user", "assistant", "system"):
         role = "assistant"
@@ -431,6 +446,30 @@ def _parse_message(instance_id: str, raw: dict[str, Any]) -> Message:
         content=text,
         created_at=_as_epoch(raw.get("time", {}).get("created")),
     )
+
+
+def _concat_text_parts(parts: Any) -> str:
+    """Concatenate all ``{"type": "text", "text": ...}`` entries in ``parts``.
+
+    Defensive against non-list / non-dict entries so a malformed server body
+    cannot raise during parsing (a single corrupt part should not discard
+    the rest of the message).
+
+    Args:
+        parts: The ``content`` array of an opencode message item.
+
+    Returns:
+        The concatenated text of all text-type parts (``""`` when none).
+    """
+    if not isinstance(parts, list):
+        return ""
+    out: list[str] = []
+    for p in parts:
+        if isinstance(p, dict) and p.get("type") == "text":
+            t = p.get("text")
+            if isinstance(t, str):
+                out.append(t)
+    return "".join(out)
 
 
 def _as_epoch(ms: Any) -> float:
