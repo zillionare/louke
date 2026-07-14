@@ -120,7 +120,7 @@ def test_ac_fr1101_03_preview_then_confirm_creates_project_atomically():
 
     assert len(project_store.list_active()) == 1
     run = store.get_run(project.run_id)
-    assert run is not None
+    assert run.run_id == project.run_id
 
 
 # -- AC-FR1101-04 -------------------------------------------------------------
