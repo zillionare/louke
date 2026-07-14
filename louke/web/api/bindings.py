@@ -172,6 +172,8 @@ async def set_override(request: Request) -> JSONResponse:
         agent_role=agent,
         model=model,
         actor=actor(principal_id(request)),
+        # B1 simplification: always operate against the initial binding revision
+        # (1). Optimistic-concurrency CAS on subsequent updates is deferred.
         expected_binding_revision=1,
     )
     return JSONResponse(asdict(summary))
