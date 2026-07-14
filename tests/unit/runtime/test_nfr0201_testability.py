@@ -12,9 +12,12 @@ AC references:
 from __future__ import annotations
 
 import ast
+import json
+import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 
 import pytest
 
@@ -28,6 +31,18 @@ from louke.runtime.foundation import (
 from louke.runtime.program_steps import StepContext
 from louke.runtime.recovery import recover_run
 from louke.runtime.store import WorkflowRunStore
+
+# Tests that invoke pytest as a subprocess; they must be deselected from the
+# subprocess run to avoid infinite recursion.
+_RECURSIVE_TESTS: tuple[str, ...] = (
+    "tests/unit/runtime/test_nfr0201_testability.py::test_ac_nfr0201_01_unit_suite_runs_offline",
+    "tests/unit/runtime/test_nfr0201_testability.py::test_ac_nfr0201_03_runtime_statement_coverage_at_least_95",
+)
+
+
+def _deselect_args() -> list[str]:
+    """Return the pytest --deselect flags for recursive subprocess tests."""
+    return [arg for path in _RECURSIVE_TESTS for arg in ("--deselect", path)]
 
 
 # -- AC-NFR0201-01 ------------------------------------------------------------
@@ -81,8 +96,8 @@ def test_ac_nfr0201_01_unit_tests_import_no_external_sdk():
 def test_ac_nfr0201_01_unit_suite_runs_offline():
     """AC-NFR0201-01: ``pytest tests/unit`` succeeds without network access.
 
-    The subprocess deselects the two recursion-causing tests in this file
-    (this one and the coverage test) so it does not re-enter them.
+    The subprocess deselects the recursive tests in this file (this one and
+    the coverage test) to avoid infinite re-entry.
     """
     result = subprocess.run(
         [
@@ -92,8 +107,7 @@ def test_ac_nfr0201_01_unit_suite_runs_offline():
             "tests/unit",
             "-q",
             "--no-header",
-            "--deselect=tests/unit/runtime/test_nfr0201_testability.py::test_ac_nfr0201_01_unit_suite_runs_offline",
-            "--deselect=tests/unit/runtime/test_nfr0201_testability.py::test_ac_nfr0201_03_runtime_statement_coverage_at_least_95",
+            *_deselect_args(),
         ],
         capture_output=True,
         text=True,
@@ -144,12 +158,10 @@ def test_ac_nfr0201_03_runtime_statement_coverage_at_least_95():
     parses the JSON report to compute the statement coverage ratio for the
     runtime package. This avoids re-entrant pytest invocation.
 
-    The subprocess excludes this test file to avoid infinite recursion.
+    The subprocess deselects the recursive tests in this file to avoid
+    infinite re-entry.
     """
     pytest.importorskip("coverage")
-    import json
-    import os
-    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cov_file = pathlib.Path(tmpdir) / ".coverage"
@@ -168,8 +180,7 @@ def test_ac_nfr0201_03_runtime_statement_coverage_at_least_95():
                 "tests/unit",
                 "-q",
                 "--no-header",
-                "--deselect=tests/unit/runtime/test_nfr0201_testability.py::test_ac_nfr0201_01_unit_suite_runs_offline",
-                "--deselect=tests/unit/runtime/test_nfr0201_testability.py::test_ac_nfr0201_03_runtime_statement_coverage_at_least_95",
+                *_deselect_args(),
             ],
             capture_output=True,
             text=True,
