@@ -38,6 +38,7 @@ from . import models as models_cmd
 from . import board as board_cmd
 from . import serve as serve_cmd
 from . import e2e as e2e_cmd
+from . import cli_v12
 from . import agent as agent_main
 
 
@@ -59,6 +60,7 @@ def build_parser():
         sub = subparsers.add_parser(name, add_help=False)
         if hasattr(module, "register"):
             module.register(sub)
+    cli_v12.register_subcommands(subparsers)
     subparsers.add_parser("version", add_help=False)
     subparsers.add_parser("help", add_help=False)
     subparsers.add_parser("upgrade", add_help=False)
@@ -166,6 +168,13 @@ def main(argv=None):
         return agent_main.run(args)
     if raw[0] == "discuss":
         return _cmd_discuss(raw[1:])
+    if raw[0] in {"project", "gate", "workflow", "migrate"}:
+        parser = build_parser()
+        try:
+            args = parser.parse_args(raw)
+        except SystemExit as e:
+            return e.code if isinstance(e.code, int) else 1
+        raise SystemExit(cli_v12.dispatch(args))
     if raw[0] in USER_COMMANDS:
         module = USER_COMMANDS[raw[0]]
         parser = build_command_parser(module, f"lk {raw[0]}")
@@ -207,6 +216,12 @@ def print_help_text():
     print("  lk upgrade [--index URL] [--pre] [--dry-run]  Upgrade louke via pip")
     print("  lk version                  Print version")
     print("  lk help                     Print this help")
+    print()
+    print("v0.12 commands (B8):")
+    print("  lk project list|show        Manage v0.12 projects")
+    print("  lk gate approve|reject      Manage v0.12 gates")
+    print("  lk workflow graph           Show workflow graph for a run")
+    print("  lk migrate preview          Preview legacy workspace migration")
     print()
     print("Agent commands:")
     print("  lk agent <name> <cmd> [opts]")
