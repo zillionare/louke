@@ -23,6 +23,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+
 #: Error code returned when request body or query params are invalid.
 VALIDATION_ERROR: str = "VALIDATION_ERROR"
 #: Error code returned when a referenced resource does not exist.
@@ -130,4 +131,78 @@ def _status_to_default_code(status_code: int) -> str:
     if status_code >= 500:
         return INTERNAL
     return VALIDATION_ERROR
+
+
+async def json_body(request: Request) -> dict[str, Any]:
+    """Return the parsed JSON body, raising VALIDATION_ERROR on malformed JSON.
+
+    Args:
+        request: The incoming Starlette request.
+
+    Returns:
+        The parsed JSON body as a dict.
+
+    Raises:
+        HTTPException: ``400 VALIDATION_ERROR`` if the body is not valid JSON
+            or is not a JSON object.
+    """
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=error_detail(VALIDATION_ERROR, "request body must be valid JSON"),
+        ) from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=400,
+            detail=error_detail(VALIDATION_ERROR, "request body must be a JSON object"),
+        )
+    return payload
+
+
+def require_str(payload: dict[str, Any], field: str) -> str:
+    """Return ``payload[field]`` as a non-empty string, else VALIDATION_ERROR.
+
+    Args:
+        payload: The parsed JSON body.
+        field: The required field name.
+
+    Returns:
+        The non-empty string value of ``payload[field]``.
+
+    Raises:
+        HTTPException: ``400 VALIDATION_ERROR`` if the field is missing, not a
+            string, or empty/whitespace.
+    """
+    value = payload.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=error_detail(VALIDATION_ERROR, f"field {field!r} is required"),
+        )
+    return value
+
+
+def require_int(payload: dict[str, Any], field: str) -> int:
+    """Return ``payload[field]`` as an int, else VALIDATION_ERROR.
+
+    Args:
+        payload: The parsed JSON body.
+        field: The required field name.
+
+    Returns:
+        The integer value of ``payload[field]``.
+
+    Raises:
+        HTTPException: ``400 VALIDATION_ERROR`` if the field is missing, not an
+            int, or is a bool (bools are a subclass of int but not accepted).
+    """
+    value = payload.get(field)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise HTTPException(
+            status_code=400,
+            detail=error_detail(VALIDATION_ERROR, f"field {field!r} must be an integer"),
+        )
+    return value
 

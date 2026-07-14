@@ -25,7 +25,6 @@ from dataclasses import asdict
 from typing import Any
 
 from starlette.applications import Starlette
-from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -50,7 +49,10 @@ from ._common import (
     actor,
     error_detail,
     install_error_handlers,
+    json_body,
     principal_id,
+    require_int,
+    require_str,
 )
 from ._runtime_store import get_definition, get_or_create_store
 
@@ -132,9 +134,9 @@ async def create_run(request: Request) -> JSONResponse:
     Returns:
         ``201`` with the created :class:`WorkflowRun`.
     """
-    payload = await _json_body(request)
-    definition_id = _require_str(payload, "definition_id")
-    definition_version = _require_str(payload, "definition_version")
+    payload = await json_body(request)
+    definition_id = require_str(payload, "definition_id")
+    definition_version = require_str(payload, "definition_version")
     store = _store(request)
     definition = get_definition(store, definition_id, definition_version)
     _ = actor(principal_id(request))
@@ -188,8 +190,8 @@ async def apply_command(request: Request) -> JSONResponse:
         ``200`` with ``{"run": WorkflowRun, "event": WorkflowEvent}``.
     """
     run_id = request.path_params["run_id"]
-    payload = await _json_body(request)
-    expected_revision = _require_int(payload, "expected_revision")
+    payload = await json_body(request)
+    expected_revision = require_int(payload, "expected_revision")
     result = payload.get("result")
     requested_next_step = payload.get("requested_next_step")
     idempotency_key = payload.get("idempotency_key")
@@ -253,42 +255,3 @@ def _undeclared_result_handler(_: Request, exc: Exception) -> JSONResponse:
 def _runtime_state_handler(_: Request, exc: Exception) -> JSONResponse:
     """Map :class:`RuntimeStateError` to a 500 INTERNAL JSON response."""
     return JSONResponse(error_detail(INTERNAL, str(exc)), status_code=500)
-
-
-async def _json_body(request: Request) -> dict[str, Any]:
-    """Return the parsed JSON body, raising VALIDATION_ERROR on malformed JSON."""
-    try:
-        payload = await request.json()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, "request body must be valid JSON"),
-        ) from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, "request body must be a JSON object"),
-        )
-    return payload
-
-
-def _require_str(payload: dict[str, Any], field: str) -> str:
-    """Return ``payload[field]`` as a non-empty string, else VALIDATION_ERROR."""
-    value = payload.get(field)
-    if not isinstance(value, str) or not value.strip():
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, f"field {field!r} is required"),
-        )
-    return value
-
-
-def _require_int(payload: dict[str, Any], field: str) -> int:
-    """Return ``payload[field]`` as an int, else VALIDATION_ERROR."""
-    value = payload.get(field)
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, f"field {field!r} must be an integer"),
-        )
-    return value

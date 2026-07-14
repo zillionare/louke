@@ -25,7 +25,6 @@ Error envelope (shared across v0.12 sub-apps)::
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
 
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
@@ -47,7 +46,9 @@ from ._common import (
     actor,
     error_detail,
     install_error_handlers,
+    json_body,
     principal_id,
+    require_str,
 )
 from ._runtime_store import get_or_create_store
 
@@ -168,11 +169,11 @@ async def preview_project(request: Request) -> JSONResponse:
     Returns:
         ``200`` with the ``ProjectPreview`` (no ``project_id`` yet).
     """
-    payload = await _json_body(request)
-    story = _require_str(payload, "story")
-    release_version = _require_str(payload, "release_version")
-    definition_id = _require_str(payload, "definition_id")
-    definition_version = _require_str(payload, "definition_version")
+    payload = await json_body(request)
+    story = require_str(payload, "story")
+    release_version = require_str(payload, "release_version")
+    definition_id = require_str(payload, "definition_id")
+    definition_version = require_str(payload, "definition_version")
     source_contract = payload.get("source_contract")
     _ = actor(principal_id(request))
     preview = _project_store(request).preview_project(
@@ -194,8 +195,8 @@ async def confirm_project(request: Request) -> JSONResponse:
     Returns:
         ``201`` with the created :class:`Project`.
     """
-    payload = await _json_body(request)
-    preview_id = _require_str(payload, "preview_id")
+    payload = await json_body(request)
+    preview_id = require_str(payload, "preview_id")
     project = _project_store(request).confirm_project(preview_id)
     return JSONResponse(asdict(project), status_code=201)
 
@@ -211,11 +212,11 @@ async def create_project(request: Request) -> JSONResponse:
     Returns:
         ``201`` with the created :class:`Project`.
     """
-    payload = await _json_body(request)
-    story = _require_str(payload, "story")
-    release_version = _require_str(payload, "release_version")
-    definition_id = _require_str(payload, "definition_id")
-    definition_version = _require_str(payload, "definition_version")
+    payload = await json_body(request)
+    story = require_str(payload, "story")
+    release_version = require_str(payload, "release_version")
+    definition_id = require_str(payload, "definition_id")
+    definition_version = require_str(payload, "definition_version")
     source_contract = payload.get("source_contract")
     _ = actor(principal_id(request))
     project = _project_store(request).create_project(
@@ -266,31 +267,3 @@ async def archive_project(request: Request) -> JSONResponse:
             detail=error_detail(NOT_FOUND, str(exc)),
         ) from exc
     return JSONResponse(asdict(archived))
-
-
-async def _json_body(request: Request) -> dict[str, Any]:
-    """Return the parsed JSON body, raising VALIDATION_ERROR on malformed JSON."""
-    try:
-        payload = await request.json()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, "request body must be valid JSON"),
-        ) from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, "request body must be a JSON object"),
-        )
-    return payload
-
-
-def _require_str(payload: dict[str, Any], field: str) -> str:
-    """Return ``payload[field]`` as a non-empty string, else VALIDATION_ERROR."""
-    value = payload.get(field)
-    if not isinstance(value, str) or not value.strip():
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, f"field {field!r} is required"),
-        )
-    return value
