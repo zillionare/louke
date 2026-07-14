@@ -20,12 +20,33 @@ import os
 import sys
 import time
 import uuid
+from typing import Any
 
 import httpx
 import pytest
 
 
 pytestmark = pytest.mark.real_opencode
+
+
+def _best_effort(step: str, fn: Any, *args: Any, **kwargs: Any) -> None:
+    """Run a best-effort teardown step, logging failures to stderr.
+
+    Teardown must continue past errors so a failure in one step does not mask
+    the assertion that triggered the finally block. FAKE-003: errors are
+    surfaced on stderr (not swallowed with ``pass``) so silent failures stay
+    observable.
+
+    Args:
+        step: Label identifying the teardown step (e.g. ``"cancel"``).
+        fn: Callable to invoke; receives ``*args`` / ``**kwargs``.
+        *args: Positional arguments forwarded to ``fn``.
+        **kwargs: Keyword arguments forwarded to ``fn``.
+    """
+    try:
+        fn(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001 - best-effort teardown
+        print(f"  teardown warn ({step}): {exc}", file=sys.stderr)
 
 
 def _opencode_available() -> bool:
@@ -117,16 +138,12 @@ def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
     finally:
         # 4. deterministic teardown: cancel any in-flight turn first, then
         #    delete the session. Each step is best-effort so a failure in one
-        #    does not mask the assertion that triggered the finally. FAKE-003:
-        #    teardown errors are surfaced on stderr (not swallowed with
-        #    ``pass``) so a silent failure stays observable while teardown still
-        #    continues.
+        #    does not mask the assertion that triggered the finally.
         if sent:
-            try:
-                adapter.cancel(instance.id, correlation_id="l3-smoke-teardown")
-            except Exception as exc:  # noqa: BLE001 - best-effort teardown
-                print(f"  teardown warn (cancel): {exc}", file=sys.stderr)
-        try:
-            adapter.stop(instance.id)
-        except Exception as exc:  # noqa: BLE001 - best-effort teardown
-            print(f"  teardown warn (stop): {exc}", file=sys.stderr)
+            _best_effort(
+                "cancel",
+                adapter.cancel,
+                instance.id,
+                correlation_id="l3-smoke-teardown",
+            )
+        _best_effort("stop", adapter.stop, instance.id)
