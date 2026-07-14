@@ -68,7 +68,7 @@ def _build_report() -> ReadinessReport:
     return ReadinessReport(items=base.items + (models_check,))
 
 
-async def get_readiness(request: Request) -> JSONResponse:
+async def get_readiness(_: Request) -> JSONResponse:
     """AC-FR1801-04: return the current workspace readiness report.
 
     Returns:
