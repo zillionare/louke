@@ -64,7 +64,31 @@ def create_app() -> Starlette:
     """
     app = Starlette(routes=_routes())
     install_error_handlers(app)
+    app.add_exception_handler(ProjectConflictError, _conflict_handler)
+    app.add_exception_handler(DefinitionNotFoundError, _definition_not_found_handler)
+    app.add_exception_handler(KeyError, _key_error_handler)
+    app.add_exception_handler(ValueError, _value_error_handler)
     return app
+
+
+def _conflict_handler(_: Request, exc: Exception) -> JSONResponse:
+    """Map :class:`ProjectConflictError` to a 409 CONFLICT JSON response."""
+    return JSONResponse(error_detail(CONFLICT, str(exc)), status_code=409)
+
+
+def _definition_not_found_handler(_: Request, exc: Exception) -> JSONResponse:
+    """Map :class:`DefinitionNotFoundError` to a 404 NOT_FOUND JSON response."""
+    return JSONResponse(error_detail(NOT_FOUND, str(exc)), status_code=404)
+
+
+def _key_error_handler(_: Request, exc: KeyError) -> JSONResponse:
+    """Map :class:`KeyError` (unknown workflow id / preview id) to 404."""
+    return JSONResponse(error_detail(NOT_FOUND, str(exc)), status_code=404)
+
+
+def _value_error_handler(_: Request, exc: ValueError) -> JSONResponse:
+    """Map :class:`ValueError` (invalid input) to a 400 VALIDATION_ERROR."""
+    return JSONResponse(error_detail(VALIDATION_ERROR, str(exc)), status_code=400)
 
 
 def _routes() -> list[Route]:
@@ -150,36 +174,14 @@ async def preview_project(request: Request) -> JSONResponse:
     definition_id = _require_str(payload, "definition_id")
     definition_version = _require_str(payload, "definition_version")
     source_contract = payload.get("source_contract")
-    principal = principal_id(request)
-    _ = actor(principal)
-    try:
-        preview = _project_store(request).preview_project(
-            story=story,
-            release_version=release_version,
-            definition_id=definition_id,
-            definition_version=definition_version,
-            source_contract=source_contract,
-        )
-    except ProjectConflictError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=error_detail(CONFLICT, str(exc)),
-        ) from exc
-    except DefinitionNotFoundError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, str(exc)),
-        ) from exc
+    _ = actor(principal_id(request))
+    preview = _project_store(request).preview_project(
+        story=story,
+        release_version=release_version,
+        definition_id=definition_id,
+        definition_version=definition_version,
+        source_contract=source_contract,
+    )
     return JSONResponse(asdict(preview))
 
 
@@ -194,18 +196,7 @@ async def confirm_project(request: Request) -> JSONResponse:
     """
     payload = await _json_body(request)
     preview_id = _require_str(payload, "preview_id")
-    try:
-        project = _project_store(request).confirm_project(preview_id)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
-    except ProjectConflictError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=error_detail(CONFLICT, str(exc)),
-        ) from exc
+    project = _project_store(request).confirm_project(preview_id)
     return JSONResponse(asdict(project), status_code=201)
 
 
@@ -226,36 +217,14 @@ async def create_project(request: Request) -> JSONResponse:
     definition_id = _require_str(payload, "definition_id")
     definition_version = _require_str(payload, "definition_version")
     source_contract = payload.get("source_contract")
-    principal = principal_id(request)
-    _ = actor(principal)
-    try:
-        project = _project_store(request).create_project(
-            story=story,
-            release_version=release_version,
-            definition_id=definition_id,
-            definition_version=definition_version,
-            source_contract=source_contract,
-        )
-    except ProjectConflictError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=error_detail(CONFLICT, str(exc)),
-        ) from exc
-    except DefinitionNotFoundError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=error_detail(NOT_FOUND, str(exc)),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(VALIDATION_ERROR, str(exc)),
-        ) from exc
+    _ = actor(principal_id(request))
+    project = _project_store(request).create_project(
+        story=story,
+        release_version=release_version,
+        definition_id=definition_id,
+        definition_version=definition_version,
+        source_contract=source_contract,
+    )
     return JSONResponse(asdict(project), status_code=201)
 
 
