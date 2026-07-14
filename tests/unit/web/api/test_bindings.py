@@ -7,7 +7,7 @@ AC references covered:
 - AC-FR1301-04: audit trail records actor, old/new model and timestamp.
 - AC-FR1301-05: historical (read-only) runs reject new overrides.
 - AC-FR0101-04: an unknown run_id returns 404 NOT_FOUND.
-- AC-FR0101-05: missing required body fields return 400 VALIDATION_ERROR.
+- AC-FR0101-04: missing required body fields return 400 VALIDATION_ERROR.
 """
 
 from __future__ import annotations
