@@ -38,6 +38,19 @@ _MESSAGE_SUFFIX = "/message"
 _PROMPT_ASYNC_SUFFIX = "/prompt_async"
 
 
+def _session_path(instance_id: str, suffix: str = "") -> str:
+    """Build a session-scoped URL path.
+
+    Args:
+        instance_id: The OpenCode session id.
+        suffix: Optional sub-resource suffix (e.g. ``/message``).
+
+    Returns:
+        ``/session/{instance_id}{suffix}``.
+    """
+    return f"{_SESSION_PATH}/{instance_id}{suffix}"
+
+
 class RealOpenCodeAdapter:
     """HTTP adapter that talks to a real ``opencode serve`` process.
 
@@ -139,7 +152,7 @@ class RealOpenCodeAdapter:
             RuntimeError: On a non-2xx response (e.g. 404 if the session was
                 already gone) or transport failure.
         """
-        self._request("DELETE", f"{_SESSION_PATH}/{instance_id}")
+        self._request("DELETE", _session_path(instance_id))
         return Instance(id=instance_id, status="stopped")
 
     def send_message(
@@ -167,7 +180,7 @@ class RealOpenCodeAdapter:
         body = {"parts": [{"type": "text", "text": content}]}
         self._request(
             "POST",
-            f"{_SESSION_PATH}/{instance_id}{_PROMPT_ASYNC_SUFFIX}",
+            _session_path(instance_id, _PROMPT_ASYNC_SUFFIX),
             json=body,
             correlation_id=correlation_id,
         )
@@ -203,7 +216,7 @@ class RealOpenCodeAdapter:
             RuntimeError: On a non-2xx response or transport failure.
         """
         resp = self._request(
-            "GET", f"{_SESSION_PATH}/{instance_id}{_MESSAGE_SUFFIX}",
+            "GET", _session_path(instance_id, _MESSAGE_SUFFIX),
         )
         raw_messages = resp.json()
         messages = [_parse_message(instance_id, m) for m in raw_messages]
@@ -229,7 +242,7 @@ class RealOpenCodeAdapter:
         """
         self._request(
             "POST",
-            f"{_SESSION_PATH}/{instance_id}{_ABORT_SUFFIX}",
+            _session_path(instance_id, _ABORT_SUFFIX),
             json={},
             correlation_id=correlation_id,
         )
