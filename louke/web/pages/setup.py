@@ -97,12 +97,16 @@ async def create_first_user(request: Request) -> Response:
     try:
         await _post_first_user(_API_BASE, name=name, credential=credential)
     except Exception as exc:
-        try:
-            items = await _fetch_readiness(_API_BASE)
-        except Exception:
-            items = []
-        return HTMLResponse(_render(True, items, error=str(exc)))
+        return HTMLResponse(_render(True, await _safe_readiness(), error=str(exc)))
     return RedirectResponse(url="/setup", status_code=303)
+
+
+async def _safe_readiness() -> list[dict[str, str]]:
+    """Return readiness items, or an empty list if the upstream call fails."""
+    try:
+        return await _fetch_readiness(_API_BASE)
+    except Exception:
+        return []
 
 
 def _parse_form(body: bytes) -> tuple[str, str]:
