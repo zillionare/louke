@@ -197,7 +197,10 @@ def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
         from louke.runtime.domain import RuntimeCommand
 
         catalog = store._catalog
-        assert catalog is not None
+        # FAKE-002: value-based check tied to AC-FR1701-01 - the catalog must
+        # resolve the ``new_feature`` definition the seed is about to use, not
+        # merely be a non-null object reference.
+        assert catalog is not None and catalog.get("new_feature", "1") is not None
         definition = catalog.get("new_feature", "1")
         source_run = store.create_run(definition)
         # Advance the source run from ``start`` to ``requirements_approval``
