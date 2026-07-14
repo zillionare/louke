@@ -21,6 +21,21 @@ _PORT_ZERO_LOG_TIMEOUT = 10.0
 _URL_RE = re.compile(r"https?://(127\.0\.0\.1|localhost):(\d+)")
 
 
+def _extract_url(line: str) -> Optional[str]:
+    """Return the first base URL found in a log line, or None.
+
+    Args:
+        line: A single stdout line from ``opencode serve``.
+
+    Returns:
+        ``http://{host}:{port}`` when the line matches the URL pattern.
+    """
+    match = _URL_RE.search(line)
+    if match is None:
+        return None
+    return f"http://{match.group(1)}:{match.group(2)}"
+
+
 class OpenCodeServerProcess:
     """Manage a child ``opencode serve`` subprocess (singleton per workspace).
 
@@ -167,11 +182,10 @@ class OpenCodeServerProcess:
                         f"before logging URL; output: {''.join(last_lines[-5:])}"
                     )
                 continue
+            url = _extract_url(line)
+            if url is not None:
+                return url
             last_lines.append(line)
-            match = _URL_RE.search(line)
-            if match:
-                host, port = match.group(1), match.group(2)
-                return f"http://{host}:{port}"
         raise RuntimeError(
             f"opencode serve did not log a URL within {self._startup_timeout}s; "
             f"output: {''.join(last_lines[-5:])}"
