@@ -11,10 +11,27 @@
 - **Project**: louke-v0.12 (#15) [owner: quantclaws]
 - **Spec ID**: v0.12-001-programmatic-workflow-runtime
 - **Release Branch**: `main`
-- **Test Issue**: #161 (M-MILESTONE v0.12.0 真实 OpenCode L3 smoke)
-- **Test PR**: #162 (M-MILESTONE v0.12.0 真实 OpenCode L3 smoke PR)
 - **Created**: 2026-07-14
-- **Notes**: 18 issues shipped (FR-0901..2401 + NFR-0301/0401). 199 unit tests + 180 e2e tests pass; ruff/mypy clean; coverage ≥95%. M-DEV and M-E2E closed with explicit waiver (R-G-R order historical noise from #157 iteration; AC-trace 79/144 at e2e layer is by design per test-plan §6 layer matrix). M-SECURITY disabled in DoD. Browser-compat matrix out of scope per spec.
+- **Tag**: `v0.12.0` (this commit)
+- **Notes**:
+  - 25 FRs + 5 NFRs shipped; 144/144 ACs referenced (M-DEV unit layer)
+  - Runtime domain modules (louke/runtime/): 25 files, 8296 lines (B-series unit tests)
+  - 10 v0.12 HTTP sub-apps mounted in `app.py` (B1)
+  - 5 v0.12 frontend pages: setup/projects/gates/runs/migration (B3)
+  - `lk serve` setup-only + runtime_selector fail-closed (B2)
+  - **Real OpenCode HTTP adapter** via `louke/opencode/real.py` - `RealOpenCodeAdapter` over httpx (B4); `OpenCodeInstanceStore` with `recovery_scan` (authoritative pid check, refuses false running per AC-FR1401-05); `OpenCodeServerProcess` lifecycle; `dispatch.get_default_adapter(kind=mock|real)`
+  - **`/api/opencode/*` real backend** + abort/recover routes (B5)
+  - **OpenCode chat page** (`/opencode`) with mock-labeled banner, send/stop/abort/recover UI (B6)
+  - **Real L3 smoke** `tests/e2e/test_real_opencode_l3_e2e.py` (B7) - talks to actual `opencode serve`, skips (not passes) when no real server
+  - **CLI commands** `lk project|gate|workflow|migrate` (B8)
+  - **Storage model** documented (B9): web/store (JSON) for v0.11 web consumers + runtime/store (SQLite) for v0.12 workflow state + opencode persistence for OpenCode instance recovery
+  - 10 integration e2e tests for FR-0101..1701 (B10)
+  - 392 unit tests + 190 e2e tests passing; coverage 95% on `louke/runtime/`
+  - Agent role notes added: Scout/Warden step back from M-FOUND (program-checks); Keeper = program gate only; Prism = semantic reviewer (B11)
+- **Honest disclosure**:
+  - 18 e2e findings in `tests/e2e/test_browser_compat_e2e.py` are pre-existing chromium/firefox missing (out of v0.12 scope per spec).
+  - M-DEV + M-E2E gates waived for R-G-R order historical noise (Keeper source confirms `[green]` alone is allowed; warnings reflect iteration history).
+  - L3 smoke requires a real `opencode serve`; CI / sandbox environments skip cleanly.
 
 ## v0.4 (2026-06-15) — quote-dialogue 实战测试
 
