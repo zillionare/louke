@@ -5,24 +5,25 @@ httpx. It implements the :class:`louke.opencode.adapter.OpenCodeAdapter`
 protocol plus a small set of lifecycle helpers (``cancel``, ``probe_version``)
 required by architecture §7.
 
-Discovered OpenCode HTTP API (verified against opencode 1.17.15):
-    POST   /session                  -> {id, slug, projectID, ...}   create
-    GET    /session                   -> [{id, ...}]                 list
-    GET    /session/{id}              -> {id, ...} | 404             status
-    DELETE /session/{id}              -> true                         stop/end
-    POST   /session/{id}/prompt_async -> 204 (async, fire-and-forget) send
-    POST   /session/{id}/abort        -> true                         cancel
-    GET    /session/{id}/message      -> [{info:{id,role,...}, parts:[{text}]}]
-    GET    /global/health             -> {healthy, version}          probe
+Discovered OpenCode HTTP API (verified against opencode 1.17.15, B19 fix):
+    POST   /api/session               -> {id, slug, projectID, ...}   create
+    GET    /api/session                -> {data:[{id,...}], cursor}    list
+    DELETE /api/session/{id}           -> true                         stop/end
+    POST   /api/session/{id}/prompt   -> {data:{id,...}}              send
+    POST   /api/session/{id}/abort    -> true                         cancel
+    GET    /api/session/{id}/message   -> {data:[{id,type,content,...}], cursor}
+    GET    /global/health              -> {healthy, version}           probe
 
-The async ``prompt_async`` endpoint returns 204 immediately; the assistant
-reply arrives later and is observable via ``list_messages``. ``send_message``
-therefore returns ``(user_message, True)`` where ``True`` means the prompt was
-accepted (not that the assistant has already replied).
+B19 (issue #167) corrected the endpoints to the real ``/api`` prefix and
+the response shapes to the ``{data: [...]}`` envelope actually returned
+by opencode 1.17.15. The old ``/session/{id}/prompt_async`` path returned
+an HTML catch-all (no such route), and ``/session/{id}/message?limit=N``
+returned ``[]`` because the real list endpoint ignores query params.
 """
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, List, Optional
 
@@ -32,23 +33,53 @@ from .adapter import Instance, Message, new_id
 
 
 _HEALTH_PATH = "/global/health"
-_SESSION_PATH = "/session"
+_SESSION_PATH = "/api/session"
 _ABORT_SUFFIX = "/abort"
 _MESSAGE_SUFFIX = "/message"
-_PROMPT_ASYNC_SUFFIX = "/prompt_async"
+_PROMPT_SUFFIX = "/prompt"
+
+# Default model used when none is supplied. ``big-pickle`` is the free
+# opencode-hosted model (no provider credentials required for the L3 smoke).
+_DEFAULT_DIRECTORY = "/tmp"
+_DEFAULT_PROVIDER_ID = "opencode"
+_DEFAULT_MODEL_ID = "big-pickle"
 
 
 def _session_path(instance_id: str, suffix: str = "") -> str:
-    """Build a session-scoped URL path.
+    """Build a session-scoped URL path under ``/api/session``.
 
     Args:
         instance_id: The OpenCode session id.
         suffix: Optional sub-resource suffix (e.g. ``/message``).
 
     Returns:
-        ``/session/{instance_id}{suffix}``.
+        ``/api/session/{instance_id}{suffix}``.
     """
     return f"{_SESSION_PATH}/{instance_id}{suffix}"
+
+
+def _parse_model_spec(model: Optional[str]) -> dict[str, str]:
+    """Resolve a model full-name into the ``{providerID, id}`` opencode body.
+
+    Accepts the opencode full-name form ``"provider/model"`` (e.g.
+    ``"opencode/big-pickle"``) or an already-split ``{"providerID","id"}``
+    dict-like input. Falls back to the default free model when ``model``
+    is None or unparseable.
+
+    Args:
+        model: A ``"provider/model"`` full-name, or None for the default.
+
+    Returns:
+        A dict ``{"providerID": ..., "id": ...}`` suitable for the
+        ``POST /api/session`` body.
+    """
+    if not model:
+        return {"providerID": _DEFAULT_PROVIDER_ID, "id": _DEFAULT_MODEL_ID}
+    if "/" in model:
+        provider, _, mid = model.partition("/")
+        if provider and mid:
+            return {"providerID": provider, "id": mid}
+    return {"providerID": _DEFAULT_PROVIDER_ID, "id": model}
 
 
 class RealOpenCodeAdapter:
@@ -84,14 +115,27 @@ class RealOpenCodeAdapter:
     def base_url(self) -> str:
         return self._base_url
 
-    def create(self, *, correlation_id: str) -> Instance:
+    def create(
+        self,
+        *,
+        correlation_id: str,
+        model: Optional[str] = None,
+        directory: Optional[str] = None,
+    ) -> Instance:
         """Create a new OpenCode session.
 
-        Issues ``POST /session`` with an empty body; the server returns the
-        new session id, slug and timestamps.
+        Issues ``POST /api/session`` with body
+        ``{"directory": ..., "model": {"providerID": ..., "id": ...}}``.
+        The server returns the new session id, slug and timestamps.
 
         Args:
             correlation_id: Trace id forwarded as ``x-correlation-id``.
+            model: Optional model full-name (``"provider/model"``). When
+                omitted, the ``OPENCODE_MODEL`` env var is consulted; when
+                that is also unset, the default free model
+                ``"opencode/big-pickle"`` is used.
+            directory: Optional working directory for the session. Defaults
+                to ``/tmp`` (or ``OPENCODE_DIRECTORY`` env var when set).
 
         Returns:
             An :class:`Instance` with ``status="running"`` and the
@@ -102,8 +146,16 @@ class RealOpenCodeAdapter:
                 transport fails. The original status code is included in the
                 message so callers can distinguish 4xx from 5xx.
         """
+        resolved_model = model or os.environ.get("OPENCODE_MODEL")
+        resolved_dir = directory or os.environ.get(
+            "OPENCODE_DIRECTORY", _DEFAULT_DIRECTORY
+        )
+        body = {
+            "directory": resolved_dir,
+            "model": _parse_model_spec(resolved_model),
+        }
         resp = self._request(
-            "POST", _SESSION_PATH, json={}, correlation_id=correlation_id,
+            "POST", _SESSION_PATH, json=body, correlation_id=correlation_id,
         )
         data = resp.json()
         created = _as_epoch(data.get("time", {}).get("created"))
@@ -116,7 +168,9 @@ class RealOpenCodeAdapter:
     def list(self) -> List[Instance]:
         """List all known OpenCode sessions.
 
-        Issues ``GET /session``.
+        Issues ``GET /api/session``. The real endpoint returns an envelope
+        ``{"data": [...], "cursor": {...}}``; this method flattens the
+        ``data`` array into :class:`Instance` objects.
 
         Returns:
             A list of :class:`Instance` objects. Returns an empty list when
@@ -126,7 +180,8 @@ class RealOpenCodeAdapter:
             RuntimeError: On a non-2xx response or transport failure.
         """
         resp = self._request("GET", _SESSION_PATH)
-        items = resp.json()
+        payload = resp.json()
+        items = payload.get("data", []) if isinstance(payload, dict) else payload
         return [
             Instance(
                 id=item["id"],
@@ -139,8 +194,8 @@ class RealOpenCodeAdapter:
     def stop(self, instance_id: str) -> Instance:
         """Stop (end) an OpenCode session.
 
-        Issues ``DELETE /session/{instance_id}``. The session becomes
-        unobservable; subsequent ``GET /session/{id}`` will 404.
+        Issues ``DELETE /api/session/{instance_id}``. The server returns
+        ``true``; the session becomes unobservable afterwards.
 
         Args:
             instance_id: The session id returned by :meth:`create`.
@@ -160,9 +215,11 @@ class RealOpenCodeAdapter:
     ) -> tuple[Message, bool]:
         """Send a user message to an OpenCode session.
 
-        Issues ``POST /session/{instance_id}/prompt_async`` with a single
-        text part. The async endpoint returns 204 immediately; the assistant
-        reply arrives later and is observable via :meth:`list_messages`.
+        Issues ``POST /api/session/{instance_id}/prompt`` with body
+        ``{"prompt": {"text": content}}``. The server returns 200 with
+        ``{"data": {"id": "msg_...", ...}}`` - the admitted user message.
+        The assistant reply arrives asynchronously and is observable via
+        :meth:`list_messages`.
 
         Args:
             instance_id: The target session id.
@@ -177,15 +234,23 @@ class RealOpenCodeAdapter:
         Raises:
             RuntimeError: On a non-2xx response or transport failure.
         """
-        body = {"parts": [{"type": "text", "text": content}]}
-        self._request(
+        body = {"prompt": {"text": content}}
+        resp = self._request(
             "POST",
-            _session_path(instance_id, _PROMPT_ASYNC_SUFFIX),
+            _session_path(instance_id, _PROMPT_SUFFIX),
             json=body,
             correlation_id=correlation_id,
         )
+        msg_id = new_id()
+        try:
+            data = resp.json()
+            if isinstance(data, dict) and isinstance(data.get("data"), dict):
+                msg_id = data["data"].get("id") or msg_id
+        except ValueError:
+            # Non-JSON 2xx body: keep the locally generated id.
+            pass
         user_msg = Message(
-            id=new_id(),
+            id=msg_id,
             instance_id=instance_id,
             role="user",
             kind="message",
@@ -198,16 +263,17 @@ class RealOpenCodeAdapter:
     ) -> List[Message]:
         """List messages for an OpenCode session.
 
-        Issues ``GET /session/{instance_id}/message``. Each OpenCode message
-        is an ``{info, parts}`` envelope; the adapter flattens the first text
-        part of each message into :class:`Message.content`.
+        Issues ``GET /api/session/{instance_id}/message``. The real endpoint
+        returns ``{"data": [...], "cursor": {...}}``; each item has the
+        shape ``{id, type, content: [{type:"text", text}], ...}``.
 
         Args:
             instance_id: The target session id.
             after_message_id: When set, only messages whose id sorts strictly
                 after this cursor are returned. The adapter does this client-
-                side because the server's ``before`` query is cursor-based
-                differently.
+                side (the server's ``cursor`` query is opaque) so callers get
+                a stable "newer-than" semantic regardless of server cursor
+                format.
 
         Returns:
             A list of :class:`Message` objects in chronological order.
@@ -218,7 +284,10 @@ class RealOpenCodeAdapter:
         resp = self._request(
             "GET", _session_path(instance_id, _MESSAGE_SUFFIX),
         )
-        raw_messages = resp.json()
+        payload = resp.json()
+        raw_messages = (
+            payload.get("data", []) if isinstance(payload, dict) else payload
+        )
         messages = [_parse_message(instance_id, m) for m in raw_messages]
         if not after_message_id:
             return messages
@@ -230,22 +299,34 @@ class RealOpenCodeAdapter:
     def cancel(self, instance_id: str, *, correlation_id: str) -> None:
         """Cancel the current generation for a session.
 
-        Issues ``POST /session/{instance_id}/abort``. This stops the active
-        assistant turn without ending the session.
+        Issues ``POST /api/session/{instance_id}/abort``. This stops the
+        active assistant turn without ending the session. If the server
+        returns 404 (abort path not available on this build), the method
+        falls back to :meth:`stop` (DELETE the session) so callers do not
+        see a spurious failure during teardown of an already-ended session.
 
         Args:
             instance_id: The target session id.
             correlation_id: Trace id forwarded as ``x-correlation-id``.
 
         Raises:
-            RuntimeError: On a non-2xx response or transport failure.
+            RuntimeError: On a non-2xx / non-404 response or transport failure.
         """
-        self._request(
-            "POST",
-            _session_path(instance_id, _ABORT_SUFFIX),
-            json={},
-            correlation_id=correlation_id,
-        )
+        try:
+            self._request(
+                "POST",
+                _session_path(instance_id, _ABORT_SUFFIX),
+                json={},
+                correlation_id=correlation_id,
+            )
+        except RuntimeError as exc:
+            if "HTTP 404" in str(exc):
+                # Abort endpoint absent on this build; fall back to ending
+                # the session so a missing abort route does not break
+                # teardown.
+                self.stop(instance_id)
+                return
+            raise
 
     def probe_version(self) -> dict[str, Any]:
         """Probe the server health and version.
@@ -307,7 +388,21 @@ class RealOpenCodeAdapter:
 
 
 def _parse_message(instance_id: str, raw: dict[str, Any]) -> Message:
-    """Flatten an OpenCode ``{info, parts}`` envelope into a :class:`Message`.
+    """Flatten an OpenCode message item into a :class:`Message`.
+
+    The real opencode 1.17.15 message shape (post-B19) is::
+
+        {
+          "id": "msg_xxx",
+          "type": "assistant" | "user",
+          "content": [{"type": "text", "text": "..."}, ...],
+          "time": {...},
+          ...
+        }
+
+    The role is read from ``type`` (values ``"assistant"`` / ``"user"``).
+    The content text is the concatenation of every ``content[i].text``
+    whose ``type == "text"``.
 
     Args:
         instance_id: The session id (taken from the request, not the body,
@@ -315,27 +410,26 @@ def _parse_message(instance_id: str, raw: dict[str, Any]) -> Message:
         raw: The raw message dict from the server.
 
     Returns:
-        A :class:`Message` with the first text part as content. If the
-        envelope has no text part, content is the empty string (still a
+        A :class:`Message` with the concatenated text parts as content.
+        If the item has no text part, content is the empty string (still a
         valid message record).
     """
-    info = raw.get("info", {}) or {}
-    parts = raw.get("parts", []) or []
-    text = ""
-    for part in parts:
-        if part.get("type") == "text" and part.get("text"):
-            text = part["text"]
-            break
-    role = info.get("role") or "assistant"
+    parts = raw.get("content") or []
+    text = "".join(
+        p.get("text", "")
+        for p in parts
+        if isinstance(p, dict) and p.get("type") == "text"
+    )
+    role = raw.get("type") or "assistant"
     if role not in ("user", "assistant", "system"):
         role = "assistant"
     return Message(
-        id=info.get("id", new_id()),
+        id=raw.get("id") or new_id(),
         instance_id=instance_id,
         role=role,
         kind="message",
         content=text,
-        created_at=_as_epoch(info.get("time", {}).get("created")),
+        created_at=_as_epoch(raw.get("time", {}).get("created")),
     )
 
 
