@@ -162,6 +162,22 @@ def _cached_kind(request: Request) -> str:
     return _kind_of(getattr(request.app.state, _ADAPTER_ATTR, None))
 
 
+def _resolve_adapter_or_cached(request: Request) -> Any:
+    """Return the adapter already cached on the app state.
+
+    Counterpart to :func:`_adapter_call`: after a successful call the
+    adapter has been resolved and cached, so this just reads it back. It
+    never triggers a fresh resolution (and therefore cannot raise).
+
+    Args:
+        request: The incoming Starlette request.
+
+    Returns:
+        The cached adapter (or None when nothing has been cached yet).
+    """
+    return getattr(request.app.state, _ADAPTER_ATTR, None)
+
+
 def _resolve_adapter(request: Request) -> Any:
     """Return the per-app adapter, resolving it lazily on first use.
 
@@ -288,6 +304,64 @@ def _real_unavailable(message: str) -> JSONResponse:
     return _real_error(503, OPENCODE_UNAVAILABLE, message)
 
 
+def _resolve_or_error(request: Request) -> tuple[Any, Optional[JSONResponse]]:
+    """Resolve the cached adapter or return a real-mode error response.
+
+    Centralizes the ``ValueError -> 503`` and ``Exception -> 5xx`` mapping
+    that every handler needs, so the handler bodies can focus on the
+    adapter call itself rather than repeating the same try/except shell.
+
+    Args:
+        request: The incoming Starlette request.
+
+    Returns:
+        A tuple ``(adapter, None)`` on success, or ``(None, response)``
+        when resolution failed and a structured 5xx response should be
+        returned to the client.
+    """
+    try:
+        return _resolve_adapter(request), None
+    except ValueError as exc:
+        return None, _real_unavailable(str(exc))
+    except Exception as exc:
+        if _cached_kind(request) == "real":
+            return None, _real_error_response(exc)
+        raise
+
+
+def _adapter_call(
+    request: Request, fn: str, *args: Any, **kwargs: Any
+) -> tuple[Any, Optional[JSONResponse]]:
+    """Invoke an adapter method with the shared real-mode error mapping.
+
+    Args:
+        request: The incoming Starlette request.
+        fn: The adapter method name to call.
+        *args: Positional args forwarded to the method.
+        **kwargs: Keyword args forwarded to the method.
+
+    Returns:
+        A tuple ``(result, None)`` on success, where ``result`` is the
+        adapter method's return value; or ``(None, response)`` when the
+        call failed and a structured 5xx response should be returned.
+
+    Raises:
+        Exception: Any non-ValueError exception raised in mock mode
+            (real mode converts them to a 5xx response instead).
+    """
+    adapter, err = _resolve_or_error(request)
+    if err is not None:
+        return None, err
+    try:
+        return getattr(adapter, fn)(*args, **kwargs), None
+    except ValueError as exc:
+        return None, _real_unavailable(str(exc))
+    except Exception as exc:
+        if _cached_kind(request) == "real":
+            return None, _real_error_response(exc)
+        raise
+
+
 # ---------------------------------------------------------------------------
 # Route handlers
 # ---------------------------------------------------------------------------
@@ -303,16 +377,11 @@ async def list_instances(request: Request) -> JSONResponse:
         HTTPException: ``503`` (real, no base URL) or ``502/504/500`` on
             upstream failure.
     """
-    try:
-        adapter = _resolve_adapter(request)
-        instances = adapter.list()
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
-    except Exception as exc:
-        if _cached_kind(request) == "real":
-            return _real_error_response(exc)
-        raise
-    return JSONResponse(_envelope(adapter, {"items": [i.to_dict() for i in instances]}))
+    result, err = _adapter_call(request, "list")
+    if err is not None:
+        return err
+    adapter = _resolve_adapter_or_cached(request)
+    return JSONResponse(_envelope(adapter, {"items": [i.to_dict() for i in result]}))
 
 
 async def create_instance(request: Request) -> JSONResponse:
@@ -324,15 +393,10 @@ async def create_instance(request: Request) -> JSONResponse:
     Returns:
         ``201`` with ``{"adapter_kind": ..., "instance": {...}}``.
     """
-    try:
-        adapter = _resolve_adapter(request)
-        instance: Instance = adapter.create(correlation_id="web")
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
-    except Exception as exc:
-        if _cached_kind(request) == "real":
-            return _real_error_response(exc)
-        raise
+    instance, err = _adapter_call(request, "create", correlation_id="web")
+    if err is not None:
+        return err
+    adapter = _resolve_adapter_or_cached(request)
     if _kind_of(adapter) == "real":
         _persist_instance(request, adapter, instance)
     return JSONResponse(
@@ -379,15 +443,10 @@ async def stop_instance(request: Request) -> JSONResponse:
             status_code=400,
             detail=error_detail(VALIDATION_ERROR, "query param 'id' is required"),
         )
-    try:
-        adapter = _resolve_adapter(request)
-        instance = adapter.stop(instance_id)
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
-    except Exception as exc:
-        if _cached_kind(request) == "real":
-            return _real_error_response(exc)
-        raise
+    instance, err = _adapter_call(request, "stop", instance_id)
+    if err is not None:
+        return err
+    adapter = _resolve_adapter_or_cached(request)
     if _kind_of(adapter) == "real":
         _mark_stopped(request, instance_id)
     return JSONResponse(_envelope(adapter, {"instance": instance.to_dict()}))
@@ -422,19 +481,17 @@ async def list_messages(request: Request) -> JSONResponse:
     instance_id = request.path_params["instance_id"]
     after = request.query_params.get("after")
     try:
-        adapter = _resolve_adapter(request)
-        messages = adapter.list_messages(instance_id, after_message_id=after)
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
+        messages, err = _adapter_call(
+            request, "list_messages", instance_id, after_message_id=after
+        )
     except KeyError:
         raise HTTPException(
             status_code=404,
             detail=error_detail(NOT_FOUND, f"instance {instance_id!r} not found"),
         )
-    except Exception as exc:
-        if _cached_kind(request) == "real":
-            return _real_error_response(exc)
-        raise
+    if err is not None:
+        return err
+    adapter = _resolve_adapter_or_cached(request)
     return JSONResponse(_envelope(adapter, {"items": [m.to_dict() for m in messages]}))
 
 
@@ -455,12 +512,9 @@ async def send_message(request: Request) -> JSONResponse:
     payload = await json_body(request)
     content = require_str(payload, "content")
     try:
-        adapter = _resolve_adapter(request)
-        user_msg, accepted = adapter.send_message(
-            instance_id, content, correlation_id="web"
+        result, err = _adapter_call(
+            request, "send_message", instance_id, content, correlation_id="web"
         )
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
     except KeyError:
         raise HTTPException(
             status_code=404,
@@ -471,10 +525,10 @@ async def send_message(request: Request) -> JSONResponse:
             status_code=400,
             detail=error_detail(VALIDATION_ERROR, str(exc)),
         )
-    except Exception as exc:
-        if _cached_kind(request) == "real":
-            return _real_error_response(exc)
-        raise
+    if err is not None:
+        return err
+    user_msg, accepted = result
+    adapter = _resolve_adapter_or_cached(request)
     return JSONResponse(
         _envelope(adapter, {"message": user_msg.to_dict(), "accepted": accepted})
     )
@@ -491,14 +545,16 @@ async def abort_instance(request: Request) -> JSONResponse:
         instance_id: The instance to abort the current generation on.
     """
     instance_id = request.path_params["instance_id"]
+    adapter, err = _resolve_or_error(request)
+    if err is not None:
+        return err
     try:
-        adapter = _resolve_adapter(request)
         if hasattr(adapter, "cancel"):
             adapter.cancel(instance_id, correlation_id="web")
         else:
-            adapter.stop(instance_id)
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
+            _result, call_err = _adapter_call(request, "stop", instance_id)
+            if call_err is not None:
+                return call_err
     except Exception as exc:
         if _cached_kind(request) == "real":
             return _real_error_response(exc)
@@ -523,15 +579,11 @@ async def recover_instance(request: Request) -> JSONResponse:
         * ``needs_attention`` - adapter reachable but id missing, pid alive.
     """
     instance_id = request.path_params["instance_id"]
-    try:
-        adapter = _resolve_adapter(request)
-        live_ids = {i.id for i in adapter.list()}
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
-    except Exception as exc:
-        if _cached_kind(request) == "real":
-            return _real_error_response(exc)
-        raise
+    live_list, err = _adapter_call(request, "list")
+    if err is not None:
+        return err
+    adapter = _resolve_adapter_or_cached(request)
+    live_ids = {i.id for i in live_list}
     status = _classify_recovery(instance_id, live_ids, request)
     return JSONResponse(_envelope(adapter, {"status": status}))
 
@@ -598,12 +650,10 @@ async def get_status(request: Request) -> JSONResponse:
     For ``real`` mode: if the adapter cannot be resolved (no base URL),
     returns ``503`` with ``adapter_kind: "real"`` and ``ready: false``.
     """
-    try:
-        adapter = _resolve_adapter(request)
-    except ValueError as exc:
-        return _real_unavailable(str(exc))
-    kind = _kind_of(adapter)
-    if kind == "real":
+    adapter, err = _resolve_or_error(request)
+    if err is not None:
+        return err
+    if _kind_of(adapter) == "real":
         return _real_status(adapter, request)
     return JSONResponse(
         _envelope(
