@@ -54,6 +54,19 @@ from .api.migration import create_app as _create_migration_app
 from .api.security import create_app as _create_security_app
 from .api.discussions import create_app as _create_discussions_app
 
+from .pages.setup import create_app as _create_setup_page_app
+from .pages.projects import create_app as _create_projects_page_app
+from .pages.gates import (
+    gate_decide as gates_page_decide,
+    gate_detail as gates_page_detail,
+    gates_index as gates_page_index,
+)
+from .pages.runs import (
+    run_command as runs_page_command,
+    run_detail as runs_page_detail,
+)
+from .pages.migration import create_app as _create_migration_page_app
+
 projects_app = _create_projects_app()
 runtime_app = _create_runtime_app()
 gates_app = _create_gates_app()
@@ -64,6 +77,10 @@ setup_app = _create_setup_app()
 migration_app = _create_migration_app()
 security_app = _create_security_app()
 discussions_app = _create_discussions_app()
+
+setup_page_app = _create_setup_page_app()
+projects_page_app = _create_projects_page_app()
+migration_page_app = _create_migration_page_app()
 
 
 def create_app(
@@ -78,7 +95,7 @@ def create_app(
         routes=[
             Route("/assets/{asset_path:path}", endpoint=asset_file),
             Route("/login", endpoint=login_page),
-            Route("/", endpoint=home_page),
+            Route("/", endpoint=setup_home_redirect, methods=["GET"]),
             Route("/models", endpoint=models_page),
             Route("/wiki", endpoint=wiki_index_page),
             Route("/wiki/{page:path}", endpoint=wiki_editor_page),
@@ -122,6 +139,33 @@ def create_app(
             Mount("/api/migration", app=migration_app),
             Mount("/api/security", app=security_app),
             Mount("/api/v12/discussions", app=discussions_app),
+            # === v0.12 page sub-apps ===
+            # setup/projects/migration use relative internal routes -> mount at
+            # their prefix. gates/runs use full-prefix internal routes (their
+            # ``{project_id}``/``{run_id}`` path params cannot live in a Mount
+            # path), so their routes are registered directly here. The gates
+            # routes must precede ``Mount("/projects", ...)`` because that Mount
+            # would otherwise match ``/projects/{id}/gates`` at the prefix level
+            # and return 404 (no matching internal route).
+            Route("/projects/{project_id}/gates", endpoint=gates_page_index),
+            Route(
+                "/projects/{project_id}/gates/{gate_id}",
+                endpoint=gates_page_detail,
+            ),
+            Route(
+                "/projects/{project_id}/gates/{gate_id}/decide",
+                endpoint=gates_page_decide,
+                methods=["POST"],
+            ),
+            Route("/runs/{run_id}", endpoint=runs_page_detail),
+            Route(
+                "/runs/{run_id}/command",
+                endpoint=runs_page_command,
+                methods=["POST"],
+            ),
+            Mount("/setup", app=setup_page_app),
+            Mount("/projects", app=projects_page_app),
+            Mount("/migration", app=migration_page_app),
         ],
     )
     app.state.store = store
@@ -160,6 +204,25 @@ async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
             has_users=bool(store.list_users()),
         )
     )
+
+
+async def setup_home_redirect(request: Request) -> Response:
+    """GET /: redirect to /setup when in setup-only mode, else render home.
+
+    In setup-only mode the v0.11 home page is not useful (no principals, no
+    specs); redirect to the setup wizard. In normal mode fall through to the
+    existing :func:`home_page`.
+
+    Args:
+        request: The incoming Starlette request.
+
+    Returns:
+        A ``RedirectResponse`` to ``/setup`` (303) when ``setup_only`` is set,
+        otherwise the :class:`HTMLResponse` returned by :func:`home_page`.
+    """
+    if getattr(request.app.state, "setup_only", False):
+        return RedirectResponse(url="/setup", status_code=303)
+    return await home_page(request)
 
 
 async def home_page(request: Request) -> HTMLResponse:
