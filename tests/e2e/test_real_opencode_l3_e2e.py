@@ -44,7 +44,11 @@ def _opencode_available() -> bool:
 
 @pytest.mark.skipif(
     not _opencode_available(),
-    reason="L3 smoke requires LOUKE_RUN_REAL_OPENCODE=1 + reachable LOUKE_OPENCODE_BASE_URL",
+    reason=(
+        "L3 smoke requires LOUKE_RUN_REAL_OPENCODE=1 + reachable "
+        "LOUKE_OPENCODE_BASE_URL; see issue #170 "
+        "(https://github.com/zillionare/louke/issues/170)"
+    ),
 )
 def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
     """AC-FR1401-01 / test-plan §5.3 / AC-NFR0301-04: minimal real-OpenCode lifecycle.
@@ -103,7 +107,9 @@ def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
                 break
             time.sleep(0.5)
 
-        assert reply is not None, (
+        # FAKE-002: value-based check tied to AC-FR1401-01 (real reply must
+        # carry our marker), not just a non-null object reference.
+        assert reply is not None and marker in reply.content, (
             f"real OpenCode did not echo marker {marker!r} within 15s. "
             f"last messages: {[m.content for m in messages]}"
         )
@@ -111,13 +117,16 @@ def test_real_opencode_create_attach_send_detach_end_l3_smoke() -> None:
     finally:
         # 4. deterministic teardown: cancel any in-flight turn first, then
         #    delete the session. Each step is best-effort so a failure in one
-        #    does not mask the assertion that triggered the finally.
+        #    does not mask the assertion that triggered the finally. FAKE-003:
+        #    teardown errors are surfaced on stderr (not swallowed with
+        #    ``pass``) so a silent failure stays observable while teardown still
+        #    continues.
         if sent:
             try:
                 adapter.cancel(instance.id, correlation_id="l3-smoke-teardown")
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - best-effort teardown
+                print(f"  teardown warn (cancel): {exc}", file=sys.stderr)
         try:
             adapter.stop(instance.id)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort teardown
+            print(f"  teardown warn (stop): {exc}", file=sys.stderr)
