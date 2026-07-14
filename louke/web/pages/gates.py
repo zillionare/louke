@@ -351,21 +351,7 @@ def _render_detail(
     run_id = _esc(project.get("run_id", ""))
     error_html = f'<div class="error">{_esc(error)}</div>' if error else ""
     if gate is None:
-        return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>louke gate not found</title>
-  <style>{_PAGE_STYLE}</style>
-</head>
-<body>
-  <h1>Gate not found</h1>
-  {error_html}
-  <p><a href="/projects/{_esc(project_id)}/gates">Back to gates</a></p>
-</body>
-</html>
-"""
+        return _render_gate_not_found(project_id, error_html)
     gate_id = _esc(gate.get("gate_id", ""))
     step_id = _esc(gate.get("step_id", ""))
     status = _esc(gate.get("status", ""))
@@ -377,7 +363,8 @@ def _render_detail(
 
     section_label = _gate_section_label(str(gate.get("step_id", "")))
     decision_html = _render_decision_record(actor_id, decided_at, reason, status)
-    form_html = _render_decide_form(project_id, gate_id, status)
+    blocker_html = _render_blocker(gate)
+    form_html = _render_decide_form(project_id, gate_id, gate)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -400,12 +387,55 @@ def _render_detail(
   </section>
   <section>
     <h2>Decision</h2>
+    {blocker_html}
     {form_html}
   </section>
   <p><a href="/projects/{_esc(project_id)}/gates">Back to gates</a></p>
 </body>
 </html>
 """
+
+
+def _render_gate_not_found(project_id: str, error_html: str) -> str:
+    """Return the inline HTML for a missing gate."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>louke gate not found</title>
+  <style>{_PAGE_STYLE}</style>
+</head>
+<body>
+  <h1>Gate not found</h1>
+  {error_html}
+  <p><a href="/projects/{_esc(project_id)}/gates">Back to gates</a></p>
+</body>
+</html>
+"""
+
+
+def _gate_blockers(gate: dict[str, Any]) -> list[str]:
+    """Return human-readable reasons why the gate cannot be approved."""
+    blockers: list[str] = []
+    status = str(gate.get("status", ""))
+    if status == "stale":
+        blockers.append("gate is stale")
+    open_discussions = gate.get("open_discussions", 0)
+    if isinstance(open_discussions, int) and open_discussions > 0:
+        blockers.append(f"{open_discussions} open discussions")
+    if status in ("approved", "rejected"):
+        blockers.append(f"gate already {status}")
+    return blockers
+
+
+def _render_blocker(gate: dict[str, Any]) -> str:
+    """Return the HTML blocker text when the gate cannot be approved."""
+    blockers = _gate_blockers(gate)
+    if not blockers:
+        return ""
+    items = "".join(f"<li>{_esc(b)}</li>" for b in blockers)
+    return f'<div class="blocker">Cannot approve: <ul>{items}</ul></div>'
 
 
 def _gate_section_label(step_id: str) -> str:
@@ -430,9 +460,9 @@ def _render_decision_record(
 </div>"""
 
 
-def _render_decide_form(project_id: str, gate_id: str, status: str) -> str:
-    """Return the HTML form for approve/reject, disabled when already decided."""
-    disabled = "disabled" if status in ("approved", "rejected") else ""
+def _render_decide_form(project_id: str, gate_id: str, gate: dict[str, Any]) -> str:
+    """Return the HTML form for approve/reject, disabled when blocked or decided."""
+    disabled = "disabled" if _gate_blockers(gate) else ""
     return f"""<form method="post" action="/projects/{_esc(project_id)}/gates/{_esc(gate_id)}/decide">
   <label for="verdict">Verdict</label>
   <select id="verdict" name="verdict" {disabled}>

@@ -270,9 +270,10 @@ def test_gate_detail_stale_disables_button(client: TestClient) -> None:
     body = resp.text
     assert "stale" in body.lower()
     # Blocker text is shown.
-    assert "blocker" in body.lower() or "stale" in body.lower()
+    assert "blocker" in body.lower()
+    assert "gate is stale" in body.lower()
     # The submit button is disabled.
-    assert "disabled" in body
+    assert '<button type="submit" disabled>' in body
 
 
 def test_gate_detail_open_discussions_disables_button(client: TestClient) -> None:
@@ -289,9 +290,10 @@ def test_gate_detail_open_discussions_disables_button(client: TestClient) -> Non
     assert resp.status_code == 200
     body = resp.text
     # Blocker text mentions open discussions.
-    assert "open discussion" in body.lower() or "blocker" in body.lower()
+    assert "open discussion" in body.lower()
+    assert "blocker" in body.lower()
     # The submit button is disabled.
-    assert "disabled" in body
+    assert '<button type="submit" disabled>' in body
 
 
 # -- POST /{gate_id}/decide --------------------------------------------------
