@@ -130,6 +130,12 @@ class InterruptionHarness:
         self._committed_count += 1
         assert outcome.run.revision == run.revision + 1
 
+    def create_run(self, definition_id: str = "nfr0001_chain", version: str = "1"):
+        """Create a run bound to the registered definition."""
+        assert self._store._catalog is not None  # noqa: SLF001 - test boundary
+        definition = self._store._catalog.get(definition_id, version)  # noqa: SLF001
+        return self._store.create_run(definition)
+
 
 def _harness() -> tuple[InterruptionHarness, WorkflowRunStore, WorkflowOrchestrator]:
     """Return an armed harness, its store and an orchestrator on a fresh run."""
@@ -153,7 +159,7 @@ def test_ac_nfr0001_01_interruption_before_handler_yields_retryable():
     re-applied successfully.
     """
     harness, store, orchestrator = _harness()
-    run = store.create_run(store._catalog.get("nfr0001_chain", "1"))  # noqa: SLF001
+    run = harness.create_run()
     harness.arm("before_handler_return")
 
     harness.execute_with_interruption(
@@ -189,7 +195,7 @@ def test_ac_nfr0001_01_interruption_before_commit_yields_needs_attention():
     was applied.
     """
     harness, store, orchestrator = _harness()
-    run = store.create_run(store._catalog.get("nfr0001_chain", "1"))  # noqa: SLF001
+    run = harness.create_run()
     harness.arm("after_handler_before_commit")
 
     harness.execute_with_interruption(
@@ -218,7 +224,7 @@ def test_ac_nfr0001_01_interruption_after_commit_no_duplicate_side_effects():
     re-execute the side effect or advance the run a second time.
     """
     harness, store, orchestrator = _harness()
-    run = store.create_run(store._catalog.get("nfr0001_chain", "1"))  # noqa: SLF001
+    run = harness.create_run()
     harness.arm("after_commit")
 
     command = RuntimeCommand(
@@ -259,7 +265,7 @@ def test_ac_nfr0001_02_committed_revisions_have_one_terminal_event_each():
     revision and no orphan state events referencing uncommitted revisions.
     """
     harness, store, orchestrator = _harness()
-    run = store.create_run(store._catalog.get("nfr0001_chain", "1"))  # noqa: SLF001
+    run = harness.create_run()
 
     orchestrator.apply_command(
         RuntimeCommand(run_id=run.run_id, expected_revision=0, result="done")
@@ -293,7 +299,7 @@ def test_ac_nfr0001_02_failed_commit_leaves_no_terminal_event():
     transition event is appended to the stream.
     """
     harness, store, orchestrator = _harness()
-    run = store.create_run(store._catalog.get("nfr0001_chain", "1"))  # noqa: SLF001
+    run = harness.create_run()
 
     orchestrator.apply_command(
         RuntimeCommand(run_id=run.run_id, expected_revision=0, result="done")
