@@ -42,6 +42,10 @@ from louke.runtime.project_detail import (
     TaskControl,
 )
 
+# Standard approve decision reused across the gate-approval tests below.
+# DecisionRecord is frozen, so a single shared instance is safe to reuse.
+_ALICE_APPROVE = DecisionRecord(actor="alice", verdict="approve")
+
 
 # ---------------------------------------------------------------------------
 # AC-FR1901-01: project detail status / step / entry reason / allowed actions
@@ -178,7 +182,7 @@ def test_ac_fr1901_04_approval_blocked_by_open_discussion():
     )
 
     with pytest.raises(GateBlockedError):
-        panel.approve(DecisionRecord(actor="alice", verdict="approve"))
+        panel.approve(_ALICE_APPROVE)
     # No decision recorded after rejection.
     assert panel.decision is None
 
@@ -203,7 +207,7 @@ def test_ac_fr1901_04_approval_blocked_by_failed_check():
     )
 
     with pytest.raises(GateBlockedError):
-        panel.approve(DecisionRecord(actor="alice", verdict="approve"))
+        panel.approve(_ALICE_APPROVE)
     assert panel.decision is None
 
 
@@ -230,7 +234,7 @@ def test_ac_fr1901_04_approval_accepted_when_conditions_met():
         is_stale=False,
     )
 
-    panel.approve(DecisionRecord(actor="alice", verdict="approve"))
+    panel.approve(_ALICE_APPROVE)
     assert panel.decision.actor == "alice"
     assert panel.decision.verdict == "approve"
 
@@ -477,7 +481,7 @@ def test_ac_fr1901_08_open_discussions_in_bound_doc_block_gate():
     )
 
     with pytest.raises(GateBlockedError):
-        panel.approve(DecisionRecord(actor="alice", verdict="approve"))
+        panel.approve(_ALICE_APPROVE)
 
 
 @pytest.mark.e2e
@@ -499,7 +503,7 @@ def test_ac_fr1901_08_stale_digest_blocks_m_lock():
     )
 
     with pytest.raises(GateBlockedError):
-        panel.approve(DecisionRecord(actor="alice", verdict="approve"))
+        panel.approve(_ALICE_APPROVE)
 
 
 @pytest.mark.e2e
@@ -524,4 +528,4 @@ def test_ac_fr1901_08_gate_passes_when_threads_resolved_and_digest_matches():
         is_stale=False,
     )
 
-    panel.approve(DecisionRecord(actor="alice", verdict="approve"))
+    panel.approve(_ALICE_APPROVE)
