@@ -123,6 +123,35 @@ def test_ac_nfr0101_01_conflict_is_stable_and_repeatable():
 # -- AC-NFR0101-02 ------------------------------------------------------------
 
 
+def _main_and_hotfix_registry() -> WorkflowRegistry:
+    """Return a registry with new_feature (main) and bug_fix (hotfix) definitions."""
+    registry = WorkflowRegistry()
+    registry.register(
+        WorkflowDefinition(
+            name="new_feature",
+            version="1",
+            nodes={"start", "design", "complete"},
+            edges={("start", "design"), ("design", "complete")},
+            is_main_workflow=True,
+            allow_auto_select=True,
+        )
+    )
+    registry.register(
+        WorkflowDefinition(
+            name="bug_fix",
+            version="1",
+            nodes={"source_contract_verify", "rgr", "complete"},
+            edges={
+                ("source_contract_verify", "rgr"),
+                ("rgr", "complete"),
+            },
+            is_main_workflow=False,
+            allow_auto_select=True,
+        )
+    )
+    return registry
+
+
 def test_ac_nfr0101_02_main_and_hotfix_complete_with_disjoint_state():
     """AC-NFR0101-02: active main and hotfix complete with disjoint revisions/events.
 
@@ -143,28 +172,7 @@ def test_ac_nfr0101_02_main_and_hotfix_complete_with_disjoint_state():
     )
     assert hotfix_template.workflow_type.name == "BUG_FIX"
 
-    definition_registry = WorkflowRegistry()
-    main_def = WorkflowDefinition(
-        name="new_feature",
-        version="1",
-        nodes={"start", "design", "complete"},
-        edges={("start", "design"), ("design", "complete")},
-        is_main_workflow=True,
-        allow_auto_select=True,
-    )
-    hotfix_def = WorkflowDefinition(
-        name="bug_fix",
-        version="1",
-        nodes={"source_contract_verify", "rgr", "complete"},
-        edges={
-            ("source_contract_verify", "rgr"),
-            ("rgr", "complete"),
-        },
-        is_main_workflow=False,
-        allow_auto_select=True,
-    )
-    definition_registry.register(main_def)
-    definition_registry.register(hotfix_def)
+    definition_registry = _main_and_hotfix_registry()
 
     active_main_runs: set[str] = set()
     main_binding = WorkflowRunBinding.start(
@@ -243,27 +251,7 @@ def test_ac_nfr0101_02_hotfix_does_not_count_as_main_run():
     run id to the active-main set, leaving the slot free for a subsequent
     main run.
     """
-    definition_registry = WorkflowRegistry()
-    definition_registry.register(
-        WorkflowDefinition(
-            name="bug_fix",
-            version="1",
-            nodes={"verify", "rgr"},
-            edges={("verify", "rgr")},
-            is_main_workflow=False,
-            allow_auto_select=True,
-        )
-    )
-    definition_registry.register(
-        WorkflowDefinition(
-            name="new_feature",
-            version="1",
-            nodes={"start", "end"},
-            edges={("start", "end")},
-            is_main_workflow=True,
-            allow_auto_select=True,
-        )
-    )
+    definition_registry = _main_and_hotfix_registry()
     active_main_runs: set[str] = set()
 
     hotfix_binding = WorkflowRunBinding.start(
