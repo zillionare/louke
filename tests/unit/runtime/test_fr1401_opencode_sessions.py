@@ -120,9 +120,9 @@ def test_ac_fr1401_01_created_resources_have_real_identity():
 
     session = manager.create_session(run_id="run_001")
 
-    assert session.server_id is not None
-    assert session.workspace_id is not None
-    assert session.session_id is not None
+    assert session.server_id.startswith("srv_")
+    assert session.workspace_id.startswith("ws_")
+    assert session.session_id.startswith("sess_")
     assert session.run_id == "run_001"
     assert session.adapter_kind == "contract"
     assert session.status == "attached"

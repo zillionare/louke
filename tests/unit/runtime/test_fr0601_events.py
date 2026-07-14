@@ -146,9 +146,9 @@ def test_ac_fr0601_01_event_stream_covers_lifecycle_and_schema(tmp_path):
         assert event.at
         assert event.correlation_id
         assert isinstance(event.revision, int)
-        assert event.input_digest is not None
-        assert event.output_digest is not None
-        assert event.step_id is not None
+        assert event.input_digest.startswith("sha256:")
+        assert event.output_digest.startswith("sha256:")
+        assert event.step_id
 
 
 def test_ac_fr0601_02_state_and_last_event_revision_consistent_and_atomic():

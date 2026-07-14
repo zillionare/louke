@@ -1,5 +1,7 @@
 """FR-0101: Runtime is the sole writer of state and transitions."""
 
+import pytest
+
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.domain import (
     IllegalTransitionError,
@@ -83,12 +85,8 @@ def test_ac_fr0101_01_reject_undeclared_next_step():
         requested_next_step="development",
     )
 
-    try:
+    with pytest.raises(IllegalTransitionError):
         orchestrator.apply_command(command)
-    except IllegalTransitionError:
-        pass
-    else:
-        raise AssertionError("expected IllegalTransitionError")
 
     fetched = store.get_run(run.run_id)
     assert fetched.current_step == "lock"
@@ -110,12 +108,8 @@ def test_ac_fr0101_02_record_diagnostic_on_undeclared_result():
         result="skipped",
     )
 
-    try:
+    with pytest.raises(UndeclaredResultError):
         orchestrator.apply_command(command)
-    except UndeclaredResultError:
-        pass
-    else:
-        raise AssertionError("expected UndeclaredResultError")
 
     fetched = store.get_run(run.run_id)
     assert fetched.current_step == "review"

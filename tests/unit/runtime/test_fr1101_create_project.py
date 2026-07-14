@@ -114,8 +114,8 @@ def test_ac_fr1101_03_preview_then_confirm_creates_project_atomically():
     assert len(project_store.list_active()) == 0
 
     project = project_store.confirm_project(preview.preview_id)
-    assert project.project_id is not None
-    assert project.run_id is not None
+    assert project.project_id.startswith("prj_")
+    assert project.run_id.startswith("run_")
     assert project.release_version == "v0.12.0"
 
     assert len(project_store.list_active()) == 1

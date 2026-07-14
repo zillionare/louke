@@ -275,7 +275,7 @@ def test_ac_fr0501_06_valid_rejection_records_audit_and_blocks_approved_path():
     assert rejected_gate.actor_id == "bob"
     assert rejected_gate.reason == "requirements unclear"
     assert rejected_gate.bound_digest == "sha256:abc123"
-    assert rejected_gate.decided_at is not None
+    assert rejected_gate.decided_at.startswith("20")
 
     events = store.get_events(run.run_id)
     rejected_events = [event for event in events if event.type == "gate.rejected"]

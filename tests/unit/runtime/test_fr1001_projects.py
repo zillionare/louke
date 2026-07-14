@@ -99,8 +99,8 @@ def test_ac_fr1001_01_projects_menu_exposes_current_history_create():
         definition_id="new_feature",
         definition_version="1",
     )
-    assert project.project_id is not None
-    assert project.name is not None
+    assert project.project_id.startswith("prj_")
+    assert project.name == "Build programmatic workflow runtime"
     assert project.release_version == "v0.12.0"
     assert project.workflow_definition_id == "new_feature"
     assert project.workflow_version == "1"
@@ -183,8 +183,8 @@ def test_ac_fr1001_03_list_items_show_distinguishing_fields():
     assert summary_a.name != summary_b.name
     assert summary_a.release_version != summary_b.release_version
     assert summary_a.workflow_definition_id != summary_b.workflow_definition_id
-    assert summary_a.run_status is not None
-    assert summary_b.run_status is not None
+    assert summary_a.run_status == "in_progress"
+    assert summary_b.run_status == "in_progress"
 
     detail = project_store.get_project(project_a.project_id)
     assert detail.project_id == project_a.project_id

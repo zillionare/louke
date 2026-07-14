@@ -208,7 +208,7 @@ def test_ac_fr1301_04_binding_change_persists_and_audited():
     assert event.old_model == "provider/default-devon"
     assert event.new_model == "provider/model-a"
     assert event.effective_from == "next_task"
-    assert event.at is not None
+    assert event.at.startswith("20")
 
     # Persists across "reload" (re-query)
     bindings = binding_store.list_bindings(run_id)
