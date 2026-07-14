@@ -14,6 +14,7 @@ Behavior:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -146,12 +147,34 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
         return _fail(f"unexpected error resolving runtime: {exc}")
 
     if args.opencode_backend == "real":
-        # B4 wires the real OpenCode adapter; until then fail-closed so no
-        # semantic task is dispatched against a non-existent backend.
-        return _fail(
-            "opencode backend 'real' is not yet available; "
-            "use --opencode-backend=mock or wait for the B4 adapter. No global fallback."
-        )
+        try:
+            from .opencode.process import OpenCodeServerProcess
+            from .opencode.dispatch import get_default_adapter
+            from .opencode.persistence import OpenCodeInstanceStore
+            if not os.environ.get("LOUKE_OPENCODE_BASE_URL"):
+                proc = OpenCodeServerProcess(host="127.0.0.1", port=0, opencode_bin="opencode")
+                base_url = proc.start()
+                os.environ["LOUKE_OPENCODE_BASE_URL"] = base_url
+                os.environ["LOUKE_OPENCODE_OWNED_PID"] = str(proc.pid or 0)
+            adapter = get_default_adapter(kind="real")
+            store = OpenCodeInstanceStore(root)
+            instances_file = root / ".louke" / "opencode" / "instances.json"
+            if instances_file.exists():
+                states = store.recovery_scan(adapter=adapter)
+                live = sum(1 for s in states if s.status == "running")
+                lost = [s for s in states if s.status == "lost"]
+                needs_attention = [s for s in states if s.status == "needs_attention"]
+                print(f"lk serve: opencode recovery: live={live} lost={len(lost)} needs_attention={len(needs_attention)}")
+                for s in lost:
+                    print(f"  lost: instance={s.instance_id} (was at {s.base_url})", file=sys.stderr)
+                for s in needs_attention:
+                    print(f"  needs_attention: instance={s.instance_id} (pid alive, not in adapter)", file=sys.stderr)
+            else:
+                print("lk serve: opencode backend=real; no persisted instances to recover")
+        except Exception as exc:
+            return _fail(f"opencode backend 'real' setup failed: {exc}. Pass --opencode-backend=mock to use the deterministic stub. No global fallback.")
+    else:
+        print("lk serve: opencode backend=mock; skipping recovery scan")
 
     print(
         f'lk serve: runtime = {identity.mode.name}, mode=local, version="{identity.version}"'

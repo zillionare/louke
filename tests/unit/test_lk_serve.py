@@ -209,3 +209,73 @@ def test_serve_resolves_local_runtime_identity(
     combined = captured.out + captured.err
     assert "LOCAL" in combined
     assert "0.12.0" in combined
+
+
+# -- AC-FR1401-05: recovery scan skipped in mock mode -----------------------
+
+
+def test_serve_skips_recovery_in_mock_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC-FR1401-05: mock backend (default) skips the recovery scan and prints the marker.
+
+    Even when persisted instances exist, the mock backend is a deterministic
+    stub and must not attempt recovery. Only the explicit ``mock`` marker is
+    printed so a human cannot be fooled into thinking recovery ran.
+    """
+    _ready_workspace(tmp_path)
+    # Persisted instances file present; mock mode must still skip recovery.
+    opencode_dir = tmp_path / ".louke" / "opencode"
+    opencode_dir.mkdir(parents=True, exist_ok=True)
+    (opencode_dir / "instances.json").write_text(
+        '{"fake":{"instance_id":"fake","status":"running","pid":99999,'
+        '"workspace_path":"x","base_url":"http://x","last_seen":1.0}}',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("LOUKE_OPENCODE_BACKEND", raising=False)
+    monkeypatch.delenv("LOUKE_OPENCODE_BASE_URL", raising=False)
+    monkeypatch.setattr("louke.serve.uvicorn_run", lambda *a, **kw: None, raising=False)
+
+    args = _namespace(opencode_backend="mock", dry_run=True)
+    rc = serve.run(args)
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "skipping recovery scan" in captured.out
+    # Mock mode must never emit a recovery summary line.
+    assert "opencode recovery:" not in captured.out
+
+
+# -- AC-FR1401-05: no persisted instances -> no recovery output --------------
+
+
+def test_serve_recovery_skipped_when_no_instances_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC-FR1401-05: real backend with no persisted instances reports nothing to recover.
+
+    When ``instances.json`` is absent, there are no resources to re-associate.
+    The real backend prints an explicit "no persisted instances" marker instead
+    of fabricating recovery output. ``LOUKE_OPENCODE_BASE_URL`` is preset so no
+    managed subprocess is started (the unit test environment has no real
+    opencode lifecycle to own).
+    """
+    _ready_workspace(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LOUKE_OPENCODE_BACKEND", "real")
+    monkeypatch.setenv("LOUKE_OPENCODE_BASE_URL", "http://127.0.0.1:41234")
+    monkeypatch.setattr("louke.serve.uvicorn_run", lambda *a, **kw: None, raising=False)
+
+    args = _namespace(opencode_backend="real", dry_run=True)
+    rc = serve.run(args)
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "no persisted instances" in captured.out
+    # No instances file means no recovery summary line at all.
+    assert "opencode recovery:" not in captured.out
