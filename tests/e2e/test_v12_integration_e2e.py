@@ -199,9 +199,12 @@ def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
         catalog = store._catalog
         # FAKE-002: value-based check tied to AC-FR1701-01 - the catalog must
         # resolve the ``new_feature`` definition the seed is about to use, not
-        # merely be a non-null object reference.
-        assert catalog is not None and catalog.get("new_feature", "1") is not None
-        definition = catalog.get("new_feature", "1")
+        # merely be a non-null object reference. The ``and`` short-circuits so
+        # ``catalog.get`` only runs once ``catalog`` itself is confirmed.
+        definition = catalog.get("new_feature", "1") if catalog is not None else None
+        assert definition is not None, (
+            "store catalog missing or has no new_feature v1 definition"
+        )
         source_run = store.create_run(definition)
         # Advance the source run from ``start`` to ``requirements_approval``
         # so the requirements gate can be created and approved. The gate's
