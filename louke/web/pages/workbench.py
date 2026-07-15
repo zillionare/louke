@@ -5,9 +5,12 @@ from __future__ import annotations
 from html import escape
 import json
 from pathlib import Path
+import re
 
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
+
+from ..render import render_markdown_view
 
 
 TOOLBAR_ITEMS = (
@@ -31,6 +34,12 @@ async def workbench(request: Request) -> HTMLResponse:
         _page(
             _toolbar(),
             _devdocs(specs),
+            _devdocs_view(
+                specs,
+                store.specs_dir,
+                request.query_params.get("spec"),
+                request.query_params.get("doc"),
+            ),
             _end_user_docs(store.root),
             _wiki(wiki_pages),
             _runs_sidebar(store.root),
@@ -118,11 +127,90 @@ def _devdocs(specs: list[tuple[str, list[str]]]) -> str:
         )
         groups.append(
             f'<details data-devdocs-spec="{escape(spec_id)}" data-expanded="false">'
-            f"<summary>{escape(spec_id)}</summary><div>{children}</div></details>"
+            f'<summary data-testid="devdocs-spec-{escape(spec_id)}">{escape(spec_id)}</summary>'
+            f"<div>{children}</div></details>"
         )
     return (
         '<section data-sidebar-kind="dev-docs" hidden><strong>Dev Docs</strong>'
         '<div data-testid="devdocs-tree">' + "".join(groups) + "</div></section>"
+    )
+
+
+_REFERENCE = re.compile(r"\b(?P<ref>(?:FR|NFR|US)-\d{3,4})\b")
+
+
+def _devdocs_view(
+    specs: list[tuple[str, list[str]]],
+    specs_dir: Path,
+    requested_spec: str | None,
+    requested_doc: str | None,
+) -> str:
+    """Render the initial read-only Dev Docs preview and source panel."""
+    if not specs or not specs[0][1]:
+        return '<div data-tab-content="dev-docs" hidden></div>'
+    spec_id, files = next(
+        (
+            (candidate, documents)
+            for candidate, documents in specs
+            if candidate == requested_spec
+        ),
+        specs[0],
+    )
+    requested_name = f"{requested_doc}.md" if requested_doc else ""
+    selected = next(
+        (file for file in files if Path(file).name == requested_name),
+        next((file for file in files if Path(file).name == "spec.md"), files[0]),
+    )
+    path = specs_dir / spec_id / Path(selected).name
+    body_md = path.read_text(encoding="utf-8")
+    rendered_html = render_markdown_view(body_md, kind="doc").rendered_html
+    links = _devdocs_cross_references(rendered_html, body_md, spec_id, specs_dir)
+    visibility = "" if requested_doc else " hidden"
+    return (
+        f'<div data-tab-content="dev-docs"{visibility}><section data-testid="devdocs-view" style="display:block">'
+        f'<div data-testid="devdocs-rendered">{links}</div>'
+        f'<pre data-testid="devdocs-source">{escape(body_md)}</pre>'
+        "</section></div>"
+    )
+
+
+def _devdocs_cross_references(
+    rendered_html: str, body_md: str, spec_id: str, specs_dir: Path
+) -> str:
+    """Add stable links to rendered FR, NFR, and Story references."""
+    anchors = {
+        reference.lower()
+        for reference in _REFERENCE.findall(body_md)
+        if _has_document_anchor(body_md, reference)
+    }
+
+    def target(match: re.Match[str]) -> str:
+        ref = match.group("ref")
+        if ref.lower() in anchors:
+            href = f"#{ref.lower()}"
+        elif (specs_dir / spec_id / "acceptance.md").is_file():
+            href = f"?spec={spec_id}&doc=acceptance#{ref.lower()}"
+        else:
+            href = f"#{ref.lower()}"
+        return (
+            f'<a data-testid="devdocs-cross-ref-{ref}" href="{escape(href, quote=True)}">'
+            f"{ref}</a>"
+        )
+
+    rendered_html = re.sub(
+        r'<a class="xref-link" href="#[^"]+" data-ref="(?P<ref>(?:FR|NFR)-\d{3,4})">[^<]+</a>',
+        target,
+        rendered_html,
+    )
+    return re.sub(r"\b(?P<ref>US-\d{3,4})\b", target, rendered_html)
+
+
+def _has_document_anchor(body_md: str, reference: str) -> bool:
+    """Return whether ``reference`` names an explicit or Markdown heading anchor."""
+    anchor = re.escape(reference.lower())
+    return bool(
+        re.search(rf'id=["\']{anchor}["\']', body_md, re.IGNORECASE)
+        or re.search(rf"^#+\s+{anchor}\b", body_md, re.IGNORECASE | re.MULTILINE)
     )
 
 
@@ -218,6 +306,7 @@ def _unknown_marker(node: dict) -> str:
 def _page(
     toolbar: str,
     devdocs: str,
+    devdocs_view: str,
     end_user_docs: str,
     wiki: str,
     runs_sidebar: str,
@@ -230,7 +319,7 @@ def _page(
 <style>body{{margin:0;font:14px system-ui,sans-serif}}#workbench{{display:flex;height:100vh}}[data-louke-region]{{box-sizing:border-box}}[data-louke-region=toolbar]{{width:40px;display:flex;flex-direction:column;gap:4px;padding:4px;background:#20242b}}[data-louke-region=toolbar] button{{width:32px;height:32px;padding:0;border:0;background:transparent;color:white;cursor:pointer}}[data-louke-region=toolbar] button:nth-child(6){{margin-top:auto}}[data-louke-region=sidebar]{{width:280px;padding:16px;border-right:1px solid #ddd}}[data-louke-region=main]{{flex:1;padding:12px}}[role=tablist]{{display:flex;gap:4px;border-bottom:1px solid #ddd}}[role=tab]{{padding:8px;border:0;background:#eee}}[aria-selected=true]{{background:#d8e8ff}}[data-settings-pane]{{display:inline-flex;flex-direction:column;gap:8px;padding:16px}}[aria-disabled=true]{{opacity:.55;cursor:pointer}}[data-testid=wiki-unknown-page]{{color:#888}}</style></head><body><div id="workbench">
 <div data-testid="workbench-toolbar" data-louke-region="toolbar" role="toolbar" aria-label="Workbench">{toolbar}</div>
  <aside data-testid="workbench-sidebar" data-louke-region="sidebar" role="complementary" data-sidebar-kind="chat">{chat_sidebar}{devdocs}{end_user_docs}{wiki}{runs_sidebar}</aside>
- <main data-testid="workbench-main" data-louke-region="main"><div role="tablist" aria-label="Open workbench tabs"><button role="tab" data-testid="workbench-tab" data-tab-key="chat" aria-selected="true">Chat</button><button role="tab" data-testid="workbench-tab" data-tab-key="dev-docs" aria-selected="false" hidden>Dev Docs</button><button role="tab" data-testid="workbench-tab" data-tab-key="runs" aria-selected="false" hidden>Runs</button></div>{chat_content}{runs_content}</main>
+ <main data-testid="workbench-main" data-louke-region="main"><div role="tablist" aria-label="Open workbench tabs"><button role="tab" data-testid="workbench-tab" data-tab-key="chat" aria-selected="true">Chat</button><button role="tab" data-testid="workbench-tab" data-tab-key="dev-docs" aria-selected="false" hidden>Dev Docs</button><button role="tab" data-testid="workbench-tab" data-tab-key="runs" aria-selected="false" hidden>Runs</button></div>{chat_content}{devdocs_view}{runs_content}</main>
 <div id="accounts-menu" data-testid="accounts-menu" role="menu" hidden><button role="menuitem" data-testid="accounts-logout">Logout</button></div></div>
 <script>
 const tabs=new Set(['chat']); let activeTab='chat'; const labels={{chat:'Chat','dev-docs':'Dev Docs','end-user-docs':'End User Docs',wiki:'Wiki',runs:'Runs',settings:'Settings'}};
@@ -256,10 +345,12 @@ function renderSidebar(activity){{const sidebar=document.querySelector('[data-lo
  selectAgent('Maestro');
 document.addEventListener('click',event=>{{const item=event.target.closest('[data-setting]');if(item)document.querySelector('[data-testid="settings-detail"]').textContent='待 v0.15';}});
 document.querySelector('[data-testid="accounts-logout"]').addEventListener('click',()=>fetch('/api/security/logout',{{method:'POST'}}).then(()=>location.href='/'));
-document.querySelectorAll('[data-devdocs-spec]').forEach(item=>item.addEventListener('toggle',()=>localStorage.setItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec,item.open?'expanded':'collapsed')));
-document.querySelectorAll('[data-devdocs-spec]').forEach(item=>{{item.open=localStorage.getItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec)==='expanded';}});
+ document.querySelectorAll('[data-devdocs-spec]').forEach(item=>item.addEventListener('toggle',()=>localStorage.setItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec,item.open?'expanded':'collapsed')));
+ document.querySelectorAll('[data-devdocs-spec]').forEach(item=>{{item.open=localStorage.getItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec)==='expanded';}});
+ document.querySelectorAll('[data-doc-path]').forEach(item=>item.addEventListener('click',()=>{{const parts=item.dataset.docPath.split('/');location.href='/workbench?spec='+encodeURIComponent(parts[3])+'&doc='+encodeURIComponent(parts[4].replace(/\\.md$/,''));}}));
  document.querySelectorAll('[data-wiki-page]').forEach(item=>item.addEventListener('click',()=>{{const key=item.dataset.wikiPage;if(key==='unknown-page')document.querySelector('[data-tab-content="wiki"]').innerHTML='<div data-testid="wiki-unknown-page" data-unknown="true">未知页面: '+key+' <a href="/">home</a></div>';else document.querySelector('[data-tab-content="wiki"]').textContent=key;}}));
  document.querySelectorAll('[data-enduserdocs-path]').forEach(item=>item.addEventListener('click',()=>loadDoc(item.dataset.enduserdocsPath)));
  document.addEventListener('input',event=>{{if(event.target.matches('[data-testid="enduserdocs-editor"]'))setDocDirty();}});
  document.addEventListener('click',event=>{{if(event.target.matches('[data-testid="enduserdocs-save"]'))saveDoc(false);if(event.target.matches('[data-enduserdocs-reload]'))loadDoc(currentDoc);if(event.target.matches('[data-enduserdocs-force]')&&confirm('确认覆盖外部修改？'))saveDoc(true);}});
+ if(new URLSearchParams(location.search).has('doc'))openTab('dev-docs');
 </script></body></html>"""
