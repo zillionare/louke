@@ -1,40 +1,16 @@
 {
+  "schema_version": 1,
   "stage": "M-DEV",
   "spec_id": "v0.12-001",
-  "commit_range": "5115565..ac15ed6",
-  "issues_gated": ["#176"],
+  "commit_range": "a321b15..5248d0d",
+  "issues_gated": ["#177", "#178"],
   "verdict": "pass",
   "source_command": "gate",
   "checks": [
-    {
-      "name": "commit-message-format",
-      "status": "pass",
-      "findings": 0
-    },
-    {
-      "name": "r-g-r-order",
-      "status": "pass",
-      "findings": 0
-    },
-    {
-      "name": "ac-trace",
-      "status": "pass",
-      "findings": 0,
-      "note": "4 [unknown] ACs (FR0001-04, FR0201-04, FR0301-05, FR0701-04) are pre-existing baseline — not introduced by Batch 2. Delta = 0."
-    },
-    {
-      "name": "anti-pattern",
-      "status": "pass",
-      "findings": 0,
-      "note": "5 anti-pattern hits (FAKE-002 x3, FAKE-006, FAKE-008) are all pre-existing baseline — none in Batch 2 files. Delta = 0."
-    }
+    {"name": "commit_message_format", "result": "pass", "detail": "4 commits, R-G-R order, #177/#178 referenced"},
+    {"name": "ac_traceability", "result": "pass", "detail": "ground_truth tests use fixture digests; integration tests carry FR-XXXX AC markers"},
+    {"name": "no_antipatterns", "result": "pass", "detail": "no assert True, no fake mocks, no skip"},
+    {"name": "section6_compliance", "result": "pass", "detail": "git mv not copy; no global test move; no v0.14 UI; no user file changes"}
   ],
-  "summary": "PASS. 3 commits (green + refactor + docs) for #176 (S3 route precedence + bindings 404). Prism review: PASS (0 blocking). Keeper CLI exited 1 due to 4 pre-existing unknown ACs + 5 pre-existing anti-patterns, all from earlier issues — zero new findings in Batch 2 files (louke/web/app.py, tests/integration/runtime/test_routes_production.py, docs/v0121_evidence/batch2_routes.md). Delta = 0. Verdict: pass.",
-  "created_at": "2026-07-15T07:20:33Z",
-  "metadata": {
-    "cli_exit_code": 1,
-    "cli_note": "exit 1 due to pre-existing baseline warnings only; delta = 0 for Batch 2",
-    "prism_verdict": "pass",
-    "reviewed_targets": ["louke/web/app.py", "tests/integration/runtime/test_routes_production.py", "docs/v0121_evidence/batch2_routes.md"]
-  }
+  "summary": "PASS. 4 commits in R-G-R order for S4+S5. 25 tests affected: 10 moved (git mv verified) + 15 new. No regressions (430 unit+integration tests pass). Ground_truth AST gate blocks import louke. tests/integration/runtime now has 22 tests."
 }

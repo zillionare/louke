@@ -1,82 +1,11 @@
 {
   "schema_version": 1,
-  "spec_id": "v0.12-001",
   "stage": "M-DEV",
-  "kind": "review-result",
-  "role": "Prism",
+  "spec_id": "v0.12-001",
+  "commit_range": "a321b15..5248d0d",
+  "issues_reviewed": ["#177", "#178"],
   "verdict": "pass",
-  "reviewed_targets": [
-    "louke/web/app.py",
-    "tests/integration/runtime/test_routes_production.py",
-    "docs/v0121_evidence/batch2_routes.md"
-  ],
-  "blocking_findings": [],
-  "accepted_risks": [],
-  "created_at": "2026-07-15T07:20:33Z",
-  "contract_bundle_hash": "fc43e3e9e860a465e48ec3ef4f3af9ec13698bae3cfdd8ffa5293f0f289c97ba",
-  "metadata": {
-    "commit_range": "5115565..ac15ed6",
-    "source_command": "review",
-    "diff": "5115565..ac15ed6",
-    "issues_reviewed": ["#176"],
-    "verdict": "pass"
-  },
-  "output_hash": "f8bbab461cb140f58fa3dd55c61ba00499f20c5cedbb536202b47bc83397f940",
-  "findings": [
-    {
-      "severity": "info",
-      "category": "test-quality",
-      "message": "test_bindings_routes_reachable_via_create_app uses top-level create_app (not sub-app import); fixture writes real project.toml so create_app doesn't crash; POST assertion checks ==201, GET/PUT/audit assertions check not-404 and not-5xx (appropriate for routing-probe scope).",
-      "location": "tests/integration/runtime/test_routes_production.py:158-205"
-    },
-    {
-      "severity": "info",
-      "category": "test-quality",
-      "message": "test_mount_order_longer_prefix_first uses AST-based parsing of app.py source to statically assert longer-prefix-before-shorter invariant; verified the test would detect the old bug (/api/runtime shadowing /api/runtime/bindings) on reconstructed old Mount order.",
-      "location": "tests/integration/runtime/test_routes_production.py:219-258"
-    },
-    {
-      "severity": "info",
-      "category": "architecture",
-      "message": "Mount order is correct: /api/runtime/bindings precedes /api/runtime. All 10 sub-app Mounts preserved. No hidden shadows: /api/v12/discussions has no prefix overlap with other Mounts; /api/gates shadows nothing; /api/projects Mount does not shadow page-level /projects Route entries (they are separate Route, not Mount).",
-      "location": "louke/web/app.py:137-146"
-    },
-    {
-      "severity": "info",
-      "category": "architecture",
-      "message": "Bare-prefix endpoints (/api/runtime, /api/setup, etc.) still 404 because sub-apps have no internal '/' route. This is documented in batch2_routes.md as correct behavior, not a shadow bug. Adding fake '/' routes is explicitly forbidden by #176. Deferring to future batch is acceptable.",
-      "location": "docs/v0121_evidence/batch2_routes.md:29-48"
-    },
-    {
-      "severity": "info",
-      "category": "security",
-      "message": "Security quick scan: no eval/exec/hardcoded-secrets/SQL-concat/subprocess-shell found in diff. Single 'sqlite' hit in comment only.",
-      "location": "diff 5115565..ac15ed6"
-    },
-    {
-      "severity": "info",
-      "category": "anti-patterns",
-      "message": "No anti-patterns found: no assert True, no pytest.skip, no fake routes on runtime sub-app, no over-mocking, no ground-truth-from-impl. Test state properly reset via _reset_subapp_state() between tests.",
-      "location": "tests/integration/runtime/test_routes_production.py"
-    },
-    {
-      "severity": "info",
-      "category": "traceability",
-      "message": "Test docstrings reference #176 and S3. Evidence file (batch2_routes.md) explicitly traces to gap-analysis §3 P0-2, §4 Batch 2, §6 #5.",
-      "location": "tests/integration/runtime/test_routes_production.py:3,150,209"
-    },
-    {
-      "severity": "suggestion",
-      "category": "code-quality",
-      "message": "_Probe type alias is a plain tuple[str, str, str|None, dict|None] — functional but could be a NamedTuple for readability. Non-blocking.",
-      "location": "tests/integration/runtime/test_routes_production.py:39"
-    },
-    {
-      "severity": "suggestion",
-      "category": "code-quality",
-      "message": "_write_project_toml is intentionally duplicated from tests/e2e/test_v12_integration_e2e.py (avoids importing e2e conftest). If project.toml schema changes, both copies need updating. Consider extracting to shared integration conftest in future batch.",
-      "location": "tests/integration/runtime/test_routes_production.py:42-60"
-    }
-  ],
-  "summary": "PASS. All 3 commits (green + refactor + docs) reviewed. Production Mount order correct: /api/runtime/bindings now precedes /api/runtime. New tests (2/2 passed) use top-level create_app, not sub-app imports. Precedence smoke test catches old shadow bug on reconstructed input. No anti-patterns, no security issues, no fake routes. All 10 sub-app Mounts preserved. 397 unit + 8 integration tests green (0 regressions). 0 blocking concerns."
+  "source_command": "review",
+  "findings": [],
+  "summary": "PASS. 4 commits in R-G-R order. git mv preserved (verify with git log --follow). AST gate blocks louke import in ground_truth. No regressions (430+ tests pass)."
 }
