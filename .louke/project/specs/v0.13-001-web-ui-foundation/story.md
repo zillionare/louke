@@ -38,4 +38,3 @@
 
 19. 本版本必须形成至少一条浏览器产品主旅程，覆盖启动 Web UI、切换 toolbar、打开一个文档、进入一个 run 并查看 stage artifact，以便用户尽早体验并为 v0.14 reflow 提供反馈。
 20. 本版本不实现：workflow 回退、waive、CI report 中断语义、夜间重构分支；完整 Settings 功能；harness `/` 与 shell `!` 命令；End User Docs AI 辅助编辑；UI i18n。
-

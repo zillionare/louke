@@ -24,4 +24,3 @@
 
 14. 本版本复用 v0.13 的 toolbar/sidebar/tab 和 Runs 观察面，为 rollback、waive 与 CI interruption 增加必要的状态展示和经授权操作入口，但不重新设计整个 UI chrome。
 15. 完整 Settings、harness/shell 命令和 End User Docs AI 辅助编辑属于 v0.15；UI i18n 属于 v0.16。
-

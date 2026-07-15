@@ -23,4 +23,3 @@
 
 10. 每个 UI 字符串具有稳定 message id；关键路径至少验证 toolbar tooltip、sidebar、Settings、对话框和操作结果在 `en`/`zh-CN` 下正确显示。
 11. 自动测试验证缺失翻译安全回退、locale 持久化、运行时切换和已打开 tab 更新，并确认后端/用户内容没有被错误翻译。
-

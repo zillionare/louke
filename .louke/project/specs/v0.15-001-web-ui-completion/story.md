@@ -31,4 +31,3 @@
 14. v0.13 各 toolbar 入口在本版本完成一致的 loading、empty、error、permission-denied 和 reconnect 状态，并保持 tab 与 sidebar 状态可恢复。
 15. 浏览器 E2E 至少覆盖 Settings 保存、Chat 命令类型隔离和 End User Docs AI 建议确认；workflow rollback/waive 的产品旅程归属 v0.14。
 16. UI 字符串外置、多语言 catalog 和运行时 locale 切换属于 v0.16，本版本不得以临时翻译方案替代。
-
