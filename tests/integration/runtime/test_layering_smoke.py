@@ -25,9 +25,7 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _INTEGRATION_RUNTIME = _REPO_ROOT / "tests" / "integration" / "runtime"
 _E2E_LIFECYCLE_OLD = _REPO_ROOT / "tests" / "e2e" / "test_v12_integration_e2e.py"
-_INTEGRATION_LIFECYCLE_NEW = (
-    _INTEGRATION_RUNTIME / "test_workflow_run_lifecycle.py"
-)
+_INTEGRATION_LIFECYCLE_NEW = _INTEGRATION_RUNTIME / "test_workflow_run_lifecycle.py"
 
 
 def test_integration_runtime_dir_exists() -> None:
