@@ -33,9 +33,10 @@ def main() -> int:
     legacy_baseline = (
         Path.cwd() / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
     )
-    # Exclude tests/fixtures/ from scan: these are check_assertions' own test fixtures
-    # containing intentional anti-pattern code (assert True, try/except/pass, etc.).
-    exclude = ["tests/fixtures"]
+    # Exclude only the intentional anti-pattern fixture directory. A blanket
+    # "tests/fixtures" exclude would also skip tests/fixtures/ci-tools/tests_good,
+    # which is the happy-path fixture check_acs must scan for AC traceability.
+    exclude = ["tests/fixtures/ci-tools/tests_bad"]
     ac_cmd = [
         sys.executable,
         str(root / "check_acs.py"),
