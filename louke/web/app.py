@@ -66,6 +66,7 @@ from .pages.runs import (
     run_detail as runs_page_detail,
 )
 from .pages.migration import create_app as _create_migration_page_app
+from .pages.workbench import workbench
 
 projects_app = _create_projects_app()
 runtime_app = _create_runtime_app()
@@ -96,6 +97,7 @@ def create_app(
             Route("/assets/{asset_path:path}", endpoint=asset_file),
             Route("/login", endpoint=login_page),
             Route("/", endpoint=setup_home_redirect, methods=["GET"]),
+            Route("/workbench", endpoint=workbench, methods=["GET"]),
             Route("/models", endpoint=models_page),
             Route("/wiki", endpoint=wiki_index_page),
             Route("/wiki/{page:path}", endpoint=wiki_editor_page),
