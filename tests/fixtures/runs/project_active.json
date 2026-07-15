@@ -1,0 +1,36 @@
+{
+  "current": [{
+    "project_id": "project-active",
+    "project_name": "Active project",
+    "scope": "current",
+    "run_id": "run-active",
+    "run_status": "active",
+    "definition_id": "new_feature",
+    "definition_version": "1",
+    "updated_at": "2026-07-16T00:00:00Z",
+    "create_project_href": "/projects/new"
+  }],
+  "history": [{
+    "project_id": "project-history",
+    "project_name": "Historical project",
+    "scope": "history",
+    "run_id": "run-history",
+    "run_status": "completed",
+    "definition_id": "new_feature",
+    "definition_version": "1",
+    "updated_at": "2026-07-15T00:00:00Z",
+    "create_project_href": "/projects/new"
+  }],
+  "graphs": {
+    "run-active": {
+      "run_id": "run-active", "definition_id": "new_feature", "definition_version": "1",
+      "current_stage_id": "review", "revision": 3,
+      "nodes": [
+        {"stage_id": "author", "label": "Author", "state": "completed", "result": {"kind": "author", "outcome": "done"}},
+        {"stage_id": "review", "label": "Review", "state": "waiting_for_human", "result": {"kind": "review", "verdict": "PASS", "role": "Prism", "digest": "abc123", "metadata": {"conclusion": "Looks good"}}},
+        {"stage_id": "gate", "label": "Gate", "state": "pending", "result": {"kind": "gate", "verdict": "pass"}}
+      ],
+      "edges": [{"from": "author", "to": "review", "condition": "done"}, {"from": "review", "to": "gate", "condition": "PASS"}]
+    }
+  }
+}

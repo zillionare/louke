@@ -69,6 +69,7 @@ from .pages.runs import (
 from .pages.migration import create_app as _create_migration_page_app
 from .pages.workbench import workbench
 from .api.files import files as end_user_files
+from .runs.badges import badges_for_result, status_badge
 
 projects_app = _create_projects_app()
 runtime_app = _create_runtime_app()
@@ -133,6 +134,17 @@ def create_app(
                 "/api/ui/wiki/{page:path}", endpoint=api_ui_wiki_page, methods=["GET"]
             ),
             Route("/api/render", endpoint=api_render, methods=["POST"]),
+            Route("/api/ui/runs", endpoint=api_ui_runs, methods=["GET"]),
+            Route(
+                "/api/ui/runs/{run_id}/graph",
+                endpoint=api_ui_run_graph,
+                methods=["GET"],
+            ),
+            Route(
+                "/api/ui/runs/{run_id}/stages/{stage_id}/artifact",
+                endpoint=api_ui_artifact,
+                methods=["GET"],
+            ),
             Route(
                 "/api/discussions/mutate",
                 endpoint=api_discussion_mutate,
@@ -923,6 +935,96 @@ async def api_render(request: Request) -> JSONResponse:
             doc_name=str(payload.get("doc_name") or ""),
             body_md=str(payload.get("body_md") or ""),
         )
+    )
+
+
+def _runs_payload(request: Request) -> dict[str, Any]:
+    """Read the optional workspace Runs fixture/read model safely."""
+    path = request.app.state.store.root / ".louke" / "project" / "runs.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"current": [], "history": [], "graphs": {}}
+    return (
+        payload
+        if isinstance(payload, dict)
+        else {"current": [], "history": [], "graphs": {}}
+    )
+
+
+async def api_ui_runs(request: Request) -> JSONResponse:
+    """Return the current/history Runs sidebar read model."""
+    payload = _runs_payload(request)
+    return JSONResponse(
+        {
+            "current": payload.get("current", []),
+            "history": payload.get("history", []),
+            "create_project_href": "/projects/new",
+        }
+    )
+
+
+async def api_ui_run_graph(request: Request) -> JSONResponse:
+    """Return a definition-bound graph with safe badge fallbacks."""
+    payload = _runs_payload(request)
+    run_id = request.path_params["run_id"]
+    graph = payload.get("graphs", {}).get(run_id)
+    if not isinstance(graph, dict):
+        return JSONResponse(
+            {"code": "RUN_NOT_FOUND", "message": f"run {run_id} not found"},
+            status_code=404,
+        )
+    nodes = []
+    for raw in graph.get("nodes", []):
+        node = dict(raw) if isinstance(raw, dict) else {"stage_id": str(raw)}
+        result = node.get("result") if isinstance(node.get("result"), dict) else {}
+        state = str(node.get("state", "pending"))
+        node["state"] = state
+        node["unknown"] = state not in {
+            "completed",
+            "current",
+            "waiting_for_human",
+            "blocked",
+            "failed",
+            "pending",
+            "skipped_by_definition",
+        }
+        node["badges"] = [status_badge(state), *badges_for_result(result)]
+        nodes.append({key: value for key, value in node.items() if key != "result"})
+    return JSONResponse({**graph, "nodes": nodes})
+
+
+async def api_ui_artifact(request: Request) -> JSONResponse:
+    """Return a read-only digest/verdict/reviewer/conclusion projection."""
+    payload = _runs_payload(request)
+    graph = payload.get("graphs", {}).get(request.path_params["run_id"], {})
+    stage_id = request.path_params["stage_id"]
+    node = next(
+        (item for item in graph.get("nodes", []) if item.get("stage_id") == stage_id),
+        None,
+    )
+    if not isinstance(node, dict):
+        return JSONResponse(
+            {"code": "STAGE_NOT_FOUND", "message": f"stage {stage_id} not found"},
+            status_code=404,
+        )
+    result = node.get("result") if isinstance(node.get("result"), dict) else {}
+    metadata = (
+        result.get("metadata") if isinstance(result.get("metadata"), dict) else {}
+    )
+    badge = badges_for_result(result)[0]
+    return JSONResponse(
+        {
+            "run_id": request.path_params["run_id"],
+            "stage_id": stage_id,
+            "result_kind": result.get("kind", ""),
+            "unknown": badge["unknown"],
+            "stale": False,
+            "digest": result.get("digest", ""),
+            "verdict": result.get("verdict", result.get("outcome", "")),
+            "required_reviewer": result.get("role", ""),
+            "review_conclusion": metadata.get("conclusion", metadata.get("note", "")),
+        }
     )
 
 
