@@ -1,7 +1,7 @@
 ---
-locked: false
-locked-at:
-locked-by:
+locked: true
+locked-at: 2026-07-15T13:51:46Z
+locked-by: lk agent sage record-lock
 ---
 # Web UI Foundation — Spec
 
