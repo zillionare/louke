@@ -502,7 +502,7 @@ v0.14 reflow 引入新的 stage 名称与 status 后，v0.13 Web UI 不崩溃，
 
 <a id="fr-1309"></a>
 
-### FR-1309 Dev Docs 文档展示、预览与交叉引用（复用 v0.11-001 FR-0801 / v0.9-001 FR-0200 / v0.9-001 FR-0700）
+### FR-1309 Dev Docs 文档展示、预览与交叉引用 + 受限人类编辑（复用 v0.11-001 FR-0801 / v0.9-001 FR-0200 / v0.9-001 FR-0700）
 
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
@@ -511,8 +511,30 @@ v0.14 reflow 引入新的 stage 名称与 status 后，v0.13 Web UI 不崩溃，
 - 选中 Dev Docs 中一个 Markdown 文档后，main panel 必须以 v0.11-001 FR-0801 规定的展示能力渲染该文档。
 - 编辑器/实时预览分栏与同步滚动行为必须沿用 v0.9-001 FR-0200。
 - 文档内的 FR/NFR/Story 交叉引用必须以 v0.9-001 FR-0700 形式可点击跳转。
-- Dev Docs 由 Agent 生成、不提供 AI 辅助编辑：UI **不暴露** "Save" / "保存" 按钮、不暴露 "AI 辅助编辑" / "AI rewrite" / "AI assist" 等任何写入口；编辑器分栏仅用于只读浏览与实时预览，不向服务端发起任何 PUT/POST/PATCH/DELETE 写请求。
-- 验收引用：AC-FR1309-01 至 AC-FR1309-05。
+- **Dev Docs writable allowlist**（v0.13 本期明确）：UI 允许编辑并落盘的 Dev Docs **只有** `.louke/project/specs/<spec-id>/{story.md, spec.md, acceptance.md}` 三个文件；同一 spec 目录下的 `test-plan.md`、`architecture.md`、`interfaces.md`、`gap-analysis.md`、`m-lock.md` 及任何其它文件**只读**，既不暴露 Save，也不允许向服务端发起写请求。`server-side write` 拒绝矩阵返回 `PATH_NOT_ALLOWED`。
+- **Dev Docs 保存契约**（与 End User Docs 共用同一份 `body_md` roundtrip 协议，使用独立的 path allowlist）：
+  - **保存触发**：仅当目标文件命中 writable allowlist 时显示显式 "Save" 按钮；按钮在内容自上次加载或上次成功保存以来无变化时处于 `disabled`；**不做**自动保存 / 防抖保存 / 离开页面保存。
+  - **保存成功**：HTTP 200，响应体含 `sha256`（保存后文件 digest）与 `saved_at`（ISO-8601 UTC）；前端用 `sha256` 重新拉取预览并刷新分栏；按钮恢复 `disabled`。
+  - **保存失败**：HTTP 4xx，响应体含 `code`（如 `VALIDATION_FAILED` / `TOO_LARGE` / `PATH_NOT_ALLOWED` / `CONFLICT`）与可读 `message`；UI 显示错误 toast，编辑器内容保持不丢失。
+  - **冲突检测**：保存请求携带 `expected_mtime`；服务端检测到 mtime 变化则返回 409 `CONFLICT`；UI 弹出"文件已被外部修改"对话框，提供"重新加载并放弃我的编辑"与"仍要覆盖"两个动作，后者二次确认后以 `force=true` 重发。
+  - **持久化往返**：保存成功后，关闭 tab / 刷新页面 / 重启 `lk serve` 后再次打开同一文件，main panel 渲染内容必须等于最后一次成功保存的字节（通过 SHA-256 校验）。
+  - **认证边界**：保存走现有 loopback / local principal 边界（与 v0.11-001 / FR-1310 一致）；不允许未认证写。
+- **inline-discussion 与全文一致性**：inline-discussion 与正文共用 UTF-8 Markdown 全文作为唯一事实源，编辑与显示通过 Markdown body 中既有的 `>`/`>>`/speaker-tag blockquote marker 完成；**不建立** frontmatter `louke.inline_discussions[]` 列表，**不抽取** discussion、**不重排** marker，**不做**双写保存。Dev Docs 与 End User Docs 使用相同的全文 roundtrip 保存语义。
+- **不得暴露 AI 辅助编辑入口**（"AI rewrite" / "AI assist" 等）适用于 Dev Docs 全集，包括 writable allowlist 内的三个文件。
+- **Out-of-Scope**：`.louke/project/specs/review/**` 的可写能力延期到后续 release，v0.13 **不**新增对应目录、路由、schema 或 UI 入口。
+
+> **Prism** [RESOLVED]: 此 FR 已按 Aaron 在架构评审中的最终决定改写：`story.md` / `spec.md` / `acceptance.md` 三文件可编辑并落盘；同目录其它文件只读；保存与传输的 source of truth 是完整 Markdown 全文，不抽取、重排或规范化 inline-discussion；`review/**` 延期，本期不暴露对应路由/schema。
+
+
+>> **Sage**: FR-1309 已按 Prism 在架构评审中的决定（architecture.md §2 line 35-40）改写：allowlist = story.md|spec.md|acceptance.md；其它文件只读；inline-discussion 通过 Markdown body 中 `>`/`>>`/speaker marker 渲染与编辑，不抽 frontmatter discussion 列表。acceptance.md 已扩展为 AC-FR1309-01—11；interfaces.md §4.3 已新增 Dev Docs 可写 endpoint；Out-of-Scope 已显式列出 review/**。
+
+- 验收引用：AC-FR1309-01 至 AC-FR1309-11。
+
+> **Codex** [RESOLVED]: 独立复审：此引用已过期。acceptance.md 中 FR-1309 现为 AC-FR1309-01—11；请同步这里的验收引用，并同时更新上方 Sage 回复中只列 -06/-07/-08 的陈述，避免 spec 与 acceptance/test-plan 的 86-AC 合同不一致。
+
+
+>> **Codex**: 已直接修复：Sage 说明与验收引用均同步为 AC-FR1309-01—11。
+
 
 ---
 
@@ -529,7 +551,7 @@ v0.14 reflow 引入新的 stage 名称与 status 后，v0.13 Web UI 不崩溃，
 - 文档展示能力沿用 v0.11-001 FR-0801。
 - 编辑器/实时预览分栏沿用 v0.9-001 FR-0200。
 - 不得暴露 AI 辅助编辑入口。
-- 验收引用：AC-FR1310-01 至 AC-FR1310-10。
+- 验收引用：AC-FR1310-01 至 AC-FR1310-12。
 
 **End User Docs 持久化与保存契约（v0.13 本期明确）**：
 
@@ -543,7 +565,7 @@ v0.14 reflow 引入新的 stage 名称与 status 后，v0.13 Web UI 不崩溃，
 - **冲突检测**：保存请求携带客户端已知的 `expected_mtime`（来自加载响应或上一次保存响应）；若文件 mtime 已变化，服务端返回 409 `CONFLICT`，UI 提示"文件已被外部修改"，并提供"重新加载并放弃我的编辑"与"仍要覆盖"两个动作（后者必须二次确认）。
 - **持久化往返**：保存成功后，关闭 tab / 刷新页面 / 重启 Web 服务后再次打开同一文件，main panel 渲染内容必须等于最后一次成功保存的字节（通过 SHA 校验）。
 - **认证边界**：保存走现有 loopback / local principal 边界（与 v0.11-001 一致）；不允许未认证写。
-- **底层能力**：与 Dev Docs 完全一致（FR-1309 复用 v0.11-001 FR-0801 / v0.9-001 FR-0200 / v0.9-001 FR-0700）；额外支持 inline-discussion 的**编辑与显示**（不做 resolved 状态查询）。
+- **底层能力**：与 Dev Docs writable 部分共用同一份 `body_md` roundtrip 协议（FR-1309 复用 v0.11-001 FR-0801 / v0.9-001 FR-0200 / v0.9-001 FR-0700）；**inline-discussion 编辑与显示**通过 Markdown body 中既有的 `>`/`>>`/speaker-tag blockquote marker 完成，与正文共用 UTF-8 Markdown 全文作为唯一事实源；**不建立** frontmatter `louke.inline_discussions[]` 列表、**不抽取** discussion、**不重排** marker、**不做**双写保存；reply 本质是对原 marker 的上下文内编辑，随整份文档通过同一 Save 流程持久化（不做 resolved 状态查询）。
 
 ---
 

@@ -220,7 +220,7 @@ L1/L2 列表表示它们为对应 AC 提供的 contract 证据；凡 acceptance 
 
 **主覆盖 AC**：`AC-FR1306-01—03/05`、`AC-FR1307-01—03` 的最小真实 provider 证据；L1/L2 仍负责完整组合和失败边界。
 
-**Harness**：复用 `docs/v0.12_l3_opencode_smoke_runbook.md` 的 process lifecycle：启动真实 `opencode serve`，使用免费 `opencode/big-pickle`，等待 `/global/health`，并先断言 `/doc` 暴露 `event.subscribe`、`GET /event` 返回 `text/event-stream`。设置 `LOUKE_OPENCODE_BASE_URL` 与 `LOUKE_RUN_REAL_OPENCODE=1` 后，通过 Louke real adapter/public Chat path 创建 session、发送唯一 marker，订阅真实 `/event`，捕获匹配 session 的 `message.part.updated.properties.delta`，等 `session.idle` 后重读最终 transcript，最后 cancel/delete。禁止 `InMemoryOpenCodeAdapter`、echo stand-in、TestClient、`list_messages()` 轮询切块或硬编码 source-tree `sys.path` 冒充 L3。
+**Harness**：复用 `docs/v0.12_l3_opencode_smoke_runbook.md` 的 process lifecycle：启动真实 `opencode serve`，使用免费 `opencode/big-pickle`，等待 `/global/health`，并先断言 `/doc` 暴露 `event.subscribe`、`GET /event` 返回 `text/event-stream`。设置 `LOUKE_OPENCODE_BASE_URL` 与 `LOUKE_RUN_REAL_OPENCODE=1` 后，通过 Louke real adapter/public Chat path 创建 session、发送唯一 marker，订阅真实 `/event`，由 `message.updated` 与 `message.part.updated` 建立 assistant text identity，捕获匹配 session/message/part 且 `field=text` 的 `message.part.delta.properties.delta`，等 `session.idle` 后重读最终 transcript，最后 cancel/delete。禁止 `InMemoryOpenCodeAdapter`、echo stand-in、TestClient、`list_messages()` 轮询切块或硬编码 source-tree `sys.path` 冒充 L3。
 
 **最小 smoke**：浏览器或公开 Chat endpoint 选择 Maestro，发送唯一普通文本 marker，观察同一 transcript message node 的 streaming 增量和最终 assistant marker；再选择另一个已注册 Agent 完成独立 marker 往返，切回 Maestro 后原 transcript 仍在。另发送 `/marker` 与 `!marker`，证明作为普通消息到达 provider，且无 harness/shell side effect。
 
@@ -238,7 +238,7 @@ python -m pytest -m real_opencode tests/e2e -v
 
 ### 5.4 E2E：定向 Chromium browser coverage
 
-除 §6 的**一个 main journey**外，使用同一 live-server fixture 编写可独立运行的定向 Chromium tests；它们不是额外产品旅程，而是浏览器专属 contract tests。
+除 §6 的**一个 main journey**外，针对同一由 `project.toml [e2e]` 外层启动的固定端口 live server 编写可独立运行的定向 Chromium tests；它们不是额外产品旅程，而是浏览器专属 contract tests，pytest fixture 只接收既有 base URL，不负责另启随机端口进程。
 
 **Browser closure AC**：`AC-FR1301-01—05`、`AC-FR1302-01—03`、`AC-FR1303-01—04`、`AC-FR1304-01—03`、`AC-FR1305-01—03`、`AC-FR1306-01—05`、`AC-FR1307-01—04`、`AC-FR1308-01—04`、`AC-FR1309-01—11`、`AC-FR1310-01—12`、`AC-FR1311-01—05`、`AC-FR1312-01—04`、`AC-FR1313-01—04`、`AC-FR1314-01—04`、`AC-FR1315-01—04`、`AC-FR1316-01—04`、`AC-FR1317-01—04`、`AC-FR1318-01—03`。其中 HTTP/filesystem 的完整错误矩阵由 L1/L2 提供，Chromium 负责 AC 明示的浏览器 Then。
 
@@ -337,7 +337,7 @@ lk agent archer ci-scan \
 
 上述命令是实际 runtime contract；其中 pytest 负责 80% coverage，`ci-scan` 目前只负责文件级 reference closure 与 `check_assertions.py` 已实现的 patterns。不得把 `ci-scan` 输出解释成 function-level trace、internal-mock 或 ground-truth isolation 已验证。
 
-**M-DEV 必须扩展 gate**：将 `check_acs.py` 改为 AST/function-scope 检查每个 Python test function 的首行 AC；为 `tests/ground_truth/` 增加 AST forbidden-import（`louke.*`）检查；新增明确的 internal-module patch/mock denylist 或由 review checklist 强制核查。随后 `ci-scan` 聚合这些静态检查，但 coverage 仍由上面的 pytest 命令执行。`.github/workflows/ci.yml` 必须把 coverage target 从仅 `louke.runtime` 扩展到 `louke.web`、安装 Chromium、运行两项 v0.13 browser files，并移除 v0.13 AC scan 的 `continue-on-error`。这些改变落地前，CI 不满足本计划 gate，release 被阻断。
+**M-DEV 必须扩展 gate**：将 `check_acs.py` 改为 AST/function-scope 检查每个 Python test function 的首行 AC；为 `tests/ground_truth/` 增加 AST forbidden-import（`louke.*`）检查；新增明确的 internal-module patch/mock denylist 或由 review checklist 强制核查。随后 `ci-scan` 聚合这些静态检查，但 coverage 仍由上面的 pytest 命令执行。`.github/workflows/ci.yml` 必须把 coverage target 从仅 `louke.runtime` 扩展到 `louke.web`、安装 Chromium、运行单一 `test_v013_chromium_journey_e2e.py` 中的 `Journey` 与 `Targeted` 分组，并移除 v0.13 AC scan 的 `continue-on-error`。这些改变落地前，CI 不满足本计划 gate，release 被阻断。
 
 M-ARCH 后由 `.louke/project/project.toml` 的 `[integration]` / `[e2e]` 固化最终 host-project 执行合同。Coverage gate 采用**局部 + 全局并存**模型：`louke.web` 局部 line coverage ≥80%（UI 相关 unit/integration 合并），其余/全局既有 gate 维持 `pyproject.toml [tool.coverage.report].fail_under = 95` 不变。两者并存，不互相覆盖。
 
@@ -367,7 +367,7 @@ M-ARCH 后由 `.louke/project/project.toml` 的 `[integration]` / `[e2e]` 固化
 >>>>>> **Codex**: 独立复审：重开。project.toml 的 [integration].cwd 实际为 "."，本 thread 尾部正文却写成 cwd=..；architecture.md §9 也仍保留旧 run 命令和“[integration] 缺失”陈述。请先清理这些跨文档残留，再由原 initiator 判断 resolved。
 
 
->>>>>> **Codex**: 已直接修复：尾部配置说明已改为 cwd=.；architecture §9 与 project.toml 的 integration/E2E 字段现一致。L3 Chat 也已改为真实 /event delta 证据，不再轮询完整消息切块。
+>>>>>> **Codex**: 已直接修复：尾部配置说明已改为 cwd=.；architecture §9 与 project.toml 的 integration/E2E 字段现一致。L3 Chat 也已改为真实 /event 的 message.part.delta 证据，不再轮询完整消息切块。
 
 `[integration]` now contains the config: paths=["tests/integration/web","tests/fixtures/web_ui_v013","tests/ground_truth"], run with --cov=louke.web + branch + --cov-fail-under=80, framework=pytest, cwd=.；start/ready/teardown omitted (TestClient in-process, no TCP, per §2.3/§5.2).
 

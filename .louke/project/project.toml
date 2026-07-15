@@ -8,7 +8,7 @@ release_branch = "releases/0.13"
 
 [meta]
 created = "2026-07-15"
-current_stage = "M-FOUND"
+current_stage = "M-ARCH"
 security_audit = "disabled"
 tag = "v0.13.0 (zillionare/louke@v0.13.0)"
 pre_commit = "installed (python + base)"
@@ -34,4 +34,31 @@ v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
 v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
 v0_12_001 = "shipped (2026-07-15, tag v0.12.1; programmatic-workflow-runtime stabilization)"
-v0_13_001 = "M-FOUND (2026-07-15, v0.13-001-web-ui-foundation)"
+v0_13_001 = "M-ARCH (2026-07-15, v0.13-001-web-ui-foundation)"
+
+[integration]
+# v0.13: Starlette TestClient (in-process) + real temporary workspace + SQLite store + contract adapter.
+# Used for cross-module HTTP route contract (production create_app composition), persistence,
+# Auth/Chat/Docs/Wiki/Runs wiring per test-plan §5.2:
+#   AC-FR1304-02/03, AC-FR1306-01—05, AC-FR1307-01—04 (Auth/Chat);
+#   AC-FR1308-01/04, AC-FR1309-01/03/05/06/07/08/09/10/11 (Dev Docs allowlist + byte-exact SHA + dirty + 4xx + 409+force + restart);
+#   AC-FR1310-01—12 (End User Docs dirty/4xx/409 + byte-exact SHA + restart + inline-discussion);
+#   AC-FR1311-01/02/05, AC-FR1312-01—04 (Wiki);
+#   AC-FR1313-01—04, AC-FR1314-01—04, AC-FR1315-01—04, AC-FR1316-01—04 (Runs).
+# Per test-plan §2.3 / §5.2: in-process TestClient, no TCP port, no live server (start/ready/teardown intentionally omitted).
+# Coverage gate: louke.web local ≥80% + rest/global existing 95% (test-plan §7 / project.toml [meta].dod).
+paths = ["tests/integration/web", "tests/fixtures/web_ui_v013", "tests/ground_truth"]
+run = "python -m pytest -m integration tests/integration/web --cov=louke.web --cov-branch --cov-report=term-missing --cov-fail-under=80 -q"
+framework = "pytest"
+cwd = "."
+
+[e2e]
+# v0.13: 单 Chromium 主旅程（toolbar 切换 + 一个 docs 区域 + Wiki + Runs graph + stage artifact 节点）。
+start = "python -m louke e2e start --host 127.0.0.1 --port 8765 --opencode mock"
+ready = "curl -sf http://127.0.0.1:8765/health"
+ready_timeout_seconds = 60
+run = "python -m pytest -m chromium_e2e tests/e2e/test_v013_chromium_journey_e2e.py"
+framework = "pytest"
+cwd = "."
+paths = ["tests/e2e", "tests/fixtures"]
+teardown = "python -m louke e2e stop --port 8765 --cleanup-workspace"

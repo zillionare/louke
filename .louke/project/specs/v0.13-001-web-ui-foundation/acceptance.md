@@ -222,14 +222,53 @@ AC-FR1309-03
 ### AC-4
 AC-FR1309-04
 
-- **Given** Dev Docs 视图渲染完成，**When** 检查 UI，**Then** 不暴露任何 AI 辅助编辑按钮、菜单或快捷键（如 "AI rewrite"、"AI assist" 等）。
+- **Given** Dev Docs 视图渲染完成（覆盖 writable allowlist 内的 `story.md` / `spec.md` / `acceptance.md` 与所有只读文件），**When** 检查 UI 中**所有**按钮、菜单项、tab、右键菜单项、toolbar icon 与键盘快捷键映射（含编辑模式与只读模式），**Then** **不**存在任何 "AI 辅助编辑" / "AI rewrite" / "AI assist" / "AI 续写" / "AI suggestion" 等入口；Editor 分栏仅用于只读浏览与实时预览；Dev Docs 全集（writable allowlist 与只读）永不暴露 AI 写。
 
 ### AC-5
 AC-FR1309-05
 
-- **Given** Dev Docs 任一 Markdown 文档在 main panel 渲染完成，**When** 检查 UI 中所有按钮、菜单、tab、右键菜单，**Then** 不存在 "Save" / "保存" / "提交" 按钮，也不存在向服务端发起的 PUT/POST/PATCH/DELETE 写请求（Network 面板可见）；Dev Docs 由 Agent 生成，UI 不提供落盘入口。
+- **Given** Dev Docs sidebar 选中一个 spec_id 下的文档，**When** 检查目标文件的 "Save" 按钮可见性，**Then** 仅当目标路径属于 `.louke/project/specs/<spec-id>/{story.md, spec.md, acceptance.md}` allowlist 时显示 "Save" 按钮与编辑入口；同一 spec 目录下的 `test-plan.md`、`architecture.md`、`interfaces.md`、`gap-analysis.md`、`m-lock.md` 及任何其它文件**不**显示 Save 按钮、不显示编辑入口；如直接对后者发起 PUT/POST/PATCH/DELETE 写请求，服务端返回 4xx `PATH_NOT_ALLOWED`，文件不被覆盖。
 
----
+### AC-6
+AC-FR1309-06
+
+- **Given** Dev Docs allowlist 内的一个文件 F 处于 dirty 状态（编辑器 `body_md` 与上次成功保存的 bytes 不同），**When** 用户点击 "Save" 并提交 `{body_md, expected_mtime}`，**Then** 服务端返回 HTTP 200，响应体含 `{path, sha256, saved_at, mtime}`，其中 `sha256` = `sha256(磁盘上 F 实际写入后的完整 UTF-8 bytes)`（即直接对 `open(F).read()` 或 `cat F` 的输出做 SHA-256，**不**对 rendered preview 或 HTML 做哈希）；UI 立即用响应 `sha256` 重 GET 完整 `body_md`，且 `sha256(GET 回来的 body_md)` == 响应 `sha256` == `sha256(磁盘 bytes)`，按钮回到 `disabled`；**保存过程中不得抽取、重排或规范化 inline-discussion**（`>`/`>>`/speaker-tag blockquote marker 必须按原样保留在 `body_md` 中，与前端编辑内容一致）。
+
+### AC-7
+AC-FR1309-07
+
+- **Given** Dev Docs allowlist 内的某个 Markdown 文件正文中存在 Agent-attached inline-discussion（表现为 `>`/`>>`/speaker-tag blockquote marker），**When** main panel 渲染该文件，**Then** inline-discussion 由 Vditor/Workbench Client 通过读取 Markdown 正文中的 blockquote + speaker-tag marker 直接渲染；**不**存在 `louke.inline_discussions[]` 之类的 frontmatter discussion 列表读取路径，也**不**在 GET/PUT 响应中返回单独的 `discussions[]` 数组；编辑 reply 本质是在 Markdown body 中编辑 marker，通过同一 Save 流程落盘。
+
+### AC-8
+AC-FR1309-08
+
+- **Given** Dev Docs allowlist 内的一个文件 F 已被加载（前端持有其 `sha256=H_load`、`mtime=M_load`），**When** 编辑器内容与 `H_load` 对应的 bytes 一致（无 dirty），**Then** "Save" 按钮处于 `disabled`（点击不发出任何写请求）；**When** 用户在编辑器中输入/删除/修改任意字符使内容偏离 `H_load` 对应的 bytes（dirty），**Then** 按钮立即恢复 `enabled`，按钮 label 反映 dirty 态（例如文案包含 "Save" + dirty 标记），且**不**做自动保存、防抖保存或离开页面保存。
+
+### AC-9
+AC-FR1309-09
+
+- **Given** Dev Docs allowlist 内的一个文件 F 当前处于 dirty 状态（编辑器的 `body_md != sha256=H_load` 对应的 bytes）、磁盘 mtime 为 `M_load`，**When** 用户点击 "Save" 但服务端返回 4xx（如 `VALIDATION_FAILED` / `TOO_LARGE` / `PATH_NOT_ALLOWED`），**Then** 响应体含 `code` 与可读 `message`；UI 弹出错误 toast；**编辑器中用户已输入的内容保持不丢失**（用户关闭错误 toast 后仍可继续编辑或重试 Save）；磁盘文件 F 的 mtime 保持 `M_load` 未变化（通过 `stat -c %Y F` 或等价 API 校验）；且未对 F 落盘新内容。
+
+### AC-10
+AC-FR1309-10
+
+- **Given** Dev Docs allowlist 内的一个文件 F，前端持有 `expected_mtime = M_load`，**And** 外部进程在用户编辑期间已修改 F（磁盘 mtime 已变为 `M_external`，且 `M_external != M_load`），**When** 用户点击 "Save" 提交 `{body_md, expected_mtime=M_load}`，**Then** 服务端返回 HTTP 409，响应体 `code=CONFLICT`；UI 弹出冲突提示"文件已被外部修改"，并提供**两个**互斥动作：(a) "重新加载并放弃我的编辑"——触发重 GET 并用服务端最新 bytes 覆盖编辑器（dirty 状态清零、按钮回到 `disabled`）；(b) "仍要覆盖"——**必须**经二次确认（模态确认框），确认后以 `force=true` 重发同一 `{body_md, expected_mtime=M_load}`，服务端接受并返回 200 + 新 `sha256`/`saved_at`/`mtime`；放弃二次确认则不发写请求。
+
+### AC-11
+AC-FR1309-11
+
+- **Given** Dev Docs allowlist 内的一个文件 F（含一 fixture：**末尾无 `\n` 的 Markdown**——例如 `tests/fixtures/dev-docs/no-trailing-newline.md` 仅以非换行字符结尾），**When** 用户在编辑器中提交 `{body_md=<该 fixture 的完整字节序列，含末尾字符但不含末尾换行>, expected_mtime=<当前 mtime>}` 并点击 "Save"，**Then** 服务端返回 HTTP 200，响应 `sha256` = `sha256(磁盘写入后 F 的完整 bytes)`；且满足以下四点同时成立：
+  1. `sha256(PUT 请求中的 body_md UTF-8 bytes)` == 响应 `sha256`
+  2. `sha256(磁盘 F 实际 bytes)` == 响应 `sha256`（即服务端没有在底层自动追加 `\n` 或 `\r\n`，否则失败）
+  3. UI 用响应 `sha256` 重 GET 后，`sha256(GET 回来的 body_md UTF-8 bytes)` == 响应 `sha256` 且 `body_md` 末尾仍然**不**含 `\n`
+  4. 后续操作：关闭 Dev Docs tab → 浏览器刷新页面 → 重新打开同一文件 F → 拉取的 `body_md` 与 `sha256` 仍一致；并对 `<project>/.louke/serve` 进程执行 kill + relaunch 后重新打开 F，内容与 `sha256` 仍一致（覆盖关闭/刷新/重启三种持久化往返）。
+
+  测试 fixture 要求：除现有 allowlist 内/外样本外，必须新增一个**无尾换行** fixture（文件末字节不为 `\n` 且不为 `\r\n`），且新增测试显式覆盖"服务端不应自动补尾换行"的负面断言。
+
+> **Prism** [RESOLVED]: FR-1309 的验收仍未闭合。AC-5 与 AC-4 都只验证"无 AI 辅助入口"，语义重复；AC-7 只覆盖成功保存，却把不可观察的"preview bytes digest"当断言。请用一个 AC 保留 AI negative capability，并分别补齐：dirty/Save disabled 状态、4xx 后编辑不丢失、409 的 reload/force 二次确认、关闭/刷新/重启后的 byte-exact SHA round-trip。成功断言应比较 PUT 的完整 Markdown UTF-8 bytes、磁盘实际 bytes、响应 SHA 与重 GET 的完整 `body_md`，而不是 rendered preview digest；同时加入无尾换行 fixture，防止底层自动补换行后仍误通过。
+
+
+>> **sage**: Applied: AC-4/5 merged; AC-7 split into 09-12 (dirty, 4xx preserve, 409 + force confirm, byte-exact SHA round-trip incl. no-trailing-newline fixture); AC-FR1309-07 now asserts sha256 over actual disk bytes.
 
 <a id="ac-fr-1310"></a>
 ## FR-1310 End User Docs 文档树与基础编辑（复用 v0.11-001 FR-0801 / v0.9-001 FR-0200）
@@ -283,6 +322,16 @@ AC-FR1310-09
 AC-FR1310-10
 
 - **Given** 用户尝试保存到 `<project>/.louke/project/specs/...`、`<project>/.louke/project/acceptance.md` 或项目根的其它 `.md` 配置文件（如 `story.md` / `spec.md` / `test-plan.md` / `architecture.md` / `interfaces.md` / `project.toml`），**When** 提交写请求，**Then** 服务端返回 4xx（`PATH_NOT_ALLOWED`），文件不被覆盖；UI 显示错误 toast。
+
+### AC-11
+AC-FR1310-11
+
+- **Given** user has saved file F (sha256=H, saved_at=T), then **louke serve** process restarts (kill + relaunch), **And** user reopens same file F, **Then** main panel renders the same bytes (sha256=H verified) with no data loss.
+
+### AC-12
+AC-FR1310-12
+
+- **Given** user is viewing/editing an End User Docs file F that contains at least one Agent-attached inline-discussion represented as `>`/`>>`/speaker-tag blockquote markers in the Markdown body, **When** main panel renders F, **Then** each inline-discussion is rendered as a visible UI element near its anchor (read) **directly from the Markdown body via blockquote + speaker-tag markers**; **And** when user clicks the inline-discussion body and submits a new reply, **Then** the reply is persisted by editing the existing `>`/`>>`/speaker-tag markers in the Markdown body and saving the entire document through the same Save flow as any other content edit; **no** separate `louke.inline_discussions[]` frontmatter list is read or written; **no** `discussions[]` field appears in GET/PUT response bodies; **no** dedicated `/discussions/{id}/replies` endpoint exists in v0.13. No "resolved" status is shown.
 
 ---
 

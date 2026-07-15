@@ -111,8 +111,8 @@ locked: false
 | --- | --- |
 | Protocol | `OpenCodeAdapter.stream_events(instance_id, last_event_id) -> Iterator[StreamEvent]` |
 | `StreamEvent` | `{event_id:string,type:"delta"\|"completed"\|"error",message_id:string,delta?:string,content?:string,error?:string}` |
-| Real source | OpenCode 项目级 `GET /event` SSE；启动时以 `/doc` 中的 `event.subscribe` 与响应 `Content-Type: text/event-stream` 做 capability check |
-| Delta mapping | 仅接受 `message.part.updated`；`properties.part.sessionID == instance_id` 且 part 为 assistant text；`properties.delta` 原样成为 `delta`，不得从完整 message 切块 |
+| Real source | OpenCode 项目级 `GET /event` SSE；启动时以 `/doc` 中的 `event.subscribe` + `message.part.delta` schema，以及响应 `Content-Type: text/event-stream` 做 capability check |
+| Delta mapping | `message.updated` 记录 `info.role="assistant"` 的 messageID；`message.part.updated` 记录其 `part.type="text"` 的 partID；仅接受同 session、命中该 messageID/partID 且 `field="text"` 的 `message.part.delta.properties.delta`；不得从完整 part/message 切块 |
 | Completion/error | `session.idle` 后重读一次 `list_messages()` 得到最终 assistant `content` 并发 completed；`session.error` 发 error |
 | Isolation | 丢弃其它 session/workspace 事件；Chat 不订阅 `/global/event` |
 | Browser reconnect | facade 按 session 缓存最近 256 个规范化事件；`Last-Event-ID` 命中则续传，未命中则先 transcript resync 再接 live stream |
