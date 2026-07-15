@@ -990,6 +990,10 @@ async def api_ui_run_graph(request: Request) -> JSONResponse:
             "skipped_by_definition",
         }
         node["badges"] = [status_badge(state), *badges_for_result(result)]
+        if node["unknown"]:
+            node["display_label"] = (
+                f"unknown stage/status: {node.get('stage_id', state)}"
+            )
         nodes.append({key: value for key, value in node.items() if key != "result"})
     return JSONResponse({**graph, "nodes": nodes})
 
@@ -1024,6 +1028,7 @@ async def api_ui_artifact(request: Request) -> JSONResponse:
             "verdict": result.get("verdict", result.get("outcome", "")),
             "required_reviewer": result.get("role", ""),
             "review_conclusion": metadata.get("conclusion", metadata.get("note", "")),
+            "display_label": badge["display_label"] if badge["unknown"] else "",
         }
     )
 

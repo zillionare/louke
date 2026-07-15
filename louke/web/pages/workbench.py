@@ -199,11 +199,20 @@ def _runs_content(root: Path) -> str:
     graph = next(iter(payload.get("graphs", {}).values()), {})
     nodes = graph.get("nodes", []) if isinstance(graph, dict) else []
     node_html = "".join(
-        f'<button type="button" data-testid="runs-node-{escape(str(node.get("stage_id", "")))}" data-stage-id="{escape(str(node.get("stage_id", "")))}">{escape(str(node.get("label", node.get("stage_id", ""))))} <span data-testid="badge-{escape(str((node.get("result") or {}).get("outcome", (node.get("result") or {}).get("verdict", "unknown"))))}"></span></button>'
+        f'<button type="button" data-testid="runs-node-{escape(str(node.get("stage_id", "")))}" data-stage-id="{escape(str(node.get("stage_id", "")))}">{escape(str(node.get("label", node.get("stage_id", ""))))} <span data-testid="badge-{escape(str((node.get("result") or {}).get("outcome", (node.get("result") or {}).get("verdict", "unknown"))))}"></span>'
+        f"{_unknown_marker(node)}</button>"
         for node in nodes
         if isinstance(node, dict)
     )
     return f'<div data-tab-content="runs" hidden><section data-testid="runs-graph">{node_html or "Select a run to view its workflow graph"}</section><aside data-testid="stage-artifact-detail" hidden></aside></div>'
+
+
+def _unknown_marker(node: dict) -> str:
+    """Return the explicit fallback marker for an unrecognised result kind."""
+    kind = str((node.get("result") or {}).get("kind", ""))
+    if kind in {"author", "review", "gate"}:
+        return ""
+    return '<span data-testid="stage-unknown-fallback">unknown: true</span>'
 
 
 def _page(
