@@ -137,12 +137,15 @@ $ python -m pytest tests/e2e/test_v12_integration_e2e.py -q --tb=short
 
 ```
 $ git log --oneline 7a66911..HEAD
+b581144 refactor: – #176 – S3: extract _Probe type alias, tighten failure message formatting
+8f61c86 feat: green – #176 – S3: reorder Mount so /api/runtime/bindings precedes /api/runtime; add production route probe + precedence smoke
 5115565 v0.12.1 Batch 1: shadow-copy stage-results to docs/v0121_evidence (tracked)
 ```
 
-(Commit hashes for the S3 R-G-R commits will be appended by `lk agent devon
-commit-rgr` after this evidence file is written; the range
-`5115565..HEAD` will then contain the three S3 commits.)
+SHA range: `5115565..b581144`
+
+- `8f61c86` - Green: test (RED->GREEN) + Mount reorder fix
+- `b581144` - Refactor: extract `_Probe` type alias, tighten failure message formatting
 
 ---
 
