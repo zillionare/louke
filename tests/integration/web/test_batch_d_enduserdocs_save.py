@@ -30,6 +30,21 @@ def test_ac_fr1310_01_canonical_root_listed(tmp_path: Path) -> None:
     }
 
 
+def test_ac_fr1310_02_three_pane_layout(tmp_path: Path) -> None:
+    """AC-FR1310-02: End User Docs exposes tree, preview, and editor hooks."""
+    html = _client(tmp_path).get("/workbench").text
+    assert 'data-testid="enduserdocs-tree"' in html
+    assert 'data-testid="enduserdocs-preview"' in html
+    assert 'data-testid="enduserdocs-editor"' in html
+    assert 'data-testid="enduserdocs-save"' in html
+
+
+def test_ac_fr1310_05_save_button_dirty_disabled(tmp_path: Path) -> None:
+    """AC-FR1310-05: clean editor state declares a disabled save control."""
+    html = _client(tmp_path).get("/workbench").text
+    assert 'data-testid="enduserdocs-save" disabled' in html
+
+
 def test_ac_fr1310_06_save_success_sha_roundtrip(tmp_path: Path) -> None:
     """AC-FR1310-06: saved bytes and response SHA are byte-exact."""
     client = _client(tmp_path)
@@ -58,6 +73,39 @@ def test_ac_fr1310_08_mtime_conflict_409_two_actions(tmp_path: Path) -> None:
     )
     assert response.status_code == 409
     assert response.json()["code"] == "CONFLICT"
+
+
+def test_ac_fr1310_07_save_4xx_preserves_editor(tmp_path: Path) -> None:
+    """AC-FR1310-07: oversized content is rejected before disk mutation."""
+    client = _client(tmp_path)
+    path = ".louke/end-user-docs/basic.md"
+    loaded = client.get(f"/api/files?path={path}").json()
+    response = client.post(
+        "/api/files",
+        json={
+            "path": path,
+            "body_md": "x" * (1024 * 1024 + 1),
+            "expected_mtime": loaded["mtime"],
+        },
+    )
+    assert response.status_code == 413
+    assert response.json()["code"] == "TOO_LARGE"
+    assert client.get(f"/api/files?path={path}").json()["mtime"] == loaded["mtime"]
+
+
+def test_ac_fr1310_09_persistence_round_trip(tmp_path: Path) -> None:
+    """AC-FR1310-09: a newly assembled app reads the saved bytes."""
+    client = _client(tmp_path)
+    path = ".louke/end-user-docs/basic.md"
+    loaded = client.get(f"/api/files?path={path}").json()
+    body = "persisted\nbytes"
+    saved = client.post(
+        "/api/files",
+        json={"path": path, "body_md": body, "expected_mtime": loaded["mtime"]},
+    ).json()
+    reopened = TestClient(create_app(tmp_path)).get(f"/api/files?path={path}").json()
+    assert reopened["body_md"] == body
+    assert reopened["sha256"] == saved["sha256"]
 
 
 def test_ac_fr1310_10_path_not_allowed(tmp_path: Path) -> None:
