@@ -332,9 +332,7 @@ class DiscussParser:
         # architecture chapter headings like "### 5.2 Chat") but still open/reopen
         # must also block readiness. Without this, chapter-anchored threads are
         # silently ignored by the gate.
-        linked_thread_ids = {
-            tid for u in self._units for tid in u["thread_ids"]
-        }
+        linked_thread_ids = {tid for u in self._units for tid in u["thread_ids"]}
         for t in self._threads:
             if t.status == STATUS_RESOLVED:
                 continue

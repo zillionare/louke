@@ -640,13 +640,27 @@ def cmd_record_lock(args):
         return 1
     from ._tools import discuss as _discuss
 
-    result = _discuss.DiscussParser().parse_file(spec_path)
-    if not result.is_ready:
+    design_docs = [
+        spec_path,
+        spec_path.parent / "architecture.md",
+        spec_path.parent / "interfaces.md",
+        spec_path.parent / "test-plan.md",
+    ]
+    existing_docs = [p for p in design_docs if p.exists()]
+    all_blockers = []
+    ready = True
+    for p in existing_docs:
+        r = _discuss.DiscussParser().parse_file(p)
+        if not r.is_ready:
+            ready = False
+            for b in r.ready_blockers:
+                all_blockers.append(f"[{p.name}] {b}")
+    if not ready:
         print(
             "Sage signal: not passed (inline-discussion is_ready=False)",
             file=sys.stderr,
         )
-        for b in result.ready_blockers:
+        for b in all_blockers:
             print(f"  {b}", file=sys.stderr)
         return 1
     # Lex signal

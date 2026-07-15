@@ -321,10 +321,28 @@ def cmd_quote_check(args):
     from ._tools import discuss
 
     if args.check_ready:
-        ready, blockers = discuss.DiscussParser().is_ready(spec_path)
+        design_docs = [
+            spec_path,
+            spec_path.parent / "architecture.md",
+            spec_path.parent / "interfaces.md",
+            spec_path.parent / "test-plan.md",
+        ]
+        existing_docs = [p for p in design_docs if p.exists()]
+        all_blockers: list[str] = []
+        ready = True
+        for p in existing_docs:
+            r, b = discuss.DiscussParser().is_ready(p)
+            if not r:
+                ready = False
+                for bb in b:
+                    all_blockers.append(f"[{p.name}] {bb}")
         if not ready:
-            print(f"spec not ready: {len(blockers)} blocker(s)", file=sys.stderr)
-            for b in blockers:
+            print(
+                f"spec not ready: {len(all_blockers)} blocker(s) across "
+                f"{len(existing_docs)} doc(s)",
+                file=sys.stderr,
+            )
+            for b in all_blockers:
                 print(f"  {b}", file=sys.stderr)
         return 0 if ready else 1
     if args.check_violations:

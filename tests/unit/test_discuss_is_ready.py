@@ -6,6 +6,7 @@ FR/NFR/US sections, ignoring unit-less threads in chapters like
 '### 5.2 Chat'. v0.13 review surfaced this when architecture/interfaces/test-plan
 threads in chapter sections were status='reopen' yet --check-ready returned ready=true.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -13,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-from louke._tools import discuss
 from louke._tools.discuss import DiscussParser, STATUS_REOPEN, STATUS_OPEN
 
 
@@ -56,13 +56,15 @@ def test_chapter_reopen_thread_blocks_readiness(spec_with_chapter_thread: Path):
     print(f"DEBUG is_ready: {result.is_ready}")
     print(f"DEBUG blockers: {result.ready_blockers}")
     reopen_count = sum(1 for t in result.threads if t.status == STATUS_REOPEN)
-    assert reopen_count == 1, f"parser should find the 1 [REOPEN] thread (got {reopen_count})"
+    assert reopen_count == 1, (
+        f"parser should find the 1 [REOPEN] thread (got {reopen_count})"
+    )
     assert result.is_ready is False, (
         f"is_ready must be False when a [REOPEN] thread exists; got True. blockers={result.ready_blockers}"
     )
-    assert any(STATUS_REOPEN in b or "reopen" in b.lower() for b in result.ready_blockers), (
-        f"blockers must mention the reopen thread; got {result.ready_blockers}"
-    )
+    assert any(
+        STATUS_REOPEN in b or "reopen" in b.lower() for b in result.ready_blockers
+    ), f"blockers must mention the reopen thread; got {result.ready_blockers}"
 
 
 @pytest.fixture
