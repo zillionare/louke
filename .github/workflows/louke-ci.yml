@@ -12,9 +12,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - run: pip install louke
+      - name: Sync .github resources into package (matches ci.yml)
+        run: |
+          rm -rf louke/.github
+          mkdir -p louke/.github
+          cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
+          cp -r .github/workflows louke/.github/workflows
+      - name: Build wheel from current checkout
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+          python -m build
+      - name: Install current-checkout wheel (NOT PyPI's broken 0.12.0)
+        run: |
+          python -m venv /tmp/louke-ci-venv
+          /tmp/louke-ci-venv/bin/pip install --force-reinstall --quiet dist/louke-*.whl
+      - name: Sanity check
+        run: |
+          # Verify the wheel has v0.12 subpackages
+          /tmp/louke-ci-venv/bin/python -c "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages, louke.cli_v12; print('OK')"
+          /tmp/louke-ci-venv/bin/lk --version
       - name: AC traceability scan
         run: |
+          export PATH="/tmp/louke-ci-venv/bin:$PATH"
           if [ -n "${SPEC_ID:-}" ]; then
             lk agent archer ci-scan --spec "$SPEC_ID"
           elif [ -d .louke/project/specs ]; then
