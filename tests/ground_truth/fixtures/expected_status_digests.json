@@ -1,0 +1,18 @@
+{
+  "_comment": "Independent expected SHA-256 digests for louke runtime contract_digest() over three artifact bundles. Computed with Python stdlib (hashlib + json, sort_keys=True, separators=(',',':')) - NOT imported from louke. The product (louke.runtime.contract_gates.contract_digest) must produce identical values; if they ever diverge, drift is detected by tests/ground_truth/test_digest_independence.py. See issue #178 (S5).",
+  "algorithm": "sha256 over json.dumps(payload, sort_keys=True, separators=(',',':')) of the artifact map sorted by role; prefixed 'sha256:'",
+  "samples": [
+    {
+      "input": {"story": "sha256:approval", "spec": "sha256:spec_v1", "acceptance": "sha256:acc_v1"},
+      "expected_digest": "sha256:e4a8822af3958835091fa68960a1c8092a2c5acb609cd98c28cde6172af176fd"
+    },
+    {
+      "input": {"story": "sha256:rejected", "spec": "sha256:spec_v1", "acceptance": "sha256:acc_v1"},
+      "expected_digest": "sha256:571205d6351f9a85d4c7134bf4ab3c2245f7d3e02da92266ae8217f321b0a32a"
+    },
+    {
+      "input": {"story": "sha256:waiting_for_human", "spec": "sha256:spec_v1", "acceptance": "sha256:acc_v1"},
+      "expected_digest": "sha256:5bfd824432f35fb4a63b9e1b17fed0eea582950e32128d6b6f6784a4a8ac5be1"
+    }
+  ]
+}

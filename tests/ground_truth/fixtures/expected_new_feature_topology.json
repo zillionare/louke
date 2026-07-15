@@ -1,0 +1,22 @@
+{
+  "_comment": "Independent expected topology for the louke v0.12 `new_feature` workflow definition. Hand-authored from the gap-analysis §3 P1-1 contract (NOT imported from louke). The product catalog (louke.web.api._runtime_store._new_feature_definition) must produce a structurally equivalent graph; if they ever diverge, drift is detected by tests/ground_truth/test_definition_graph.py paired with tests/unit/runtime. See issue #178 (S5).",
+  "definition_id": "new_feature",
+  "version": "1",
+  "start_step": "start",
+  "terminal_step": "complete",
+  "nodes": [
+    "start",
+    "requirements_approval",
+    "design",
+    "m_lock",
+    "implementation",
+    "complete"
+  ],
+  "edges": [
+    {"edge_id": "e1", "from_step": "start", "to_step": "requirements_approval", "condition": "done"},
+    {"edge_id": "e2", "from_step": "requirements_approval", "to_step": "design", "condition": "approved"},
+    {"edge_id": "e3", "from_step": "design", "to_step": "m_lock", "condition": "done"},
+    {"edge_id": "e4", "from_step": "m_lock", "to_step": "implementation", "condition": "approved"},
+    {"edge_id": "e5", "from_step": "implementation", "to_step": "complete", "condition": "done"}
+  ]
+}
