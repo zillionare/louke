@@ -31,7 +31,7 @@ This test plan only declares test methods that are **observable from outside the
 | #   | Cheating Pattern                | Typical Symptom                                |
 | --- | -------------------------------- | ---------------------------------------------- |
 | 1   | Change assertions to fit impl    | spec says "throw exception", test changes to "return False" |
-| 2   | Use skip to evade validation     | `pytest.skip("see e2e")` but e2e is never written |
+| 2   | Use skip to evade validation     | skip/ignore (e.g. `pytest.skip`, `it.skip`) with "see e2e" but e2e is never written |
 | 3   | Assertion degradation            | `assert issubclass(X, Exception)` instead of actually submitting and catching |
 | 4   | try/except: pass                 | Exception path is swallowed                     |
 | 5   | Over-mocking                     | Mock the framework core, testing mock behavior instead |
@@ -49,7 +49,7 @@ This test plan only declares test methods that are **observable from outside the
 2. **Assertion taboos** (CI static checks, violations block merge)
    - No `assert True` / `assert 1` / `assert <obj> is not None` as the sole assertion
    - No `try: ... except: pass` wrapping the code under test
-   - No `pytest.skip(...)` / `@pytest.mark.skip` without a GitHub issue link
+   - No test skip/ignore (e.g. `pytest.skip` / `@pytest.mark.skip`, jest `it.skip`, Go `t.Skip`) without a GitHub issue link
 
 3. **Test change classification** (required in PR description)
    - [ ] New AC (link to acceptance.md commit)
@@ -65,8 +65,9 @@ This test plan only declares test methods that are **observable from outside the
 
 ### 1.5. Test Division of Labor
 
-- **Unit tests / Integration tests**: Written by the **implementer** of the feature (committed alongside impl)
-- **E2E tests**: Written by the **test lead** or dedicated test engineer
+- **Unit tests**: Written by the **implementer** (Devon, committed alongside impl in R-G-R)
+- **Integration tests**: Written by the **test lead** (Shield) - covers module interface contracts defined in interfaces.md
+- **E2E tests**: Written by the **test lead** (Shield) - covers user-facing happy paths only
 - **Ground Truth (§3)**: Provided by an **independent developer** not involved in the implementation under test, or a **third-party library**
 - **Review ownership**: All test changes are reviewed by the test lead; Ground Truth script changes require focused review of semantic consistency with the corresponding AC
 
@@ -79,7 +80,8 @@ This test plan only declares test methods that are **observable from outside the
 ```
 tests/
 ├── unit/          # Unit tests; mirror source file directory structure
-├── e2e/           # End-to-end scenario tests
+├── integration/   # Integration tests; verify module interface contracts
+├── e2e/           # End-to-end scenario tests (happy path only)
 ├── assets/        # Offline, reproducible test data
 └── ground_truth/  # Optional: pure/reference implementation; must not import the system under test (see §3.2)
 ```
@@ -98,7 +100,7 @@ tests/
 - **Offline**: Tests do not depend on network (data is pinned)
 - **Execution order**: unit (fast) → integration → e2e (slow)
 - **CI**: Run the full suite on every push
-- **Isolation**: E2E uses a dedicated marker (e.g. `@pytest.mark.e2e`) to avoid mixing with unit tests
+- **Isolation**: Integration and e2e use the project framework's marker/tag/select mechanism (e.g. pytest `@pytest.mark.integration` / `@pytest.mark.e2e`, jest `--testPathPattern`, `go test -run`, `cargo test --test`) to avoid mixing with unit tests
 
 ### 2.4. Test Data (project optional)
 
@@ -153,9 +155,11 @@ This test plan covers all requirements in spec.md in the same directory (and any
 ## 5. Acceptance Criteria
 
 1. Unit test coverage ≥95% (specific tooling depends on project language)
-2. User scenarios in Stories and Spec are fully covered and pass
-3. All FRs have corresponding test coverage (AC reference closure)
-4. If §6 external dependency layered testing is enabled: L1/L2 pass by default in CI; L3 is runnable in the corresponding environment
+2. Every cross-module interface contract defined in interfaces.md has at least one integration test (happy + key error/edge paths)
+   > A **cross-module interface** = an interfaces.md entry whose `modules` column lists 2+ modules (Archer marks this from architecture.md's module boundaries). Shield reads this column as a checklist; it does not infer module boundaries.
+3. User scenarios in Stories and Spec are fully covered by e2e happy paths and pass
+4. All FRs have corresponding test coverage (AC reference closure)
+5. If §6 external dependency layered testing is enabled: L1/L2 pass by default in CI; L3 is runnable in the corresponding environment
 
 ---
 
@@ -196,7 +200,7 @@ Divided into three layers by fidelity/cost/speed. The ACs covered by each layer 
 - **L2 Contract sim**: Start a stand-in service that follows the same protocol (database/gateway/external API); the framework interacts with the stand-in
 - **L3 Real env smoke**: Real calendar + real dependencies, single round-trip smoke (≤1 transaction); deselected by default, only runs in environments with real dependencies
 
-> Any L3 test **must** be tagged with the corresponding marker (replacing the `pytest.skip` in §1.4); it must not evade L3 with a skip that has no issue link.
+> Any L3 test **must** be tagged with the corresponding marker (replacing the skip in §1.4); it must not evade L3 with a skip that has no issue link.
 
 ### 6.4. Responsibility Contract of Test Infrastructure
 
@@ -249,3 +253,5 @@ Validation items:
 - [ ] §3 Ground Truth method is documented (if the project needs it)
 - [ ] §6 External dependency layered testing is documented (if the project has external dependencies)
 - [ ] interfaces.md is closed with test-plan (every external outlet has test coverage)
+- [ ] Cross-module interfaces in interfaces.md are marked (modules column) and scoped for integration coverage
+- [ ] e2e scope is limited to happy paths (edge/error/boundary cases routed to integration tests)
