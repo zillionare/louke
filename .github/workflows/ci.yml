@@ -96,7 +96,7 @@ jobs:
         run: |
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
-          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov fastapi
+          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov fastapi httpx starlette build
       - name: Run unit + integration + ground_truth with coverage
         run: |
           /tmp/lk-venv/bin/python -m pytest tests/unit tests/integration tests/ground_truth \
@@ -119,31 +119,28 @@ jobs:
         with:
           name: louke-wheel
           path: dist/
-      - name: Install wheel into clean venv
+      - name: Install wheel + runtime deps into clean venv
         run: |
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
-      - name: Install bats-core + pyyaml
-        # bats tests use 'python3' which on setup-python runners resolves to
-        # /opt/hostedtoolcache/Python/<ver>/x64/bin/python3 (NOT /usr/bin/python3),
-        # so apt-get's python3-yaml won't be picked up. Install pyyaml via pip
-        # into the active python so 'import yaml' works in FORM-002/007/008/010.
+      - name: Install bats-core + pyyaml + runtime deps for bats tests
+        # bats tests invoke 'python3 -m louke' which needs starlette + fastapi + httpx
+        # (wheel provides these but we explicitly install fastapi as documented)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends bats
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet pyyaml fastapi
       - name: Run bats suite
         # Bats tests invoke 'python3 -m louke' via $PY, and louke/__init__.py
         # cascades 'from . import opencode, opencode_api' -> 'import starlette'
-        # at opencode_api.py:5. The system python3 (setup-python) only has pyyaml,
-        # so 380 bats tests would fail with ModuleNotFoundError: No module named
-        # 'starlette'. Prepend the wheel venv to PATH so 'python3' resolves to
-        # /tmp/lk-venv/bin/python3 (which has louke + all runtime deps).
+        # at opencode_api.py:5. PATH is set so 'python3' resolves to /tmp/lk-venv.
+        # We invoke bats directly (not 'make test') because the Makefile looks for
+        # .venv/bin/activate which doesn't exist in CI; only /tmp/lk-venv does.
         run: |
           export PATH="/tmp/lk-venv/bin:$PATH"
           which python3
           python3 -c "import louke, starlette, httpx, fastapi; print('ok')"
-          make test
+          bats tests/*.bats
 
   # ── AC traceability scan (non-blocking, parallel with pytest/bats) ─
   ac-scan:
