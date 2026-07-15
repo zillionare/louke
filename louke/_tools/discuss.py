@@ -301,7 +301,13 @@ class DiscussParser:
                 if u["heading_line"] <= t.root_line < upper:
                     u["thread_ids"].append(t.thread_id)
 
-        # is_ready decision (QoderWork P0-NEW: all thread statuses == "resolved")
+        # is_ready decision (QoderWork P0-NEW + v0.13 fix):
+        #   - All FR/NFR-scoped threads must be status=resolved
+        #   - US-scoped threads: same
+        #   - Plus any thread (FR/NFR/US OR unit-less, e.g. anchored to a chapter
+        #     section like "### 5.2 Chat" in architecture/interfaces/test-plan)
+        #     that is open OR reopen must block. reopen ≡ open (a thread incorrectly
+        #     closed before; still needs work).
         blockers = []
         for u in self._units:
             if u["kind"] in ("FR", "NFR"):
@@ -321,6 +327,24 @@ class DiscussParser:
                     t = next((x for x in self._threads if x.thread_id == tid), None)
                     if t and t.status != STATUS_RESOLVED:
                         blockers.append(f"{u['id']}: thread {tid} status={t.status!r}")
+
+        # Catch-all: any thread NOT yet linked to a unit (e.g. anchored to
+        # architecture chapter headings like "### 5.2 Chat") but still open/reopen
+        # must also block readiness. Without this, chapter-anchored threads are
+        # silently ignored by the gate.
+        linked_thread_ids = {
+            tid for u in self._units for tid in u["thread_ids"]
+        }
+        for t in self._threads:
+            if t.status == STATUS_RESOLVED:
+                continue
+            if t.thread_id in linked_thread_ids:
+                # Already reported above with FR/NFR/US context
+                continue
+            anchors = t.anchor_line or t.root_line
+            blockers.append(
+                f"unanchored thread {t.thread_id} status={t.status!r} at line {anchors} (need resolved)"
+            )
 
         result = ParseResult(
             threads=list(self._threads),

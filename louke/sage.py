@@ -138,10 +138,33 @@ def cmd_quote_check(args):
     from ._tools import discuss
 
     if args.check_ready:
-        ready, blockers = discuss.DiscussParser().is_ready(spec_path)
+        # Aggregate across spec.md + design docs (architecture.md, interfaces.md,
+        # test-plan.md). Per FR-0060 the gate must catch blockers in any doc;
+        # otherwise chapter-anchored threads in design docs are silently ignored.
+        spec_dir = spec_path.parent
+        design_docs = [
+            spec_path,
+            spec_dir / "architecture.md",
+            spec_dir / "interfaces.md",
+            spec_dir / "test-plan.md",
+        ]
+        existing = [p for p in design_docs if p.exists()]
+        all_blockers: list[str] = []
+        ready = True
+        for path in existing:
+            ready_one, blockers = discuss.DiscussParser().is_ready(path)
+            if not ready_one:
+                ready = False
+                # Annotate blockers with file basename so multi-file output is traceable
+                for b in blockers:
+                    all_blockers.append(f"[{path.name}] {b}")
         if not ready:
-            print(f"spec not ready: {len(blockers)} blocker(s)", file=sys.stderr)
-            for b in blockers:
+            print(
+                f"spec not ready: {len(all_blockers)} blocker(s) across "
+                f"{len(existing)} doc(s)",
+                file=sys.stderr,
+            )
+            for b in all_blockers:
                 print(f"  {b}", file=sys.stderr)
         return 0 if ready else 1
     if args.check_violations:
