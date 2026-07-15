@@ -67,8 +67,8 @@ def chromium_is_installed() -> bool:
 
 
 _SKIP_REASON = (
-    "Chromium not installed; run `python -m playwright install chromium` "
-    "to enable the S8 product journey test"
+    "Chromium not installed; see issue #180 S8 (AC: setup-only journey); "
+    "install with: python -m playwright install chromium"
 )
 
 
@@ -300,8 +300,11 @@ def test_chromium_setup_journey(installed_wheel_server, tmp_path: Path) -> None:
 
             # Navigate to /; in setup-only mode the server redirects to /setup.
             response = page.goto(base_url + "/", wait_until="domcontentloaded")
+            # A 303 redirect is followed and reported as the final 200 response.
             assert response is not None, "navigation to / returned no response"
-            # A 303 redirect is reported as the final response after following.
+            assert response.status == 200, (
+                f"expected / to settle on /setup with HTTP 200, got {response.status}"
+            )
             assert "/setup" in page.url, (
                 f"expected / to redirect to /setup, landed on {page.url!r}"
             )
