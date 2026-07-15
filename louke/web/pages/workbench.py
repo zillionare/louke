@@ -40,7 +40,7 @@ def _toolbar() -> str:
 def _spec_tree(specs_dir: Path, root: Path) -> list[tuple[str, list[str]]]:
     if not specs_dir.exists():
         return []
-    result = []
+    result: list[tuple[str, list[str]]] = []
     for directory in sorted(path for path in specs_dir.iterdir() if path.is_dir()):
         files = sorted(
             path.relative_to(root).as_posix()
