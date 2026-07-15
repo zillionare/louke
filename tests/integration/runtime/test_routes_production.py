@@ -33,6 +33,11 @@ _V12_SUBAPPS_ATTR: str = "v12_run_store"
 _REPO_ROOT: Path = Path(__file__).resolve().parents[3]
 _APP_MODULE_PATH: Path = _REPO_ROOT / "louke" / "web" / "app.py"
 
+#: A bindings probe tuple: (method, path, json_body, query_params).
+#: ``json_body`` is a raw JSON string (or None) so ``TestClient.request`` can
+#: pass it straight through as ``content`` without an extra dumps round-trip.
+_Probe = tuple[str, str, str | None, dict[str, str] | None]
+
 
 def _write_project_toml(root: Any) -> None:
     """Write a minimal project.toml so ``create_app`` does not fail on meta reads.
@@ -176,7 +181,7 @@ class TestBindingsRoutesReachableViaCreateApp:
         )
         run_id = create_resp.json()["run_id"]
 
-        probes: list[tuple[str, str, str | None, dict[str, str] | None]] = [
+        probes: list[_Probe] = [
             ("GET", "/api/runtime/bindings/devon", None, {"run_id": run_id}),
             (
                 "PUT",
@@ -190,9 +195,7 @@ class TestBindingsRoutesReachableViaCreateApp:
         for method, path, body, params in probes:
             resp = client.request(method, path, content=body, params=params)
             if resp.status_code == 404:
-                failures.append(
-                    f"{method} {path} -> 404 (route shadowed): {resp.text}"
-                )
+                failures.append(f"{method} {path} -> 404 (route shadowed): {resp.text}")
             elif resp.status_code >= 500:
                 failures.append(
                     f"{method} {path} -> {resp.status_code} (server error): {resp.text}"
