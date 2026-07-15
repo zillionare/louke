@@ -68,6 +68,7 @@ from .pages.runs import (
 )
 from .pages.migration import create_app as _create_migration_page_app
 from .pages.workbench import workbench
+from .api.files import files as end_user_files
 
 projects_app = _create_projects_app()
 runtime_app = _create_runtime_app()
@@ -124,6 +125,7 @@ def create_app(
                 methods=["POST"],
             ),
             Route("/api/specs", endpoint=api_specs, methods=["GET"]),
+            Route("/api/files", endpoint=end_user_files, methods=["GET", "POST"]),
             Route(
                 "/api/ui/dev-docs/tree", endpoint=api_ui_devdocs_tree, methods=["GET"]
             ),
