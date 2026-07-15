@@ -43,7 +43,10 @@ def subprocess_env() -> dict[str, str]:
     where the dylib is not needed the extra path is simply unused.
     """
     env = os.environ.copy()
-    for candidate in (Path(sys.base_prefix) / "lib", Path(sys.base_prefix).parent / "lib"):
+    for candidate in (
+        Path(sys.base_prefix) / "lib",
+        Path(sys.base_prefix).parent / "lib",
+    ):
         if candidate.exists() and any(candidate.glob("libpython*.dylib")):
             env["DYLD_LIBRARY_PATH"] = (
                 str(candidate) + os.pathsep + env.get("DYLD_LIBRARY_PATH", "")
@@ -111,12 +114,15 @@ def create_clean_venv(prefix: Path) -> Path:
 
 def _pip_works(venv_python: Path) -> bool:
     """Return True if ``venv_python -m pip --version`` exits cleanly."""
-    return subprocess.run(
-        [str(venv_python), "-m", "pip", "--version"],
-        capture_output=True,
-        text=True,
-        env=subprocess_env(),
-    ).returncode == 0
+    return (
+        subprocess.run(
+            [str(venv_python), "-m", "pip", "--version"],
+            capture_output=True,
+            text=True,
+            env=subprocess_env(),
+        ).returncode
+        == 0
+    )
 
 
 def _bootstrap_pip(venv_python: Path) -> None:
@@ -156,8 +162,14 @@ def install_wheel(venv_python: Path, wheel_path: Path) -> None:
         RuntimeError: If ``pip install`` fails.
     """
     completed = subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--force-reinstall",
-         str(wheel_path)],
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--force-reinstall",
+            str(wheel_path),
+        ],
         capture_output=True,
         text=True,
         env=subprocess_env(),

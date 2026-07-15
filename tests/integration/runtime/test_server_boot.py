@@ -82,7 +82,9 @@ def wait_for_health(base_url: str, *, timeout: float = 30.0) -> dict:
     )
 
 
-def get_status(base_url: str, path: str, *, timeout: float = 5.0) -> tuple[int, str | None]:
+def get_status(
+    base_url: str, path: str, *, timeout: float = 5.0
+) -> tuple[int, str | None]:
     """Issue a GET and return ``(status_code, location_header_or_None)``.
 
     Uses :mod:`http.client` directly so redirects are NOT followed; the
@@ -142,9 +144,7 @@ class _ServerProcess:
         return self._proc.returncode
 
 
-def start_lk_serve(
-    *, venv_dir: Path, port: int, project_root: Path
-) -> _ServerProcess:
+def start_lk_serve(*, venv_dir: Path, port: int, project_root: Path) -> _ServerProcess:
     """Spawn ``lk serve`` in the given venv as a background subprocess.
 
     Args:
@@ -161,10 +161,14 @@ def start_lk_serve(
     env = _venv_env(venv_dir)
     proc = subprocess.Popen(
         [
-            str(lk_bin), "serve",
-            "--host", "127.0.0.1",
-            "--port", str(port),
-            "--project-root", str(project_root),
+            str(lk_bin),
+            "serve",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--project-root",
+            str(project_root),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -195,9 +199,7 @@ def _venv_env(venv_dir: Path) -> dict[str, str]:
 
 
 @pytest.fixture()
-def running_lk_serve(
-    built_wheel: Path, clean_venv: tuple[Path, Path], tmp_path: Path
-):
+def running_lk_serve(built_wheel: Path, clean_venv: tuple[Path, Path], tmp_path: Path):
     """Start ``lk serve`` from a clean wheel install; yield ``(base_url, proc)``.
 
     Builds the wheel, installs it in a clean venv, spawns ``lk serve`` in

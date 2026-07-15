@@ -33,7 +33,9 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
+import venv
 from pathlib import Path
 
 import pytest
@@ -42,6 +44,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # Chromium availability detection
 # ---------------------------------------------------------------------------
+
 
 def chromium_is_installed() -> bool:
     """Return True if Playwright's expected Chromium executable is installed.
@@ -73,6 +76,7 @@ _SKIP_REASON = (
 # Server boot helpers (mirror S7's hermetic clean-venv approach)
 # ---------------------------------------------------------------------------
 
+
 def _repo_root() -> Path:
     """Return the repository root (this file lives under it).
 
@@ -90,7 +94,10 @@ def _subprocess_env() -> dict[str, str]:
     it. Without this, the spawned server SIGABRTs before binding its port.
     """
     env = os.environ.copy()
-    for candidate in (Path(sys.base_prefix) / "lib", Path(sys.base_prefix).parent / "lib"):
+    for candidate in (
+        Path(sys.base_prefix) / "lib",
+        Path(sys.base_prefix).parent / "lib",
+    ):
         if candidate.exists() and any(candidate.glob("libpython*.dylib")):
             env["DYLD_LIBRARY_PATH"] = (
                 str(candidate) + os.pathsep + env.get("DYLD_LIBRARY_PATH", "")
@@ -130,8 +137,6 @@ def _build_wheel(out_dir: Path) -> Path:
 
 def _create_clean_venv(prefix: Path) -> Path:
     """Create a throwaway virtualenv at ``prefix`` and return its python path."""
-    import venv
-
     venv.create(str(prefix), with_pip=False, clear=True)
     py = prefix / "bin" / "python"
     completed = subprocess.run(
@@ -148,8 +153,14 @@ def _create_clean_venv(prefix: Path) -> Path:
 def _install_wheel(venv_python: Path, wheel_path: Path) -> None:
     """Install ``wheel_path`` (with its declared deps) into the target venv."""
     completed = subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--force-reinstall",
-         str(wheel_path)],
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--force-reinstall",
+            str(wheel_path),
+        ],
         capture_output=True,
         text=True,
         env=_subprocess_env(),
@@ -173,7 +184,7 @@ def _wait_for_health(base_url: str, *, timeout: float = 30.0) -> None:
             with urllib.request.urlopen(f"{base_url}/health", timeout=2) as resp:
                 if resp.status == 200:
                     return
-        except (urllib.request.URLError, ConnectionError, OSError) as exc:
+        except (urllib.error.URLError, ConnectionError, OSError) as exc:
             last_error = exc
         time.sleep(0.5)
     raise TimeoutError(
@@ -209,6 +220,7 @@ class _ServerProcess:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def installed_wheel_server(tmp_path_factory: pytest.TempPathFactory):
     """Build wheel, install in clean venv, spawn ``lk serve``; yield base URL.
@@ -233,10 +245,14 @@ def installed_wheel_server(tmp_path_factory: pytest.TempPathFactory):
 
     proc = subprocess.Popen(
         [
-            str(venv_dir / "bin" / "lk"), "serve",
-            "--host", "127.0.0.1",
-            "--port", str(port),
-            "--project-root", str(project_root),
+            str(venv_dir / "bin" / "lk"),
+            "serve",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--project-root",
+            str(project_root),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -255,6 +271,7 @@ def installed_wheel_server(tmp_path_factory: pytest.TempPathFactory):
 # ---------------------------------------------------------------------------
 # Journey test
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.chromium_e2e
 @pytest.mark.skipif(not chromium_is_installed(), reason=_SKIP_REASON)
