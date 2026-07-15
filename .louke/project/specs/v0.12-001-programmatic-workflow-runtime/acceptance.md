@@ -2,7 +2,7 @@
 
 - **Spec ID**：`v0.12-001-programmatic-workflow-runtime`
 - **Created**：2026-07-13
-- **Status**：M-LOCK Approved — M-DEV Not Started
+- **Status**：M-DEV completed (2026-07-14); v0.12.1 stabilization patch (Batches 1-6) committed on `main` 2026-07-15; tag `v0.12.1` (post-tag CI fixes: `eac37d9`, `d8cfee2`, `78a65e6`)
 
 > 每个条件从 Runtime 的公开服务接口、Web 用户界面、持久化观察出口或外部 adapter 边界验证。不得通过读取或修改内部 Python 对象伪造通过。
 
