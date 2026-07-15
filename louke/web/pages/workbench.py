@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from starlette.responses import HTMLResponse
 from starlette.requests import Request
+from starlette.responses import HTMLResponse
 
 
 TOOLBAR_ITEMS = (
@@ -15,11 +15,6 @@ TOOLBAR_ITEMS = (
     ("accounts", "Accounts", "●"),
     ("gears", "Settings", "⚙"),
 )
-
-
-def create_app() -> object:
-    """Return the workbench endpoint callable for the main Starlette app."""
-    return workbench
 
 
 async def workbench(request: Request) -> HTMLResponse:
