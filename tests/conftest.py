@@ -14,6 +14,11 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "e2e: end-to-end browser test (Playwright)")
     config.addinivalue_line(
         "markers",
+        "integration: integration test (real TestClient / temp store / HTTP), "
+        "not a browser E2E (see gap-analysis §3 P1-1 / issue #177)",
+    )
+    config.addinivalue_line(
+        "markers",
         "real_opencode: L3 smoke test that requires a live OpenCode provider "
         "(run only when LOUKE_RUN_REAL_OPENCODE=1 and real credentials are set)",
     )

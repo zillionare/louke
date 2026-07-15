@@ -1,11 +1,21 @@
-"""Integration-style e2e for v0.12 sub-apps (FR-0101..1701).
+"""Integration tests for the v0.12 workflow-run lifecycle (FR-0101..1701).
 
 These tests stand up the full Starlette app stack (v0.12 sub-apps + v0.11 web
 routes mounted together, with a fresh in-memory SQLite per test) and exercise
-end-to-end flows. They do NOT start a live uvicorn server; the conftest
-default skips the live-server fixture.
+multi-step flows via the in-process Starlette ``TestClient``. They do NOT
+start a live uvicorn server and are NOT browser E2E; the conftest default skips
+the live-server fixture.
 
-AC references covered (one e2e test per FR):
+Test layer (gap-analysis §3 P1-1 / §4 Batch 3, issue #177 S4): this file was
+``tests/e2e/test_v12_integration_e2e.py`` and has been moved to
+``tests/integration/runtime/`` because its name and behaviour are integration
+(Starlette ``TestClient`` + real temporary store + multi-step flows), not
+end-to-end browser/CLI journeys. It is now selected via ``pytest -m
+integration`` and is no longer collected by ``pytest -m e2e``. The file carries
+no ``@pytest.mark.e2e`` decorator; the path-based auto-mark in
+``tests/integration/conftest.py`` applies the ``integration`` marker.
+
+AC references covered (one integration test per FR):
 - FR-0101 (AC-FR0101-01..04): WorkflowRun lifecycle - preview, confirm, audit events.
 - FR-0401 (AC-FR0401-01): ProjectStore create/read/update via HTTP archive.
 - FR-0901 (AC-FR0901-01..04): M-LOCK semantics - gate blocks, approve, advance.
@@ -27,11 +37,12 @@ portal stays alive for the test, then injects a single shared store into all
 four sub-apps via ``portal.call`` so cross-sub-app flows (e.g. create a
 project via ``/api/projects`` then read its run via ``/api/runtime``) work.
 
-The ``/api/runtime/bindings`` Mount is shadowed by ``/api/runtime`` in
-``app.py`` (a pre-existing routing issue out of scope for this issue), so the
-FR-1301 bindings test uses a dedicated wrapper app that mounts the real
-bindings sub-app at a non-shadowed path, with the same shared store injected.
-This is still a real integration: real sub-app + real store + multi-step flow.
+The FR-1301 bindings test builds a dedicated wrapper app that mounts the real
+bindings sub-app at a non-shadowed path alongside the real runtime sub-app,
+with the same shared store injected. (The ``/api/runtime/bindings`` Mount
+shadow was fixed in Batch 2 / issue #176 by reordering Mounts so the longer
+prefix precedes the wider one; the wrapper is retained here to keep the
+bindings flow self-contained alongside the other FR lifecycle tests.)
 """
 
 from __future__ import annotations
@@ -562,14 +573,16 @@ def test_e2e_fr_1301_agent_bindings_default_and_override(
 ) -> None:
     """AC-FR1301-01..02: list defaults, PUT override updates effective model.
 
-    The ``/api/runtime/bindings`` Mount is shadowed by ``/api/runtime`` in
-    ``app.py`` (pre-existing routing issue out of scope for this issue). To
-    exercise the real bindings sub-app end-to-end, this test builds a small
-    wrapper Starlette app that mounts the real bindings sub-app at a
-    non-shadowed path (``/api/bindings``) alongside the real runtime sub-app,
-    injects the same shared store, and drives the multi-step flow: create a
-    run via the runtime sub-app, list default bindings, PUT an override, then
-    re-list to verify the override persists.
+    The bindings flow uses a dedicated wrapper Starlette app that mounts the
+    real bindings sub-app at a non-shadowed path (``/api/bindings``) alongside
+    the real runtime sub-app, injects the same shared store, and drives the
+    multi-step flow: create a run via the runtime sub-app, list default
+    bindings, PUT an override, then re-list to verify the override persists.
+
+    Note: the production ``/api/runtime/bindings`` Mount shadow was fixed in
+    Batch 2 / issue #176 (Mounts reordered so the longer prefix precedes the
+    wider one). The wrapper is retained here so the bindings lifecycle stays
+    self-contained alongside the other FR lifecycle tests in this file.
     """
     from louke.web.api._runtime_store import build_run_store
     import louke.web.app as appmod
