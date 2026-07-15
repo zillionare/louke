@@ -247,12 +247,26 @@ PYEOF
 # FR-0040: lk agent lint
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0040: lk agent lint 12 agents pass" {
+@test "FR-0040: lk agent lint passes" {
     cd "$REPO_ROOT"
     run python3 -m louke agent lint
-    [ "$status" -eq 0 ] || { echo "FAIL: lint exit $status"; false; }
-    [[ "$output" == *"12 agents pass lint"* ]] || {
-        echo "FAIL: expected '12 agents pass lint' in output, got: $output"
+    [ "$status" -eq 0 ] || { echo "FAIL: lint exit $status: $output"; false; }
+    # Robust: parse the agent count from output rather than hard-coding it.
+    # Output format: '✓ OK N agents pass lint (K with permission)'. When
+    # new agent .md files are added (e.g. Story.md added 2026-07 by user),
+    # this test stays green.
+    local agent_count
+    agent_count=$(echo "$output" | grep -oE '[0-9]+ agents pass lint' | head -1 | grep -oE '[0-9]+' || true)
+    if [ -z "$agent_count" ]; then
+        echo "FAIL: could not parse agent count from lint output: $output"
+        false
+    elif [ "$agent_count" -lt 1 ]; then
+        echo "FAIL: expected >=1 agents, got $agent_count"
+        false
+    fi
+    # Also assert the success marker
+    [[ "$output" == *"pass lint"* ]] || {
+        echo "FAIL: expected 'pass lint' in output, got: $output"
         false
     }
 }
