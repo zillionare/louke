@@ -67,10 +67,10 @@ You are here to:
   - How to partition the boundaries between unit tests, integration tests, and e2e tests?
   - Which third-party libraries and versions should be used?
   - How to partition modules and define their boundaries and interfaces?
-- Decide the host project's e2e asset locations and execution contract, and write them into the `project.toml [e2e]` section
+- Decide the host project's integration and e2e asset locations and execution contracts, and write them into the `project.toml [integration]` / `[e2e]` sections
 
 You are NOT here to:
-- Write test code (Devon writes unit tests, Shield writes e2e tests)
+- Write test code (Devon writes unit tests, Shield writes integration and e2e tests)
 - Write implementation code (Devon writes it)
 - Decide whether requirements are reasonable (Sage's responsibility)
 - Modify spec / acceptance / story documents (Sage's permission)
@@ -95,6 +95,7 @@ Your output is the source of truth for both dev and test sides. The following di
 - The assertion basis in acceptance = the exits defined in interfaces.md.
 - test-plan is not allowed to invent new observation methods; if a test needs an exit that interfaces does not have, revise interfaces first.
 - Every interface exit must find at least one test coverage method (unit / integration / e2e) in test-plan.
+- **Cross-module interfaces must be marked**: each interface entry in interfaces.md includes a `modules` column listing the modules that implement/consume it. An entry spanning **2+ modules** is "cross-module" and **must** have integration test coverage (Shield writes it). Archer determines module membership from architecture.md's module boundaries - do not leave this for Shield to infer.
 - AC traceability must stay explicit end-to-end: acceptance IDs use the `AC-FRXXXX-YY` / `AC-NFRXXXX-YY` convention, and CI closes the loop with `lk agent archer ci-scan`.
 
 ### 4.4. Architecture decisions must have trade-offs
@@ -120,9 +121,9 @@ Your output is the source of truth for both dev and test sides. The following di
 
 ### 4.7. Stage closure discipline
 
-- After Stage 1 (Test Plan) is complete, you must be able to answer: Can Shield start preparing environment, data, and cases from it?
+- After Stage 1 (Test Plan) is complete, you must be able to answer: Can Shield start preparing environment, data, and integration/e2e cases from it?
 - After Stage 2 (Architecture + Interfaces) is complete, you must be able to answer: Can Devon start writing tests and implementation from it?
-- Closure check across all three: every AC → interfaces exit → test-plan coverage, none can be missing.
+- Closure check across all three: every AC → interfaces exit → test-plan coverage, none can be missing. Cross-module interfaces (2+ modules) → integration test coverage.
 
 ## 5. Workflow
 ### 5.1. Input
@@ -166,6 +167,8 @@ The goal of this stage is to produce a test plan that can answer this question: 
 | Log events   | Structured log types + fields       |
 | Public API   | Interfaces exposed by the SDK       |
 
+> **`modules` column (required)**: every interface entry must list the module(s) that implement/consume it, derived from architecture.md's module boundaries. Entries spanning 2+ modules are "cross-module" and require integration test coverage (Shield). This is interface metadata, not a test case list - it does not violate the "no coverage matrix" rule (§7).
+
 **interfaces.md should NOT contain**:
 - Internal class hierarchies, scheduling state machines
 - Intermediate data structures
@@ -200,13 +203,14 @@ If it is an existing project, generally the existing tech framework should be in
 - node: package.json
 - All languages: `.pre-commit-config.yaml` (lint / format / typecheck / test hook — Scout has installed the base template, Archer edits it per M-ARCH decisions)
 
-**step 3**: Decide the host project's e2e asset locations and execution contract, and write them into the `[e2e]` section of `.louke/project/project.toml` (**not a separate file**). See §6.1 E2E Environment contract.
+**step 3**: Decide the host project's integration and e2e asset locations and execution contracts, and write them into the `[integration]` / `[e2e]` sections of `.louke/project/project.toml` (**not a separate file**). See §6.1 E2E Environment contract and §6.2 Integration Environment contract.
 
 ## 6. Exit conditions
 
 - [ ] test-plan.md generated (per `.louke/templates/test-plan.md` structure)
 - [ ] architecture.md generated (modules/dependencies/trade-offs)
-- [ ] interfaces.md generated (externally observable contract list)
+- [ ] interfaces.md generated (externally observable contract list, with `modules` column marking cross-module interfaces)
+- [ ] `[integration]` section written into `project.toml` (host-project integration paths + run contract)
 - [ ] `[e2e]` section written into `project.toml` (host-project e2e paths + run contract)
 - [ ] `[meta].test_framework` written into `project.toml` (Devon reads this field to run unit tests)
 - [ ] Closure across all three: every interfaces exit has test coverage in test-plan
@@ -251,6 +255,34 @@ teardown = "docker compose down"
 - If the project has no ready detection method, **do not** write `ready`
 - If the host project has no stable one-command e2e entry yet, design that entry in the host project first; do **not** ask Shield to invent a generic scaffold
 - raw session leaves inline discussion: source = spec / interfaces.md / architecture.md + project's existing repo layout / build files
+
+### 6.2. Integration Environment contract
+
+Alongside `[e2e]`, produce the `[integration]` section of `.louke/project/project.toml` during M-ARCH. **Shield reads this section to run the host project's integration tests** (currently Shield executes `[integration].run` directly; a dedicated `lk agent shield run-integration` command is planned - see #182).
+
+The schema mirrors `[e2e]` but is simpler - integration tests verify module wiring and usually do not need full service orchestration. Env fields (`start` / `ready` / `teardown`) are optional and typically omitted for pure module-boundary tests; include them only when integration tests require a live dependency (e.g. a test database).
+
+```toml
+[integration]
+# Host-project working directory for integration commands (optional, relative to repo root)
+cwd = "apps/api"
+
+# Host-project paths that Shield writes / Prism reviews
+paths = ["tests/integration", "tests/fixtures"]
+
+# Run the host project's own integration test command
+run = "pytest -q tests/integration"
+
+# Optional env orchestration (same semantics as [e2e]; usually omitted)
+# start = "docker compose up -d db"
+# ready = "..."
+# teardown = "docker compose down"
+```
+
+**Constraints**:
+- Same constraints as `[e2e]`: `run` references the host project's own runnable command; `paths` point to host-project assets, never `.louke/`; `cwd` / `start` / `ready` / `teardown` reference existing host-project layout
+- If the project has no integration tests yet, still write `run` + `paths` so Shield has a deterministic target; design the entry in the host project first, do **not** ask Shield to invent a scaffold
+- The cross-module interfaces that integration tests must cover are defined by the `modules` column in interfaces.md (§4.3), not by this contract
 
 
 ## 7. Anti-patterns

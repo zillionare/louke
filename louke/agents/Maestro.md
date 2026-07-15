@@ -94,7 +94,7 @@ Full feature development follows the table below, advancing in order.
 | `M-ARCH`      | Architecture design | **Archer**            | **Prism**                      | Archer decides architecture and interface design / Prism content review     |
 | `M-LOCK`      | Lock requirements | **Maestro**           | Human                          | **Decide whether to enter the implementation stage**                       |
 | `M-DEV`       | Development execution | **Devon** (forge)     | **Prism** → **Keeper** (gatekeeper) | Devon R-G-R (incl. unit tests) / Prism multi-perspective + critical review / Keeper gate check |
-| `M-E2E`       | e2e development | **Shield** (e2e writer) | **Prism** → **Keeper**         | Shield writes host-project e2e per test-plan §6 / Prism review / Keeper gate |
+| `M-E2E`       | integration/e2e development | **Shield** (integration/e2e writer) | **Prism** → **Keeper**         | Shield writes host-project integration/e2e per test-plan §5/§6 / Prism review / Keeper gate |
 | `M-BUGFIX`    | Bug fix        | **Devon**             | **Keeper**                     | Devon reuses R-G-R to fix bugs / Keeper runs regression to judge            |
 | `M-SECURITY`  | Security audit | **Judge** (grade S)   | Human                          | Deep security audit (per-milestone; DoD can disable)                       |
 | `M-MILESTONE` | Milestone end  | **Maestro**           | **Human**                      | Maestro releases this version and advances to the next milestone           |
