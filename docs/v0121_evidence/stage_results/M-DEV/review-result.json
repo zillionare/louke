@@ -1,0 +1,29 @@
+{
+  "stage": "M-DEV",
+  "spec_id": "v0.12-001",
+  "commit_range": "ed0c7b1..7a66911",
+  "issues_reviewed": ["#174", "#175"],
+  "verdict": "pass",
+  "source_command": "review",
+  "findings": [
+    {
+      "severity": "low",
+      "category": "architecture",
+      "message": "wheel includes louke/.github/ISSUE_TEMPLATE/{bug,feature}.yml (2 files). This is pre-existing (the old explicit [tool.setuptools] packages = [\"louke\", ...] also included them) and not introduced by Batch 1. The include = [\"louke*\"] pattern is correct per gap-analysis recommendation. These are small YAML files with no runtime impact, but future filter refinement could exclude non-code data directories.",
+      "location": "pyproject.toml:47-48"
+    },
+    {
+      "severity": "low",
+      "category": "critical",
+      "message": "louke/web/pages/projects.py:457 has placeholder=\"v0.12.0\" in an HTML input field. This is a UI form hint, not a package version, so it was correctly NOT changed. However, after the 0.12.1 release, users typing into this form will see a placeholder suggesting v0.12.0. Consider updating it to v0.12.1 for consistency in a future batch.",
+      "location": "louke/web/pages/projects.py:457"
+    },
+    {
+      "severity": "low",
+      "category": "traceability",
+      "message": "Test docstrings reference S1 (#174) and S2 (#175) at the class level, and gap-analysis §3 P0-1 in test_clean_venv_can_import_v012_subpackages. AC markers are adequate but could be more granular (per-test-function). Not a blocker.",
+      "location": "tests/integration/runtime/test_package_smoke.py:271,328"
+    }
+  ],
+  "summary": "All 6 tests are real, hermetic, and test the actual AC. No anti-patterns, no security issues, version literal audit is complete and accurate. PASS with 3 low-severity observations."
+}
