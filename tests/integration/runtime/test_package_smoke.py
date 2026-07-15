@@ -20,10 +20,8 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
 import venv
 import zipfile
 from pathlib import Path
@@ -70,22 +68,14 @@ def _subprocess_env() -> dict[str, str]:
     On macOS with a standalone CPython build (e.g. uv-managed interpreters),
     the venv python cannot find ``libpythonX.Y.dylib`` unless the parent
     interpreter's lib dir is on ``DYLD_LIBRARY_PATH``. This propagates that
-    path so subprocess calls to venv pythons do not SIGABRT.
+    path so subprocess calls to venv pythons do not SIGABRT. On platforms
+    where the dylib is not needed the extra path is simply unused.
     """
     env = os.environ.copy()
-    py_lib_dir = Path(sys.prefix).parent / "lib"
-    # uv standalone pythons live under <prefix>/python<ver> with libs beside.
-    candidates = [
-        Path(sys.base_prefix) / "lib",
-        Path(sys.prefix).parent / "lib",
-        Path(sys.base_prefix).parent / "lib",
-    ]
-    for candidate in candidates:
+    for candidate in (Path(sys.base_prefix) / "lib", Path(sys.base_prefix).parent / "lib"):
         if candidate.exists() and any(candidate.glob("libpython*.dylib")):
             env["DYLD_LIBRARY_PATH"] = (
-                str(candidate)
-                + os.pathsep
-                + env.get("DYLD_LIBRARY_PATH", "")
+                str(candidate) + os.pathsep + env.get("DYLD_LIBRARY_PATH", "")
             )
             break
     return env
@@ -238,10 +228,50 @@ def _install_wheel(venv_python: Path, wheel_path: Path) -> None:
         )
 
 
+def _run_in_venv(venv_python: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run ``args`` via ``venv_python`` with the venv-compatible env.
+
+    Args:
+        venv_python: Path to the venv's ``python`` executable.
+        *args: Command-line arguments to pass to the python interpreter.
+
+    Returns:
+        The completed process result (stdout/stderr captured).
+    """
+    return subprocess.run(
+        [str(venv_python), *args],
+        capture_output=True,
+        text=True,
+        env=_subprocess_env(),
+    )
+
+
+@pytest.fixture()
+def built_wheel(tmp_path: Path) -> Path:
+    """Build the louke wheel once per test into a temp dir and return it.
+
+    The wheel build is isolated (``python -m build`` creates its own build
+    venv), so reusing one wheel across tests would not save much; building
+    per-test keeps each test fully independent and hermetic.
+    """
+    return _build_wheel(tmp_path)
+
+
+@pytest.fixture()
+def clean_venv(tmp_path: Path) -> tuple[Path, Path]:
+    """Create a clean venv with pip and return ``(venv_dir, venv_python)``.
+
+    The venv has no access to the repo source tree, so any import success
+    proves the wheel (not the source tree) supplies the package.
+    """
+    venv_dir = tmp_path / "clean_venv"
+    return venv_dir, _create_clean_venv(venv_dir)
+
+
 class TestWheelPackageContents:
     """S1 (#174): the built wheel must contain every v0.12 subpackage."""
 
-    def test_wheel_contains_v012_subpackages(self, tmp_path: Path) -> None:
+    def test_wheel_contains_v012_subpackages(self, built_wheel: Path) -> None:
         """Every expected v0.12 subpackage dir exists inside the wheel zip.
 
         Asserts that ``louke/runtime/``, ``louke/opencode/``, ``louke/web/api/``
@@ -249,8 +279,7 @@ class TestWheelPackageContents:
         wheel. A bare top-level ``louke`` package without these subpackages
         fails this test, matching the gap-analysis Batch 0 baseline.
         """
-        wheel = _build_wheel(tmp_path)
-        with zipfile.ZipFile(wheel) as zf:
+        with zipfile.ZipFile(built_wheel) as zf:
             names = zf.namelist()
         for subpkg in EXPECTED_WHEEL_SUBPACKAGES:
             matching = [n for n in names if n.startswith(subpkg)]
@@ -259,15 +288,14 @@ class TestWheelPackageContents:
                 f"wheel contents do not include any file under {subpkg}"
             )
 
-    def test_wheel_contains_subpackage_init_modules(self, tmp_path: Path) -> None:
+    def test_wheel_contains_subpackage_init_modules(self, built_wheel: Path) -> None:
         """Each v0.12 subpackage ships its ``__init__.py`` in the wheel.
 
         This is stronger than the directory-prefix check: it proves the
         subpackages are real importable Python packages, not incidental
         data files that happen to sit under those paths.
         """
-        wheel = _build_wheel(tmp_path)
-        with zipfile.ZipFile(wheel) as zf:
+        with zipfile.ZipFile(built_wheel) as zf:
             names = set(zf.namelist())
         for module in EXPECTED_WHEEL_MODULES:
             assert module in names, (
@@ -275,24 +303,21 @@ class TestWheelPackageContents:
                 f"subpackage __init__.py not packaged"
             )
 
-    def test_clean_venv_can_import_v012_subpackages(self, tmp_path: Path) -> None:
+    def test_clean_venv_can_import_v012_subpackages(
+        self, built_wheel: Path, clean_venv: tuple[Path, Path]
+    ) -> None:
         """A clean venv that installs the wheel can import every subpackage.
 
         This is the exit-condition smoke from gap-analysis §3 P0-1: source
         tree visibility must not mask a broken wheel. The venv has no access
         to the repo source, so this only passes if the wheel is complete.
         """
-        wheel = _build_wheel(tmp_path)
-        venv_dir = tmp_path / "clean_venv"
-        venv_python = _create_clean_venv(venv_dir)
-        _install_wheel(venv_python, wheel)
-        completed = subprocess.run(
-            [str(venv_python), "-c",
-             "import louke.runtime, louke.opencode, "
-             "louke.web.api, louke.web.pages"],
-            capture_output=True,
-            text=True,
-            env=_subprocess_env(),
+        _, venv_python = clean_venv
+        _install_wheel(venv_python, built_wheel)
+        completed = _run_in_venv(
+            venv_python, "-c",
+            "import louke.runtime, louke.opencode, "
+            "louke.web.api, louke.web.pages",
         )
         assert completed.returncode == 0, (
             f"clean-venv import failed:\nstdout:\n{completed.stdout}\n"
@@ -303,31 +328,26 @@ class TestWheelPackageContents:
 class TestVersionConvergence:
     """S2 (#175): every version surface converges on the release version."""
 
-    def test_wheel_metadata_version_matches_release(self, tmp_path: Path) -> None:
+    def test_wheel_metadata_version_matches_release(self, built_wheel: Path) -> None:
         """The wheel METADATA ``Version`` header equals the expected release.
 
         Drift here means the built artifact reports a different version from
         the one intended for release, which is a release-blocker.
         """
-        wheel = _build_wheel(tmp_path)
-        assert _wheel_metadata_version(wheel) == EXPECTED_VERSION
+        assert _wheel_metadata_version(built_wheel) == EXPECTED_VERSION
 
-    def test_installed_dunder_version_matches_release(self, tmp_path: Path) -> None:
+    def test_installed_dunder_version_matches_release(
+        self, built_wheel: Path, clean_venv: tuple[Path, Path]
+    ) -> None:
         """``louke.__version__`` in a clean install equals the release version.
 
         Guards against a hardcoded fallback or stale constant in
         ``louke/__init__.py`` diverging from the wheel METADATA.
         """
-        wheel = _build_wheel(tmp_path)
-        venv_dir = tmp_path / "version_venv"
-        venv_python = _create_clean_venv(venv_dir)
-        _install_wheel(venv_python, wheel)
-        completed = subprocess.run(
-            [str(venv_python), "-c",
-             "from louke import __version__; print(__version__)"],
-            capture_output=True,
-            text=True,
-            env=_subprocess_env(),
+        _, venv_python = clean_venv
+        _install_wheel(venv_python, built_wheel)
+        completed = _run_in_venv(
+            venv_python, "-c", "from louke import __version__; print(__version__)"
         )
         assert completed.returncode == 0, (
             f"reading __version__ failed:\nstdout:\n{completed.stdout}\n"
@@ -335,16 +355,16 @@ class TestVersionConvergence:
         )
         assert completed.stdout.strip() == EXPECTED_VERSION
 
-    def test_lk_cli_version_matches_release(self, tmp_path: Path) -> None:
+    def test_lk_cli_version_matches_release(
+        self, built_wheel: Path, clean_venv: tuple[Path, Path]
+    ) -> None:
         """``lk --version`` in a clean venv reports the release version.
 
         This exercises the full CLI entry point, proving the console script
         and version string agree with the wheel METADATA.
         """
-        wheel = _build_wheel(tmp_path)
-        venv_dir = tmp_path / "cli_venv"
-        venv_python = _create_clean_venv(venv_dir)
-        _install_wheel(venv_python, wheel)
+        venv_dir, venv_python = clean_venv
+        _install_wheel(venv_python, built_wheel)
         lk_bin = venv_dir / "bin" / "lk"
         completed = subprocess.run(
             [str(lk_bin), "--version"],
