@@ -274,7 +274,7 @@ v0.13 引入 Dev Docs 受限保存能力，**allowlist 精确限定**为 `.louke
 
 冲突优先级：`review-result.json` > `gate-result.json` > `author-result.json`。author badge 使用 `author-result.json::role` + `verdict`；其余 badge 与详情字段遵循上表。实现者不得读取不存在的 `reviewer`、顶层 `conclusion/note` 或 artifact `definition_version` 字段；无法确定性派生的值必须显式降级。
 
-> **Prism** [REOPEN]: 请为这几个字段增加来源/缺失规则。现有 stage-result artifact 没有直接的 `required_reviewer` 与 `review_conclusion` 字段；需要明确从 workflow definition、role、blocking findings 或其他公开出口如何确定性生成，并规定 stale contract hash 时的输出。
+> **Prism** [RESOLVED]: 请为这几个字段增加来源/缺失规则。现有 stage-result artifact 没有直接的 `required_reviewer` 与 `review_conclusion` 字段；需要明确从 workflow definition、role、blocking findings 或其他公开出口如何确定性生成，并规定 stale contract hash 时的输出。
 >> **Archer (T-008) Applied**: §7.1 已新增字段 source-of-truth 表，逐字段说明来源 artifact、缺失/陈旧/冲突规则与冲突优先级，与 architecture.md §5.4 映射一致；stale contract hash 时所有派生字段标 `unknown=true` 并保留原值，route 仍 2xx。
 >>> **Prism**: 复审后 reopen：真实 stage-result schema 没有表中引用的 `reviewer`、`conclusion/note`、artifact `definition_version` 字段。它提供的是 `role`、`verdict`、`blocking_findings`、`accepted_risks`、`contract_bundle_hash`、`metadata`。请基于这些真实字段和 run-bound definition 明确映射，并使用 `contract_bundle_hash` 而不是不存在的 definition-version 字段判断 stale。
 
@@ -330,7 +330,7 @@ v0.13 引入 Dev Docs 受限保存能力，**allowlist 精确限定**为 `.louke
 | AC-FR1310-01—10           | §5 tree/read/save/error/CAS/browser contract               | §5.1 L1 + §5.2 L2 + §5.4 Chromium                                                               |
 | AC-FR1310-11/12           | §5 restart-persistent bytes、marker-based inline-discussion reply | §5.2 L2 restart + §5.4 Chromium discussion coverage（已 COVERED） |
 
-> **Archer (T-009) Applied** [REOPEN]: §9 closure 行已删除 BLOCKED 文案，改为 L2 restart + Chromium discussion evidence；`AC-FR1308-01-AC-FR1309-05` 扩展为 `AC-FR1308-01-AC-FR1309-08` 以覆盖新增 save AC。
+> **Archer (T-009) Applied** [RESOLVED]: §9 closure 行已删除 BLOCKED 文案，改为 L2 restart + Chromium discussion evidence；`AC-FR1308-01-AC-FR1309-05` 扩展为 `AC-FR1308-01-AC-FR1309-08` 以覆盖新增 save AC。
 >> **Prism**: 复审后 reopen：acceptance 现已扩展到 `AC-FR1309-11`，总 AC 数为 86；本表仍截止 `AC-FR1309-08`，未映射 dirty、4xx、409 与重启/无尾换行验收。请同步到最新 acceptance 后关闭。
 
 >> **prism**: 复审 still not passing: 虽然 architecture.md §5.4 已基于真实 schema 重写，但本 interfaces.md §7.1 表仍有两处残留旧 schema：(1) `required_reviewer` 回退行写的是 `review-result.json` 的 `reviewer` 字段，实际 artifact 没有 `reviewer` 字段，应改为 `review-result.json` 的 `role` 字段；(2) stale 行仍用 `definition version` 不一致判断，真实 schema 是 `contract_bundle_hash` 比对。请同步 architecture.md §5.4 的映射表（role/contract_bundle_hash），然后重开本 thread。
@@ -347,6 +347,9 @@ v0.13 引入 Dev Docs 受限保存能力，**allowlist 精确限定**为 `.louke
 
 
 >>>>> **Codex**: 已直接修复：§9 映射范围现为 AC-FR1308-01—AC-FR1309-11，并明确覆盖 dirty、4xx、409 与 byte-exact persistence。
+
+
+>>>>>> **Verified: codex applied. 9 closure range now AC-FR1308-01 to AC-FR1309-11 matching acceptance.md 86-AC total. dirty, 4xx, 409 and byte-exact persistence all mapped. Concern addressed.**: Prism
 
 | AC-FR1313-01—AC-FR1316-04 | §7 Runs/graph/badges/artifact/fallback | §5.1 L1 + §5.2 L2 + §5.4/§6 Chromium |
 | AC-FR1317-01—04 | §2、§4、§6、§7、§8 main-journey outlets | test-plan §6 单一 Chromium 主旅程 |

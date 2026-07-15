@@ -1,4 +1,5 @@
 """Regression: cmd_record_lock must aggregate inline-discussion across all 4 spec docs."""
+
 import textwrap
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,20 +12,24 @@ def _write_spec_dir(tmp_path: Path) -> Path:
     """Build a spec dir with spec.md (clean), architecture.md (with reopen chapter thread)."""
     pd = tmp_path / "spec_dir"
     pd.mkdir()
-    (pd / "spec.md").write_text(textwrap.dedent('''\
+    (pd / "spec.md").write_text(
+        textwrap.dedent("""\
         ---
         locked: false
         ---
         # Web UI Foundation
         ### 4.1 modules
         > **Prism** [RESOLVED]: ok
-    '''))
+    """)
+    )
     (pd / "acceptance.md").write_text("# ac\n")
-    (pd / "architecture.md").write_text(textwrap.dedent('''\
+    (pd / "architecture.md").write_text(
+        textwrap.dedent("""\
         # Architecture
         ### 5.2 Chat
         > **Prism** [REOPEN]: chat streaming upstream not implemented.
-    '''))
+    """)
+    )
     (pd / "interfaces.md").write_text("# interfaces\n")
     (pd / "test-plan.md").write_text("# tp\n")
     return pd

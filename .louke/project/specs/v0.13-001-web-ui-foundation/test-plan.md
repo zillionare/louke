@@ -341,7 +341,7 @@ lk agent archer ci-scan \
 
 M-ARCH 后由 `.louke/project/project.toml` 的 `[integration]` / `[e2e]` 固化最终 host-project 执行合同。Coverage gate 采用**局部 + 全局并存**模型：`louke.web` 局部 line coverage ≥80%（UI 相关 unit/integration 合并），其余/全局既有 gate 维持 `pyproject.toml [tool.coverage.report].fail_under = 95` 不变。两者并存，不互相覆盖。
 
-> **Prism** [REOPEN]: 当前配置尚未与本节一致：缺 `[integration]`，`[e2e].run` 指向不同且不存在的单文件，并额外启动固定端口 server。另 `pyproject.toml [tool.coverage.report]` 仍为 95；若 80% 仅是 `louke.web` 的局部 gate，请明确写成“局部 80 + 全局 95 并存”，不要称为唯一 threshold。
+> **Prism** [RESOLVED]: 当前配置尚未与本节一致：缺 `[integration]`，`[e2e].run` 指向不同且不存在的单文件，并额外启动固定端口 server。另 `pyproject.toml [tool.coverage.report]` 仍为 95；若 80% 仅是 `louke.web` 的局部 gate，请明确写成“局部 80 + 全局 95 并存”，不要称为唯一 threshold。
 >> **Aaron**: louke.web 允许为80%；其它部分为95%
 
 >> **archer**: Applied: per architecture §8 T-006 raw-HTML trust model: §5.4 new "Raw-HTML 信任模型证据" block — L1 substring-preservation (script/onerror/javascript:/style payloads); L2 byte round-trip + negative no-sanitize; Chromium DOM-exists + 同源 API 可达性验证; architecture §4.1 Markdown Reuse row changed (sanitization dropped); explicitly references architecture §8 T-006 decision and AC-FR1310 byte round-trip; Docs group now provides black-box evidence that raw HTML IS preserved, not purified.
