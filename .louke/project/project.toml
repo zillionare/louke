@@ -1,43 +1,30 @@
-# .louke/project/project.toml
-# 当前活跃版本的元信息 + 工具配置。历史版本在 history.md（Markdown，agent 不解析）。
-#
-# 读取方: v0.12 Runtime / Web / CLI / 设计与测试工具。
-# v0.12 以 Runtime 为工作流状态与转移权威；Maestro 只能作为受控语义任务 provider。
-
 [project]
-version = "0.12"
+version = "0.13"
 repo = "github.com/zillionare/louke"
-project = "louke-v0.12"
-project_id = "https://github.com/users/quantclaws/projects/15"
-spec_id = "v0.12-001-programmatic-workflow-runtime"
-release_branch = "main"
+project = "louke-v0.13"
+project_id = "https://github.com/users/quantclaws/projects/18"
+spec_id = "v0.13-001-web-ui-foundation"
+release_branch = "releases/0.13"
 
 [meta]
-created = "2026-07-13"
-tag = "v0.12.1 (zillionare/louke@v0.12.1)"
-current_stage = "M-MILESTONE"
-m_lock_status = "approved (2026-07-13); M-DEV completed (2026-07-14); v0.12.1 stabilization patch landed 2026-07-15; post-tag CI fixes ongoing"
+created = "2026-07-15"
+current_stage = "M-FOUND"
 security_audit = "disabled"
-smoke_test_issue = "#170"
-smoke_test_pr = "N/A (L3 smoke local test only)"
-dod = "v0.12.1 wheel contains runtime/opencode/web.api/web.pages; CI runs unit+integration+ground_truth at 95.81% coverage; real L3 OpenCode smoke proven; 11/18 user scenarios FULL e2e coverage, 7/18 PARTIAL (30 known-uncovered ACs per docs/v0121_evidence/v0.12.1_release_audit.md)."
+tag = "v0.13.0 (zillionare/louke@v0.13.0)"
 pre_commit = "installed (python + base)"
-test_framework = "pytest"
-acknowledged_orphan_releases = []
+acknowledged_orphan_releases = ["releases/v0.10", "releases/v0.11", "releases/v0.4", "releases/v0.8"]
+smoke_test_issue = "#186 (closed)"
+smoke_test_pr = "N/A (L3 smoke local test only)"
+dod = "All e2e tests pass + unit test coverage >=80% (UI-focused threshold)"
 
 story = """
-v0.12-001-programmatic-workflow-runtime：以程序固定 workflow、持久状态、两次不可跳过的人类批准和完整证据闭环；Agent 只做受限语义工作。产品包含 Projects UI、OpenCode session/context、new feature 与 bug fix 的完整闭环、旧 workspace 显式采用，以及项目内 Louke 安装/明确 global 回退。
+v0.13-001-web-ui-foundation：尽早提供一个可持续使用的 Louke Web 主界面，使用户可以通过真实 UI 体验已有的 Chat、设计文档、最终用户文档、Wiki 和 Runs 能力。
 
-范围说明：v0.11-002 的 Web UI integration 暂停并作为历史工作；v0.12 重新定义可用产品路径。浏览器兼容性矩阵不属于本版本，E2E 只验证一个受支持浏览器的产品路径。
+该版本建立稳定的 UI chrome 和只读观察面，不提前实现 workflow reflow，也不纳入高风险的 shell 命令、AI 写回和模型等级配置。
 """
+test_framework = "pytest"
+backlog_project = "https://github.com/users/quantclaws/projects/10"
 
-[meta.known_carryover]
-dirty_files = "louke 工作树里有 ~70 个 pre-existing dirty 文件 (agents/ 目录迁移、Makefile 删除等), 跟当前 spec 无关"
-project_owner = "Project `louker-v0.12` (#15) owner 是 quantclaws (gh auth 限制), zillionare 已加 ADMIN"
-commit_rgr = "`lk agent devon commit-rgr` 当前版本要求 `--task-id` 参数, 后续 v0.7+ 应去掉以保持 R-G-R commit 格式干净"
-v0_11_001_waiver = "保留既有 waiver 历史；不作为 v0.12 gate 的替代证据"
-v0_11_002_scope = "paused：旧 Web UI integration 计划不在 v0.12 实施范围；必要能力由 v0.12 Projects UI 合同重新定义"
-v0_12_arch_scope = "M-ARCH 只产出 architecture.md、interfaces.md、test-plan.md 与本 E2E contract；M-LOCK 前禁止业务实现"
 
 [active_specs]
 # 当前活跃 spec 列表 (post-v0.7 hotfix)
@@ -47,14 +34,4 @@ v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
 v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
 v0_12_001 = "shipped (2026-07-15, tag v0.12.1; programmatic-workflow-runtime stabilization)"
-
-[e2e]
-# v0.12：host-project E2E 编排契约。浏览器矩阵不在本版本范围。
-start = "python -m louke e2e start --host 127.0.0.1 --port 8765 --opencode mock"
-ready = "curl -sf http://127.0.0.1:8765/health"
-ready_timeout_seconds = 60
-run = "python -m pytest -m e2e tests/e2e"
-framework = "pytest"
-cwd = "."
-paths = ["tests/e2e", "tests/fixtures"]
-teardown = "python -m louke e2e stop --port 8765 --cleanup-workspace"
+v0_13_001 = "M-FOUND (2026-07-15, v0.13-001-web-ui-foundation)"
