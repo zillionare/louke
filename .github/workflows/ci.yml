@@ -11,89 +11,179 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: build + bats (python ${{ matrix.python-version }})
+  # ── Lint ──────────────────────────────────────────────────────────
+  # Runs once (Python 3.12). Linting is version-independent.
+  lint:
+    name: Lint (pre-commit)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
+      - name: Run pre-commit on all files
+        run: |
+          python -m pip install --quiet pre-commit
+          pre-commit run --all-files
 
+  # ── Build ─────────────────────────────────────────────────────────
+  # Builds once, uploads the wheel artifact. Dependent jobs download it.
+  build:
+    name: Build wheel + smoke test
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build
-
-      - name: Run pre-commit on all files
-        run: |
-          python -m pip install pre-commit
-          pre-commit run --all-files
-
+          python -m pip install --quiet build
       - name: Sync .github resources into package
         run: |
           rm -rf louke/.github
           mkdir -p louke/.github
           cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
           cp -r .github/workflows louke/.github/workflows
-
       - name: Build wheel/sdist
         run: python -m build
-
       - name: Install wheel into a clean venv
         run: |
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
-
-      - name: Install test dependencies into wheel venv
+      - name: "Package smoke: import subpackages"
         run: |
-          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov httpx starlette fastapi build
+          /tmp/lk-venv/bin/python -c "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages, louke.cli_v12; print('OK')"
+      - name: "Package smoke: lk --version"
+        run: /tmp/lk-venv/bin/lk --version | grep "0.12.1"
+      - name: "Package smoke: lk --help"
+        run: /tmp/lk-venv/bin/lk --help
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: louke-wheel
+          path: dist/
+          retention-days: 1
 
-      - name: Run unit + integration + ground_truth with coverage in installed wheel venv
+  # ── pytest (all Python versions) ──────────────────────────────────
+  test:
+    name: pytest (python ${{ matrix.python-version }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-wheel
+          path: dist/
+      - name: Install wheel + test deps into clean venv
+        run: |
+          python -m venv /tmp/lk-venv
+          /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
+          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov fastapi
+      - name: Run unit + integration + ground_truth with coverage
         run: |
           /tmp/lk-venv/bin/python -m pytest tests/unit tests/integration tests/ground_truth \
             --cov=louke.runtime --cov-report=term-missing --cov-report=xml -q
 
-      - name: "Package smoke: import v0.12 subpackages in installed wheel"
+  # ── bats suite (single Python version, parallel with pytest) ──────
+  bats:
+    name: bats suite
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-wheel
+          path: dist/
+      - name: Install wheel into clean venv
         run: |
-          /tmp/lk-venv/bin/python -c "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages, louke.cli_v12; print('OK')"
-
-      - name: "Package smoke: lk --version in installed wheel"
-        run: /tmp/lk-venv/bin/lk --version | grep "0.12.1"
-
-      - name: "Smoke test: lk --help"
-        run: /tmp/lk-venv/bin/lk --help
-
-      - name: Install bats-core + pyyaml for bats tests
+          python -m venv /tmp/lk-venv
+          /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
+      - name: Install bats-core + pyyaml
+        # bats tests use 'python3' which on setup-python runners resolves to
+        # /opt/hostedtoolcache/Python/<ver>/x64/bin/python3 (NOT /usr/bin/python3),
+        # so apt-get's python3-yaml won't be picked up. Install pyyaml via pip
+        # into the active python so 'import yaml' works in FORM-002/007/008/010.
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends bats
-          # bats tests use 'python3' which on setup-python runners resolves to
-          # /opt/hostedtoolcache/Python/<ver>/x64/bin/python3 (NOT /usr/bin/python3),
-          # so apt-get's python3-yaml won't be picked up. Install pyyaml via pip
-          # into the active python so 'import yaml' works in FORM-002/007/008/010.
-          python3 -m pip install pyyaml
-
-      - name: Run bats suite (in installed wheel venv so louke imports work)
+          python3 -m pip install --quiet pyyaml
+      - name: Run bats suite
+        # Bats tests invoke 'python3 -m louke' via $PY, and louke/__init__.py
+        # cascades 'from . import opencode, opencode_api' -> 'import starlette'
+        # at opencode_api.py:5. The system python3 (setup-python) only has pyyaml,
+        # so 380 bats tests would fail with ModuleNotFoundError: No module named
+        # 'starlette'. Prepend the wheel venv to PATH so 'python3' resolves to
+        # /tmp/lk-venv/bin/python3 (which has louke + all runtime deps).
         run: |
-          # /tmp/lk-venv has the wheel + all runtime deps (httpx, starlette, fastapi).
-          # Bats tests invoke 'python3 -m louke' via $PY, and louke/__init__.py:43
-          # cascades 'from . import opencode, opencode_api' -> 'import starlette'
-          # at opencode_api.py:5. The system python3 (setup-python) only has pyyaml,
-          # so 380 bats tests would fail with ModuleNotFoundError: No module named
-          # 'starlette'. Prepend the wheel venv to PATH so 'python3' resolves to
-          # /tmp/lk-venv/bin/python3 (which has louke + all runtime deps).
           export PATH="/tmp/lk-venv/bin:$PATH"
           which python3
           python3 -c "import louke, starlette, httpx, fastapi; print('ok')"
           make test
+
+  # ── AC traceability scan (non-blocking, parallel with pytest/bats) ─
+  ac-scan:
+    name: AC traceability scan
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-wheel
+          path: dist/
+      - name: Install wheel into clean venv
+        run: |
+          python -m venv /tmp/lk-venv
+          /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
+      - name: AC traceability scan
+        # NOTE: continue-on-error because lk agent archer ci-scan reports
+        # pre-existing baseline warnings:
+        # (a) Unknown ACs from v0.11-001 Web IDE spec (e.g. AC-FR0001-04)
+        #     that are not in the v0.12.001 acceptance scope.
+        # (b) FAKE-005/006 patterns in test files outside v0.12.1 work.
+        # The full audit and override rationale is in
+        # docs/v0121_evidence/v0.12.1_release_audit.md section 13.
+        # When the pre-existing baseline is cleaned up in v0.13, remove
+        # continue-on-error.
+        continue-on-error: true
+        run: |
+          export PATH="/tmp/lk-venv/bin:$PATH"
+          if [ -d .louke/project/specs ]; then
+            for spec in .louke/project/specs/*; do
+              [ -d "$spec" ] || continue
+              lk agent archer ci-scan --spec "$(basename "$spec")"
+            done
+          else
+            echo "No .louke specs found; skipping louke ci-scan"
+          fi
