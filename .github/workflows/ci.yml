@@ -93,10 +93,12 @@ jobs:
           name: louke-wheel
           path: dist/
       - name: Install wheel + test deps into clean venv
+        # 'build' is needed by tests/integration/runtime/test_package_smoke.py
+        # which invokes `python -m build` inside /tmp/lk-venv.
         run: |
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
-          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov fastapi httpx starlette build
+          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov build
       - name: Run unit + integration + ground_truth with coverage
         run: |
           /tmp/lk-venv/bin/python -m pytest tests/unit tests/integration tests/ground_truth \
@@ -119,27 +121,31 @@ jobs:
         with:
           name: louke-wheel
           path: dist/
-      - name: Install wheel + runtime deps into clean venv
+      - name: Install wheel into clean venv (wheel brings starlette, httpx, uvicorn, pyyaml, markdown as deps)
         run: |
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
-      - name: Install bats-core + pyyaml + runtime deps for bats tests
-        # bats tests invoke 'python3 -m louke' which needs starlette + fastapi + httpx
-        # (wheel provides these but we explicitly install fastapi as documented)
+      - name: Install bats-core for bats tests
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends bats
-          python3 -m pip install --quiet pyyaml fastapi
       - name: Run bats suite
-        # Bats tests invoke 'python3 -m louke' via $PY, and louke/__init__.py
-        # cascades 'from . import opencode, opencode_api' -> 'import starlette'
-        # at opencode_api.py:5. PATH is set so 'python3' resolves to /tmp/lk-venv.
-        # We invoke bats directly (not 'make test') because the Makefile looks for
-        # .venv/bin/activate which doesn't exist in CI; only /tmp/lk-venv does.
+        # Bats tests invoke 'python3 -m louke' via $PY; louke/__init__.py:43
+        # cascades to opencode_api.py:5 which does 'from .opencode.in_memory
+        # import get_default_adapter' — needs louke.opencode subpackage (in
+        # wheel) + starlette (in wheel deps). PATH prepends /tmp/lk-venv so
+        # 'python3' resolves to the wheel-installed venv.
+        #
+        # We invoke bats directly (not 'make test') because the Makefile
+        # looks for .venv/bin/activate which doesn't exist in CI; only
+        # /tmp/lk-venv does.
+        #
+        # Sanity check asserts the actual wheel runtime deps (fastapi is
+        # NOT a wheel dep — tests use starlette.testclient).
         run: |
           export PATH="/tmp/lk-venv/bin:$PATH"
           which python3
-          python3 -c "import louke, starlette, httpx, fastapi; print('ok')"
+          python3 -c "import louke, starlette, httpx, uvicorn, yaml; print('ok')"
           bats tests/*.bats
 
   # ── AC traceability scan (non-blocking, parallel with pytest/bats) ─
