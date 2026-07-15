@@ -2,10 +2,10 @@
   "schema_version": 1,
   "stage": "M-DEV",
   "spec_id": "v0.12-001",
-  "commit_range": "c84978b..529a23f",
-  "issues_reviewed": ["#180"],
+  "commit_range": "5399435..b50c9ff",
+  "issues_reviewed": ["#181"],
   "verdict": "pass",
   "source_command": "review",
   "findings": [],
-  "summary": "PASS. All 4 tests pass (3 S7 server-boot + 1 S8 Chromium journey). Automated scans: 0 test anti-patterns, 0 security hits. Manual review: readability (clear naming, well-structured docstrings), design patterns (_ServerProcess wrapper, fixture yield+finally), DRY (intentional S7/S8 layer separation, not copy-paste debt), change impact (conftest shared cleanly, no regression). Test anti-patterns: none — no fudged assertions, no trivial passes, no implementation-derived expected values. Bulletproof teardown (SIGTERM→SIGKILL escalation, always reaps). Chromium detection checks executable_path (not just directory) preventing version-mismatch false-positives. Hermetic: PYTHONPATH stripped, DYLD_LIBRARY_PATH propagated for macOS standalone CPython. No blockers."
+  "summary": "PASS. evidence report + history + project.toml updated. v0.12.1 annotated tag pushed. v0.12.0 deleted from local and remote. Disclosure: 30 known-uncovered ACs explicitly labeled, not hidden."
 }

@@ -2,41 +2,15 @@
   "schema_version": 1,
   "stage": "M-DEV",
   "spec_id": "v0.12-001",
-  "commit_range": "c84978b..529a23f",
-  "issues_gated": [
-    "#180"
-  ],
+  "commit_range": "5399435..b50c9ff",
+  "issues_gated": ["#181"],
   "verdict": "pass",
   "source_command": "gate",
   "checks": [
-    {
-      "name": "commit_message_format",
-      "result": "pass",
-      "detail": "5 commits: 2 feat:green, 2 refactor, 1 docs"
-    },
-    {
-      "name": "rg_r_order",
-      "result": "fail",
-      "detail": "1 high: refactor before green within same issue (#180) \u2014 S8 chromium_e2e marker commit"
-    },
-    {
-      "name": "ac_traceability",
-      "result": "fail",
-      "detail": "acceptance.md not found; AC trace FAIL"
-    },
-    {
-      "name": "no_antipatterns",
-      "result": "fail",
-      "detail": "batch5 files: FAKE-002 in test_v012_chromium_journey_e2e.py:303, FAKE-006 in test_v012_chromium_journey_e2e.py:277, FAKE-002 in test_server_boot.py:274"
-    },
-    {
-      "name": "rgr_or_rg",
-      "result": "pass",
-      "detail": "Each green commit's refactor/fixup follows it. 5/5 tests pass."
-    }
+    {"name": "commit_message_format", "result": "pass", "detail": "2 commits (docs + chore)"},
+    {"name": "ac_traceability", "result": "pass", "detail": "evidence references ACs by ID"},
+    {"name": "no_antipatterns", "result": "pass", "detail": "no code changes"},
+    {"name": "section6_compliance", "result": "pass", "detail": "history not rewritten, evidence not falsified, v0.12.0 deletion recorded"}
   ],
-  "summary": "PASS. R-G acceptable per user clarification. All batch5 tests pass (3 S7 + 1 S8 + fixup strengthens FAKE-002/006). Coverage/lk --version 0.12.1.",
-  "override_rationale": null,
-  "baseline_only_findings": false,
-  "rgr_relaxation_rule": "Per user clarification 2026-07-15: R-G-R is encouraged but not required. R-G (any ordering where every green precedes its refactor/fixup and test passes) is acceptable. All 5 Batch 5 tests pass; refactor and fixup follow their respective green commits."
+  "summary": "PASS. v0.12.1 tag pushed. v0.12.0 deleted (local + remote). Release audit honest about 30 known-uncovered ACs."
 }
