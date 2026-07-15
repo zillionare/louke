@@ -2,10 +2,10 @@
   "schema_version": 1,
   "stage": "M-DEV",
   "spec_id": "v0.12-001",
-  "commit_range": "a321b15..5248d0d",
-  "issues_reviewed": ["#177", "#178"],
+  "commit_range": "6c2e309..de13f5a",
+  "issues_reviewed": ["#179"],
   "verdict": "pass",
   "source_command": "review",
   "findings": [],
-  "summary": "PASS. 4 commits in R-G-R order. git mv preserved (verify with git log --follow). AST gate blocks louke import in ground_truth. No regressions (430+ tests pass)."
+  "summary": "PASS. ci.yml now has unit+integration+coverage+package-smoke steps before bats. Coverage 95.81% (>= 95% gate). 10 contract tests pass. louke-ci.yml limitation documented but left for v0.13."
 }
