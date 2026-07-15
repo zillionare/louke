@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import subprocess
@@ -123,6 +124,12 @@ def create_app(
                 methods=["POST"],
             ),
             Route("/api/specs", endpoint=api_specs, methods=["GET"]),
+            Route(
+                "/api/ui/dev-docs/tree", endpoint=api_ui_devdocs_tree, methods=["GET"]
+            ),
+            Route(
+                "/api/ui/wiki/{page:path}", endpoint=api_ui_wiki_page, methods=["GET"]
+            ),
             Route("/api/render", endpoint=api_render, methods=["POST"]),
             Route(
                 "/api/discussions/mutate",
@@ -862,6 +869,45 @@ async def api_specs(request: Request) -> JSONResponse:
         return user
     store: ProjectStore = request.app.state.store
     return JSONResponse({"specs": store.list_spec_ids()})
+
+
+async def api_ui_devdocs_tree(request: Request) -> JSONResponse:
+    """Return the read-only Markdown tree used by the workbench sidebar."""
+    store: ProjectStore = request.app.state.store
+    specs: list[dict[str, Any]] = []
+    for spec_id in store.list_spec_ids():
+        directory = store.specs_dir / spec_id
+        documents = [
+            {
+                "name": path.stem,
+                "path": store.relative_path(path),
+            }
+            for path in sorted(directory.glob("*.md"))
+            if path.is_file()
+        ]
+        specs.append({"spec_id": spec_id, "documents": documents})
+    return JSONResponse({"specs": specs})
+
+
+async def api_ui_wiki_page(request: Request) -> JSONResponse:
+    """Read a Wiki page and turn missing pages into an explicit fallback."""
+    store: ProjectStore = request.app.state.store
+    page = request.path_params["page"]
+    try:
+        payload = get_wiki_payload(store, page)
+    except FileNotFoundError:
+        return JSONResponse(
+            {
+                "unknown": True,
+                "display_label": f"未知页面: {page}",
+                "page": page,
+            },
+            status_code=200,
+        )
+    body = str(payload.get("body_md") or "").encode("utf-8")
+    return JSONResponse(
+        {**payload, "unknown": False, "sha256": hashlib.sha256(body).hexdigest()}
+    )
 
 
 async def api_render(request: Request) -> JSONResponse:

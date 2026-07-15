@@ -28,7 +28,7 @@ from typing import Any
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Route
 
 from louke.runtime.security import (
@@ -36,6 +36,7 @@ from louke.runtime.security import (
     LoopbackGuard,
     SecretRedactor,
 )
+from louke.web.auth import SESSION_COOKIE
 
 from ._common import (
     VALIDATION_ERROR,
@@ -73,6 +74,7 @@ def _routes() -> list[Route]:
             endpoint=verify_credential,
         ),
         Route("/redact", endpoint=redact_payload, methods=["POST"]),
+        Route("/logout", endpoint=logout, methods=["POST"]),
     ]
 
 
@@ -204,3 +206,10 @@ async def redact_payload(request: Request) -> JSONResponse:
         redactor.register_secret(secret)
     redacted: Any = redactor.redact(target)
     return JSONResponse({"payload": redacted})
+
+
+async def logout(request: Request) -> RedirectResponse:
+    """Invalidate the browser session and redirect to the public home route."""
+    response = RedirectResponse("/", status_code=303)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
