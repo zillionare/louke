@@ -75,7 +75,7 @@ def _chat_sidebar(agents: list[str]) -> str:
     """Render the read-only agent picker."""
     items = "".join(
         f'<button type="button" class="chat-agent" data-testid="chat-agent-{escape(name.lower())}" '
-        f'data-chat-agent="{escape(name)}" aria-selected="{str(index == 0).lower()}">'
+        f'data-chat-agent="{escape(name)}" aria-selected="{"true" if index == 0 else "false"}">'
         f'<span aria-hidden="true">🤖</span><span>{escape(name)}</span></button>'
         for index, name in enumerate(agents)
     )
