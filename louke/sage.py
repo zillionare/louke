@@ -390,7 +390,17 @@ def _decide_ac_value(
     return "None"
 
 
-def _gh_list_issues_with_fr(repo, fr_id):
+def _gh_list_issues_with_fr(repo, fr_id, spec_id=None):
+    """Return issues whose title contains ``[FR-XXXX]`` (or any ``[XX-XXXX]``).
+
+    When ``spec_id`` is provided, only issues whose ``Spec Link`` body field
+    references ``.louke/project/specs/{spec_id}/spec.md`` are returned. This
+    prevents cross-version false positives (e.g. v0.12 FR-1301 vs v0.13
+    FR-1301) when two specs happen to share an FR number. The body fetch
+    incurs one extra GraphQL field per matching issue; the search itself is
+    still title-only because GitHub's ``gh issue list --search`` cannot
+    filter on body content.
+    """
     try:
         out = subprocess.check_output(
             [
@@ -404,14 +414,20 @@ def _gh_list_issues_with_fr(repo, fr_id):
                 "--search",
                 f"in:title [{fr_id}]",
                 "--json",
-                "number,title,url",
+                "number,title,url,body",
             ],
             text=True,
             stderr=subprocess.DEVNULL,
         )
-        return json.loads(out) or []
+        issues = json.loads(out) or []
     except Exception:
         return []
+    if spec_id is None:
+        return issues
+    # Filter by Spec Link body field so we only treat issues as "exists"
+    # for *this* spec, not for a different version that shares the FR number.
+    needle = f"/specs/{spec_id}/spec.md"
+    return [i for i in issues if needle in (i.get("body") or "")]
 
 
 def _gh_create_issue(repo, title, body):
@@ -444,9 +460,24 @@ def _gh_create_issue(repo, title, body):
 
 
 def _gh_link_to_project(project_url, issue_url):
+    """Link an issue to a Project.
+
+    ``project_url`` may be either a GitHub project URL like
+    ``https://github.com/users/<owner>/projects/<N>`` or a bare
+    ``<N>``. Modern ``gh project item-add`` only accepts a numeric project
+    number as the positional argument, so we always extract owner + number
+    and call ``gh project item-add <N> --owner <owner> --url <issue>``.
+    """
+    number, owner = _parse_project_url_local(project_url)
+    if not number:
+        # Fall back: caller passed a bare number string.
+        number = str(project_url).strip()
+    cmd = ["gh", "project", "item-add", number, "--url", issue_url]
+    if owner:
+        cmd += ["--owner", owner]
     try:
         subprocess.run(
-            ["gh", "project", "item-add", str(project_url), "--url", issue_url],
+            cmd,
             cwd=Path.cwd(),
             capture_output=True,
             text=True,
@@ -459,6 +490,31 @@ def _gh_link_to_project(project_url, issue_url):
             file=sys.stderr,
         )
         return False
+
+
+def _parse_project_url_local(project_url):
+    """Local copy of URL-parsing logic; kept in sync with ``louke.lex._parse_project_url``.
+
+    We do not import from ``louke.lex`` to avoid a potential circular import
+    (lex already imports several louke internals). The logic is identical to
+    the Lex helper so the two stay in step.
+    """
+    if not project_url:
+        return None, None
+    m_num = re.search(r"/projects/(\d+)", project_url)
+    if not m_num:
+        return None, None
+    m_path = re.search(r"github\.com/(.+)", project_url)
+    if not m_path:
+        return None, None
+    segments = m_path.group(1).split("/")
+    if len(segments) < 3 or "projects" not in segments:
+        return None, None
+    if segments[0] == "users":
+        owner = segments[1]
+    else:
+        owner = segments[0]
+    return m_num.group(1), owner
 
 
 def cmd_create_issues(args):
@@ -501,7 +557,7 @@ def cmd_create_issues(args):
     repo_url = f"https://github.com/{repo}"
     created, skipped, linked = 0, 0, 0
     for fr_id, title in frs:
-        existing = _gh_list_issues_with_fr(repo, fr_id)
+        existing = _gh_list_issues_with_fr(repo, fr_id, spec_id=args.spec)
         if existing:
             skipped += 1
             print(f"[-] {fr_id} {existing[0].get('number', '?')} (exists)")
@@ -581,35 +637,64 @@ def cmd_record_lock(args):
             print(f"Lex signal: {sub[1]} failed (rc={rc})", file=sys.stderr)
             return rc
     text = spec_path.read_text(encoding="utf-8")
-    locked_already = False
-    if text.startswith("---\n"):
-        end = text.find("\n---\n", 4)
-        if end != -1:
-            fm = text[4:end]
-            if "locked: true" in fm:
-                locked_already = True
-            else:
-                text = (
-                    text[:end]
-                    + f"\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock"
-                    + text[end:]
-                )
-        else:
-            text = (
-                f"---\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock\n---\n"
-                + text
-            )
-    else:
-        text = (
-            f"---\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock\n---\n"
-            + text
-        )
+    text, locked_already = _apply_lock_to_frontmatter(text)
     if locked_already:
         print(f"spec already locked; idempotent (spec={args.spec})")
         return 0
     spec_path.write_text(text, encoding="utf-8")
     print(f"locked: true ({args.spec})")
     return 0
+
+
+def _apply_lock_to_frontmatter(text):
+    """Return ``(new_text, locked_already)`` with the YAML frontmatter in canonical form.
+
+    Rules (bug fix for the frontmatter duplication observed when the spec
+    already declares ``locked: false`` / ``locked-at:`` / ``locked-by:``
+    placeholder keys):
+
+    * If frontmatter exists and already says ``locked: true`` → return text
+      unchanged and ``locked_already=True``.
+    * If frontmatter exists but does NOT yet say ``locked: true`` → rewrite
+      the frontmatter to a single canonical block containing exactly the
+      three ``locked*`` keys (stripping any pre-existing duplicate keys).
+    * If no frontmatter → prepend a canonical frontmatter block.
+
+    The result always contains exactly one ``---\\n...\\n---\\n`` block at
+    the top of the file (or none, only when ``locked_already=True`` and the
+    file happens to lack frontmatter, which we treat as a no-op).
+    """
+    canonical = (
+        "---\n"
+        f"locked: true\n"
+        f"locked-at: {datetime_now()}\n"
+        f"locked-by: lk agent sage record-lock\n"
+        "---\n"
+    )
+    if not text.startswith("---\n"):
+        return canonical + text, False
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        # Malformed: opens with --- but never closes. Prepend canonical.
+        return canonical + text, False
+    fm = text[4:end]
+    if re.search(r"^locked:\s*true\s*$", fm, re.MULTILINE):
+        return text, True
+    # Strip any pre-existing locked* placeholder keys, then rebuild.
+    kept_lines = [
+        line for line in fm.splitlines() if not re.match(r"^locked(-at|-by)?:\s*", line)
+    ]
+    rebuilt_fm = "\n".join(kept_lines)
+    if rebuilt_fm.strip():
+        rebuilt = (
+            "---\n"
+            + rebuilt_fm
+            + f"\nlocked: true\nlocked-at: {datetime_now()}\nlocked-by: lk agent sage record-lock\n---\n"
+        )
+    else:
+        rebuilt = canonical
+    new_text = rebuilt + text[end + len("\n---\n") :]
+    return new_text, False
 
 
 def datetime_now():
