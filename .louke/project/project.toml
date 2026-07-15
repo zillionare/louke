@@ -14,13 +14,13 @@ release_branch = "main"
 
 [meta]
 created = "2026-07-13"
-tag = "v0.12.0 (zillionare/louke@v0.12.0)"
+tag = "v0.12.1 (zillionare/louke@v0.12.1)"
 current_stage = "M-MILESTONE"
 m_lock_status = "approved (2026-07-13); M-DEV explicitly not started"
 security_audit = "disabled"
-smoke_test_issue = "#161 reopened; real L3 smoke at tests/e2e/test_real_opencode_l3_e2e.py (issue #170); runbook at docs/v0.12_l3_opencode_smoke_runbook.md"
-smoke_test_pr = "N/A (L3 smoke is local test only; no PR needed)"
-dod = "144/144 AC 引用闭合且通过；unit/integration/e2e 全通过；覆盖率 ≥95%；真实 OpenCode smoke 有明确证据；requirements approval 与 M-LOCK 均已批准"
+smoke_test_issue = "#170"
+smoke_test_pr = "N/A (L3 smoke local test only)"
+dod = "v0.12.1 wheel contains runtime/opencode/web.api/web.pages; CI runs unit+integration+ground_truth at 95.81% coverage; real L3 OpenCode smoke proven; 11/18 user scenarios FULL e2e coverage, 7/18 PARTIAL (30 known-uncovered ACs per docs/v0121_evidence/v0.12.1_release_audit.md)."
 pre_commit = "installed (python + base)"
 test_framework = "pytest"
 acknowledged_orphan_releases = []
@@ -46,7 +46,7 @@ v0_7_002 = "shipped (2026-07-08, tag v0.7.3)"
 v0_8_001 = "shipped (2026-07-09, v0.10 web server)"
 v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
-v0_12_001 = "shipped (2026-07-14, tag v0.12.0; programmatic-workflow-runtime)"
+v0_12_001 = "shipped (2026-07-15, tag v0.12.1; programmatic-workflow-runtime stabilization)"
 
 [e2e]
 # v0.12：host-project E2E 编排契约。浏览器矩阵不在本版本范围。
