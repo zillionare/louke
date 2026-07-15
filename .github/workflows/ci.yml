@@ -55,6 +55,21 @@ jobs:
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
 
+      - name: Install test dependencies
+        run: python -m pip install pytest pytest-cov
+
+      - name: Run unit + integration + ground_truth with coverage
+        run: |
+          python -m pytest tests/unit tests/integration tests/ground_truth \
+            --cov=louke.runtime --cov-report=term-missing --cov-report=xml -q
+
+      - name: "Package smoke: import v0.12 subpackages in installed wheel"
+        run: |
+          /tmp/lk-venv/bin/python -c "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages, louke.cli_v12; print('OK')"
+
+      - name: "Package smoke: lk --version in installed wheel"
+        run: /tmp/lk-venv/bin/lk --version | grep "0.12.1"
+
       - name: "Smoke test: lk --help"
         run: /tmp/lk-venv/bin/lk --help
 
