@@ -44,8 +44,8 @@ Homepage = "https://github.com/zillionare/louke"
 Repository = "https://github.com/zillionare/louke"
 Issues = "https://github.com/zillionare/louke/issues"
 
-[tool.setuptools]
-packages = ["louke", "louke._tools", "louke.web"]
+[tool.setuptools.packages.find]
+include = ["louke*"]
 
 [tool.setuptools.package-data]
 louke = [
