@@ -80,9 +80,7 @@ def _routes() -> list[Route]:
 def _wizards(request: Request) -> dict[str, MigrationWizard]:
     """Return the per-app wizard registry, creating it lazily on first use."""
     app = request.app
-    wizards: dict[str, MigrationWizard] | None = getattr(
-        app.state, _WIZARDS_ATTR, None
-    )
+    wizards: dict[str, MigrationWizard] | None = getattr(app.state, _WIZARDS_ATTR, None)
     if wizards is None:
         wizards = {}
         setattr(app.state, _WIZARDS_ATTR, wizards)
@@ -245,9 +243,7 @@ async def get_legacy(request: Request) -> JSONResponse:
     except KeyError:
         raise HTTPException(
             status_code=404,
-            detail=error_detail(
-                NOT_FOUND, f"legacy entry {project_id!r} not found"
-            ),
+            detail=error_detail(NOT_FOUND, f"legacy entry {project_id!r} not found"),
         ) from None
     return JSONResponse(
         {

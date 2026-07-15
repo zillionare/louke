@@ -85,7 +85,7 @@ def _write_project_toml(root: Any) -> None:
         'current_stage = "M-DEV"\nsecurity_audit = "disabled"\n'
         'smoke_test_issue = ""\nsmoke_test_pr = ""\n'
         'pre_commit = "installed"\ntest_framework = "pytest"\n'
-        'acknowledged_orphan_releases = []\n',
+        "acknowledged_orphan_releases = []\n",
         encoding="utf-8",
     )
 
@@ -218,9 +218,7 @@ def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
         assert definition.definition_id == "new_feature", (
             f"unexpected definition_id: {definition.definition_id!r}"
         )
-        assert definition.version == "1", (
-            f"unexpected version: {definition.version!r}"
-        )
+        assert definition.version == "1", f"unexpected version: {definition.version!r}"
         source_run = store.create_run(definition)
         # Advance the source run from ``start`` to ``requirements_approval``
         # so the requirements gate can be created and approved. The gate's
@@ -429,9 +427,7 @@ def test_e2e_fr_0901_m_lock_gate_semantics(client: TestClient) -> None:
     # The approved M-LOCK gate is visible via the gates HTTP API.
     gates_resp = client.get(f"/api/gates/runs/{run_id}/gates")
     assert gates_resp.status_code == 200, gates_resp.text
-    m_lock_gates = [
-        g for g in gates_resp.json()["items"] if g["step_id"] == "m_lock"
-    ]
+    m_lock_gates = [g for g in gates_resp.json()["items"] if g["step_id"] == "m_lock"]
     assert len(m_lock_gates) == 1
     assert m_lock_gates[0]["status"] == "approved"
 
@@ -640,9 +636,7 @@ def test_e2e_fr_1301_agent_bindings_default_and_override(
         list2_resp = bindings_client.get(f"/api/bindings/devon?run_id={run_id}")
         assert list2_resp.status_code == 200
         devon2 = next(
-            it
-            for it in list2_resp.json()["items"]
-            if it["agent_role"] == "devon"
+            it for it in list2_resp.json()["items"] if it["agent_role"] == "devon"
         )
         assert devon2["effective_model"] == "claude-opus"
         assert devon2["source"] == "override"
@@ -728,9 +722,7 @@ def test_e2e_fr_1701_workflow_definitions_catalog_validation(
     assert nf["nodes"][0]["step_id"] == "start"
     # Terminal node has no outgoing edges.
     from_steps = {e["from_step"] for e in nf["edges"]}
-    terminal_ids = {
-        n["step_id"] for n in nf["nodes"] if n["step_id"] not in from_steps
-    }
+    terminal_ids = {n["step_id"] for n in nf["nodes"] if n["step_id"] not in from_steps}
     assert "complete" in terminal_ids
 
     # bug_fix graph.

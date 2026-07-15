@@ -91,9 +91,7 @@ class CompletableWorkflow:
             CompletionBlockedError: If any required node is missing or False.
         """
         missing = [
-            node
-            for node in self.required_completion_nodes
-            if not evidence.get(node)
+            node for node in self.required_completion_nodes if not evidence.get(node)
         ]
         if missing:
             raise CompletionBlockedError(

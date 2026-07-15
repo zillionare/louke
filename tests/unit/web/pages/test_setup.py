@@ -31,9 +31,24 @@ def _ready_payload() -> list[dict[str, str]]:
     return [
         {"name": "Git", "status": "READY", "diagnosis": "ok", "remediation": "none"},
         {"name": "Store", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {"name": "Catalog", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {"name": "OpenCode", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {"name": "Models", "status": "READY", "diagnosis": "default-model", "remediation": "none"},
+        {
+            "name": "Catalog",
+            "status": "READY",
+            "diagnosis": "ok",
+            "remediation": "none",
+        },
+        {
+            "name": "OpenCode",
+            "status": "READY",
+            "diagnosis": "ok",
+            "remediation": "none",
+        },
+        {
+            "name": "Models",
+            "status": "READY",
+            "diagnosis": "default-model",
+            "remediation": "none",
+        },
     ]
 
 
@@ -42,9 +57,24 @@ def _blocked_payload() -> list[dict[str, str]]:
     return [
         {"name": "Git", "status": "READY", "diagnosis": "ok", "remediation": "none"},
         {"name": "Store", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {"name": "Catalog", "status": "BLOCKED", "diagnosis": "missing", "remediation": "run X"},
-        {"name": "OpenCode", "status": "BLOCKED", "diagnosis": "no adapter", "remediation": "wait B4"},
-        {"name": "Models", "status": "READY", "diagnosis": "default-model", "remediation": "none"},
+        {
+            "name": "Catalog",
+            "status": "BLOCKED",
+            "diagnosis": "missing",
+            "remediation": "run X",
+        },
+        {
+            "name": "OpenCode",
+            "status": "BLOCKED",
+            "diagnosis": "no adapter",
+            "remediation": "wait B4",
+        },
+        {
+            "name": "Models",
+            "status": "READY",
+            "diagnosis": "default-model",
+            "remediation": "none",
+        },
     ]
 
 
@@ -153,8 +183,13 @@ def test_setup_first_user_post_calls_api(client: TestClient) -> None:
 def test_setup_first_user_post_shows_error_on_failure(client: TestClient) -> None:
     """POST /first-user on upstream failure shows an error message in the page."""
     mock = AsyncMock(side_effect=RuntimeError("upstream 500"))
-    with patch.object(setup_page, "_post_first_user", new=mock), patch.object(
-        setup_page, "_fetch_readiness", new=AsyncMock(return_value=_blocked_payload())
+    with (
+        patch.object(setup_page, "_post_first_user", new=mock),
+        patch.object(
+            setup_page,
+            "_fetch_readiness",
+            new=AsyncMock(return_value=_blocked_payload()),
+        ),
     ):
         resp = client.post(
             "/first-user",

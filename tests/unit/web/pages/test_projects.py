@@ -111,18 +111,38 @@ def _graph_payload() -> dict[str, object]:
         "definition_id": "new_feature",
         "definition_version": "1",
         "nodes": [
-            {"step_id": "start", "kind": "program", "label": "Start", "state": "completed"},
+            {
+                "step_id": "start",
+                "kind": "program",
+                "label": "Start",
+                "state": "completed",
+            },
             {
                 "step_id": "requirements_approval",
                 "kind": "human_gate",
                 "label": "Requirements Approval",
                 "state": "waiting_for_human",
             },
-            {"step_id": "design", "kind": "program", "label": "Design", "state": "pending"},
+            {
+                "step_id": "design",
+                "kind": "program",
+                "label": "Design",
+                "state": "pending",
+            },
         ],
         "edges": [
-            {"edge_id": "e1", "from_step": "start", "to_step": "requirements_approval", "condition": "done"},
-            {"edge_id": "e2", "from_step": "requirements_approval", "to_step": "design", "condition": "approved"},
+            {
+                "edge_id": "e1",
+                "from_step": "start",
+                "to_step": "requirements_approval",
+                "condition": "done",
+            },
+            {
+                "edge_id": "e2",
+                "from_step": "requirements_approval",
+                "to_step": "design",
+                "condition": "approved",
+            },
         ],
         "current_step": "requirements_approval",
         "revision": 1,
@@ -158,8 +178,18 @@ def _events_payload() -> dict[str, object]:
 def _catalog_payload() -> list[dict[str, object]]:
     """Return a catalog payload (new_feature + bug_fix)."""
     return [
-        {"definition_id": "new_feature", "version": "1", "label": "New feature", "is_hotfix": False},
-        {"definition_id": "bug_fix", "version": "1", "label": "Bug fix (hotfix)", "is_hotfix": True},
+        {
+            "definition_id": "new_feature",
+            "version": "1",
+            "label": "New feature",
+            "is_hotfix": False,
+        },
+        {
+            "definition_id": "bug_fix",
+            "version": "1",
+            "label": "Bug fix (hotfix)",
+            "is_hotfix": True,
+        },
     ]
 
 
@@ -168,12 +198,22 @@ def _catalog_payload() -> list[dict[str, object]]:
 
 def test_projects_index_shows_active_history_backlog(client: TestClient) -> None:
     """GET / renders three sections, each with one card."""
-    with patch.object(
-        projects_page, "_fetch_active", new=AsyncMock(return_value=_active_payload())
-    ), patch.object(
-        projects_page, "_fetch_history", new=AsyncMock(return_value=_history_payload())
-    ), patch.object(
-        projects_page, "_fetch_backlog", new=AsyncMock(return_value=_backlog_payload())
+    with (
+        patch.object(
+            projects_page,
+            "_fetch_active",
+            new=AsyncMock(return_value=_active_payload()),
+        ),
+        patch.object(
+            projects_page,
+            "_fetch_history",
+            new=AsyncMock(return_value=_history_payload()),
+        ),
+        patch.object(
+            projects_page,
+            "_fetch_backlog",
+            new=AsyncMock(return_value=_backlog_payload()),
+        ),
     ):
         resp = client.get("/")
 
@@ -195,12 +235,10 @@ def test_projects_index_shows_active_history_backlog(client: TestClient) -> None
 
 def test_projects_index_handles_empty_state(client: TestClient) -> None:
     """GET / with no projects renders empty-state messages."""
-    with patch.object(
-        projects_page, "_fetch_active", new=AsyncMock(return_value=[])
-    ), patch.object(
-        projects_page, "_fetch_history", new=AsyncMock(return_value=[])
-    ), patch.object(
-        projects_page, "_fetch_backlog", new=AsyncMock(return_value=[])
+    with (
+        patch.object(projects_page, "_fetch_active", new=AsyncMock(return_value=[])),
+        patch.object(projects_page, "_fetch_history", new=AsyncMock(return_value=[])),
+        patch.object(projects_page, "_fetch_backlog", new=AsyncMock(return_value=[])),
     ):
         resp = client.get("/")
 
@@ -213,12 +251,14 @@ def test_projects_index_handles_empty_state(client: TestClient) -> None:
 
 def test_projects_index_handles_api_error(client: TestClient) -> None:
     """When the upstream active-list call fails, the page shows an error, status 200."""
-    with patch.object(
-        projects_page, "_fetch_active", new=AsyncMock(side_effect=RuntimeError("upstream 500"))
-    ), patch.object(
-        projects_page, "_fetch_history", new=AsyncMock(return_value=[])
-    ), patch.object(
-        projects_page, "_fetch_backlog", new=AsyncMock(return_value=[])
+    with (
+        patch.object(
+            projects_page,
+            "_fetch_active",
+            new=AsyncMock(side_effect=RuntimeError("upstream 500")),
+        ),
+        patch.object(projects_page, "_fetch_history", new=AsyncMock(return_value=[])),
+        patch.object(projects_page, "_fetch_backlog", new=AsyncMock(return_value=[])),
     ):
         resp = client.get("/")
 
@@ -316,12 +356,20 @@ def test_projects_new_confirm(client: TestClient) -> None:
 
 def test_projects_detail_renders_run_state(client: TestClient) -> None:
     """GET /{id} renders the project header, current step, and events timeline."""
-    with patch.object(
-        projects_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        projects_page, "_fetch_graph", new=AsyncMock(return_value=_graph_payload())
-    ), patch.object(
-        projects_page, "_fetch_events", new=AsyncMock(return_value=_events_payload()["items"])
+    with (
+        patch.object(
+            projects_page,
+            "_fetch_project",
+            new=AsyncMock(return_value=_project_detail()),
+        ),
+        patch.object(
+            projects_page, "_fetch_graph", new=AsyncMock(return_value=_graph_payload())
+        ),
+        patch.object(
+            projects_page,
+            "_fetch_events",
+            new=AsyncMock(return_value=_events_payload()["items"]),
+        ),
     ):
         resp = client.get("/prj_active1")
 
@@ -339,12 +387,16 @@ def test_projects_detail_renders_run_state(client: TestClient) -> None:
 
 def test_projects_detail_404(client: TestClient) -> None:
     """GET /{id} on an unknown project renders a 'not found' message, status 200."""
-    with patch.object(
-        projects_page, "_fetch_project", new=AsyncMock(side_effect=RuntimeError("404 not found"))
-    ), patch.object(
-        projects_page, "_fetch_graph", new=AsyncMock(return_value=_graph_payload())
-    ), patch.object(
-        projects_page, "_fetch_events", new=AsyncMock(return_value=[])
+    with (
+        patch.object(
+            projects_page,
+            "_fetch_project",
+            new=AsyncMock(side_effect=RuntimeError("404 not found")),
+        ),
+        patch.object(
+            projects_page, "_fetch_graph", new=AsyncMock(return_value=_graph_payload())
+        ),
+        patch.object(projects_page, "_fetch_events", new=AsyncMock(return_value=[])),
     ):
         resp = client.get("/prj_unknown")
 

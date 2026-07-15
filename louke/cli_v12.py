@@ -7,13 +7,11 @@ http://127.0.0.1:8000) for the server URL.
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import sys
 import urllib.error
 import urllib.request
-from typing import Any
 
 
 _DEFAULT_API_BASE = "http://127.0.0.1:8000"
@@ -77,6 +75,7 @@ def cmd_workflow_graph(args):
 
 def cmd_migrate_preview(args):
     from urllib.parse import quote
+
     wp = quote(args.workspace_path, safe="")
     _print(_request("GET", f"/api/migration/preview?workspace_path={wp}"))
     return 0
@@ -86,7 +85,9 @@ def register_project(sub):
     p = sub.add_parser("project", help="Manage v0.12 projects")
     pp = p.add_subparsers(dest="command", required=True)
     pl = pp.add_parser("list", help="List projects")
-    pl.add_argument("--status", choices=["active", "history", "backlog"], default="active")
+    pl.add_argument(
+        "--status", choices=["active", "history", "backlog"], default="active"
+    )
     pl.set_defaults(func=cmd_project_list)
     ps = pp.add_parser("show", help="Show project detail")
     ps.add_argument("project_id")
@@ -139,11 +140,18 @@ def dispatch(args):
     except urllib.error.HTTPError as e:
         try:
             raw = e.read()
-            body_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+            body_text = (
+                raw.decode("utf-8", errors="replace")
+                if isinstance(raw, bytes)
+                else str(raw)
+            )
         except Exception:
             body_text = ""
         print(f"lk: HTTP {e.code}: {body_text}", file=sys.stderr)
         raise SystemExit(2)
     except urllib.error.URLError as e:
-        print(f"lk: cannot reach louke server at {_api_base()}: {e.reason}", file=sys.stderr)
+        print(
+            f"lk: cannot reach louke server at {_api_base()}: {e.reason}",
+            file=sys.stderr,
+        )
         raise SystemExit(3)

@@ -43,6 +43,7 @@ def create_app(project_root: str | Path | None = None, *, setup_only: bool = Fal
 
     return _create_app(project_root, setup_only=setup_only)
 
+
 _VALID_STAGES = frozenset(
     {
         "M-FOUND",
@@ -105,7 +106,9 @@ def run(args: argparse.Namespace) -> int:
     root = _resolve_project_root(args.project_root)
     project_toml = root / ".louke" / "project" / "project.toml"
     setup_url = f"http://{args.host}:{args.port}/setup"
-    print(f"lk serve: opencode backend = {args.opencode_backend} (real adapter pending)")
+    print(
+        f"lk serve: opencode backend = {args.opencode_backend} (real adapter pending)"
+    )
 
     if not project_toml.exists() or not _current_stage_valid(project_toml):
         created = _ensure_minimal_project_toml(project_toml)
@@ -137,7 +140,12 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     selector = RuntimeSelector(project_root=str(root), declared_version="0.12.0")
     try:
         identity = selector.resolve()
-    except (IntegrityError, VersionMismatchError, InvalidRuntimeError, GlobalModeError) as exc:
+    except (
+        IntegrityError,
+        VersionMismatchError,
+        InvalidRuntimeError,
+        GlobalModeError,
+    ) as exc:
         return _fail(
             f"runtime selection failed: {exc}. Inspect .louke/project/project.toml "
             f"(version/declared) and the local runtime under {root}/.louke/runtime. "
@@ -151,8 +159,11 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
             from .opencode.process import OpenCodeServerProcess
             from .opencode.dispatch import get_default_adapter
             from .opencode.persistence import OpenCodeInstanceStore
+
             if not os.environ.get("LOUKE_OPENCODE_BASE_URL"):
-                proc = OpenCodeServerProcess(host="127.0.0.1", port=0, opencode_bin="opencode")
+                proc = OpenCodeServerProcess(
+                    host="127.0.0.1", port=0, opencode_bin="opencode"
+                )
                 base_url = proc.start()
                 os.environ["LOUKE_OPENCODE_BASE_URL"] = base_url
                 os.environ["LOUKE_OPENCODE_OWNED_PID"] = str(proc.pid or 0)
@@ -164,15 +175,27 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
                 live = sum(1 for s in states if s.status == "running")
                 lost = [s for s in states if s.status == "lost"]
                 needs_attention = [s for s in states if s.status == "needs_attention"]
-                print(f"lk serve: opencode recovery: live={live} lost={len(lost)} needs_attention={len(needs_attention)}")
+                print(
+                    f"lk serve: opencode recovery: live={live} lost={len(lost)} needs_attention={len(needs_attention)}"
+                )
                 for s in lost:
-                    print(f"  lost: instance={s.instance_id} (was at {s.base_url})", file=sys.stderr)
+                    print(
+                        f"  lost: instance={s.instance_id} (was at {s.base_url})",
+                        file=sys.stderr,
+                    )
                 for s in needs_attention:
-                    print(f"  needs_attention: instance={s.instance_id} (pid alive, not in adapter)", file=sys.stderr)
+                    print(
+                        f"  needs_attention: instance={s.instance_id} (pid alive, not in adapter)",
+                        file=sys.stderr,
+                    )
             else:
-                print("lk serve: opencode backend=real; no persisted instances to recover")
+                print(
+                    "lk serve: opencode backend=real; no persisted instances to recover"
+                )
         except Exception as exc:
-            return _fail(f"opencode backend 'real' setup failed: {exc}. Pass --opencode-backend=mock to use the deterministic stub. No global fallback.")
+            return _fail(
+                f"opencode backend 'real' setup failed: {exc}. Pass --opencode-backend=mock to use the deterministic stub. No global fallback."
+            )
     else:
         print("lk serve: opencode backend=mock; skipping recovery scan")
 
@@ -186,18 +209,14 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     return _run_uvicorn(args, root, setup_only=False)
 
 
-def _start_or_dry_run(
-    args: argparse.Namespace, root: Path, *, setup_only: bool
-) -> int:
+def _start_or_dry_run(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:
     if args.dry_run:
         create_app(root, setup_only=setup_only)
         return 0
     return _run_uvicorn(args, root, setup_only=setup_only)
 
 
-def _run_uvicorn(
-    args: argparse.Namespace, root: Path, *, setup_only: bool
-) -> int:
+def _run_uvicorn(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:
     runner = uvicorn_run
     if runner is None:
         try:
@@ -205,7 +224,9 @@ def _run_uvicorn(
 
             runner = uvicorn.run
         except ImportError as exc:
-            print(f"lk serve: missing runtime dependency uvicorn ({exc})", file=sys.stderr)
+            print(
+                f"lk serve: missing runtime dependency uvicorn ({exc})", file=sys.stderr
+            )
             return 1
     app = create_app(root, setup_only=setup_only)
     runner(app, host=args.host, port=args.port, log_level="info")

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from unittest.mock import patch
 
 import pytest
@@ -63,18 +62,25 @@ def test_gate_reject_requires_reason(capsys):
 
 
 def test_workflow_graph_calls_project_endpoint(capsys):
-    with patch.object(cli_v12, "_request", return_value={"nodes": [], "edges": []}) as m:
+    with patch.object(
+        cli_v12, "_request", return_value={"nodes": [], "edges": []}
+    ) as m:
         _run(["workflow", "graph", "run_1"])
     assert m.call_args.args == ("GET", "/api/projects/run_1/graph")
 
 
 def test_migrate_preview_calls_endpoint(capsys):
-    with patch.object(cli_v12, "_request", return_value={"recommended_mode": "local"}) as m:
+    with patch.object(
+        cli_v12, "_request", return_value={"recommended_mode": "local"}
+    ) as m:
         _run(["migrate", "preview", "/tmp/old workspace"])  # path with space
     assert m.call_args.args[0] == "GET"
     assert m.call_args.args[1].startswith("/api/migration/preview?workspace_path=")
     # Verify the space was URL-encoded
-    assert "old%20workspace" in m.call_args.args[1] or "old+workspace" in m.call_args.args[1]
+    assert (
+        "old%20workspace" in m.call_args.args[1]
+        or "old+workspace" in m.call_args.args[1]
+    )
 
 
 def test_request_http_error_exits_2(capsys):

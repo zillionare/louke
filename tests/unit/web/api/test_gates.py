@@ -13,7 +13,7 @@ AC references covered:
 from __future__ import annotations
 
 import uuid
-from typing import NamedTuple
+from typing import Iterator, NamedTuple
 
 import pytest
 from starlette.testclient import TestClient
@@ -67,7 +67,7 @@ def _make_run(store: WorkflowRunStore) -> str:
 
 
 @pytest.fixture
-def client_env() -> _Ctx:
+def client_env() -> Iterator[_Ctx]:
     """Return a started TestClient and the lazily-created store.
 
     The store is created *inside* the TestClient portal thread (via a first

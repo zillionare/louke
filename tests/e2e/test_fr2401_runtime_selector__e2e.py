@@ -328,7 +328,9 @@ def test_ac_fr2401_04_no_global_fallback_on_local_failure():
     """
     # Each local-failure variant must raise; none may return a global source.
     failure_selectors = [
-        RuntimeSelector(PROJ_A_ROOT, declared_version=PROJ_A_VERSION, local_present=False),
+        RuntimeSelector(
+            PROJ_A_ROOT, declared_version=PROJ_A_VERSION, local_present=False
+        ),
         RuntimeSelector(
             PROJ_A_ROOT,
             declared_version=PROJ_A_VERSION,

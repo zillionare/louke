@@ -146,7 +146,10 @@ class RuntimeSelector:
         effective_root = self._find_workspace_root()
 
         if self._mode == RuntimeMode.GLOBAL:
-            if not self._global_version or self._global_version < self._MIN_GLOBAL_VERSION:
+            if (
+                not self._global_version
+                or self._global_version < self._MIN_GLOBAL_VERSION
+            ):
                 raise GlobalModeError(
                     f"global runtime {self._global_version!r} is incompatible; "
                     f"need >= {self._MIN_GLOBAL_VERSION}"

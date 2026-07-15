@@ -100,6 +100,7 @@ def _load_persisted_base_url(workspace_root: Path) -> Optional[str]:
     """
     # Local import to avoid a hard dependency cycle at module load.
     from .persistence import OpenCodeInstanceStore
+
     store = OpenCodeInstanceStore(workspace_root)
     states = store.load_all()
     if not states:

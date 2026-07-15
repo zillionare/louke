@@ -88,7 +88,7 @@ Expected v0.12 subpackages:
   License: MIT
 
 --- 0.8 fresh venv wheel install + lk --version ---
-louke.__version__: 
+louke.__version__:
 
 lk --version:
 Traceback (most recent call last):

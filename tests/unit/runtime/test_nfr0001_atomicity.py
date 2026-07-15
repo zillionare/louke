@@ -163,7 +163,9 @@ def test_ac_nfr0001_01_interruption_before_handler_yields_retryable():
 
     harness.execute_with_interruption(
         orchestrator,
-        RuntimeCommand(run_id=run.run_id, expected_revision=run.revision, result="done"),
+        RuntimeCommand(
+            run_id=run.run_id, expected_revision=run.revision, result="done"
+        ),
         side_effect_label="side:start",
         idempotency_key="att_001",
     )
@@ -199,7 +201,9 @@ def test_ac_nfr0001_01_interruption_before_commit_yields_needs_attention():
 
     harness.execute_with_interruption(
         orchestrator,
-        RuntimeCommand(run_id=run.run_id, expected_revision=run.revision, result="done"),
+        RuntimeCommand(
+            run_id=run.run_id, expected_revision=run.revision, result="done"
+        ),
         side_effect_label="side:start",
         idempotency_key="att_002",
     )

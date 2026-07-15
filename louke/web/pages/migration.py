@@ -363,9 +363,7 @@ def _render_preview_result(preview: dict[str, Any]) -> str:
     """
     recommended = _esc(preview.get("recommended_mode", ""))
     available = preview.get("available_modes", ())
-    mode_radios = "".join(
-        _render_mode_radio(str(m), recommended) for m in available
-    )
+    mode_radios = "".join(_render_mode_radio(str(m), recommended) for m in available)
     categories = "".join(
         _render_category(label, preview.get(key, ()))
         for key, label in _PREVIEW_CATEGORIES
@@ -404,7 +402,7 @@ def _render_mode_radio(mode: str, recommended: str) -> str:
     checked = " checked" if mode == recommended else ""
     return (
         f'<label><input type="radio" name="mode" value="{_esc(mode)}"'
-        f'{checked} /> {_esc(mode)}</label>'
+        f"{checked} /> {_esc(mode)}</label>"
     )
 
 

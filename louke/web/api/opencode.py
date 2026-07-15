@@ -287,14 +287,21 @@ def _real_error_response(exc: Exception) -> JSONResponse:
     if isinstance(exc, httpx.TimeoutException):
         return _real_error(504, OPENCODE_TIMEOUT, f"opencode timeout: {exc}")
     if isinstance(exc, httpx.HTTPStatusError):
-        return _real_error(502, OPENCODE_UPSTREAM_ERROR, f"opencode upstream error: {exc}")
+        return _real_error(
+            502, OPENCODE_UPSTREAM_ERROR, f"opencode upstream error: {exc}"
+        )
     return _real_error(500, OPENCODE_INTERNAL, f"opencode internal error: {exc}")
 
 
 def _real_error(status: int, code: str, message: str) -> JSONResponse:
     """Return a structured 5xx JSONResponse tagged ``adapter_kind: real``."""
     return JSONResponse(
-        {"adapter_kind": "real", "error_code": code, "message": message, "ready": False},
+        {
+            "adapter_kind": "real",
+            "error_code": code,
+            "message": message,
+            "ready": False,
+        },
         status_code=status,
     )
 
@@ -559,9 +566,7 @@ async def abort_instance(request: Request) -> JSONResponse:
         if _cached_kind(request) == "real":
             return _real_error_response(exc)
         raise
-    return JSONResponse(
-        _envelope(adapter, {"aborted": instance_id}), status_code=202
-    )
+    return JSONResponse(_envelope(adapter, {"aborted": instance_id}), status_code=202)
 
 
 async def recover_instance(request: Request) -> JSONResponse:

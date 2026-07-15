@@ -50,7 +50,13 @@ def test_ac_fr1701_01_definition_enumerable_and_immutable():
         decisions={"design_required"},
     )
 
-    assert definition.nodes == {"requirements", "design", "implementation", "review", "done"}
+    assert definition.nodes == {
+        "requirements",
+        "design",
+        "implementation",
+        "review",
+        "done",
+    }
     assert ("design", "implementation") in definition.edges
     assert "m_lock" in definition.gates
     assert "design_required" in definition.decisions
@@ -123,7 +129,9 @@ def test_ac_fr1701_02_program_classification_only_when_allowed():
     binding = WorkflowRunBinding.start(
         run_id="run_002",
         registry=registry,
-        classification=Classification(kind="auto_classify", reason="input is a bug report"),
+        classification=Classification(
+            kind="auto_classify", reason="input is a bug report"
+        ),
     )
 
     assert binding.definition.name == "auto_classify"

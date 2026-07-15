@@ -205,7 +205,10 @@ def test_ac_nfr0301_03_missing_model_blocks_journey_with_repair_action():
     assert result.archived is False
     assert result.status != "completed"
     assert result.blocked_reason != ""
-    assert "model" in result.blocked_reason.lower() or "provider" in result.blocked_reason.lower()
+    assert (
+        "model" in result.blocked_reason.lower()
+        or "provider" in result.blocked_reason.lower()
+    )
     assert result.recommended_action != ""
 
 
@@ -292,7 +295,10 @@ def test_ac_nfr0301_05_concurrent_workspaces_keep_identity_isolated():
     assert result_a.runtime_identity["version"] == WS_A_VERSION
     assert result_b.runtime_identity["version"] == WS_B_VERSION
     assert result_a.runtime_identity["version"] != result_b.runtime_identity["version"]
-    assert result_a.runtime_identity["executable"] != result_b.runtime_identity["executable"]
+    assert (
+        result_a.runtime_identity["executable"]
+        != result_b.runtime_identity["executable"]
+    )
     # Both must complete independently.
     assert result_a.completed is True
     assert result_b.completed is True

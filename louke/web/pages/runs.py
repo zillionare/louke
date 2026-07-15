@@ -362,9 +362,7 @@ def _event_steps(event: dict[str, Any]) -> tuple[str, str, str]:
     return from_step, to_step, step_id
 
 
-def _node_state(
-    step_id: str, current_step: str, completed: set[str]
-) -> str:
+def _node_state(step_id: str, current_step: str, completed: set[str]) -> str:
     """Return the graph state for a node relative to the current run position."""
     if step_id == current_step:
         return "current"
@@ -395,7 +393,9 @@ def _build_svg(
         x = spacing // 2 + idx * spacing
         y = 50
         positions[sid] = (x, y)
-        circles.append(f'<circle cx="{x}" cy="{y}" r="20" fill="{color}" stroke="#111" />')
+        circles.append(
+            f'<circle cx="{x}" cy="{y}" r="20" fill="{color}" stroke="#111" />'
+        )
         labels.append(
             f'<text x="{x}" y="{y + 40}" text-anchor="middle" font-size="11">{_esc(sid)}</text>'
         )
@@ -404,7 +404,7 @@ def _build_svg(
         f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">'
         f'<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">'
         f'<path d="M0,0 L8,3 L0,6 Z" fill="#6b7280" /></marker></defs>'
-        f'{"".join(arrows)}{"".join(circles)}{"".join(labels)}</svg>'
+        f"{''.join(arrows)}{''.join(circles)}{''.join(labels)}</svg>"
     )
 
 

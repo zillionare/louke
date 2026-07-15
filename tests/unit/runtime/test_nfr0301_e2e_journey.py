@@ -128,7 +128,10 @@ def test_ac_nfr0301_05_concurrent_workspaces_isolated():
     assert result_a.runtime_identity["version"] == "0.12.1"
     assert result_b.runtime_identity["version"] == "0.12.2"
     assert result_c.runtime_identity["mode"] == "global"
-    assert result_a.runtime_identity["executable"] != result_b.runtime_identity["executable"]
+    assert (
+        result_a.runtime_identity["executable"]
+        != result_b.runtime_identity["executable"]
+    )
 
 
 # -- AC-NFR0301-06 ------------------------------------------------------------

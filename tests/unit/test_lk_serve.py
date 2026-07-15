@@ -66,9 +66,7 @@ def _write_first_user(root: Path, name: str = "owner") -> None:
     import json
 
     (louke_dir / "web-users.json").write_text(
-        json.dumps(
-            {"version": 1, "users": [{"username": name, "password": "x"}]}
-        )
+        json.dumps({"version": 1, "users": [{"username": name, "password": "x"}]})
         + "\n",
         encoding="utf-8",
     )

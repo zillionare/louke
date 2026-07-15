@@ -17,7 +17,10 @@ from pathlib import Path
 import pytest
 
 from louke.opencode.dispatch import get_default_adapter
-from louke.opencode.in_memory import InMemoryOpenCodeAdapter, get_default_adapter as _get_mock
+from louke.opencode.in_memory import (
+    InMemoryOpenCodeAdapter,
+    get_default_adapter as _get_mock,
+)
 from louke.opencode.real import RealOpenCodeAdapter
 
 
@@ -112,12 +115,14 @@ def test_dispatch_invalid_kind_raises():
 def _make_fake_bin(tmp_path: Path, lines: list[str]) -> Path:
     """Write a fake executable that prints the given lines to stdout."""
     script = tmp_path / "fake_opencode"
-    body = "\n".join([
-        "#!" + sys.executable,
-        "import sys, time",
-        *[f"print({line!r}); sys.stdout.flush()" for line in lines],
-        "time.sleep(3)",
-    ])
+    body = "\n".join(
+        [
+            "#!" + sys.executable,
+            "import sys, time",
+            *[f"print({line!r}); sys.stdout.flush()" for line in lines],
+            "time.sleep(3)",
+        ]
+    )
     script.write_text(body, encoding="utf-8")
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return script
@@ -126,10 +131,14 @@ def _make_fake_bin(tmp_path: Path, lines: list[str]) -> Path:
 def test_process_start_parses_url_from_stdout(tmp_path: Path):
     """start() reads stdout until a 'http://127.0.0.1:NNNN' line appears."""
     from louke.opencode.process import OpenCodeServerProcess
-    fake = _make_fake_bin(tmp_path, [
-        "Warning: unsecured",
-        "opencode server listening on http://127.0.0.1:41999",
-    ])
+
+    fake = _make_fake_bin(
+        tmp_path,
+        [
+            "Warning: unsecured",
+            "opencode server listening on http://127.0.0.1:41999",
+        ],
+    )
     proc = OpenCodeServerProcess(opencode_bin=str(fake), startup_timeout=5.0)
 
     url = proc.start()
@@ -144,6 +153,7 @@ def test_process_start_parses_url_from_stdout(tmp_path: Path):
 def test_process_start_accepts_localhost_url(tmp_path: Path):
     """start() accepts 'localhost' in addition to '127.0.0.1'."""
     from louke.opencode.process import OpenCodeServerProcess
+
     fake = _make_fake_bin(tmp_path, ["listening on http://localhost:42001"])
     proc = OpenCodeServerProcess(opencode_bin=str(fake), startup_timeout=5.0)
 
@@ -157,6 +167,7 @@ def test_process_start_accepts_localhost_url(tmp_path: Path):
 def test_process_start_raises_when_url_never_logged(tmp_path: Path):
     """start() raises RuntimeError when the deadline elapses with no URL."""
     from louke.opencode.process import OpenCodeServerProcess
+
     fake = _make_fake_bin(tmp_path, ["just some unrelated log line"])
     proc = OpenCodeServerProcess(opencode_bin=str(fake), startup_timeout=0.3)
 
@@ -174,6 +185,7 @@ def test_process_start_raises_when_url_never_logged(tmp_path: Path):
 def test_process_start_raises_when_binary_missing(tmp_path: Path):
     """A missing binary raises RuntimeError (not FileNotFoundError)."""
     from louke.opencode.process import OpenCodeServerProcess
+
     proc = OpenCodeServerProcess(opencode_bin="/nonexistent/opencode-xyz")
 
     with pytest.raises(RuntimeError) as exc:
@@ -184,6 +196,7 @@ def test_process_start_raises_when_binary_missing(tmp_path: Path):
 def test_process_start_returns_same_url_on_repeat_start(tmp_path: Path):
     """Calling start() twice returns the existing base_url (no second spawn)."""
     from louke.opencode.process import OpenCodeServerProcess
+
     fake = _make_fake_bin(tmp_path, ["listening on http://127.0.0.1:42100"])
     proc = OpenCodeServerProcess(opencode_bin=str(fake), startup_timeout=5.0)
 
@@ -200,6 +213,7 @@ def test_process_start_returns_same_url_on_repeat_start(tmp_path: Path):
 def test_process_stop_clears_state(tmp_path: Path):
     """stop() clears pid and base_url."""
     from louke.opencode.process import OpenCodeServerProcess
+
     fake = _make_fake_bin(tmp_path, ["listening on http://127.0.0.1:42101"])
     proc = OpenCodeServerProcess(opencode_bin=str(fake), startup_timeout=5.0)
     proc.start()
@@ -214,6 +228,7 @@ def test_process_stop_clears_state(tmp_path: Path):
 def test_process_stop_when_not_started_is_noop():
     """stop() on an unstarted process is safe."""
     from louke.opencode.process import OpenCodeServerProcess
+
     proc = OpenCodeServerProcess()
     proc.stop()  # must not raise
 
@@ -224,6 +239,7 @@ def test_process_stop_when_not_started_is_noop():
 def test_fallback_process_exposes_base_url():
     """FallbackOpenCodeServerProcess exposes a pre-known base_url."""
     from louke.opencode.process import FallbackOpenCodeServerProcess
+
     proc = FallbackOpenCodeServerProcess("http://127.0.0.1:42200", pid=42)
 
     assert proc.start() == "http://127.0.0.1:42200"

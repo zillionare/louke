@@ -155,7 +155,10 @@ class RealOpenCodeAdapter:
             "model": _parse_model_spec(resolved_model),
         }
         resp = self._request(
-            "POST", _SESSION_PATH, json=body, correlation_id=correlation_id,
+            "POST",
+            _SESSION_PATH,
+            json=body,
+            correlation_id=correlation_id,
         )
         data = resp.json()
         inner = data.get("data", data) if isinstance(data, dict) else data
@@ -282,7 +285,8 @@ class RealOpenCodeAdapter:
             RuntimeError: On a non-2xx response or transport failure.
         """
         resp = self._request(
-            "GET", _session_path(instance_id, _MESSAGE_SUFFIX),
+            "GET",
+            _session_path(instance_id, _MESSAGE_SUFFIX),
         )
         raw_messages = _unwrap_data_envelope(resp.json())
         messages = [_parse_message(instance_id, m) for m in raw_messages]
@@ -290,7 +294,7 @@ class RealOpenCodeAdapter:
             return messages
         for i, m in enumerate(messages):
             if m.id == after_message_id:
-                return messages[i + 1:]
+                return messages[i + 1 :]
         return messages
 
     def cancel(self, instance_id: str, *, correlation_id: str) -> None:
@@ -370,7 +374,11 @@ class RealOpenCodeAdapter:
             headers["x-correlation-id"] = correlation_id
         try:
             resp = self._client.request(
-                method, url, json=json, headers=headers, timeout=self._timeout,
+                method,
+                url,
+                json=json,
+                headers=headers,
+                timeout=self._timeout,
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(

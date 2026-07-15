@@ -55,7 +55,7 @@ def _write_project_toml(root: Any) -> None:
         'current_stage = "M-DEV"\nsecurity_audit = "disabled"\n'
         'smoke_test_issue = ""\nsmoke_test_pr = ""\n'
         'pre_commit = "installed"\ntest_framework = "pytest"\n'
-        'acknowledged_orphan_releases = []\n',
+        "acknowledged_orphan_releases = []\n",
         encoding="utf-8",
     )
 

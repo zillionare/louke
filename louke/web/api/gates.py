@@ -158,7 +158,9 @@ async def submit_decision(request: Request) -> JSONResponse:
     if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
         raise HTTPException(
             status_code=400,
-            detail=error_detail(VALIDATION_ERROR, "field 'expected_revision' must be an integer"),
+            detail=error_detail(
+                VALIDATION_ERROR, "field 'expected_revision' must be an integer"
+            ),
         )
     principal = payload.get("principal")
     if not isinstance(principal, dict):

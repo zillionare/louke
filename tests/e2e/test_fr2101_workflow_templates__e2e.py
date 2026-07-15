@@ -88,7 +88,9 @@ BUG_FIX_REQUIRED_NODES = frozenset(
     }
 )
 
-BUG_FIX_FULL_NODES = BUG_FIX_REQUIRED_NODES | frozenset({"failure_reproduction", "history"})
+BUG_FIX_FULL_NODES = BUG_FIX_REQUIRED_NODES | frozenset(
+    {"failure_reproduction", "history"}
+)
 
 QUICK_HOTFIX_REQUIRED_NODES = frozenset(
     {
@@ -374,9 +376,7 @@ def test_ac_fr2101_04_maestro_output_alone_does_not_change_run():
 
     # And the low/high impact rules are still deterministic independent of the
     # candidate list (Maestro output is advisory only).
-    low = registry.resolve_hotfix(
-        HotfixImpact(False, False, False, False)
-    )
+    low = registry.resolve_hotfix(HotfixImpact(False, False, False, False))
     high = registry.resolve_hotfix(HotfixImpact(True, False, False, False))
     assert "quick_rgr" in low.nodes
     assert "test_plan_author" in high.required_completion_nodes
@@ -450,20 +450,29 @@ def test_ac_fr2101_05_hotfix_inherits_requirements_approval_only_via_source_cont
     """
     validator = SourceContractValidation()
 
-    assert validator.can_inherit_requirements_approval(
-        spec_status="approved",
-        source_contract_digest_matches=True,
-    ) is True
+    assert (
+        validator.can_inherit_requirements_approval(
+            spec_status="approved",
+            source_contract_digest_matches=True,
+        )
+        is True
+    )
 
-    assert validator.can_inherit_requirements_approval(
-        spec_status="approved",
-        source_contract_digest_matches=False,
-    ) is False
+    assert (
+        validator.can_inherit_requirements_approval(
+            spec_status="approved",
+            source_contract_digest_matches=False,
+        )
+        is False
+    )
 
-    assert validator.can_inherit_requirements_approval(
-        spec_status="draft",
-        source_contract_digest_matches=True,
-    ) is False
+    assert (
+        validator.can_inherit_requirements_approval(
+            spec_status="draft",
+            source_contract_digest_matches=True,
+        )
+        is False
+    )
 
 
 @pytest.mark.e2e

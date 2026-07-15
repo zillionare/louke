@@ -12,6 +12,8 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
+
+
 class ReadinessStatus(Enum):
     """Discrete readiness state for a workspace dependency."""
 

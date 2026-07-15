@@ -72,7 +72,10 @@ def _subprocess_env() -> dict[str, str]:
     where the dylib is not needed the extra path is simply unused.
     """
     env = os.environ.copy()
-    for candidate in (Path(sys.base_prefix) / "lib", Path(sys.base_prefix).parent / "lib"):
+    for candidate in (
+        Path(sys.base_prefix) / "lib",
+        Path(sys.base_prefix).parent / "lib",
+    ):
         if candidate.exists() and any(candidate.glob("libpython*.dylib")):
             env["DYLD_LIBRARY_PATH"] = (
                 str(candidate) + os.pathsep + env.get("DYLD_LIBRARY_PATH", "")
@@ -166,12 +169,15 @@ def _create_clean_venv(prefix: Path) -> Path:
 
 def _pip_works(venv_python: Path) -> bool:
     """Return True if ``venv_python -m pip --version`` exits cleanly."""
-    return subprocess.run(
-        [str(venv_python), "-m", "pip", "--version"],
-        capture_output=True,
-        text=True,
-        env=_subprocess_env(),
-    ).returncode == 0
+    return (
+        subprocess.run(
+            [str(venv_python), "-m", "pip", "--version"],
+            capture_output=True,
+            text=True,
+            env=_subprocess_env(),
+        ).returncode
+        == 0
+    )
 
 
 def _bootstrap_pip(venv_python: Path) -> None:
@@ -215,8 +221,14 @@ def _install_wheel(venv_python: Path, wheel_path: Path) -> None:
         RuntimeError: If ``pip install`` fails.
     """
     completed = subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--force-reinstall",
-         str(wheel_path)],
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--force-reinstall",
+            str(wheel_path),
+        ],
         capture_output=True,
         text=True,
         env=_subprocess_env(),
@@ -299,8 +311,7 @@ class TestWheelPackageContents:
             names = set(zf.namelist())
         for module in EXPECTED_WHEEL_MODULES:
             assert module in names, (
-                f"wheel missing module {module!r}; "
-                f"subpackage __init__.py not packaged"
+                f"wheel missing module {module!r}; subpackage __init__.py not packaged"
             )
 
     def test_clean_venv_can_import_v012_subpackages(
@@ -315,9 +326,9 @@ class TestWheelPackageContents:
         _, venv_python = clean_venv
         _install_wheel(venv_python, built_wheel)
         completed = _run_in_venv(
-            venv_python, "-c",
-            "import louke.runtime, louke.opencode, "
-            "louke.web.api, louke.web.pages",
+            venv_python,
+            "-c",
+            "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages",
         )
         assert completed.returncode == 0, (
             f"clean-venv import failed:\nstdout:\n{completed.stdout}\n"

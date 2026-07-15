@@ -109,9 +109,7 @@ def test_migration_confirm_renders_applied_message(client: TestClient) -> None:
 
 def test_migration_rollback_renders_rolled_back_message(client: TestClient) -> None:
     """POST /rollback calls the rollback seam and shows a rolled-back message."""
-    mock = AsyncMock(
-        return_value={"workspace_path": "/tmp/ws", "rolled_back": True}
-    )
+    mock = AsyncMock(return_value={"workspace_path": "/tmp/ws", "rolled_back": True})
     with patch.object(migration_page, "_post_rollback", new=mock):
         resp = client.post("/rollback", data={"workspace_path": "/tmp/ws"})
 

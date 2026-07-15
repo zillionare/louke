@@ -93,10 +93,15 @@ def _messages_payload() -> dict[str, object]:
 
 def test_opencode_index_lists_instances_with_mock_banner(client: TestClient) -> None:
     """GET / lists instances and shows the yellow mock-backend banner."""
-    with patch.object(
-        opencode_page, "_fetch_status", new=AsyncMock(return_value=_status_mock())
-    ), patch.object(
-        opencode_page, "_fetch_instances", new=AsyncMock(return_value=_instances_payload())
+    with (
+        patch.object(
+            opencode_page, "_fetch_status", new=AsyncMock(return_value=_status_mock())
+        ),
+        patch.object(
+            opencode_page,
+            "_fetch_instances",
+            new=AsyncMock(return_value=_instances_payload()),
+        ),
     ):
         resp = client.get("/")
 
@@ -115,10 +120,15 @@ def test_opencode_index_lists_instances_with_real_backend_no_banner(
     client: TestClient,
 ) -> None:
     """GET / with adapter_kind=real shows the real banner, NOT the mock banner."""
-    with patch.object(
-        opencode_page, "_fetch_status", new=AsyncMock(return_value=_status_real())
-    ), patch.object(
-        opencode_page, "_fetch_instances", new=AsyncMock(return_value=_instances_payload())
+    with (
+        patch.object(
+            opencode_page, "_fetch_status", new=AsyncMock(return_value=_status_real())
+        ),
+        patch.object(
+            opencode_page,
+            "_fetch_instances",
+            new=AsyncMock(return_value=_instances_payload()),
+        ),
     ):
         resp = client.get("/")
 
@@ -136,10 +146,13 @@ def test_opencode_index_lists_instances_with_real_backend_no_banner(
 
 def test_opencode_index_handles_empty(client: TestClient) -> None:
     """GET / with no instances renders the empty-state message."""
-    with patch.object(
-        opencode_page, "_fetch_status", new=AsyncMock(return_value=_status_mock())
-    ), patch.object(
-        opencode_page, "_fetch_instances", new=AsyncMock(return_value={"items": []})
+    with (
+        patch.object(
+            opencode_page, "_fetch_status", new=AsyncMock(return_value=_status_mock())
+        ),
+        patch.object(
+            opencode_page, "_fetch_instances", new=AsyncMock(return_value={"items": []})
+        ),
     ):
         resp = client.get("/")
 
@@ -153,7 +166,9 @@ def test_opencode_index_handles_empty(client: TestClient) -> None:
 def test_opencode_chat_shows_messages_and_form(client: TestClient) -> None:
     """GET /{instance_id} renders messages, send form, and Stop button."""
     with patch.object(
-        opencode_page, "_fetch_messages", new=AsyncMock(return_value=_messages_payload())
+        opencode_page,
+        "_fetch_messages",
+        new=AsyncMock(return_value=_messages_payload()),
     ):
         resp = client.get("/inst_aaa")
 
@@ -176,7 +191,9 @@ def test_opencode_chat_stop_button_calls_abort(client: TestClient) -> None:
     directly to the upstream ``/api/opencode/instances/{id}/abort`` API.
     """
     with patch.object(
-        opencode_page, "_fetch_messages", new=AsyncMock(return_value=_messages_payload())
+        opencode_page,
+        "_fetch_messages",
+        new=AsyncMock(return_value=_messages_payload()),
     ):
         resp = client.get("/inst_aaa")
 

@@ -197,7 +197,9 @@ def test_ac_nfr0401_03_secret_redacted_from_string_payload():
     redactor.register_secret(_PROVIDER_SECRET)
     redactor.register_secret(_GITHUB_TOKEN)
 
-    log_line = f"calling provider with token={_PROVIDER_SECRET} and github={_GITHUB_TOKEN}"
+    log_line = (
+        f"calling provider with token={_PROVIDER_SECRET} and github={_GITHUB_TOKEN}"
+    )
 
     redacted = redactor.redact(log_line)
 
@@ -355,9 +357,7 @@ def test_ac_nfr0401_04_replay_detected_rejected():
     )
 
     # First use of the nonce executes.
-    validator.validate(
-        principal=_PRINCIPAL, run=_RUN, revision=_REVISION, nonce=_NONCE
-    )
+    validator.validate(principal=_PRINCIPAL, run=_RUN, revision=_REVISION, nonce=_NONCE)
     assert validator.execution_count == 1
 
     # Replay: same nonce must be rejected.

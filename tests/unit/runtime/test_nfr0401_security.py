@@ -97,7 +97,9 @@ def test_ac_nfr0401_03_agent_sees_only_capability_identity():
 
 def test_ac_nfr0401_04_wrong_identity_rejected():
     """AC-NFR0401-04: wrong identity/run/revision is rejected."""
-    validator = RequestValidator(expected_principal="alice", expected_run="run_001", expected_revision="rev_1")
+    validator = RequestValidator(
+        expected_principal="alice", expected_run="run_001", expected_revision="rev_1"
+    )
 
     with pytest.raises(PermissionError):
         validator.validate(principal="bob", run="run_001", revision="rev_1")
@@ -105,16 +107,22 @@ def test_ac_nfr0401_04_wrong_identity_rejected():
 
 def test_ac_nfr0401_04_replay_rejected():
     """AC-NFR0401-04: replayed request is rejected."""
-    validator = RequestValidator(expected_principal="alice", expected_run="run_001", expected_revision="rev_1")
+    validator = RequestValidator(
+        expected_principal="alice", expected_run="run_001", expected_revision="rev_1"
+    )
 
     validator.validate(principal="alice", run="run_001", revision="rev_1", nonce="n1")
     with pytest.raises(ReplayDetectedError):
-        validator.validate(principal="alice", run="run_001", revision="rev_1", nonce="n1")
+        validator.validate(
+            principal="alice", run="run_001", revision="rev_1", nonce="n1"
+        )
 
 
 def test_ac_nfr0401_04_matching_request_executed_once():
     """AC-NFR0401-04: matching request executes once."""
-    validator = RequestValidator(expected_principal="alice", expected_run="run_001", expected_revision="rev_1")
+    validator = RequestValidator(
+        expected_principal="alice", expected_run="run_001", expected_revision="rev_1"
+    )
 
     validator.validate(principal="alice", run="run_001", revision="rev_1", nonce="n1")
     validator.validate(principal="alice", run="run_001", revision="rev_1", nonce="n2")

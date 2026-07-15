@@ -133,7 +133,9 @@ class WorkflowRegistry:
             raise KeyError(f"workflow {name!r} version {version!r} not found")
         return definition
 
-    def select_by_classification(self, classification: Classification) -> WorkflowDefinition:
+    def select_by_classification(
+        self, classification: Classification
+    ) -> WorkflowDefinition:
         """Select an auto-selectable definition matching ``classification``.
 
         Args:

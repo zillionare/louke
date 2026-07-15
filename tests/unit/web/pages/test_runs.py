@@ -108,12 +108,16 @@ def _gates_payload() -> list[dict[str, object]]:
 
 def test_runs_detail_renders_header_graph_events_gates(client: TestClient) -> None:
     """GET /runs/{run_id} renders the header, SVG graph, events and gates."""
-    with patch.object(
-        runs_page, "_fetch_run", new=AsyncMock(return_value=_run_detail())
-    ), patch.object(
-        runs_page, "_fetch_events", new=AsyncMock(return_value=_events_payload())
-    ), patch.object(
-        runs_page, "_fetch_gates", new=AsyncMock(return_value=_gates_payload())
+    with (
+        patch.object(
+            runs_page, "_fetch_run", new=AsyncMock(return_value=_run_detail())
+        ),
+        patch.object(
+            runs_page, "_fetch_events", new=AsyncMock(return_value=_events_payload())
+        ),
+        patch.object(
+            runs_page, "_fetch_gates", new=AsyncMock(return_value=_gates_payload())
+        ),
     ):
         resp = client.get("/runs/run_active1")
 
@@ -141,12 +145,14 @@ def test_runs_detail_renders_header_graph_events_gates(client: TestClient) -> No
 
 def test_runs_detail_graph_colors(client: TestClient) -> None:
     """The SVG colors the current step green, completed steps blue, gates orange."""
-    with patch.object(
-        runs_page, "_fetch_run", new=AsyncMock(return_value=_run_detail())
-    ), patch.object(
-        runs_page, "_fetch_events", new=AsyncMock(return_value=_events_payload())
-    ), patch.object(
-        runs_page, "_fetch_gates", new=AsyncMock(return_value=[])
+    with (
+        patch.object(
+            runs_page, "_fetch_run", new=AsyncMock(return_value=_run_detail())
+        ),
+        patch.object(
+            runs_page, "_fetch_events", new=AsyncMock(return_value=_events_payload())
+        ),
+        patch.object(runs_page, "_fetch_gates", new=AsyncMock(return_value=[])),
     ):
         resp = client.get("/runs/run_active1")
 
@@ -161,7 +167,9 @@ def test_runs_detail_graph_colors(client: TestClient) -> None:
 def test_runs_detail_404(client: TestClient) -> None:
     """GET /runs/{unknown} renders a not-found message, status 200."""
     with patch.object(
-        runs_page, "_fetch_run", new=AsyncMock(side_effect=RuntimeError("404 not found"))
+        runs_page,
+        "_fetch_run",
+        new=AsyncMock(side_effect=RuntimeError("404 not found")),
     ):
         resp = client.get("/runs/run_unknown")
 
@@ -171,12 +179,12 @@ def test_runs_detail_404(client: TestClient) -> None:
 
 def test_runs_detail_handles_empty_events(client: TestClient) -> None:
     """GET /runs/{run_id} with no events renders an empty-state message."""
-    with patch.object(
-        runs_page, "_fetch_run", new=AsyncMock(return_value=_run_detail())
-    ), patch.object(
-        runs_page, "_fetch_events", new=AsyncMock(return_value=[])
-    ), patch.object(
-        runs_page, "_fetch_gates", new=AsyncMock(return_value=[])
+    with (
+        patch.object(
+            runs_page, "_fetch_run", new=AsyncMock(return_value=_run_detail())
+        ),
+        patch.object(runs_page, "_fetch_events", new=AsyncMock(return_value=[])),
+        patch.object(runs_page, "_fetch_gates", new=AsyncMock(return_value=[])),
     ):
         resp = client.get("/runs/run_active1")
 

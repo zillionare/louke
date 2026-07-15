@@ -86,7 +86,9 @@ def _routes() -> list[Route]:
         Route("/runs/{run_id}", endpoint=get_run),
         Route("/runs/{run_id}/events", endpoint=list_events),
         Route("/runs/{run_id}/commands", endpoint=apply_command, methods=["POST"]),
-        Route("/runs/{run_id}/recover", endpoint=recover_run_endpoint, methods=["POST"]),
+        Route(
+            "/runs/{run_id}/recover", endpoint=recover_run_endpoint, methods=["POST"]
+        ),
     ]
 
 

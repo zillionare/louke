@@ -112,9 +112,7 @@ class OpenCodeServerProcess:
                 bufsize=1,
             )
         except FileNotFoundError as exc:
-            raise RuntimeError(
-                f"opencode binary not found: {self._bin!r}"
-            ) from exc
+            raise RuntimeError(f"opencode binary not found: {self._bin!r}") from exc
         self._proc = proc
         self._pid = proc.pid
         self._base_url = self._await_url(proc)
@@ -143,9 +141,12 @@ class OpenCodeServerProcess:
     def _build_argv(self) -> list[str]:
         """Build the opencode serve command line."""
         return [
-            self._bin, "serve",
-            "--hostname", self._host,
-            "--port", str(self._port),
+            self._bin,
+            "serve",
+            "--hostname",
+            self._host,
+            "--port",
+            str(self._port),
         ]
 
     def _build_env(self) -> Optional[dict[str, str]]:

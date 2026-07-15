@@ -133,7 +133,9 @@ async def _fetch_graph(api_base: str, project_id: str) -> dict[str, Any]:
         return dict(resp.json())
 
 
-async def _fetch_events(api_base: str, run_id: str, limit: int = 50) -> list[dict[str, Any]]:
+async def _fetch_events(
+    api_base: str, run_id: str, limit: int = 50
+) -> list[dict[str, Any]]:
     """Fetch events from ``GET {api_base}/api/runtime/runs/{run_id}/events?limit=``.
 
     Raises:
@@ -149,8 +151,12 @@ async def _fetch_events(api_base: str, run_id: str, limit: int = 50) -> list[dic
 
 
 async def _post_preview(
-    api_base: str, *, story: str, release_version: str,
-    definition_id: str, definition_version: str,
+    api_base: str,
+    *,
+    story: str,
+    release_version: str,
+    definition_id: str,
+    definition_version: str,
 ) -> dict[str, Any]:
     """POST a preview to ``{api_base}/api/projects/preview``.
 
@@ -235,9 +241,7 @@ async def projects_index(request: Request) -> Response:
     return HTMLResponse(_render_index(active, history, backlog, error=error))
 
 
-async def _safe_fetch(
-    fetch: "Any", api_base: str
-) -> tuple[list[dict[str, Any]], str]:
+async def _safe_fetch(fetch: "Any", api_base: str) -> tuple[list[dict[str, Any]], str]:
     """Return ``(items, error)`` from ``fetch(api_base)``, never raising.
 
     Args:

@@ -199,9 +199,7 @@ async def redact_payload(request: Request) -> JSONResponse:
         if not isinstance(secret, str):
             raise HTTPException(
                 status_code=400,
-                detail=error_detail(
-                    VALIDATION_ERROR, "each secret must be a string"
-                ),
+                detail=error_detail(VALIDATION_ERROR, "each secret must be a string"),
             )
         redactor.register_secret(secret)
     redacted: Any = redactor.redact(target)

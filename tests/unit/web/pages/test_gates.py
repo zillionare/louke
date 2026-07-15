@@ -88,7 +88,9 @@ def _gates_list_payload() -> list[dict[str, object]]:
     ]
 
 
-def _gate_detail_payload(*, step_id: str = "requirements_approval") -> dict[str, object]:
+def _gate_detail_payload(
+    *, step_id: str = "requirements_approval"
+) -> dict[str, object]:
     """Return a single gate detail payload."""
     return {
         "gate_id": "gate_requirements1",
@@ -127,10 +129,15 @@ def _approved_gate_payload() -> dict[str, object]:
 
 def test_gates_list_shows_all_gates(client: TestClient) -> None:
     """GET / renders a card per gate for the project's run."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page, "_fetch_gates", new=AsyncMock(return_value=_gates_list_payload())
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gates",
+            new=AsyncMock(return_value=_gates_list_payload()),
+        ),
     ):
         resp = client.get("/projects/prj_active1/gates")
 
@@ -150,10 +157,11 @@ def test_gates_list_shows_all_gates(client: TestClient) -> None:
 
 def test_gates_list_handles_empty(client: TestClient) -> None:
     """GET / with no gates renders an empty-state message."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page, "_fetch_gates", new=AsyncMock(return_value=[])
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(gates_page, "_fetch_gates", new=AsyncMock(return_value=[])),
     ):
         resp = client.get("/projects/prj_active1/gates")
 
@@ -176,12 +184,15 @@ def test_gates_list_handles_project_404(client: TestClient) -> None:
 
 def test_gates_list_handles_gate_fetch_error(client: TestClient) -> None:
     """GET / when the gate-list call fails shows an error, status 200."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page,
-        "_fetch_gates",
-        new=AsyncMock(side_effect=RuntimeError("upstream 500")),
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gates",
+            new=AsyncMock(side_effect=RuntimeError("upstream 500")),
+        ),
     ):
         resp = client.get("/projects/prj_active1/gates")
 
@@ -218,10 +229,15 @@ def _open_discussions_gate_payload() -> dict[str, object]:
 
 def test_gate_detail_renders_state_and_form(client: TestClient) -> None:
     """GET /{gate_id} renders the gate state, digest, revision and form."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page, "_fetch_gate", new=AsyncMock(return_value=_gate_detail_payload())
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gate",
+            new=AsyncMock(return_value=_gate_detail_payload()),
+        ),
     ):
         resp = client.get("/projects/prj_active1/gates/gate_requirements1")
 
@@ -241,12 +257,15 @@ def test_gate_detail_renders_state_and_form(client: TestClient) -> None:
 
 def test_gate_detail_distinguishes_m_lock(client: TestClient) -> None:
     """GET /{gate_id} for an m_lock gate shows the m_lock section label."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page,
-        "_fetch_gate",
-        new=AsyncMock(return_value=_gate_detail_payload(step_id="m_lock")),
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gate",
+            new=AsyncMock(return_value=_gate_detail_payload(step_id="m_lock")),
+        ),
     ):
         resp = client.get("/projects/prj_active1/gates/gate_mlock1")
 
@@ -259,10 +278,15 @@ def test_gate_detail_distinguishes_m_lock(client: TestClient) -> None:
 
 def test_gate_detail_stale_disables_button(client: TestClient) -> None:
     """GET /{gate_id} with a stale gate shows a blocker and disables the button."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page, "_fetch_gate", new=AsyncMock(return_value=_stale_gate_detail_payload())
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gate",
+            new=AsyncMock(return_value=_stale_gate_detail_payload()),
+        ),
     ):
         resp = client.get("/projects/prj_active1/gates/gate_requirements1")
 
@@ -278,12 +302,15 @@ def test_gate_detail_stale_disables_button(client: TestClient) -> None:
 
 def test_gate_detail_open_discussions_disables_button(client: TestClient) -> None:
     """GET /{gate_id} with open_discussions > 0 disables the approve button."""
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page,
-        "_fetch_gate",
-        new=AsyncMock(return_value=_open_discussions_gate_payload()),
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gate",
+            new=AsyncMock(return_value=_open_discussions_gate_payload()),
+        ),
     ):
         resp = client.get("/projects/prj_active1/gates/gate_requirements1")
 
@@ -302,12 +329,16 @@ def test_gate_detail_open_discussions_disables_button(client: TestClient) -> Non
 def test_gate_decide_approve_redirects_and_records(client: TestClient) -> None:
     """POST .../decide with verdict=approve redirects to the gate detail."""
     decide_mock = AsyncMock(return_value=_approved_gate_payload())
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page, "_fetch_gate", new=AsyncMock(return_value=_gate_detail_payload())
-    ), patch.object(
-        gates_page, "_post_decision", new=decide_mock
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gate",
+            new=AsyncMock(return_value=_gate_detail_payload()),
+        ),
+        patch.object(gates_page, "_post_decision", new=decide_mock),
     ):
         resp = client.post(
             "/projects/prj_active1/gates/gate_requirements1/decide",
@@ -323,12 +354,16 @@ def test_gate_decide_approve_redirects_and_records(client: TestClient) -> None:
 def test_gate_decide_reject_without_reason_shows_error(client: TestClient) -> None:
     """POST .../decide with verdict=reject and no reason shows the 400 error."""
     decide_mock = AsyncMock(side_effect=RuntimeError("400 reject requires a reason"))
-    with patch.object(
-        gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
-    ), patch.object(
-        gates_page, "_fetch_gate", new=AsyncMock(return_value=_gate_detail_payload())
-    ), patch.object(
-        gates_page, "_post_decision", new=decide_mock
+    with (
+        patch.object(
+            gates_page, "_fetch_project", new=AsyncMock(return_value=_project_detail())
+        ),
+        patch.object(
+            gates_page,
+            "_fetch_gate",
+            new=AsyncMock(return_value=_gate_detail_payload()),
+        ),
+        patch.object(gates_page, "_post_decision", new=decide_mock),
     ):
         resp = client.post(
             "/projects/prj_active1/gates/gate_requirements1/decide",

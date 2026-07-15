@@ -28,6 +28,7 @@ from louke.runtime.store import WorkflowRunStore
 
 # -- Fixtures -----------------------------------------------------------------
 
+
 def _create_manifest_builder() -> tuple[WorkflowRunStore, ContextManifestBuilder]:
     """Create a run store and manifest builder."""
     store = WorkflowRunStore()

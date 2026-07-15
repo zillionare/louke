@@ -126,7 +126,9 @@ class GatePanel:
         """
         blockers = self._collect_blockers()
         if blockers:
-            raise GateBlockedError(f"gate {self.gate_id!r} blocked: {', '.join(blockers)}")
+            raise GateBlockedError(
+                f"gate {self.gate_id!r} blocked: {', '.join(blockers)}"
+            )
         self.decision = decision
 
 
@@ -206,8 +208,8 @@ class DiscussionThread:
 class InlineDiscussionStore:
     """Store for inline discussions with canonical serialization.
 
-    Threads are persisted in a canonical ``speaker/depth/status`` form that the
-gate parser can round-trip.
+        Threads are persisted in a canonical ``speaker/depth/status`` form that the
+    gate parser can round-trip.
     """
 
     def __init__(self) -> None:

@@ -41,10 +41,19 @@ class _FakeTransport:
         self._routes = routes or {}
         self.requests: list[httpx.Request] = []
 
-    def set(self, method: str, path_substr: str, *, status: int, json_body: Any = None,
-            text: str | None = None) -> None:
+    def set(
+        self,
+        method: str,
+        path_substr: str,
+        *,
+        status: int,
+        json_body: Any = None,
+        text: str | None = None,
+    ) -> None:
         self._routes[(method.upper(), path_substr)] = {
-            "status": status, "json": json_body, "text": text,
+            "status": status,
+            "json": json_body,
+            "text": text,
         }
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -55,12 +64,9 @@ class _FakeTransport:
             if path_substr in request.url.path or path_substr in str(request.url):
                 status = resp["status"]
                 if resp["json"] is not None:
-                    return httpx.Response(status, json=resp["json"],
-                                          request=request)
-                return httpx.Response(status, text=resp["text"] or "",
-                                       request=request)
-        return httpx.Response(404, json={"error": "no route"},
-                              request=request)
+                    return httpx.Response(status, json=resp["json"], request=request)
+                return httpx.Response(status, text=resp["text"] or "", request=request)
+        return httpx.Response(404, json={"error": "no route"}, request=request)
 
 
 def _make_adapter(transport: _FakeTransport) -> RealOpenCodeAdapter:
@@ -74,13 +80,18 @@ def _make_adapter(transport: _FakeTransport) -> RealOpenCodeAdapter:
 def test_create_issues_post_and_returns_instance():
     """AC-FR1401-01: create() POSTs to /api/session and returns an Instance."""
     transport = _FakeTransport()
-    transport.set("POST", "/api/session", status=200, json_body={
-        "id": "ses_abc123",
-        "slug": "calm-garden",
-        "title": "New session",
-        "version": "1.17.15",
-        "time": {"created": 1784027703954, "updated": 1784027703954},
-    })
+    transport.set(
+        "POST",
+        "/api/session",
+        status=200,
+        json_body={
+            "id": "ses_abc123",
+            "slug": "calm-garden",
+            "title": "New session",
+            "version": "1.17.15",
+            "time": {"created": 1784027703954, "updated": 1784027703954},
+        },
+    )
     adapter = _make_adapter(transport)
 
     inst = adapter.create(correlation_id="cid-1")
@@ -95,9 +106,15 @@ def test_create_issues_post_and_returns_instance():
 def test_create_sends_directory_and_model_body():
     """AC-FR1401-01: create() body has directory + model{providerID,id}."""
     transport = _FakeTransport()
-    transport.set("POST", "/api/session", status=200, json_body={
-        "id": "ses_x", "time": {"created": 1},
-    })
+    transport.set(
+        "POST",
+        "/api/session",
+        status=200,
+        json_body={
+            "id": "ses_x",
+            "time": {"created": 1},
+        },
+    )
     adapter = _make_adapter(transport)
 
     adapter.create(correlation_id="cid-1", model="opencode/big-pickle")
@@ -151,8 +168,7 @@ def test_create_sends_correlation_id_header():
 def test_create_propagates_http_error_not_masked():
     """AC-FR1401-01: A 5xx from the server must surface as RuntimeError."""
     transport = _FakeTransport()
-    transport.set("POST", "/api/session", status=500,
-                  json_body={"error": "boom"})
+    transport.set("POST", "/api/session", status=500, json_body={"error": "boom"})
     adapter = _make_adapter(transport)
 
     with pytest.raises(RuntimeError) as exc:
@@ -166,13 +182,18 @@ def test_create_propagates_http_error_not_masked():
 def test_list_issues_get_and_returns_instances():
     """AC-FR1401-01: list() GETs /api/session and parses the {data:[...]} envelope."""
     transport = _FakeTransport()
-    transport.set("GET", "/api/session", status=200, json_body={
-        "data": [
-            {"id": "ses_a", "time": {"created": 1, "updated": 1}},
-            {"id": "ses_b", "time": {"created": 2, "updated": 2}},
-        ],
-        "cursor": {"previous": None, "next": None},
-    })
+    transport.set(
+        "GET",
+        "/api/session",
+        status=200,
+        json_body={
+            "data": [
+                {"id": "ses_a", "time": {"created": 1, "updated": 1}},
+                {"id": "ses_b", "time": {"created": 2, "updated": 2}},
+            ],
+            "cursor": {"previous": None, "next": None},
+        },
+    )
     adapter = _make_adapter(transport)
 
     instances = adapter.list()
@@ -203,8 +224,9 @@ def test_stop_issues_delete_and_returns_stopped_instance():
 def test_stop_propagates_404():
     """AC-FR1401-01: stop() on a missing session surfaces the error."""
     transport = _FakeTransport()
-    transport.set("DELETE", "/api/session/", status=404,
-                  json_body={"error": "not found"})
+    transport.set(
+        "DELETE", "/api/session/", status=404, json_body={"error": "not found"}
+    )
     adapter = _make_adapter(transport)
 
     with pytest.raises(RuntimeError):
@@ -217,13 +239,17 @@ def test_stop_propagates_404():
 def test_send_message_issues_post_and_returns_message_and_true():
     """AC-FR1401-01: send_message() POSTs /api/session/{id}/prompt with {prompt:{text}}."""
     transport = _FakeTransport()
-    transport.set("POST", "/prompt", status=200, json_body={
-        "data": {"id": "msg_xyz", "type": "user"},
-    })
+    transport.set(
+        "POST",
+        "/prompt",
+        status=200,
+        json_body={
+            "data": {"id": "msg_xyz", "type": "user"},
+        },
+    )
     adapter = _make_adapter(transport)
 
-    msg, accepted = adapter.send_message("ses_abc", "hello",
-                                         correlation_id="cid-7")
+    msg, accepted = adapter.send_message("ses_abc", "hello", correlation_id="cid-7")
 
     assert accepted is True
     assert msg.instance_id == "ses_abc"
@@ -231,8 +257,9 @@ def test_send_message_issues_post_and_returns_message_and_true():
     assert msg.kind == "message"
     assert msg.content == "hello"
     assert msg.id == "msg_xyz"
-    posts = [r for r in transport.requests if r.method == "POST"
-             and "/prompt" in r.url.path]
+    posts = [
+        r for r in transport.requests if r.method == "POST" and "/prompt" in r.url.path
+    ]
     assert len(posts) == 1
     body = json.loads(posts[0].content.decode())
     assert body == {"prompt": {"text": "hello"}}
@@ -246,16 +273,16 @@ def test_send_message_correlation_id_header():
 
     adapter.send_message("ses_abc", "hi", correlation_id="cid-7")
 
-    post = next(r for r in transport.requests if r.method == "POST"
-                and "/prompt" in r.url.path)
+    post = next(
+        r for r in transport.requests if r.method == "POST" and "/prompt" in r.url.path
+    )
     assert post.headers.get("x-correlation-id") == "cid-7"
 
 
 def test_send_message_propagates_4xx():
     """AC-FR1401-01: A 400 from /prompt must raise, not echo a fake reply."""
     transport = _FakeTransport()
-    transport.set("POST", "/prompt", status=400,
-                  json_body={"error": "bad prompt"})
+    transport.set("POST", "/prompt", status=400, json_body={"error": "bad prompt"})
     adapter = _make_adapter(transport)
 
     with pytest.raises(RuntimeError) as exc:
@@ -269,23 +296,28 @@ def test_send_message_propagates_4xx():
 def test_list_messages_issues_get_and_returns_messages():
     """AC-FR1401-01: list_messages() GETs /api/session/{id}/message and parses {data:[...]}."""
     transport = _FakeTransport()
-    transport.set("GET", "/message", status=200, json_body={
-        "data": [
-            {
-                "id": "msg_1",
-                "type": "user",
-                "content": [{"type": "text", "id": "t0", "text": "hello"}],
-                "time": {"created": 1784027703954},
-            },
-            {
-                "id": "msg_2",
-                "type": "assistant",
-                "content": [{"type": "text", "id": "t1", "text": "hi there"}],
-                "time": {"created": 1784027703960},
-            },
-        ],
-        "cursor": {"previous": None, "next": None},
-    })
+    transport.set(
+        "GET",
+        "/message",
+        status=200,
+        json_body={
+            "data": [
+                {
+                    "id": "msg_1",
+                    "type": "user",
+                    "content": [{"type": "text", "id": "t0", "text": "hello"}],
+                    "time": {"created": 1784027703954},
+                },
+                {
+                    "id": "msg_2",
+                    "type": "assistant",
+                    "content": [{"type": "text", "id": "t1", "text": "hi there"}],
+                    "time": {"created": 1784027703960},
+                },
+            ],
+            "cursor": {"previous": None, "next": None},
+        },
+    )
     adapter = _make_adapter(transport)
 
     msgs = adapter.list_messages("ses_abc", after_message_id=None)
@@ -297,27 +329,33 @@ def test_list_messages_issues_get_and_returns_messages():
     assert msgs[1].id == "msg_2"
     assert msgs[1].role == "assistant"
     assert msgs[1].content == "hi there"
-    gets = [r for r in transport.requests if r.method == "GET"
-            and "/message" in r.url.path]
+    gets = [
+        r for r in transport.requests if r.method == "GET" and "/message" in r.url.path
+    ]
     assert len(gets) == 1
 
 
 def test_list_messages_concatenates_multiple_text_parts():
     """AC-FR1401-01: multiple text parts in content[] are concatenated."""
     transport = _FakeTransport()
-    transport.set("GET", "/message", status=200, json_body={
-        "data": [
-            {
-                "id": "msg_1",
-                "type": "assistant",
-                "content": [
-                    {"type": "text", "text": "part-a "},
-                    {"type": "tool_use", "name": "x"},
-                    {"type": "text", "text": "part-b"},
-                ],
-            },
-        ],
-    })
+    transport.set(
+        "GET",
+        "/message",
+        status=200,
+        json_body={
+            "data": [
+                {
+                    "id": "msg_1",
+                    "type": "assistant",
+                    "content": [
+                        {"type": "text", "text": "part-a "},
+                        {"type": "tool_use", "name": "x"},
+                        {"type": "text", "text": "part-b"},
+                    ],
+                },
+            ],
+        },
+    )
     adapter = _make_adapter(transport)
 
     msgs = adapter.list_messages("ses_abc", after_message_id=None)
@@ -329,13 +367,30 @@ def test_list_messages_concatenates_multiple_text_parts():
 def test_list_messages_after_filter_excludes_earlier():
     """AC-FR1401-01: after_message_id returns only messages after the cursor."""
     transport = _FakeTransport()
-    transport.set("GET", "/message", status=200, json_body={
-        "data": [
-            {"id": "msg_1", "type": "user", "content": [{"type": "text", "text": "a"}]},
-            {"id": "msg_2", "type": "assistant", "content": [{"type": "text", "text": "b"}]},
-            {"id": "msg_3", "type": "assistant", "content": [{"type": "text", "text": "c"}]},
-        ],
-    })
+    transport.set(
+        "GET",
+        "/message",
+        status=200,
+        json_body={
+            "data": [
+                {
+                    "id": "msg_1",
+                    "type": "user",
+                    "content": [{"type": "text", "text": "a"}],
+                },
+                {
+                    "id": "msg_2",
+                    "type": "assistant",
+                    "content": [{"type": "text", "text": "b"}],
+                },
+                {
+                    "id": "msg_3",
+                    "type": "assistant",
+                    "content": [{"type": "text", "text": "c"}],
+                },
+            ],
+        },
+    )
     adapter = _make_adapter(transport)
 
     msgs = adapter.list_messages("ses_abc", after_message_id="msg_1")
@@ -364,8 +419,9 @@ def test_cancel_issues_post_to_abort_endpoint():
 
     adapter.cancel("ses_abc", correlation_id="cid-1")
 
-    aborts = [r for r in transport.requests if r.method == "POST"
-              and "/abort" in r.url.path]
+    aborts = [
+        r for r in transport.requests if r.method == "POST" and "/abort" in r.url.path
+    ]
     assert len(aborts) == 1
     assert aborts[0].headers.get("x-correlation-id") == "cid-1"
 
@@ -401,8 +457,12 @@ def test_cancel_falls_back_to_stop_on_404():
 def test_version_probe_returns_health_payload():
     """AC-FR1401-02: probe_version() GETs /global/health."""
     transport = _FakeTransport()
-    transport.set("GET", "/global/health", status=200,
-                  json_body={"healthy": True, "version": "1.17.15"})
+    transport.set(
+        "GET",
+        "/global/health",
+        status=200,
+        json_body={"healthy": True, "version": "1.17.15"},
+    )
     adapter = _make_adapter(transport)
 
     info = adapter.probe_version()
@@ -425,9 +485,7 @@ def test_version_probe_returns_health_payload():
         os.environ.get("OPENCODE_INTEGRATION") == "1"
         and os.environ.get("OPENCODE_LIVE_BASE_URL")
     ),
-    reason=(
-        "Set OPENCODE_INTEGRATION=1 + OPENCODE_LIVE_BASE_URL to run live test"
-    ),
+    reason=("Set OPENCODE_INTEGRATION=1 + OPENCODE_LIVE_BASE_URL to run live test"),
 )
 def test_real_opencode_live_create_send_list_delete_with_free_model():
     """AC-FR1401-01: live opencode serve with opencode/big-pickle (free) responds.
@@ -477,9 +535,7 @@ def test_real_opencode_live_create_send_list_delete_with_free_model():
         os.environ.get("OPENCODE_INTEGRATION") == "1"
         and os.environ.get("OPENCODE_LIVE_BASE_URL")
     ),
-    reason=(
-        "Set OPENCODE_INTEGRATION=1 + OPENCODE_LIVE_BASE_URL to run live test"
-    ),
+    reason=("Set OPENCODE_INTEGRATION=1 + OPENCODE_LIVE_BASE_URL to run live test"),
 )
 def test_real_opencode_live_status_probe():
     """AC-FR1401-02: GET /global/health on live opencode returns healthy:true."""

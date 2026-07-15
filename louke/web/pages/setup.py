@@ -121,13 +121,13 @@ def _parse_form(body: bytes) -> tuple[str, str]:
     )
 
 
-def _render(
-    setup_only: bool, items: list[dict[str, str]], *, error: str
-) -> str:
+def _render(setup_only: bool, items: list[dict[str, str]], *, error: str) -> str:
     """Return the inline HTML for the setup wizard."""
     readiness_html = "".join(_render_item(i) for i in items)
     readiness_section = (
-        f"<ul>{readiness_html}</ul>" if items else '<p class="muted">No readiness items.</p>'
+        f"<ul>{readiness_html}</ul>"
+        if items
+        else '<p class="muted">No readiness items.</p>'
     )
     error_html = f'<div class="error">{_esc(error)}</div>' if error else ""
     state = "setup-only" if setup_only else "normal"
@@ -180,7 +180,7 @@ def _render_item(item: dict[str, str]) -> str:
     diagnosis = _esc(item.get("diagnosis", ""))
     remediation = _esc(item.get("remediation", ""))
     return (
-        f'<li><strong>{name}</strong> '
+        f"<li><strong>{name}</strong> "
         f'<span class="status-{status}">{status}</span>'
         f"<div>diagnosis: {diagnosis}</div>"
         f"<div>remediation: {remediation}</div></li>"

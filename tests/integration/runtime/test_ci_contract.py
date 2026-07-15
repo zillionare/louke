@@ -147,9 +147,7 @@ class TestCIWorkflowContract:
         assert "lk --version" in text, (
             "ci.yml does not run 'lk --version' from the installed wheel"
         )
-        assert "0.12.1" in text, (
-            "ci.yml does not assert lk --version reports 0.12.1"
-        )
+        assert "0.12.1" in text, "ci.yml does not assert lk --version reports 0.12.1"
 
     def test_ci_retains_bats_suite(self) -> None:
         """CI retains the legacy BATS suite (v0.5 commit-policy).

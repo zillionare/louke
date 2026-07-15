@@ -106,7 +106,9 @@ def test_real_opencode_fr_1401_01_create_attach_send_detach_end_l3_smoke() -> No
         # 2. send message (async)
         marker = f"l3-smoke-marker-{uuid.uuid4().hex[:8]}"
         msg, accepted = adapter.send_message(
-            instance.id, f"echo {marker}", correlation_id="l3-smoke",
+            instance.id,
+            f"echo {marker}",
+            correlation_id="l3-smoke",
         )
         sent = accepted
         assert isinstance(msg, Message)

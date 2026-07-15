@@ -165,14 +165,20 @@ def test_ac_fr2101_05_hotfix_inherits_approval_via_source_contract():
     """AC-FR2101-05: hotfix inherits old requirements approval only after
     source-contract validation."""
     validator = SourceContractValidation()
-    assert validator.can_inherit_requirements_approval(
-        spec_status="approved",
-        source_contract_digest_matches=True,
-    ) is True
-    assert validator.can_inherit_requirements_approval(
-        spec_status="approved",
-        source_contract_digest_matches=False,
-    ) is False
+    assert (
+        validator.can_inherit_requirements_approval(
+            spec_status="approved",
+            source_contract_digest_matches=True,
+        )
+        is True
+    )
+    assert (
+        validator.can_inherit_requirements_approval(
+            spec_status="approved",
+            source_contract_digest_matches=False,
+        )
+        is False
+    )
 
 
 # -- AC-FR2101-06 -------------------------------------------------------------

@@ -202,7 +202,8 @@ def require_int(payload: dict[str, Any], field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise HTTPException(
             status_code=400,
-            detail=error_detail(VALIDATION_ERROR, f"field {field!r} must be an integer"),
+            detail=error_detail(
+                VALIDATION_ERROR, f"field {field!r} must be an integer"
+            ),
         )
     return value
-

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-import pytest
+
+from louke.opencode.persistence import ManagedInstanceState
 
 
 @dataclass
@@ -21,9 +22,8 @@ class _FakeAdapter:
         return [_FakeInstance(id=i) for i in self._ids]
 
 
-def _state(pid, instance_id="inst_test") -> "ManagedInstanceState":
+def _state(pid, instance_id="inst_test") -> ManagedInstanceState:
     """Helper: build a ManagedInstanceState directly (no asdict roundtrip)."""
-    from louke.opencode.persistence import ManagedInstanceState
     return ManagedInstanceState(
         instance_id=instance_id,
         workspace_path="/tmp/ws",
@@ -37,6 +37,7 @@ def _state(pid, instance_id="inst_test") -> "ManagedInstanceState":
 def test_recovery_scan_dead_pid_marks_lost(tmp_path):
     """AC-FR1401-05: dead pid -> lost (authoritative)."""
     import sys
+
     sys.path.insert(0, "/Users/openclaw/workspace/louke")
     from louke.opencode.persistence import OpenCodeInstanceStore
 
@@ -53,7 +54,9 @@ def test_recovery_scan_dead_pid_marks_lost(tmp_path):
 
 def test_recovery_scan_live_pid_with_matching_adapter_marks_running(tmp_path):
     """AC-FR1401-05: live pid + adapter confirms -> running."""
-    import os, sys
+    import os
+    import sys
+
     sys.path.insert(0, "/Users/openclaw/workspace/louke")
     from louke.opencode.persistence import OpenCodeInstanceStore
 
@@ -69,7 +72,9 @@ def test_recovery_scan_live_pid_with_matching_adapter_marks_running(tmp_path):
 
 def test_recovery_scan_live_pid_no_adapter_keeps_running(tmp_path):
     """No adapter given: live-pid-only check, keeps previously persisted status."""
-    import os, sys
+    import os
+    import sys
+
     sys.path.insert(0, "/Users/openclaw/workspace/louke")
     from louke.opencode.persistence import OpenCodeInstanceStore
 
@@ -84,7 +89,9 @@ def test_recovery_scan_live_pid_no_adapter_keeps_running(tmp_path):
 
 def test_recovery_scan_live_pid_but_adapter_missing_marks_needs_attention(tmp_path):
     """AC-FR1401-05: pid alive but adapter cannot see instance -> needs_attention."""
-    import os, sys
+    import os
+    import sys
+
     sys.path.insert(0, "/Users/openclaw/workspace/louke")
     from louke.opencode.persistence import OpenCodeInstanceStore
 
@@ -101,6 +108,7 @@ def test_recovery_scan_live_pid_but_adapter_missing_marks_needs_attention(tmp_pa
 def test_recovery_scan_dead_pid_wins_over_adapter_lying(tmp_path):
     """AC-FR1401-05: spec 不会虚假显示 running. Dead pid wins over lying adapter."""
     import sys
+
     sys.path.insert(0, "/Users/openclaw/workspace/louke")
     from louke.opencode.persistence import OpenCodeInstanceStore
 

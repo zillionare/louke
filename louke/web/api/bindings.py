@@ -48,7 +48,12 @@ from ._common import (
     principal_id,
     require_str,
 )
-from ._runtime_store import AVAILABLE_MODELS, DEFAULT_MODELS, get_definition, get_or_create_store
+from ._runtime_store import (
+    AVAILABLE_MODELS,
+    DEFAULT_MODELS,
+    get_definition,
+    get_or_create_store,
+)
 
 
 def create_app() -> Starlette:
@@ -62,7 +67,9 @@ def create_app() -> Starlette:
     install_error_handlers(app)
     app.add_exception_handler(DefinitionNotFoundError, _definition_not_found_handler)
     app.add_exception_handler(RunNotFoundError, _run_not_found_handler)
-    app.add_exception_handler(BindingModelUnavailableError, _binding_model_unavailable_handler)
+    app.add_exception_handler(
+        BindingModelUnavailableError, _binding_model_unavailable_handler
+    )
     app.add_exception_handler(BindingRevisionConflictError, _revision_conflict_handler)
     app.add_exception_handler(BindingNotFoundError, _binding_not_found_handler)
     return app

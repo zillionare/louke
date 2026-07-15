@@ -237,7 +237,9 @@ async def gate_decide(request: Request) -> Response:
 
     if verdict == "reject" and not reason.strip():
         return HTMLResponse(
-            _render_decide_error(project_id, gate_id, "reject decision requires a reason"),
+            _render_decide_error(
+                project_id, gate_id, "reject decision requires a reason"
+            ),
         )
 
     try:
@@ -456,7 +458,7 @@ def _render_decision_record(
     return f"""<div class="card">
   <div>actor: <code>{actor_id}</code></div>
   <div>decided at: <code>{decided_at}</code></div>
-  {f'<div>reason: {_esc(reason)}</div>' if reason else ''}
+  {f"<div>reason: {_esc(reason)}</div>" if reason else ""}
 </div>"""
 
 
