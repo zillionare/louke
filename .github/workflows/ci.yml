@@ -84,5 +84,16 @@ jobs:
           # into the active python so 'import yaml' works in FORM-002/007/008/010.
           python3 -m pip install pyyaml
 
-      - name: Run bats suite
-        run: make test
+      - name: Run bats suite (in installed wheel venv so louke imports work)
+        run: |
+          # /tmp/lk-venv has the wheel + all runtime deps (httpx, starlette, fastapi).
+          # Bats tests invoke 'python3 -m louke' via $PY, and louke/__init__.py:43
+          # cascades 'from . import opencode, opencode_api' -> 'import starlette'
+          # at opencode_api.py:5. The system python3 (setup-python) only has pyyaml,
+          # so 380 bats tests would fail with ModuleNotFoundError: No module named
+          # 'starlette'. Prepend the wheel venv to PATH so 'python3' resolves to
+          # /tmp/lk-venv/bin/python3 (which has louke + all runtime deps).
+          export PATH="/tmp/lk-venv/bin:$PATH"
+          which python3
+          python3 -c "import louke, starlette, httpx, fastapi; print('ok')"
+          make test
