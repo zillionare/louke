@@ -22,6 +22,8 @@ exit condition mandates for the v0.12.1 release gate.
 
 from __future__ import annotations
 
+import http.client
+import json
 import os
 import signal
 import socket
@@ -30,6 +32,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -69,8 +72,6 @@ def wait_for_health(base_url: str, *, timeout: float = 30.0) -> dict:
         try:
             with urllib.request.urlopen(f"{base_url}/health", timeout=2) as resp:
                 if resp.status == 200:
-                    import json
-
                     return json.loads(resp.read().decode("utf-8"))
         except (urllib.error.URLError, ConnectionError, OSError) as exc:
             last_error = exc
@@ -84,10 +85,13 @@ def wait_for_health(base_url: str, *, timeout: float = 30.0) -> dict:
 def get_status(base_url: str, path: str, *, timeout: float = 5.0) -> tuple[int, str | None]:
     """Issue a GET and return ``(status_code, location_header_or_None)``.
 
-    Does not follow redirects so the caller can assert on the 303 target.
+    Uses :mod:`http.client` directly so redirects are NOT followed; the
+    caller asserts on the 303 target. ``urllib``'s opener-based redirect
+    suppression is more convoluted and error-prone than a raw HTTP call
+    for this single-purpose probe.
 
     Args:
-        base_url: The server base URL.
+        base_url: The server base URL (e.g. ``http://127.0.0.1:PORT``).
         path: The request path (e.g. ``/``).
         timeout: Per-request timeout in seconds.
 
@@ -95,22 +99,16 @@ def get_status(base_url: str, path: str, *, timeout: float = 5.0) -> tuple[int, 
         A ``(status_code, location)`` tuple where ``location`` is the value
         of the ``Location`` response header, or ``None`` if absent.
     """
-    opener = urllib.request.build_opener(urllib.request.HTTPRedirectHandler)
-    # Disable redirect following by replacing the handler with a no-op.
-    opener.handlers = [h for h in opener.handlers
-                       if not isinstance(h, urllib.request.HTTPRedirectHandler)]
-
-    class _NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
-    opener = urllib.request.build_opener(_NoRedirect)
-    req = urllib.request.Request(f"{base_url}{path}", method="GET")
+    parsed = urlparse(base_url)
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=timeout)
     try:
-        with opener.open(req, timeout=timeout) as resp:
-            return resp.status, resp.headers.get("Location")
-    except urllib.error.HTTPError as exc:
-        return exc.code, exc.headers.get("Location")
+        conn.request("GET", path)
+        resp = conn.getresponse()
+        location = resp.getheader("Location")
+        resp.read()  # drain so the connection can be reused/closed cleanly
+        return resp.status, location
+    finally:
+        conn.close()
 
 
 class _ServerProcess:
