@@ -55,16 +55,26 @@ body{{margin:0;font:14px system-ui,sans-serif}}#workbench{{display:flex;height:1
 </div><div data-tab-content="chat">Chat workspace</div></main></div>
 <script>
 const tabs=new Set(['chat']); let activeTab='chat';
+const tabLabels={{'chat':'Chat','dev-docs':'Dev Docs','end-user-docs':'End User Docs','wiki':'Wiki','runs':'Runs','settings':'Settings'}};
+function ensureTab(tabKey) {{
+  if (tabs.has(tabKey)) return;
+  tabs.add(tabKey);
+  const tab=document.createElement('button');
+  tab.type='button'; tab.role='tab'; tab.dataset.testid='workbench-tab';
+  tab.dataset.tabKey=tabKey; tab.textContent=tabLabels[tabKey] || tabKey;
+  tab.setAttribute('aria-selected','false');
+  document.querySelector('[role="tablist"]').append(tab);
+}}
 function renderSidebar(activity) {{
   const sidebar=document.querySelector('[data-louke-region="sidebar"]');
   sidebar.dataset.sidebarKind=activity;
   sidebar.querySelectorAll('section[data-sidebar-kind]').forEach(section => {{ section.hidden=section.dataset.sidebarKind!==activity; }});
 }}
 function openTab(tabKey) {{
-  if (!tabs.has(tabKey)) tabs.add(tabKey);
+  ensureTab(tabKey);
   activeTab=tabKey;
   document.querySelectorAll('[data-testid="workbench-tab"]').forEach(tab => {{ tab.setAttribute('aria-selected', String(tab.dataset.tabKey===tabKey)); }});
-  renderSidebar(tabKey);
+  if (tabKey!=='settings') renderSidebar(tabKey);
 }}
 document.querySelectorAll('[data-activity]').forEach(button => button.addEventListener('click', () => {{
   const activity=button.dataset.activity;
