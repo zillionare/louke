@@ -129,10 +129,15 @@ def create_app(
             ),
             Route("/api/events", endpoint=api_events, methods=["GET"]),
             # === v0.12 mounts ===
+            # Mount order matters: Starlette matches Mounts in declaration order
+            # and a wider prefix shadows any longer prefix declared after it.
+            # ``/api/runtime/bindings`` MUST precede ``/api/runtime`` or every
+            # bindings request is handed to the runtime sub-app (which has no
+            # ``bindings`` internal route) and returns 404. See #176.
             Mount("/api/projects", app=projects_app),
+            Mount("/api/runtime/bindings", app=bindings_app),
             Mount("/api/runtime", app=runtime_app),
             Mount("/api/gates", app=gates_app),
-            Mount("/api/runtime/bindings", app=bindings_app),
             Mount("/api/opencode", app=opencode_app),
             Mount("/api/readiness", app=readiness_app),
             Mount("/api/setup", app=setup_app),
