@@ -56,6 +56,35 @@ def _payload(path: Path, relative: Path) -> dict[str, object]:
     }
 
 
+def _atomic_write(target: Path, data: bytes) -> None:
+    """Replace target with data without exposing a partially written file."""
+    temporary_name = ""
+    try:
+        with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as temporary:
+            temporary.write(data)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_name = temporary.name
+        os.replace(temporary_name, target)
+    except OSError:
+        if temporary_name:
+            Path(temporary_name).unlink(missing_ok=True)
+        raise
+
+
+def _save_response(target: Path) -> JSONResponse:
+    """Build the save response from bytes reread after atomic replacement."""
+    saved = target.read_bytes()
+    saved_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return JSONResponse(
+        {
+            "sha256": hashlib.sha256(saved).hexdigest(),
+            "saved_at": saved_at,
+            "version_token": _mtime(target),
+        }
+    )
+
+
 async def files(request: Request) -> JSONResponse:
     """Handle End User Docs listing, reading, and atomic saves."""
     path_value = request.query_params.get("path")
@@ -119,22 +148,7 @@ async def files(request: Request) -> JSONResponse:
     root.mkdir(parents=True, exist_ok=True)
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as temporary:
-            temporary.write(data)
-            temporary.flush()
-            os.fsync(temporary.fileno())
-            temporary_name = temporary.name
-        os.replace(temporary_name, target)
+        _atomic_write(target, data)
     except OSError as exc:
-        if "temporary_name" in locals():
-            Path(temporary_name).unlink(missing_ok=True)
         return _error("VALIDATION_FAILED", f"could not save document: {exc}", 400)
-    saved = target.read_bytes()
-    saved_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    return JSONResponse(
-        {
-            "sha256": hashlib.sha256(saved).hexdigest(),
-            "saved_at": saved_at,
-            "version_token": _mtime(target),
-        }
-    )
+    return _save_response(target)
