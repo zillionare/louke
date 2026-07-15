@@ -1,0 +1,129 @@
+======================================================================
+v0.12.1 STABILIZATION — BATCH 0 BASELINE
+======================================================================
+
+--- 0.1 git state ---
+rev     : 6a6545a8dd30efe344e699318d8c0c89171b7a50
+short   : 6a6545a
+branch  : main
+tag     : v0.12.0-1-g6a6545a
+status  : see below
+
+M .louke/project/specs/v0.12-001-programmatic-workflow-runtime/gap-analysis.md
+ M louke/agents/Story.md
+?? .louke/project/specs/v0.13-001-reflow/
+?? .louke/project/specs/v0.14-web-ui-relaunch/
+?? .louke/project/specs/v0.15-001-ui-i18n/
+?? docs/v0121_evidence/
+?? docs/workflow.md
+
+--- 0.2 last 8 commits ---
+6a6545a v0.12.0 e2e coverage audit: 11/18 场景 FULL, 7 PART (30 AC 裸露)
+e3eaf0d B19: update runbook with real-L3-proven path (opencode/big-pickle + corrected endpoints)
+c7b4677 refactor: – #167 – B19: unwrap data envelope in RealOpenCodeAdapter.create
+da506bf refactor: – #167 – B19: tighten error handling for new message shape
+e8f6a12 feat: green – #167 – B19: fix real.py endpoints + add live opencode integration tests
+92f9cca M-MILESTONE: v0.12.0 - update project.toml tag/history; cite real L3 smoke
+edd10e6 refactor: – #172 – B13: split value-based assertions to bypass FAKE-002 strict regex; rename L3 test for AC tag detection
+c6046c3 refactor: – #170 – B13: tighten L3 skipif docstring + tighten catalog assertion to value-based
+
+--- 0.3 unit tests (tests/unit) ---
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+397 passed, 2 skipped, 1 warning in 14.30s
+
+--- 0.4 e2e tests (non-browser, no real_opencode) ---
+........................................................................ [ 73%]
+....................................................                     [100%]
+190 passed, 6 skipped, 1 deselected in 0.86s
+
+--- 0.5 production routes probe (create_app) ---
+GET   /api/runtime/bindings/devon                        -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  POST  /api/runtime/bindings/runs                         -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  PUT   /api/runtime/bindings/devon                        -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/runtime/bindings/devon/audit                  -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/runtime                                       -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/setup                                         -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/readiness                                     -> 200  {"items":[{"name":"Git","status":"READY","diagnosis":"Git repository present","r
+  GET   /api/migration                                     -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/security                                      -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/opencode                                      -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/gates                                         -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /api/projects                                      -> 404  {"error_code":"NOT_FOUND","message":"Not Found"}
+  GET   /opencode                                          -> 404  Not Found
+  GET   /setup                                             -> 200  <!DOCTYPE html> <html lang="en"> <head>   <meta charset="utf-8" />   <meta name=
+  GET   /projects                                          -> 200  <!DOCTYPE html> <html lang="en"> <head>   <meta charset="utf-8" />   <meta name=
+  GET   /migration                                         -> 200  <!DOCTYPE html> <html lang="en"> <head>   <meta charset="utf-8" />   <meta name=
+  GET   /health                                            -> 200  {"status":"ok","spec_id":"v0.12"}
+  GET   /                                                  -> 200  <!DOCTYPE html> <html lang="en"> <head>   <meta charset="utf-8" />   <meta name=
+
+--- 0.6 wheel build + package contents ---
+adding 'louke-0.11.0.dist-info/licenses/LICENSE'
+adding 'louke-0.11.0.dist-info/METADATA'
+adding 'louke-0.11.0.dist-info/WHEEL'
+adding 'louke-0.11.0.dist-info/entry_points.txt'
+adding 'louke-0.11.0.dist-info/top_level.txt'
+adding 'louke-0.11.0.dist-info/RECORD'
+removing build/bdist.macosx-11.0-arm64/wheel
+Successfully built louke-0.11.0.tar.gz and louke-0.11.0-py3-none-any.whl
+
+Top-level louke.<sub> dirs in built wheel:
+  louke/.github                            2 files
+  louke/_tools                            12 files
+  louke/agents                            18 files
+  louke/templates                         18 files
+  louke/web                               10 files
+
+Expected v0.12 subpackages:
+  louke/runtime                         ABSENT
+  louke/opencode                        ABSENT
+  louke/web/api                         ABSENT
+  louke/web/pages                       ABSENT
+
+--- 0.7 wheel METADATA ---
+  Metadata-Version: 2.4
+  Name: louke
+  Version: 0.11.0
+  Summary: Lòukè - beyond vibes, into craft
+  Author: louke team
+  License: MIT
+
+--- 0.8 fresh venv wheel install + lk --version ---
+louke.__version__: 
+
+lk --version:
+Traceback (most recent call last):
+  File "/Users/openclaw/workspace/louke/.tmp_batch0/wheel_venv/bin/lk", line 4, in <module>
+
+lk --help (truncated to first error or 5 lines):
+Traceback (most recent call last):
+  File "/Users/openclaw/workspace/louke/.tmp_batch0/wheel_venv/bin/lk", line 4, in <module>
+    from louke.__main__ import main
+  File "/Users/openclaw/workspace/louke/.tmp_batch0/wheel_venv/lib/python3.11/site-packages/louke/__init__.py", line 43, in <module>
+    from . import opencode, opencode_api  # noqa: E402,F401
+
+import smoke:
+  louke.runtime                  FAIL  Traceback (most recent call last):
+  louke.opencode                 FAIL  Traceback (most recent call last):
+  louke.web.api                  FAIL  Traceback (most recent call last):
+  louke.web.pages                FAIL  Traceback (most recent call last):
+  louke.cli_v12                  FAIL  Traceback (most recent call last):
+
+--- 0.9 CI configuration snapshot ---
+  ci.yml lines: 2107
+  contains 'pytest': False
+  contains 'coverage': False
+  contains 'runtime': False
+  contains 'bats': True
+  louke-ci.yml exists: True
+  louke-ci.yml: 'pip install louke' present: True
+  louke-ci.yml: 'pip install .' present:   False
+
+--- 0.10 pyproject.toml version + setuptools packages ---
+  pyproject: version = "0.11.0"
+  pyproject: [tool.setuptools]
+  pyproject: packages = ["louke", "louke._tools", "louke.web"]
+  VERSION file: 0.10.0
+
+======================================================================
+BATCH 0 BASELINE COMPLETE — Ready for Batch 1
+======================================================================
