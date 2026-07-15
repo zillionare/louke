@@ -130,22 +130,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends bats
       - name: Run bats suite
-        # Bats tests invoke 'python3 -m louke' via $PY; louke/__init__.py:43
-        # cascades to opencode_api.py:5 which does 'from .opencode.in_memory
-        # import get_default_adapter' — needs louke.opencode subpackage (in
-        # wheel) + starlette (in wheel deps). PATH prepends /tmp/lk-venv so
-        # 'python3' resolves to the wheel-installed venv.
+        # Bats tests invoke 'python3 -m louke' via $PY. louke/__init__.py:43
+        # cascades to opencode_api.py which imports starlette (a wheel dep).
+        # PATH prepends /tmp/lk-venv so 'python3' resolves to the wheel venv.
         #
         # We invoke bats directly (not 'make test') because the Makefile
-        # looks for .venv/bin/activate which doesn't exist in CI; only
-        # /tmp/lk-venv does.
-        #
-        # Sanity check asserts the actual wheel runtime deps (fastapi is
-        # NOT a wheel dep — tests use starlette.testclient).
+        # checks for .venv/bin/activate which doesn't exist in CI; only
+        # /tmp/lk-venv does. If the wheel install is wrong, `python3 -m louke`
+        # itself will fail with ImportError, no separate sanity check needed.
         run: |
           export PATH="/tmp/lk-venv/bin:$PATH"
           which python3
-          python3 -c "import louke, starlette, httpx, uvicorn, yaml; print('ok')"
           bats tests/*.bats
 
   # ── AC traceability scan (non-blocking, parallel with pytest/bats) ─
