@@ -158,9 +158,10 @@ class RealOpenCodeAdapter:
             "POST", _SESSION_PATH, json=body, correlation_id=correlation_id,
         )
         data = resp.json()
-        created = _as_epoch(data.get("time", {}).get("created"))
+        inner = data.get("data", data) if isinstance(data, dict) else data
+        created = _as_epoch(inner.get("time", {}).get("created"))
         return Instance(
-            id=data["id"],
+            id=inner["id"],
             status="running",
             created_at=created,
         )
