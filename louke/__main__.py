@@ -29,6 +29,7 @@ Design:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -162,7 +163,7 @@ def main(argv=None):
     raw = list(argv if argv is not None else sys.argv[1:])
 
     if not raw or raw[0] in ("--version", "-v", "version"):
-        print(f"lk {__version__}")
+        print(f"lk {__version__} ({_runtime_mode()})")
         return 0
     if raw[0] in ("--help", "-h", "help"):
         print_help_text()
@@ -205,6 +206,27 @@ def main(argv=None):
     parser = build_parser()
     parser.print_help(sys.stderr)
     return 1
+
+
+def _runtime_mode() -> str:
+    """Identify the runtime executing this Python process.
+
+    The v0.13 shim may set ``LOUKE_RUNTIME_MODE`` explicitly. Direct calls
+    through a project ``.venv`` are also recognized; otherwise the process is
+    treated as global. This is presentation only and does not perform runtime
+    selection or search parent directories.
+    """
+    explicit = os.environ.get("LOUKE_RUNTIME_MODE", "").strip().lower()
+    if explicit in {"local", "global"}:
+        return explicit
+    executable = Path(sys.executable).resolve()
+    prefix = Path(sys.prefix).resolve()
+    parts = set(executable.parts) | set(prefix.parts)
+    if prefix.name == ".venv" or ".venv" in parts:
+        return "local"
+    if ".louke" in parts and "venv" in parts:
+        return "global"
+    return "global"
 
 
 def _dispatch_agent(argv):

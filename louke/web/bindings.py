@@ -4,13 +4,13 @@ from pathlib import Path
 from typing import Any
 
 from ..board import agent_source, parse_frontmatter
-from ..models import resolve_model
+from ..models import frontmatter_binding, resolve_model
 from .store import ProjectStore, ValidationError
 
 
 ROLE_TO_AGENTS = {
     "S": ["Judge"],
-    "A": ["Maestro", "Sage", "Archer", "Devon", "Prism", "Shield"],
+    "A": ["Maestro", "Sage", "Scribe", "Archer", "Devon", "Prism", "Shield"],
     "B": ["Lex", "Warden", "Keeper", "Scout", "Librarian"],
 }
 AGENT_TO_ROLE = {
@@ -128,10 +128,7 @@ def _agent_default_models(root: Path) -> dict[str, str]:
             defaults[agent] = ""
             continue
         frontmatter, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
-        models = frontmatter.get("models") or []
-        if isinstance(models, str):
-            models = [models]
-        defaults[agent] = str(models[0]) if models else ""
+        defaults[agent] = frontmatter_binding(frontmatter)
     return defaults
 
 

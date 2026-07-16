@@ -235,21 +235,25 @@ async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
 
 
 async def setup_home_redirect(request: Request) -> Response:
-    """GET /: redirect to /setup when in setup-only mode, else render home.
+    """GET /: show setup, the v0.13 workbench, or the legacy home page.
 
-    In setup-only mode the v0.11 home page is not useful (no principals, no
-    specs); redirect to the setup wizard. In normal mode fall through to the
-    existing :func:`home_page`.
+    v0.13 makes the workbench chrome the product entry point. Older project
+    workspaces retain the previous home page so their compatibility surface is
+    not silently changed.
 
     Args:
         request: The incoming Starlette request.
 
     Returns:
-        A ``RedirectResponse`` to ``/setup`` (303) when ``setup_only`` is set,
-        otherwise the :class:`HTMLResponse` returned by :func:`home_page`.
+        A setup redirect, the workbench HTML, or the legacy home HTML.
     """
     if getattr(request.app.state, "setup_only", False):
         return RedirectResponse(url="/setup", status_code=303)
+    project = request.app.state.store.project_info().get("project", {})
+    version = str(project.get("version") or "")
+    spec_id = str(project.get("spec_id") or "")
+    if version.startswith("0.13") or spec_id.startswith("v0.13"):
+        return await workbench(request)
     return await home_page(request)
 
 

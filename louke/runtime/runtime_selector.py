@@ -84,6 +84,7 @@ class RuntimeSelector:
         actual_version: str | None = None,
         integrity_ok: bool = True,
         managed: bool = True,
+        local_executable: str | None = None,
     ) -> None:
         self._project_root = project_root
         self._declared_version = declared_version
@@ -93,6 +94,7 @@ class RuntimeSelector:
         self._actual_version = actual_version or declared_version
         self._integrity_ok = integrity_ok
         self._managed = managed
+        self._local_executable = local_executable
         self._resolved: RuntimeIdentity | None = None
         self._frozen_version: str | None = None
 
@@ -164,7 +166,7 @@ class RuntimeSelector:
             )
         else:
             self._validate_local_runtime(effective_root)
-            executable = f"{effective_root}/.louke/runtime/lk"
+            executable = self._local_executable or f"{effective_root}/.louke/runtime/lk"
             build = hashlib.sha256(
                 f"{self._declared_version}:{executable}".encode()
             ).hexdigest()[:16]

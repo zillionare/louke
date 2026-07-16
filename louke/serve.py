@@ -27,6 +27,7 @@ from .runtime.runtime_selector import (
     RuntimeSelector,
     VersionMismatchError,
 )
+from . import __version__
 
 # Module-level seams so tests can patch without starting a real server.
 # `uvicorn_run` is set lazily to the real uvicorn.run on first use; tests
@@ -137,10 +138,15 @@ def _fail(message: str) -> int:
 
 
 def _serve_ready(args: argparse.Namespace, root: Path) -> int:
+    project_python = _project_venv_python(root)
+    using_project_venv = project_python is not None
+    local_version = __version__ if using_project_venv else "0.12.0"
     selector = RuntimeSelector(
         project_root=str(root),
-        declared_version="0.12.0",
+        declared_version=local_version,
         local_present=_has_local_runtime(root),
+        actual_version=local_version,
+        local_executable=str(project_python) if project_python else None,
     )
     try:
         identity = selector.resolve()
@@ -152,7 +158,7 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     ) as exc:
         return _fail(
             f"runtime selection failed: {exc}. Inspect .louke/project/project.toml "
-            f"(version/declared) and the local runtime under {root}/.louke/runtime. "
+            f"(version/declared) and the local runtime under {root}/.venv. "
             "No global fallback."
         )
     except Exception as exc:
@@ -214,12 +220,25 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
 
 
 def _has_local_runtime(root: Path) -> bool:
-    """Return whether ``root`` itself contains the local runtime executable.
+    """Return whether ``root`` contains a v0.13 local runtime.
 
-    The check intentionally does not search parent directories: a project may
-    only run with the runtime installed beneath its own ``.louke`` directory.
+    v0.13 defines the project-local runtime as ``<CWD>/.venv``. The legacy
+    ``.louke/runtime/lk`` check remains only for old v0.12 workspaces and
+    tests; it is never searched in a parent directory.
     """
-    return (root / ".louke" / "runtime" / "lk").is_file()
+    return (
+        _project_venv_python(root) is not None
+        or (root / ".louke" / "runtime" / "lk").is_file()
+    )
+
+
+def _project_venv_python(root: Path) -> Path | None:
+    """Return the project-local Python executable, without parent lookup."""
+    candidates = (
+        root / ".venv" / "bin" / "python",
+        root / ".venv" / "Scripts" / "python.exe",
+    )
+    return next((path for path in candidates if path.is_file()), None)
 
 
 def _start_or_dry_run(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:

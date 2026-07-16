@@ -10,6 +10,7 @@ import re
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
+from ..bindings import AGENT_TO_ROLE
 from ..render import render_markdown_view
 
 
@@ -51,12 +52,15 @@ async def workbench(request: Request) -> HTMLResponse:
 
 
 def _toolbar() -> str:
-    return "".join(
-        f'<button type="button" data-testid="toolbar-{key}" '
-        f'data-activity="{key}" aria-label="{label}" title="{label}">'
-        f'<span aria-hidden="true">{icon}</span></button>'
-        for key, label, icon in TOOLBAR_ITEMS
-    )
+    buttons = []
+    for key, label, icon in TOOLBAR_ITEMS:
+        menu_attr = ' aria-haspopup="menu"' if key == "accounts" else ""
+        buttons.append(
+            f'<button type="button" data-testid="toolbar-{key}" '
+            f'data-activity="{key}" aria-label="{label}" title="{label}"{menu_attr}>'
+            f'<span aria-hidden="true">{icon}</span></button>'
+        )
+    return "".join(buttons)
 
 
 def _spec_tree(specs_dir: Path, root: Path) -> list[tuple[str, list[str]]]:
@@ -74,14 +78,14 @@ def _spec_tree(specs_dir: Path, root: Path) -> list[tuple[str, list[str]]]:
 
 
 def _agents() -> list[str]:
-    """Discover registered agents with Maestro first and stable filename order."""
+    """Discover active, role-bound agents with Maestro first."""
     agents_dir = Path(__file__).parents[2] / "agents"
     names = sorted(
         path.stem
         for path in agents_dir.glob("*.md")
-        if path.is_file() and path.stem.lower() != "maestro"
+        if path.is_file() and path.stem in AGENT_TO_ROLE and path.stem != "Maestro"
     )
-    return ["Maestro", *names]
+    return ["Maestro", *names] if "Maestro" in AGENT_TO_ROLE else names
 
 
 def _chat_sidebar(agents: list[str]) -> str:
