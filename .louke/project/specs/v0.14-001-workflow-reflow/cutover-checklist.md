@@ -10,7 +10,7 @@
 - [ ] inventory 中每项职责具有稳定 identity、来源、`program`/`semantic` 分类、分类理由、目标 handler/task 和迁移状态；原 mixed 职责在 dispatch 前拆除程序控制/权威副作用与语义输入/输出。
 - [ ] catalog build、workflow 创建和 task dispatch 均拒绝缺项、分类不一致、纯工具包装 Agent、缺失 handler/prompt contract 或 semantic task 承担权威副作用。
 - [ ] Scout、Warden、Keeper 从新 workflow dispatch、内置 Agent catalog、Chat Agent 列表和 model bindings 中正式注销；新 run 不得创建这三个角色的 task、session 或隐式 fallback。
-- [ ] Scout 的语义残余归 Story，Warden 的 story 语义残余归 Story/Sage/Lex，Keeper 的语义审查归 Prism；其余确定性职责映射到明确的 program handler。
+- [ ] Scout 的语义残余归 Scribe，Warden 的 story 语义残余归 Scribe/Sage/Lex，Keeper 的语义审查归 Prism；其余确定性职责映射到明确的 program handler。
 
 ## B. 唯一生产装配与自动 Driver
 

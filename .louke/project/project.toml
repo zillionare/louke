@@ -8,7 +8,7 @@ release_branch = "releases/0.13.1"
 
 [meta]
 created = "2026-07-16"
-current_stage = "M-ARCH"
+current_stage = "M-E2E"
 security_audit = "disabled"
 pre_commit = "installed (python + base)"
 acknowledged_orphan_releases = ["releases/v0.10", "releases/v0.11", "releases/v0.4", "releases/v0.8"]

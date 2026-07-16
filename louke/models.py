@@ -11,6 +11,7 @@ from pathlib import Path
 from ._common import git_root
 
 SCHEMA = "louke://models-config"
+INTELLIGENCE_QUOTATIONS = frozenset({"S", "A", "B"})
 
 
 def register(parser):
@@ -98,6 +99,35 @@ def save_config(path: Path, data: dict):
 
 def normalize(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def frontmatter_binding(frontmatter: dict) -> str:
+    """Return the abstract binding declared by an agent prompt.
+
+    New prompts declare an intelligence quotation (S/A/B).  The legacy
+    ``models`` fallback keeps older third-party prompts readable while the
+    source prompts migrate to quotation-based bindings.
+    """
+    quotation = str(frontmatter.get("intelligence_quotation") or "").strip()
+    if quotation:
+        return quotation
+    models = frontmatter.get("models") or []
+    if isinstance(models, str):
+        models = [models]
+    return str(models[0]).strip() if models else ""
+
+
+def _role_assignment(quotation: str, root: Path) -> str:
+    """Resolve a quotation through project-then-user role assignments."""
+    if quotation not in INTELLIGENCE_QUOTATIONS:
+        return ""
+    for path in (config_path(True, root), config_path(False)):
+        assignments = load_config(path).get("assignments") or {}
+        roles = assignments.get("roles") or {}
+        value = str(roles.get(quotation) or "").strip()
+        if value:
+            return value
+    return ""
 
 
 def opencode_models() -> list[str]:
@@ -219,10 +249,9 @@ def used_models(root=None) -> list[str]:
         if fp.name in {"README.md", "ROSTER.md"}:
             continue
         fm, _ = parse_frontmatter(fp.read_text(encoding="utf-8"))
-        models = fm.get("models") or []
-        if isinstance(models, str):
-            models = [models]
-        result.extend(models)
+        binding = frontmatter_binding(fm)
+        if binding:
+            result.append(binding)
     return sorted(set(result))
 
 
@@ -268,6 +297,9 @@ def resolve_model(
     costs: dict | None = None,
 ) -> str:
     root = root or git_root() or Path.cwd()
+    assigned = _role_assignment(name, root)
+    if assigned and assigned != name:
+        return resolve_model(assigned, root=root, models=models, auth=auth, costs=costs)
     project_aliases = load_config(config_path(True, root)).get("aliases", {})
     user_aliases = load_config(config_path(False)).get("aliases", {})
     if name in project_aliases:

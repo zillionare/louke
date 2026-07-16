@@ -2,9 +2,7 @@
 name: lex
 description: Spec review and issue organizer — three-stage audit ensuring spec-to-issue traceability
 mode: subagent
-models:
-  - kimi-k2.7-code
-  - minimax-m3
+intelligence_quotation: B
 permission:
   bash: allow
   read: allow

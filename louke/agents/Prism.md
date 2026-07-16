@@ -2,9 +2,7 @@
 name: prism
 description: Multi-perspective + critical — code quality, test anti-patterns, architecture critique
 mode: subagent
-models:
-  - deepseek-v4-pro
-  - kimi-k2.7-code
+intelligence_quotation: A
 permission:
   bash: allow
   read: allow

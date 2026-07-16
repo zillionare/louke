@@ -1,7 +1,7 @@
 # Louke 开发工作流（Maestro 编排）
 
 > 来源：`louke/agents/Maestro.md`
-> 当前版本：基线 + M-STORY（需求构想，流水线入口）
+> 当前版本：v0.14 workflow reflow（Maestro → Scribe → Sage → Runtime）
 > 编排者：Maestro（主 Agent），通过 `lk agent maestro advance` 工具强制 holdpoint 闸门
 
 ---
@@ -28,15 +28,15 @@ Louke 是一个面向**多 Agent 协作软件开发**的工作流。核心特征
 | Stage code    | Stage             | Implementer                 | Reviewer                          | 一句话任务                                              |
 | ------------- | ----------------- | --------------------------- | --------------------------------- | ------------------------------------------------------- |
 | `M-FULL`      | 全流水线          | **Maestro**（指挥）          | —                                 | 协调 Agent、推进工作流、处理异常与升级决策              |
-| `M-STORY`     | 需求构想          | **Story**                  | Human（确认 story 完整可用）      | 一句话→丰富 story：谁/在哪/如何用 + 竞品补全 + 必要性/冲突核查 + A/B 提示，产出 story.md |
-| `M-FOUND`     | 项目奠基          | **Scout**                   | **Warden**                        | 基于 story 调研前提 / Warden 闸门退出条件               |
+| `M-STORY`     | 需求构想          | **Scribe**                 | **Sage** + Human                  | Maestro 识别意图；Scribe 写 Story；Sage 查交接；Human 决策 |
+| `M-FOUND`     | 项目奠基          | **Runtime program**         | —                                 | 程序化执行前置检查与 canonical composition               |
 | `M-SPEC`      | 需求定义          | **Sage**                    | **Lex**                           | Socratic 问答产出 spec / Lex 评审 + 程序化校验          |
 | `M-TESTPLAN`  | 测试计划          | **Archer**                  | **Sage**                          | Archer 定测试计划 / Sage 评审                           |
 | `M-ARCH`      | 架构设计          | **Archer**                  | **Prism**                         | Archer 定架构与接口 / Prism 内容评审                    |
 | `M-LOCK`      | 需求锁定          | **Maestro**                 | Human                             | **决定是否进入实现阶段**                                |
-| `M-DEV`       | 开发执行          | **Devon**                   | **Prism** → **Keeper**            | Devon R-G-R / Prism 多角度评审 / Keeper 闸门           |
-| `M-E2E`       | e2e 开发          | **Shield**                  | **Prism** → **Keeper**            | Shield 按 test-plan §6 写 e2e / Prism 评审 / Keeper 闸门 |
-| `M-BUGFIX`    | Bug 修复          | **Devon**                   | **Keeper**                        | Devon 复用 R-G-R / Keeper 回归判定                      |
+| `M-DEV`       | 开发执行          | **Devon**                   | **Prism** → Runtime gate         | Devon R-G-R / Prism 评审 / Runtime 权威闸门             |
+| `M-E2E`        | e2e 开发          | **Shield**                  | **Prism** → Runtime gate         | Shield 按 test-plan §6 写 e2e / Prism 评审 / Runtime 闸门 |
+| `M-BUGFIX`    | Bug 修复          | **Devon**                   | Runtime regression gate          | Devon 复用 R-G-R / 程序执行回归                         |
 | `M-SECURITY`  | 安全审计          | **Judge**                   | Human                             | 深度安全审计（按里程碑；DoD 可禁用）                    |
 | `M-MILESTONE` | 里程碑结束        | **Maestro**                 | Human                             | Maestro 发布本版本并推进下一里程碑                      |
 
@@ -57,16 +57,16 @@ flowchart LR
     BACKLOG[(Backlog 存档<br/>Park / NO-GO)]
     subgraph 需求期
       STORY[M-STORY<br/>Story 构想]
-      FOUND[M-FOUND<br/>Scout→Warden]
+      FOUND[M-FOUND<br/>Runtime program]
       SPEC[M-SPEC<br/>Sage↔Lex]
       TESTPLAN[M-TESTPLAN<br/>Archer→Sage]
       ARCH[M-ARCH<br/>Archer→Prism]
       LOCK[M-LOCK<br/>Maestro→Human]
     end
     subgraph 实现期
-      DEV[M-DEV<br/>Devon→Prism→Keeper]
-      E2E[M-E2E<br/>Shield→Prism→Keeper]
-      BUGFIX[M-BUGFIX<br/>Devon→Keeper]
+      DEV[M-DEV<br/>Devon→Prism→Runtime]
+      E2E[M-E2E<br/>Shield→Prism→Runtime]
+      BUGFIX[M-BUGFIX<br/>Devon→Runtime]
     end
     SEC[M-SECURITY<br/>Judge]
     MILE[M-MILESTONE<br/>Maestro]
@@ -91,7 +91,7 @@ flowchart LR
 > 因此即便后续取消/替换某些 Agent，本图与阶段本身都不受影响。
 > `Gate` 即 `lk agent maestro advance` 的 holdpoint 校验，确保退出条件满足才放行。
 
-### 4.1 需求期（M-FOUND → M-LOCK）
+### 4.1 需求期（M-STORY → M-LOCK）
 
 ```mermaid
 sequenceDiagram
@@ -113,7 +113,7 @@ sequenceDiagram
     alt go
         Human-->>M: confirm go
         St->>F: story.md（存档 + 进入 M-FOUND）
-        Note over F: 内部：基于 story 调研 + 奠基 → 评审通过 (F1-F11 + story 语义)
+        Note over F: 内部：Runtime 执行前置检查与 canonical composition
         F->>S: spec-id, project.toml, story.md, releases/{v}
     else park / no-go
         Human-->>M: 选定 park / no-go
@@ -160,7 +160,7 @@ sequenceDiagram
     end
 
     D->>B: 代码基线 + commit 范围
-    Note over B: 内部：回归判定（不经评审，直接 Keeper 判定）
+    Note over B: 内部：Runtime 执行权威回归判定
     B->>G: advance --stage M-BUGFIX
     G-->>B: pass
     B->>J: 通过回归的基线
@@ -205,54 +205,61 @@ sequenceDiagram
 
 ### M-STORY（需求构想 / Story）
 ```
-输入：用户一句话功能设想
+输入：用户从 Chat / Web tab 发给 Maestro 的消息
 活动：
-  1. brainstorm：丰富为可用 story，明确
+  1. Maestro 识别 intent；不明确时只向用户追问一次，不静默选择流程
+  2. spawn Scribe：丰富为可用 story，明确
        - 谁（身份、人数、主次 persona 排序）
        - 在哪里（何种终端 / 设备）
-       - 如何使用该功能
-  2. 竞品 / 市调（只为“补全故事”，不做“市场判断”）：
+       - 如何使用该功能（Chat / Web / CLI / API 等入口）
+       - 如何获得产品、首次 setup、升级、迁移与失败恢复（适用时必问）
+  3. 竞品 / 市调（只为“补全故事”，不做“市场判断”）：
        调查同类产品在“该需求场景下”如何处理，
        把用户没想到的角色 / 流程 / 异常 / 终端适配补进 story；
        输出 adopt / avoid 清单，语义是“补全素材”而非“市场裁决”
        （Agent 不得得出“市场饱和 / 此路不通”之类的市场结论）
-  3. 为什么做（north star）：
+  4. 为什么做（north star）：
        - 问题陈述 + 价值 / 目标（解决什么痛点、成功长什么样）
        - 成功指标（可观测、可衡量的结果，供后续 acceptance 量化）
-  4. 边界与约束：
+  5. 边界与约束：
        - 非目标 / out-of-scope（显式划界，防范围蠕变）
        - 约束（性能 / 合规 / 平台 / 与现有系统集成限制）
-  5. 必要性与冲突核查（读往期 story）★：
+  6. 必要性与冲突核查（读往期 story）★：
        - 读取 .louke/project/stories/*/story.md、wiki、backlog、已 accepted 规格
        - 已实现？→ 建议复用 / 合并
        - 相抵触？→ 标出与哪条 STR-xxxx / spec 冲突
        - 超出现有可见范围时标 [需人工确认]，不臆断
-  6. 方案疑议提示（A/B Advisory，非决策）★：
+  7. 方案疑议提示（A/B Advisory，非决策）★：
        - 用户要 A、证据显示 B 更贴合其陈述目标时，给出 💡 替代建议 + 证据
        - 仅 advisory，最终由 Human 裁决；Agent 不做市场 / 产品终局判断，也不自动替换方案
-  7. 风险与假设：
+  8. 风险与假设：
        - 假设（brainstorm 时默认成立、待验证的点）
        - 风险（可能让功能翻车的点，早期暴露「想当然」）
-  8. 可行性分流（go / no-go / park）：
+  9. Scribe 自检后，spawn Sage 做独立 peer review：
+       - Sage 只检查 Story handoff readiness，不改 story、不做产品决策
+       - REVISE → ≤3 blockers 回传 Scribe，Story digest 变化后必须重审
+       - PASS → 交给 Human 确认事实与 go / no-go / park
+ 10. 可行性分流（go / no-go / park）：
        - go    → 继续 M-FOUND
        - park  → story.md 存档入 Backlog，标记 Park（不进入 spec）
        - no-go → story.md 存档入 Backlog，标记 NO-GO（不删除，供未来参考/复用）
        - 无论结论，story.md 均永久存档（story-id 保留）
-  9. 可追溯种子（契合 Louke 原则 #2）：
+ 11. 可追溯种子（契合 Louke 原则 #2）：
        - 生成 story-id，登记到 GitHub Project 想法 / backlog，
          与未来 spec-id / Issue / commit 串联
- 10. 产出 story.md（见下方字段 schema）
+ 12. 产出 story.md（见下方字段 schema）
 Gate: advance --stage M-STORY
-  需：story.md 存在且含「用户 / 终端 / 使用方式 / 竞品」四要素
+  需：story.md 存在且含「用户 / 终端 / 使用方式 / 产品生命周期 / 竞品」要素
      + necessity / conflict 已填（或标 [需人工确认]）
+     + Sage peer review = PASS，绑定当前 story digest
      + 分流结论 ∈ {go, park, no-go} 且经 Human 确认（不可跳过）
-  说明：Agent 对 4W + EARS 完整性**自检**，满足则不向用户追问；
+  说明：Scribe 对 4W + 行为种子完整性自检；Sage 检查交接质量；
         Human 只在决策点介入——确认分流结论，及裁决 Agent 提出的冲突 / A-B 建议。
   分支：
      - go    → 继续 M-FOUND
      - park  → story.md 存档入 Backlog，标记 Park，本 run 终止
      - no-go → story.md 存档入 Backlog，标记 NO-GO，本 run 终止（不删除，供未来参考/复用）
-注：本阶段为流水线入口，先于 M-FOUND；由 Story Agent 主持（semantic_task，
+注：本阶段为流水线入口，先于 M-FOUND；由 Scribe 主持（semantic_task，
     不写 run 状态、不调用 advance）。
 ```
 
@@ -266,6 +273,10 @@ personas          :                                # 用户画像
     priority     : primary | secondary            # 主次 persona 排序
 terminal          : <终端 / 设备类型>
 usage            : <如何使用该功能（步骤级）>
+access            :
+  primary_outlet  : Chat | Web tab | CLI | API | other
+  acquisition     : <安装 / 依赖 / 首次 setup；不适用时 N/A + 理由>
+  upgrade         : <升级 / 迁移 / 失败恢复；不适用时 N/A + 理由>
 problem_goal     :                                # 为什么做
   problem       : <痛点>
   goal          : <目标 / 成功长什么样>
@@ -285,18 +296,19 @@ alt_suggestion   :                                # A/B Advisory（非决策）
 assumptions      : <待验证的假设>
 risks            : <潜在风险>
 triage           : go | no-go | park              # 可行性分流结论
+peer_review      :
+  reviewer        : Sage
+  verdict         : pass | revise
+  story_digest    : sha256:...
 ```
 
 
-### M-FOUND（Scout → Warden）
+### M-FOUND（Runtime program）
 ```
-1. spawn Scout   steps 1-6（基于上游 story.md 调研 + 奠基）
-                 产出：spec-id, project.toml, releases/{version}
-                 （story.md 由 M-STORY 上游产出，此处消费 / 承接）
-2. spawn Warden  foundation-check (F1-F11) + story.md 语义检查
-3. Warden [REJECT] → blockers 回传 Scout 修复 → 重跑 Warden
-   Warden [PASS] → advance
-Gate: advance --stage M-FOUND  (project.toml 存在)
+1. Runtime 执行 foundation preflight 与 canonical composition 检查。
+2. 缺失或非法前置条件时，以可操作错误停止流程。
+3. 不创建 Scout、Warden 或隐藏 Agent session。
+Gate: advance --stage M-FOUND（Runtime foundation evidence 有效）
 ```
 
 ### M-SPEC（Sage ↔ Lex 迭代 + 锁定 + Issue + 校验）
@@ -347,46 +359,45 @@ Gate: advance --stage M-ARCH
         且 Prism review-result.json verdict=pass（当前 hash, source_command=review）
 ```
 
-### M-DEV（Devon → Prism → Keeper）
+### M-DEV（Devon → Prism → Runtime gate）
 ```
 1. spawn Devon   R-G-R（按 issue，顺序）
 2. spawn Prism   M-DEV：lk agent prism review（test-patterns + security-quick-scan）
                 产出：.louke/project/stage-results/{SPEC-ID}/M-DEV/review-result.json
    [REJECT] → Devon 修复 → 重跑 Prism
-3. spawn Keeper  lk agent keeper gate --commit-range {range} --stage M-DEV
-                产出：.louke/project/stage-results/{SPEC-ID}/M-DEV/gate-result.json
-   exit 1 → Devon 修复 → 重跑 Prism → Keeper
+3. Runtime 执行当前 revision 的权威 gate。
+   exit 1 → Devon 修复 → 重跑 Prism → Runtime gate
    exit 0 → advance
 Gate: advance --stage M-DEV --commit-range HEAD~1..HEAD
   需两者：Prism review-result.json verdict=pass, commit_range 匹配, source_command=review
-        且 Keeper gate-result.json verdict=pass, commit_range 匹配
+        且 Runtime gate evidence 有效、绑定当前 revision、可追溯
 ```
 
-### M-E2E（Shield → Prism → Keeper）
+### M-E2E（Shield → Prism → Runtime gate）
 ```
 1. spawn Shield  host-project e2e（per test-plan §6）+ commit-e2e
                 Shield 写入 Archer 决定的 host-project test 目录，绝不写 .louke/
 2. spawn Prism   M-E2E：lk agent prism review --stage M-E2E --spec-id {SPEC-ID} --commit-range {range}
                 产出：.louke/project/stage-results/{SPEC-ID}/M-E2E/review-result.json
    [REJECT] → Shield 修复 → 重跑 Prism
-3. spawn Keeper  lk agent keeper gate --commit-range {range}
-   exit 1 → Shield 修复 → 重跑 Prism → Keeper
+3. Runtime 执行当前 revision 的权威 gate。
+   exit 1 → Shield 修复 → 重跑 Prism → Runtime gate
    exit 0 → advance
 Gate: advance --stage M-E2E --commit-range HEAD~1..HEAD
   需：Prism review-result.json verdict=pass, commit_range 匹配, source_command=review
       Shield author-result.json verdict=pass
-      Keeper gate-result.json verdict=pass, commit_range 匹配
+      Runtime gate evidence 有效、绑定当前 revision、可追溯
 ```
 
-### M-BUGFIX（Devon → Keeper）
+### M-BUGFIX（Devon → Runtime regression gate）
 ```
 1. spawn Devon   修复 bug（复用 R-G-R）
                 branch：fix/{issue-number} → 合并 main + release
-2. spawn Keeper  lk agent keeper regression --baseline main --current HEAD
-   exit 1 → Devon 修复 → 重跑 Keeper
+2. Runtime 执行声明 baseline 上的权威回归。
+   exit 1 → Devon 修复 → 重跑 regression gate
    exit 0 → advance
-Gate: advance --stage M-BUGFIX（lk agent keeper regression exit 0）
-注意：不经 Prism，直接 Devon → Keeper 回归。
+Gate: advance --stage M-BUGFIX（Runtime regression evidence exit 0）
+注意：不经 Prism，直接 Devon → Runtime program regression gate；不创建 Keeper session。
 ```
 
 ### M-SECURITY（Judge）

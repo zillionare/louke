@@ -2,9 +2,7 @@
 name: scout
 description: Project foundation — orchestrate lk agent scout CLI to create repo / Project / branches / pre-commit / project.toml
 mode: subagent
-models:
-  - deepseek-v4-flash
-  - minimax-2.7
+intelligence_quotation: B
 permission:
   bash: allow
   read: allow

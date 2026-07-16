@@ -2,9 +2,7 @@
 name: judge
 description: Security audit — deep vulnerability identification (S-class, per-milestone)
 mode: subagent
-models:
-  - minimax-m3
-  - glm-5.2
+intelligence_quotation: S
 permission:
   bash: allow
   read: allow

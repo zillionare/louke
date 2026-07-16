@@ -2,9 +2,7 @@
 name: keeper
 description: Quality gate — verifies R-G-R order / commit message format / AC trace / anti-pattern scanning
 mode: subagent
-models:
-  - deepseek-v4-flash
-  - minimax-2.7
+intelligence_quotation: B
 permission:
   bash: allow
   read: allow

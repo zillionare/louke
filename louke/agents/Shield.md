@@ -2,9 +2,7 @@
 name: shield
 description: integration/e2e test writer — write integration/e2e tests per test-plan
 mode: subagent
-models:
-  - kimi-k2.7-code
-  - minimax-m3
+intelligence_quotation: A
 permission:
   bash: allow
   read: allow

@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from ._common import git_root
-from .models import resolve_model
+from .models import frontmatter_binding, resolve_model
 
 
 SKIP = {"README.md", "ROSTER.md"}
@@ -72,7 +72,7 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
 
     Nested structures supported:
     - `key: value` (string)
-    - `key:` + indented `  - item` (list, used for `models:`)
+    - `key:` + indented `  - item` (list, used by legacy `models:`)
     - `key:` + indented `  subkey: value` (dict, used for `permission:`)
     """
     if not text.startswith("---\n"):
@@ -285,12 +285,9 @@ def cmd_opencode(args):
         text = fp.read_text(encoding="utf-8")
         fm, body = parse_frontmatter(text)
         parsed.append((fp, fm, body))
-        models = fm.get("models") or []
-        if isinstance(models, str):
-            models = [models]
-        for m in models:
-            if m and "/" not in m:
-                abstract_models.add(m)
+        binding = frontmatter_binding(fm)
+        if binding and "/" not in binding:
+            abstract_models.add(binding)
 
     if not quiet:
         print(
@@ -346,14 +343,10 @@ def cmd_opencode(args):
         name = str(fm.get("name") or fp.stem).lower()
         description = fm.get("description") or fp.stem
         mode = fm.get("mode") or "all"
-        models = fm.get("models") or []
-        if isinstance(models, str):
-            models = [models]
+        binding = frontmatter_binding(fm)
         model = (
-            resolve_model(
-                models[0], root=root, models=available, auth=auth, costs=costs
-            )
-            if models
+            resolve_model(binding, root=root, models=available, auth=auth, costs=costs)
+            if binding
             else ""
         )
         # Detect unbound: no '/' in the name (still abstract) + no alias
@@ -366,7 +359,14 @@ def cmd_opencode(args):
 
         unknown_keys = (
             set(fm.keys())
-            - {"name", "description", "mode", "model", "models"}
+            - {
+                "name",
+                "description",
+                "mode",
+                "model",
+                "models",
+                "intelligence_quotation",
+            }
             - PASSTHROUGH_KEYS
         )
         if unknown_keys and dry_run:

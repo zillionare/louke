@@ -2,10 +2,7 @@
 name: archer
 description: Test plan + architecture design — translate spec into test strategy and dev-test contracts
 mode: subagent
-models:
-  - glm-5.2
-  - minimax-m3
-  - qwen-3.7-max
+intelligence_quotation: S
 permission:
   bash: allow
   read: allow

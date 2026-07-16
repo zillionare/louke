@@ -469,6 +469,7 @@ def cmd_list_models(args):
     """v0.6-007: lk agent list-models -- show each agent's models: chain and current resolved value."""
     from ._color import cyan, yellow as y, red, green, bold
     from .board import agent_source, parse_frontmatter
+    from .models import frontmatter_binding
     from .models import resolve_model
 
     # 1. Resolve project root
@@ -497,17 +498,16 @@ def cmd_list_models(args):
         text = fp.read_text(encoding="utf-8")
         fm, _ = parse_frontmatter(text)
         name = str(fm.get("name") or fp.stem)
-        models = fm.get("models") or []
-        if isinstance(models, str):
-            models = [models]
+        binding = frontmatter_binding(fm)
         # Current resolved = the first entry in the chain that resolves
         resolved = None
-        for m in models:
-            r_real = resolve_model(m)
-            if r_real != m:  # not equal to the abstract (means resolution succeeded)
+        if binding:
+            r_real = resolve_model(binding)
+            if (
+                r_real != binding
+            ):  # not equal to the abstract (means resolution succeeded)
                 resolved = r_real
-                break
-        rows.append((name, models, resolved))
+        rows.append((name, [binding] if binding else [], resolved))
 
     # 3. Filter
     if getattr(args, "unbound_only", False):

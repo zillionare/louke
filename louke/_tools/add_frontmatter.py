@@ -10,6 +10,7 @@ AGENTS_DIR = Path(__file__).parent.parent / "agents"
 DESCRIPTIONS = {
     "Scout": "Project foundation — runs the §2.1 initialization flow",
     "Sage": "Requirement clarification and spec authoring — translates story into traceable spec",
+    "Scribe": "M-STORY author — discovers and hands off a complete user story",
     "Lex": "Spec review and issue organizer",
     "Archer": "Test plan + architecture — designs test-plan / architecture / interfaces",
     "Maestro": "Pipeline orchestrator — manages the development workflow",
@@ -18,7 +19,7 @@ DESCRIPTIONS = {
     "Keeper": "Quality gate — commit format + tests + lint gate",
     "Shield": "e2e test authoring — writes e2e tests per test-plan (B-tier)",
     "Judge": "S-tier security audit — deep review of sensitive information leakage risks",
-    "Warden": "Reviewer — checks whether the foundation meets the bar and approves moving forward",
+    "Warden": "Deprecated foundation reviewer — retained only for legacy compatibility",
     "Librarian": "Knowledge base — manages wiki, decision records and project memory",
 }
 

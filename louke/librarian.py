@@ -529,7 +529,7 @@ def cmd_rewrite(args):
     # Model priority chain (FR-0140.4):
     #   1. --model flag (explicit, always wins)
     #   2. --model-from-config: read current lk models bind
-    #   3. librarian frontmatter models[0] (single value, no provider prefix)
+    #   3. librarian frontmatter intelligence quotation (resolved through role bindings)
     #   4. opencode default model from .opencode/opencode.json
     # Without one of these, opencode falls back to a placeholder model
     # (e.g. "volcengine-plan/ark-code-latest") that may not exist on the
@@ -552,20 +552,19 @@ def cmd_rewrite(args):
         except FileNotFoundError:
             pass
     if not model_flag:
-        # Fall back to librarian's own frontmatter models[0]. This is
-        # what `opencode run` honours when --agent-style dispatch happens;
-        # for the direct-primary invocation path we mirror it explicitly.
+        # Fall back to Librarian's own abstract binding. This is what
+        # `opencode run` honours when --agent-style dispatch happens; for the
+        # direct-primary invocation path we mirror the resolved value.
         from .board import agent_source, parse_frontmatter
+        from .models import frontmatter_binding, resolve_model
 
         src = agent_source(Path.cwd())
         libr_path = src / "Librarian.md"
         if libr_path.exists():
             fm, _ = parse_frontmatter(libr_path.read_text(encoding="utf-8"))
-            libr_models = fm.get("models") or []
-            if isinstance(libr_models, str):
-                libr_models = [libr_models]
-            if libr_models:
-                model_flag = ["--model", str(libr_models[0])]
+            binding = frontmatter_binding(fm)
+            if binding:
+                model_flag = ["--model", resolve_model(binding)]
         # Last-ditch fallback used to be "do not pass --model" (let
         # opencode use its global default). That default may be a model
         # that is not on the user's active provider, so we always pass
@@ -652,7 +651,7 @@ Exit 0 when done. Exit 1 only if lint fails and cannot self-heal.
 """
     # Use the default primary agent (Maestro). Pass --model only when the
     # caller explicitly asked for one; otherwise let opencode use the
-    # primary's frontmatter `models: [0]`.
+    # primary's frontmatter intelligence quotation.
     cmd = ["opencode", "run"]
     cmd += model_flag
     cmd += ["--", prompt]
