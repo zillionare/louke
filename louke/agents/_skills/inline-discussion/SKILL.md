@@ -36,16 +36,28 @@ A discussion node consists of a **Root Comment** and the **Nested Replies** belo
 Each line of comment must follow this structure:
 
 ```markdown
-> [indent level] **SpeakerName [status marker]:** comment content
+> **SpeakerName [status marker]:** comment content
 ```
 
 | Component | Description |
 | :--- | :--- |
 | **Indent level** | Composed of consecutive `>` symbols (e.g. `>`, `>>`, `>>>`); the count represents nesting depth. |
-| **SpeakerName** | A string wrapped in a pair of `**` (bold), representing the comment author (e.g. `**Sage**`). SpeakerName is case-insensitive (`Sage` / `sage` / `SAGE` are treated as the same speaker), but the original casing is preserved on display, with no case conversion. |
+| **SpeakerName** | A stable name beginning with an ASCII letter, representing the comment author (e.g. `**Sage:**` or `Sage:`). Bold is canonical output but optional for human input. A bold name may contain spaces or non-ASCII text; an unbolded name is an ASCII identifier (`A-Za-z0-9_-`). SpeakerName is case-insensitive (`Sage` / `sage` / `SAGE` are treated as the same speaker), but the original casing is preserved on display, with no case conversion. |
 | **Status marker** | **Only allowed on root comment lines**, immediately following the speaker name, wrapped in `[` `]` (e.g. `[RESOLVED]`). Non-root comments (replies) must not contain this marker; the parser should ignore such markers on reply lines. |
-| **Separator** | The speaker name (or status marker) must be immediately followed by an English colon `:`, then a single space, then the comment content. |
+| **Separator** | In canonical output, the speaker name (or status marker) is followed by an English colon `:` **inside the bold tag**, then `**` and a single space before the comment content. |
 | **Comment content** | Any Markdown text, supporting basic inline syntax such as `@mentions`, inline code, bold, etc. |
+
+### 2.3 Human-authored input tolerance
+
+Louke writes one canonical form, but its parser is intentionally more tolerant because humans also edit these files:
+
+- Canonical input/output: `> **Aaron:** comment` and `> **Aaron [RESOLVED]:** comment`.
+- Legacy-compatible input: `> **Aaron**: comment` and `> **Aaron** [RESOLVED]: comment`.
+- Human-compatible input without emphasis: `> Aaron: comment` and `> Aaron [RESOLVED]: comment`.
+- Ordinary Markdown may appear before or after a discussion. Recognition is line-local (outside fenced code blocks), so prose introducing a syntax example does not prevent the quoted speaker line from becoming an inline-discussion. The nearest preceding non-empty, non-blockquote line is its anchor.
+- Compatibility does not extend to a missing colon. Common Markdown labels such as `Note:`, `Warning:`, `Tip:`, and `Example:` remain ordinary blockquotes, not discussions; use bold form if one of those is genuinely a speaker name.
+
+Both separator placements produce the same parsed speaker, status, body, thread nesting, and readiness result. Writers (`start`, `reply`, `edit`, and `set-status`) always emit the canonical form; they do not require humans to rewrite a legacy-compatible line before it can be queried or updated.
 
 ## 3. State machine rules (determining "whether the discussion is complete")
 

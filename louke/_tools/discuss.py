@@ -31,19 +31,70 @@ RE_STATUS_MARKER = re.compile(
     re.IGNORECASE,
 )
 
-# Quote line matching:
-# one or more `>` at the start, followed by **Speaker** or **@Speaker** (with optional [STATUS]) : content
-# @mention syntax (QoderWork P1-NEW-3 retained)
-# Note: in a raw string `\*\*` is actually `\\*\\*` in Python (2 chars: `\*` + `*`, i.e. literal \* + Kleene 0+ *),
-#       to express the literal `**` you must use `[*][*]`, or `\*\*` outside a raw string
+# Quote line matching.  The canonical form keeps the colon inside the bold
+# speaker tag (``**Speaker:**``), as documented by the protocol skill.  Human
+# authors and older Louke writers also commonly put it outside
+# (``**Speaker**:``), so the reader accepts both forms.  Status markers receive
+# the same compatibility treatment:
+#
+#   **Speaker [RESOLVED]:** body   (canonical)
+#   **Speaker** [RESOLVED]: body   (legacy-compatible input)
+#   Speaker [RESOLVED]: body       (human-authored input)
+#
+# @mention syntax (QoderWork P1-NEW-3 retained).
 RE_QUOTE_LINE = re.compile(
     r"^(?P<depth>\s*(?:>\s*)+)"
-    r"(?P<speaker>[*][*]@?[A-Za-z][^*]*?[*][*])"
-    r"(?:\s*(?:\[(?P<status>open|resolved|reopen)\]|(?P<check>\u2713\s*(?:resolved)?)))?"
-    r"\s*:\s*"
+    r"(?:"
+    r"[*][*](?P<speaker_bold>@?[A-Za-z][^*:\[\]]*?)"
+    r"(?:"
+    r"\s*(?:\[(?P<status_inside>open|resolved|reopen)\])?\s*:[*][*]"
+    r"|"
+    r"[*][*]\s*(?:\[(?P<status_outside>open|resolved|reopen)\]"
+    r"|(?P<check>\u2713\s*(?:resolved)?))?\s*:"
+    r")"
+    r"|"
+    # Keep common Markdown labels as ordinary blockquotes.  Plain-speaker
+    # discussions remain available to arbitrary stable ASCII identifiers.
+    r"(?!(?:note|warning|tip|important|definition|example|remark|attention|caution)"
+    r"\s*(?:\[(?:open|resolved|reopen)\])?\s*:)"
+    r"(?P<speaker_plain>@?[A-Za-z][A-Za-z0-9_-]*)"
+    r"\s*(?:\[(?P<status_plain>open|resolved|reopen)\]"
+    r"|(?P<check_plain>\u2713\s*(?:resolved)?))?\s*:"
+    r")"
+    r"\s*"
     r"(?P<body>.*?)\s*$",
     re.IGNORECASE,
 )
+
+
+def quote_speaker(match: re.Match[str]) -> str:
+    """Return a parsed speaker name without the optional ``@`` prefix."""
+    return quote_speaker_raw(match).lstrip("@")
+
+
+def quote_speaker_raw(match: re.Match[str]) -> str:
+    """Return a parsed speaker name, retaining an optional ``@`` prefix."""
+    return (match.group("speaker_bold") or match.group("speaker_plain") or "").strip()
+
+
+def quote_status(match: re.Match[str]) -> str:
+    """Return the normalized explicit status on a matched quote line."""
+    status = (
+        match.group("status_inside")
+        or match.group("status_outside")
+        or match.group("status_plain")
+    )
+    if status:
+        return status.lower()
+    if match.group("check") is not None or match.group("check_plain") is not None:
+        return STATUS_RESOLVED
+    return ""
+
+
+def quote_has_explicit_status(match: re.Match[str]) -> bool:
+    """Whether a matched quote line carries any explicit status marker."""
+    return bool(quote_status(match))
+
 
 # Unit heading (FR-0020 AC-7 retained): ### US-0010 / ### FR-0001 / ### NFR-0010
 RE_UNIT_HEADING = re.compile(r"^###\s+(US|FR|NFR)-(\d{4})\b")
@@ -178,20 +229,15 @@ class DiscussParser:
             # Parse the quote
             depth_prefix = m.group("depth")
             depth = depth_prefix.count(">")
-            speaker_raw = m.group("speaker").strip("*").lstrip("@")
+            speaker_raw = quote_speaker(m)
             # Extract the @mention list (speaker tag + body, FR-0020 AC-8)
             mentioned = re.findall(
                 r"@([A-Za-z][A-Za-z0-9_\-]*)",
-                m.group("speaker") + " " + m.group("body"),
+                quote_speaker_raw(m) + " " + m.group("body"),
             )
             body = m.group("body").strip()
             # ✓ (U+2713) compatibility: older specs use ✓ to mark resolved
-            if m.group("status"):
-                status_raw = m.group("status").lower()
-            elif m.group("check") is not None or m.group("check") == "":
-                status_raw = STATUS_RESOLVED
-            else:
-                status_raw = ""
+            status_raw = quote_status(m)
             # Only recognize status on root comments (depth=1)
             if depth == 1:
                 self._thread_counter += 1
@@ -445,21 +491,15 @@ class DiscussParser:
                         if m and m.group("depth").count(">") == 1:
                             # Found the root comment. Verify root_text matches
                             actual_root = normalize_text(
-                                f"{m.group('speaker').strip('*').lstrip('@')}: {m.group('body')}"
+                                f"{quote_speaker(m)}: {m.group('body')}"
                             )
                             if not root_text or actual_root == root_text:
                                 # Build a thread to return
                                 return Thread(
                                     thread_id="?",
-                                    initiator=m.group("speaker")
-                                    .strip("*")
-                                    .lstrip("@")
-                                    .lower(),
-                                    status=(m.group("status") or STATUS_OPEN).lower(),
-                                    last_speaker=m.group("speaker")
-                                    .strip("*")
-                                    .lstrip("@")
-                                    .lower(),
+                                    initiator=quote_speaker(m).lower(),
+                                    status=quote_status(m) or STATUS_OPEN,
+                                    last_speaker=quote_speaker(m).lower(),
                                     reply_count=0,
                                     snippet=m.group("body")[:80],
                                     total_lines=current_total,
@@ -488,20 +528,14 @@ class DiscussParser:
                     m = RE_QUOTE_LINE.match(lines[j - 1])
                     if m and m.group("depth").count(">") == 1:
                         actual_root = normalize_text(
-                            f"{m.group('speaker').strip('*').lstrip('@')}: {m.group('body')}"
+                            f"{quote_speaker(m)}: {m.group('body')}"
                         )
                         if not root_text or actual_root == root_text:
                             return Thread(
                                 thread_id="?",
-                                initiator=m.group("speaker")
-                                .strip("*")
-                                .lstrip("@")
-                                .lower(),
-                                status=(m.group("status") or STATUS_OPEN).lower(),
-                                last_speaker=m.group("speaker")
-                                .strip("*")
-                                .lstrip("@")
-                                .lower(),
+                                initiator=quote_speaker(m).lower(),
+                                status=quote_status(m) or STATUS_OPEN,
+                                last_speaker=quote_speaker(m).lower(),
                                 reply_count=0,
                                 snippet=m.group("body")[:80],
                                 total_lines=current_total,
@@ -544,7 +578,7 @@ class DiscussParser:
         insert_at = self._find_insert_line(lines, anchor_line)
         # Build the root comment
         status_marker = f" [{status.upper()}]" if status != STATUS_OPEN else ""
-        new_line = f"> **{initiator}**{status_marker}: {body}"
+        new_line = f"> **{initiator}{status_marker}:** {body}"
         # Write op: insert + add trailing blank line (CommonMark requires blank lines between blockquotes)
         new_lines = lines[:insert_at] + ["", new_line, ""] + lines[insert_at:]
         new_text = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
@@ -594,7 +628,7 @@ class DiscussParser:
         # Insert `> {speaker}: {body}` after last_line
         depth = self._line_depth(lines, last_line)
         new_depth_marker = ">" * (depth + 1)
-        new_line = f"{new_depth_marker} **{speaker}**: {body}"
+        new_line = f"{new_depth_marker} **{speaker}:** {body}"
         insert_at = last_line + 1
         # Add a blank line (to separate from the next `>` block)
         new_lines = lines[:insert_at] + ["", new_line, ""] + lines[insert_at:]
@@ -627,20 +661,17 @@ class DiscussParser:
         lines = text.splitlines()
         root_idx = thread.root_line - 1
         if 0 <= root_idx < len(lines):
-            line = lines[root_idx]
-            # Remove the old status marker
-            line = re.sub(
-                r"\s*\[(?:open|resolved|reopen)\]\s*", "", line, flags=re.IGNORECASE
+            match = RE_QUOTE_LINE.match(lines[root_idx])
+            if not match:
+                raise ValueError("internal: root line no longer matches")
+            status_marker = (
+                f" [{new_status.upper()}]" if new_status != STATUS_OPEN else ""
             )
-            # Add the new marker (open does not get one)
-            if new_status != STATUS_OPEN:
-                # Insert status after **Speaker:**
-                line = re.sub(
-                    r"(\*\*[^*]+?\*\*)\s*:",
-                    rf"\1 [{new_status.upper()}]:",
-                    line,
-                )
-            lines[root_idx] = line
+            speaker = quote_speaker_raw(match)
+            lines[root_idx] = (
+                f"{match.group('depth')}**{speaker}{status_marker}:** "
+                f"{match.group('body')}"
+            )
         new_text = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
         self._atomic_write(file_path, new_text)
 
@@ -668,7 +699,7 @@ class DiscussParser:
             if not m:
                 continue
             line_depth = m.group("depth").count(">")
-            line_speaker = m.group("speaker").strip("*").lstrip("@")
+            line_speaker = quote_speaker(m)
             if line_depth == depth and line_speaker.lower() == speaker.lower():
                 target_line_no = i
                 break
@@ -680,15 +711,15 @@ class DiscussParser:
         if not m:
             raise ValueError("internal: line no longer matches")
         depth_prefix = m.group("depth")
-        speaker_tag = m.group("speaker")
-        status_marker = m.group("status") or ""
+        speaker_tag = quote_speaker_raw(m)
+        status_marker = quote_status(m)
         if status_marker:
             status_str = f" [{status_marker.upper()}]"
         else:
             status_str = ""
         # Handle multi-line new_body: continuation lines use the same depth_prefix as the speaker line (CommonMark same paragraph)
         body_lines = new_body.split("\n")
-        first = f"{depth_prefix} {speaker_tag}{status_str}: {body_lines[0]}"
+        first = f"{depth_prefix}**{speaker_tag}{status_str}:** {body_lines[0]}"
         new_lines = [first]
         for bl in body_lines[1:]:
             new_lines.append(f"{depth_prefix}{bl}")
@@ -863,10 +894,8 @@ def check_violations(spec_path: Path) -> tuple[int, str]:
         if not m:
             continue
         depth = m.group("depth").count(">")
-        if depth > 1 and (
-            m.group("status") or m.group("check") is not None or m.group("check") == ""
-        ):
-            speaker = m.group("speaker").strip("*").lstrip("@")
+        if depth > 1 and quote_has_explicit_status(m):
+            speaker = quote_speaker(m)
             violations.append(
                 f"  L{line_no} d{depth} {speaker}: status marker on nested reply is ignored"
             )

@@ -6,7 +6,12 @@ from dataclasses import dataclass
 
 import markdown
 
-from .._tools.discuss import DiscussParser, RE_QUOTE_LINE
+from .._tools.discuss import (
+    DiscussParser,
+    RE_QUOTE_LINE,
+    quote_speaker,
+    quote_status,
+)
 
 
 RE_REQUIREMENT_HEADING = re.compile(
@@ -231,10 +236,9 @@ def render_discussion_block(lines: list[str]) -> str:
         if not match:
             continue
         depth = match.group("depth").count(">")
-        speaker = match.group("speaker").strip("*")
-        speaker = speaker.lstrip("@")
+        speaker = quote_speaker(match)
         body = match.group("body").strip()
-        status = (match.group("status") or "").lower()
+        status = quote_status(match)
         comment = {
             "depth": depth,
             "speaker": speaker,

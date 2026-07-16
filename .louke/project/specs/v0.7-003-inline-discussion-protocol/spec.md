@@ -33,6 +33,8 @@
 - comment / admonition 类别（移除）
 - 旧 5 元状态（`[open]` / `✓` / `[blocked-by-N]` / `[wontfix]` / `[superseded]`）简化为 3 元
 
+**规范优先级澄清（2026-07-16）**：v0.7-003 是 inline-discussion 语法的唯一规范根。v0.4-004 仅作为旧 parser 的流程、unit 和定位基础依赖；其“无冒号 bold speaker”不属于 inline-discussion，但 plain ASCII speaker 以受限兼容形式保留。v0.7 接受 `**Name:**` / `**Name**:` 两种 bold 冒号布局，以及 `Name:` 形式的无粗体 ASCII identifier（排除 `Note:` 等说明标签）。v0.6-016 已整体作废。v0.8/v0.9 只定义渲染交互，v0.12 FR-1901 只定义 canonical round-trip 与 gate，v0.13 只定义 marker 随 Markdown 全文持久化；它们均引用本协议而不重新定义语法。
+
 ### 0.3 三层架构（QoderWork P0-4）
 
 ```
@@ -62,7 +64,7 @@
 
 **核心 5 条**：
 
-1. **写**：用 `> **Speaker:**` 嵌套 blockquote 表示对话
+1. **写**：canonical 写法用 `> **Speaker:**` 嵌套 blockquote 表示对话；读取兼容历史 `> **Speaker**:` 写法
 2. **状态**：仅根评论行 `[STATUS]` 标记有效；嵌套回复方括号作普通文本
 3. **RESOLVED 权限**：**仅发起人**（即根评论 speaker）能标 `[RESOLVED]`；其他人标无效
 4. **REOPEN**：任何人都可设 REOPEN
@@ -146,6 +148,15 @@ class DiscussParser:
 
 **@mention 语法**（QoderWork P1-NEW-3 保留）：speaker tag 支持 `**@Speaker:**` 前缀表示"@提及某 agent"，与 `**Speaker:**` 等价。parser 在解析 thread 时收集 `mentioned_agents` 列表，`--blocker` filter 包含被 mention 的 agent（即使不是 last_speaker）。
 
+**人类输入兼容合同（2026-07-16 固定）**：
+
+- `lk discuss` 的 canonical 输出为 `> **Speaker:** body`；根状态写作 `> **Speaker [RESOLVED]:** body` / `> **Speaker [REOPEN]:** body`（冒号位于粗体内）。
+- parser 同时接受历史/人工常见写法 `> **Speaker**: body` 与 `> **Speaker** [RESOLVED]: body`（冒号位于粗体外）；两种写法必须得到相同的 speaker、status、body、depth、thread 和 readiness 结果。
+- parser 也接受无粗体的人类写法 `> Speaker: body` 与 `> Speaker [RESOLVED]: body`。其中 Speaker 必须是以 ASCII 字母开头的 ASCII identifier（`A-Za-z0-9_-`）；无粗体形式不支持空格或非 ASCII 名称。
+- 无冒号 bold speaker 不在兼容集合中。`Note:`、`Warning:`、`Tip:`、`Important:`、`Definition:`、`Example:`、`Remark:`、`Attention:`、`Caution:` 等常见说明标签保持普通 blockquote，不成为 discussion；若它们确为人名，必须用 canonical bold 写法。
+- 识别按行进行并跳过 fenced code block，不要求 discussion 紧邻标题、FR 或文件边界。discussion 前后的普通 Markdown 不得抑制识别；根评论以其上方最近的非空、非 blockquote 行作为 anchor。因此“普通说明文字 + 空行 + `> **Aaron:** ...` + 普通说明文字”必须发现一个 inline-discussion。
+- 上述兼容只放宽 separator/status marker 的既有两种布局以及周围上下文，不把缺少 speaker tag 的普通 blockquote、HTML comment 或 admonition 当作 discussion；因此不与 v0.12-001 FR-1901 的“不可 round-trip 输入必须拒绝”冲突。
+
 **AC**:
 - AC-1: `louke/_tools/discuss.py` 存在，导出 `Thread` / `DiscussParser` 类
 - AC-2: `parse_file()` 解析 `[open]` / `[RESOLVED]` / `[REOPEN]` 三态；嵌套回复的方括号作普通文本（不识别）
@@ -155,6 +166,8 @@ class DiscussParser:
 - AC-6: 不解析 `<!-- -->` / `[!NOTE]` / `[!WARNING]` 等（comment + admonition 已移除）
 - AC-7: 5 元组定位字段完整（`total_lines` / `anchor_line` / `anchor_text` / `root_line` / `root_text`）
 - AC-8: **@mention 语法保留**（QoderWork P1-NEW-3）：parser 识别 `**@Speaker:**` 前缀；SKILL.md §2.2 示例 `> **Sage:** @Lex, ...` 有效
+- AC-9: parser 对 `**Speaker:**` / `**Speaker**:` / `Speaker:` 及其根状态 marker 的三种布局解析等价；所有写操作只输出 `**Speaker [STATUS]:**` canonical 形式
+- AC-10: inline-discussion 前后存在普通 Markdown 时仍被发现，`anchor_text` 是根评论上方最近的非空、非 blockquote 行；fenced code 中的同形文本仍不解析
 
 ### FR-0030 (Layer 2) `lk discuss` CLI 新建（5 子命令）
 
@@ -325,6 +338,7 @@ Level 3 — 未找到：
 - `lk discuss set-status` RESOLVED 仅 initiator
 - 4 级降级查找（行号漂移 / Levenshtein）测试
 - 写操作并发安全（flock）
+- 人类输入兼容：冒号/根状态 marker 位于粗体内外两种布局解析等价，且 discussion 前后可有普通 Markdown
 
 **AC**:
 - AC-1: **≥ 8 个 test cases 全部通过**（QoderWork P2-3: 4 级降级查找可拆为 4 子测试）

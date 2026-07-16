@@ -313,7 +313,7 @@ def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
     content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(
         encoding="utf-8"
     )
-    assert "> **Aaron**: 需要补充降级策略" in content
+    assert "> **Aaron:** 需要补充降级策略" in content
 
     thread = created_payload["discussion_threads"][0]
     client.post("/api/auth/logout")
@@ -343,7 +343,7 @@ def test_discussion_mutation_writes_markdown(tmp_path: Path) -> None:
     content = (root / ".louke" / "project" / "specs" / "demo" / "spec.md").read_text(
         encoding="utf-8"
     )
-    assert ">> **Bob**: 已收到" in content
+    assert ">> **Bob:** 已收到" in content
 
 
 def test_resolve_project_root_searches_upward(tmp_path: Path, monkeypatch) -> None:
