@@ -76,6 +76,9 @@ def _ready_workspace(tmp_path: Path, *, current_stage: str = "M-DEV") -> None:
     """Create a workspace that serve treats as ready (valid stage + principal)."""
     _write_project_toml(tmp_path, current_stage=current_stage)
     _write_first_user(tmp_path)
+    runtime = tmp_path / ".louke" / "runtime"
+    runtime.mkdir()
+    (runtime / "lk").touch()
 
 
 # -- AC-FR1801-01: setup-only mode when project.toml missing -----------------
@@ -148,6 +151,7 @@ def test_serve_fails_closed_on_missing_local_runtime(
     nonexistent = tmp_path / "elsewhere"
     nonexistent.mkdir()
     _ready_workspace(nonexistent)
+    (nonexistent / ".louke" / "runtime" / "lk").unlink()
 
     args = _namespace(
         project_root=str(nonexistent),

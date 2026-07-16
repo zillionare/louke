@@ -137,7 +137,11 @@ def _fail(message: str) -> int:
 
 
 def _serve_ready(args: argparse.Namespace, root: Path) -> int:
-    selector = RuntimeSelector(project_root=str(root), declared_version="0.12.0")
+    selector = RuntimeSelector(
+        project_root=str(root),
+        declared_version="0.12.0",
+        local_present=(root / ".louke" / "runtime" / "lk").is_file(),
+    )
     try:
         identity = selector.resolve()
     except (
