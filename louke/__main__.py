@@ -169,6 +169,8 @@ def main(argv=None):
         return 0
     if raw[0] == "upgrade":
         return _do_upgrade(raw[1:])
+    if raw[0] == "release":
+        return _cmd_release(raw[1:])
     if raw[0] == "agent":
         # Re-parse with help parser so agent subparser handles 'agent scout xxx'
         parser = build_parser()
@@ -225,6 +227,9 @@ def print_help_text():
         "  lk serve [--host H --port P] [--project-root PATH]  Start the web collaboration server"
     )
     print("  lk upgrade [--index URL] [--pre] [--dry-run]  Upgrade louke via pip")
+    print(
+        "  lk release verify --tag TAG --artifact-version VERSION  Verify release identity"
+    )
     print("  lk version                  Print version")
     print("  lk help                     Print this help")
     print()
@@ -267,6 +272,28 @@ def print_help_text():
     )
     print()
     print("Run lk <command> --help for detailed usage.")
+
+
+def _cmd_release(argv: list[str]) -> int:
+    """Run release-related public commands and return a process exit code."""
+    import json
+
+    from .release_identity import verify_release_identity
+
+    parser = argparse.ArgumentParser(prog="lk release", add_help=True)
+    subparsers = parser.add_subparsers(dest="release_command", required=True)
+    verify = subparsers.add_parser("verify")
+    verify.add_argument("--tag")
+    verify.add_argument("--artifact-version")
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 1
+    if args.release_command != "verify":
+        return 1
+    result = verify_release_identity(args.tag, args.artifact_version)
+    print(json.dumps(result.__dict__, ensure_ascii=False, sort_keys=True))
+    return 0 if result.passed else 1
 
 
 def _build_discuss_parser() -> argparse.ArgumentParser:

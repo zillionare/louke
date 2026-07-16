@@ -1,6 +1,17 @@
 """Unit tests for the host-independent release identity contract."""
 
 from louke.release_identity import verify_release_identity
+from louke.__main__ import main
+
+
+def test_ac_fr1510_03_release_verify_cli_emits_result_json(capsys) -> None:
+    """AC-FR1510-03: the public CLI exposes the identity result as JSON."""
+    assert (
+        main(["release", "verify", "--tag", "v0.13.1", "--artifact-version", "0.13.1"])
+        == 0
+    )
+
+    assert '"passed": true' in capsys.readouterr().out
 
 
 def test_ac_fr1510_01_matching_tag_and_artifact_pass() -> None:
