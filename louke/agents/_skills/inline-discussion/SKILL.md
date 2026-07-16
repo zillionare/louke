@@ -134,9 +134,9 @@ The output is a JSON array in the following format:
    ```bash
    lk discuss query --file <markdown-file> --initiator <agent> --status open
    ```
-3. Add `--blocker` filter (find Open sessions waiting for a reply from a specific `<Agent>`):
+3. Add `--blocker` filter (find Open or Reopen sessions waiting for a reply from a specific `<Agent>`):
    ```bash
-   lk discuss query --file <markdown-file> --blocker <agent> --status open
+   lk discuss query --file <markdown-file> --blocker <agent>
    ```
 
 ### Start a discussion

@@ -392,7 +392,9 @@ def _cmd_discuss(argv: list) -> int:
             if args.blocker:
                 # QoderWork P2-2 three categories
                 target = args.blocker.lower()
-                open_threads = [t for t in threads if t.status == "open"]
+                # Both OPEN and REOPEN are actionable blocker states.  A
+                # reopened thread must not disappear from blocker queries.
+                open_threads = [t for t in threads if t.status in ("open", "reopen")]
                 # unanswered: started by me + no replies
                 unanswered = [
                     t

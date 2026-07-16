@@ -178,7 +178,7 @@ class DiscussParser:
 ```bash
 # 1. query — 列出 thread（含 5 元组定位字段）
 # 注: P1-NEW-2 决定**不**新增 anchor 子命令, 因为 start 命令直接接受 anchor-line 行号
-# `--blocker` 含义 (QoderWork P2-2 明确): 3 个类别
+# `--blocker` 含义 (QoderWork P2-2 明确): 3 个类别；OPEN 和 REOPEN 都纳入
 #   - unanswered: 我 (--blocker 给的 agent) 起的对话, 无回复
 #   - unresolved: 我起的对话, 最后一层回复未置 resolved
 #   - awaiting_my_reply: @提及我的 thread, 最后一层既不是我也不是 resolved

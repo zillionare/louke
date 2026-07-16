@@ -48,12 +48,14 @@ EOF
     ! echo "$output" | grep -q '"status": "resolved"'
 }
 
-@test "query: --blocker returns 3 categories (unanswered/unresolved/awaiting)" {
-    # Fixture with 4 threads covering all 3 blocker categories + 1 non-match:
+@test "query: --blocker returns 3 categories and reopened blockers" {
+    # Fixture with 5 threads covering all 3 blocker categories + a reopened
+    # blocker + 1 non-match:
     #   T-001: Sage initiated, no replies, open          → unanswered (Sage is blocker)
     #   T-002: Sage initiated, Aaron replied, open       → unresolved (Sage is blocker)
     #   T-003: Aaron initiated, @Sage mentioned, open    → awaiting_my_reply (Sage is blocker)
-    #   T-004: Aaron initiated, no mentions, open       → should NOT appear for --blocker Sage
+    #   T-004: Sage initiated, replied, reopen          → unresolved (Sage is blocker)
+    #   T-005: Aaron initiated, no mentions, open      → should NOT appear for --blocker Sage
     cat > .louke/project/specs/test/blocker_spec.md <<'EOF'
 # Blocker Test Spec
 
@@ -70,15 +72,21 @@ EOF
 
 > **Aaron**: @Sage what about rate limiting?
 
-### FR-0004 not-for-sage
+### FR-0004 reopened
+
+> **Sage** [REOPEN]: still needs a decision.
+>> **Aaron**: the earlier answer is no longer sufficient.
+
+### FR-0005 not-for-sage
 
 > **Aaron**: lex should review this.
 EOF
     run $PY discuss query --file .louke/project/specs/test/blocker_spec.md --blocker Sage
     [ "$status" -eq 0 ]
-    # Should return 3 threads: T-001 (unanswered), T-002 (unresolved), T-003 (awaiting)
+    # Should return 4 threads: T-001 (unanswered), T-002/T-004 (unresolved),
+    # T-003 (awaiting), including the reopened T-004.
     COUNT=$(echo "$output" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
-    [ "$COUNT" -eq 3 ]
+    [ "$COUNT" -eq 4 ]
     # T-001: unanswered (Sage initiated, 0 replies)
     echo "$output" | grep -q '"initiator": "sage"'
     # T-002: unresolved (Sage initiated, 1 reply)
@@ -96,7 +104,7 @@ threads = json.load(sys.stdin)
 awaiting = [t for t in threads if 'sage' in t.get('mentioned_agents', [])]
 assert len(awaiting) >= 1, 'missing awaiting_my_reply'
 "
-    # T-004: should NOT appear (Aaron initiated, no mention of Sage)
+    # T-005: should NOT appear (Aaron initiated, no mention of Sage)
     ! echo "$output" | grep -q 'not-for-sage'
 }
 
