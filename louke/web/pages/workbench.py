@@ -60,7 +60,7 @@ def _toolbar() -> str:
             f'data-activity="{key}" aria-label="{label}" title="{label}"{menu_attr}>'
             f'<span aria-hidden="true">{icon}</span></button>'
         )
-    return "".join(buttons)
+    return '<div class="toolbar-brand" aria-label="Louke">L</div>' + "".join(buttons)
 
 
 def _spec_tree(specs_dir: Path, root: Path) -> list[tuple[str, list[str]]]:
@@ -319,8 +319,391 @@ def _page(
     runs_content: str,
 ) -> str:
     settings = """<section data-settings-pane="menu"><button type="button" data-testid="settings-menu-version" aria-disabled="true" data-setting="version">版本更新</button><button type="button" data-testid="settings-menu-server" aria-disabled="true" data-setting="server">服务器配置</button><button type="button" data-testid="settings-menu-model" aria-disabled="true" data-setting="model">S/A/B 模型绑定</button></section><section data-settings-pane="detail" data-testid="settings-detail">待 v0.15</section>"""
+    styles = """
+:root {
+  color-scheme: light;
+  --ink: #1d1d1f;
+  --muted: #6b6b6b;
+  --faint: #8b8b8b;
+  --line: #eaeaea;
+  --line-strong: #d6d6d6;
+  --panel: #fafafa;
+  --hover: #f2f2f2;
+  --active: #ededed;
+  --black: #050505;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  background: #fff;
+  font: 13px/1.45 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font: inherit; }
+button { color: inherit; }
+[hidden] { display: none !important; }
+
+#workbench {
+  display: grid;
+  grid-template-columns: 56px minmax(240px, 280px) minmax(0, 1fr);
+  width: 100vw;
+  height: 100dvh;
+  min-height: 520px;
+  overflow: hidden;
+  background: #fff;
+}
+
+[data-louke-region] { min-width: 0; min-height: 0; }
+[data-louke-region="toolbar"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  color: #fff;
+  background: var(--black);
+}
+.toolbar-brand {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 12px;
+  place-items: center;
+  border: 1px solid #3a3a3a;
+  border-radius: 9px;
+  color: #fff;
+  background: #181818;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.04em;
+}
+[data-louke-region="toolbar"] button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #a7a7a7;
+  background: transparent;
+  cursor: pointer;
+  font-size: 17px;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+[data-louke-region="toolbar"] button:hover,
+[data-louke-region="toolbar"] button:focus-visible {
+  color: #fff;
+  background: #242424;
+  outline: none;
+}
+[data-louke-region="toolbar"] button[aria-current="page"] {
+  color: #fff;
+  border-color: #3c3c3c;
+  background: #2b2b2b;
+}
+[data-louke-region="toolbar"] [data-activity="accounts"] { margin-top: auto; }
+
+[data-louke-region="sidebar"] {
+  overflow: auto;
+  padding: 20px 14px;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  scrollbar-width: thin;
+}
+[data-louke-region="sidebar"] section { min-width: 0; }
+[data-louke-region="sidebar"] section > strong {
+  display: block;
+  margin: 2px 8px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+[data-testid="chat-agent-list"],
+[data-testid="devdocs-tree"],
+[data-testid="enduserdocs-tree"],
+[data-testid="wiki-tree"],
+[data-testid="runs-sidebar"] > div {
+  display: grid;
+  gap: 3px;
+}
+.chat-agent,
+[data-testid="devdocs-tree"] summary,
+[data-testid="devdocs-tree"] button,
+[data-testid="enduserdocs-tree"] button,
+[data-testid="wiki-tree"] button,
+[data-testid="runs-sidebar"] button,
+[data-testid="runs-sidebar"] a {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #454545;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chat-agent:hover,
+[data-testid="devdocs-tree"] summary:hover,
+[data-testid="devdocs-tree"] button:hover,
+[data-testid="enduserdocs-tree"] button:hover,
+[data-testid="wiki-tree"] button:hover,
+[data-testid="runs-sidebar"] button:hover,
+[data-testid="runs-sidebar"] a:hover,
+.chat-agent[aria-selected="true"] {
+  border-color: var(--line);
+  background: #fff;
+}
+.chat-agent[aria-selected="true"] { color: var(--ink); font-weight: 600; }
+[data-testid="devdocs-tree"] details { display: grid; gap: 2px; }
+[data-testid="devdocs-tree"] details > div { padding-left: 10px; }
+[data-testid="devdocs-tree"] summary { list-style: none; }
+[data-testid="devdocs-tree"] summary::-webkit-details-marker { display: none; }
+[data-testid="devdocs-tree"] summary::before { content: "⌄"; color: var(--faint); }
+[data-testid="devdocs-tree"] details:not([open]) summary::before { content: "›"; }
+[data-testid="runs-sidebar"] > strong {
+  display: block;
+  margin: 14px 8px 5px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+[data-louke-region="main"] {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+}
+[data-louke-region="main"] > [role="tablist"] {
+  display: flex;
+  min-height: 52px;
+  flex: 0 0 52px;
+  align-items: end;
+  gap: 2px;
+  padding: 0 24px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+[data-louke-region="main"] > [role="tablist"]::-webkit-scrollbar { display: none; }
+[role="tab"] {
+  position: relative;
+  min-width: 72px;
+  height: 42px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 7px 7px 0 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+[role="tab"]::after {
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 1px;
+  background: transparent;
+  content: "";
+}
+[role="tab"]:hover { color: var(--ink); background: var(--hover); }
+[role="tab"][aria-selected="true"] { color: var(--ink); font-weight: 600; }
+[role="tab"][aria-selected="true"]::after { background: var(--black); }
+[data-tab-content] {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+  padding: 28px clamp(22px, 4vw, 64px);
+}
+
+[data-tab-content="chat"] { padding-bottom: 22px; }
+[data-testid="chat-transcript"] {
+  display: flex;
+  width: min(100%, 820px);
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 8px 0 28px;
+  overflow: auto;
+}
+[data-testid^="chat-transcript-"] { display: block; }
+[data-testid="chat-transcript"] p {
+  max-width: 78%;
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #3a3a3a;
+  background: #fafafa;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+[data-testid="chat-transcript"] p[data-role="user"] {
+  align-self: flex-end;
+  border-color: var(--black);
+  color: #fff;
+  background: var(--black);
+}
+[data-testid="chat-form"] {
+  display: flex;
+  width: min(100%, 820px);
+  min-height: 48px;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin: auto auto 0;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(0,0,0,.04);
+}
+[data-testid="chat-input"] {
+  min-width: 0;
+  flex: 1;
+  padding: 0 10px;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+}
+[data-testid="chat-input"]::placeholder { color: #a0a0a0; }
+[data-testid="chat-submit"],
+[data-testid="enduserdocs-save"] {
+  min-width: 72px;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: var(--black);
+  cursor: pointer;
+  font-weight: 600;
+}
+[data-testid="chat-submit"]:disabled,
+[data-testid="enduserdocs-save"]:disabled { opacity: .35; cursor: default; }
+[data-testid="chat-toast"],
+[data-testid="enduserdocs-toast"] {
+  width: min(100%, 820px);
+  margin: 8px auto 0;
+  color: #b42318;
+  font-size: 12px;
+}
+
+[data-testid="devdocs-view"],
+[data-testid="enduserdocs-panel"],
+[data-testid="runs-graph"],
+[data-testid="stage-artifact-detail"] {
+  width: min(100%, 960px);
+  margin: 0 auto;
+}
+[data-testid="devdocs-rendered"],
+[data-testid="devdocs-source"],
+[data-testid="enduserdocs-preview"],
+[data-testid="enduserdocs-editor"],
+[data-testid="stage-artifact-detail"] {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+[data-testid="devdocs-rendered"] { padding: 24px; }
+[data-testid="devdocs-source"] {
+  max-height: 280px;
+  margin: 14px 0 0;
+  padding: 16px;
+  overflow: auto;
+  color: #555;
+  background: #fafafa;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+}
+[data-testid="enduserdocs-panel"] { display: grid; gap: 12px; }
+[data-testid="enduserdocs-preview"] { min-height: 180px; padding: 20px; white-space: pre-wrap; }
+[data-testid="enduserdocs-editor"] {
+  width: 100%;
+  min-height: 300px;
+  padding: 16px;
+  resize: vertical;
+  outline: 0;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+[data-testid="enduserdocs-sha-display"] { color: var(--faint); font: 11px ui-monospace, monospace; }
+[data-testid="runs-graph"] { display: grid; gap: 8px; }
+[data-testid^="runs-node-"] {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+[data-testid="stage-artifact-detail"] { margin-top: 16px; padding: 18px; }
+[data-settings-pane="menu"] {
+  display: flex;
+  width: 220px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+}
+[data-settings-pane="detail"] {
+  min-height: 160px;
+  flex: 1;
+  margin-left: 28px;
+  padding: 20px;
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+}
+[aria-disabled="true"] { opacity: .5; cursor: pointer; }
+[data-testid="wiki-unknown-page"] { color: var(--muted); }
+#accounts-menu {
+  position: fixed;
+  bottom: 14px;
+  left: 66px;
+  z-index: 10;
+  min-width: 140px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0,0,0,.12);
+}
+#accounts-menu [role="menuitem"] { width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; text-align: left; }
+#accounts-menu [role="menuitem"]:hover { background: var(--hover); }
+
+@media (max-width: 760px) {
+  #workbench { grid-template-columns: 50px minmax(190px, 34vw) minmax(0, 1fr); }
+  [data-louke-region="sidebar"] { padding: 16px 9px; }
+  [data-louke-region="main"] > [role="tablist"] { padding: 0 14px; }
+  [data-tab-content] { padding: 20px 16px; }
+}
+"""
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>Louke Workbench</title>
-<style>body{{margin:0;font:14px system-ui,sans-serif}}#workbench{{display:flex;height:100vh}}[data-louke-region]{{box-sizing:border-box}}[data-louke-region=toolbar]{{width:40px;display:flex;flex-direction:column;gap:4px;padding:4px;background:#20242b}}[data-louke-region=toolbar] button{{width:32px;height:32px;padding:0;border:0;background:transparent;color:white;cursor:pointer}}[data-louke-region=toolbar] button:nth-child(6){{margin-top:auto}}[data-louke-region=sidebar]{{width:280px;padding:16px;border-right:1px solid #ddd}}[data-louke-region=main]{{flex:1;padding:12px}}[role=tablist]{{display:flex;gap:4px;border-bottom:1px solid #ddd}}[role=tab]{{padding:8px;border:0;background:#eee}}[aria-selected=true]{{background:#d8e8ff}}[data-settings-pane]{{display:inline-flex;flex-direction:column;gap:8px;padding:16px}}[aria-disabled=true]{{opacity:.55;cursor:pointer}}[data-testid=wiki-unknown-page]{{color:#888}}</style></head><body><div id="workbench">
+<style>{styles}</style></head><body><div id="workbench">
 <div data-testid="workbench-toolbar" data-louke-region="toolbar" role="toolbar" aria-label="Workbench">{toolbar}</div>
  <aside data-testid="workbench-sidebar" data-louke-region="sidebar" role="complementary" data-sidebar-kind="chat">{chat_sidebar}{devdocs}{end_user_docs}{wiki}{runs_sidebar}</aside>
  <main data-testid="workbench-main" data-louke-region="main"><div role="tablist" aria-label="Open workbench tabs"><button role="tab" data-testid="workbench-tab" data-tab-key="chat" aria-selected="true">Chat</button><button role="tab" data-testid="workbench-tab" data-tab-key="dev-docs" aria-selected="false" hidden>Dev Docs</button><button role="tab" data-testid="workbench-tab" data-tab-key="runs" aria-selected="false" hidden>Runs</button></div>{chat_content}{devdocs_view}{runs_content}</main>
@@ -328,25 +711,30 @@ def _page(
 <script>
 const tabs=new Set(['chat']); let activeTab='chat'; const labels={{chat:'Chat','dev-docs':'Dev Docs','end-user-docs':'End User Docs',wiki:'Wiki',runs:'Runs',settings:'Settings'}};
 function ensureTab(tabKey){{if(tabs.has(tabKey))return;tabs.add(tabKey);const tab=document.createElement('button');tab.type='button';tab.role='tab';tab.dataset.testid='workbench-tab';tab.dataset.tabKey=tabKey;tab.textContent=labels[tabKey]||tabKey;tab.setAttribute('aria-selected','false');document.querySelector('[role="tablist"]').append(tab);}}
- function showMain(tabKey){{const main=document.querySelector('[data-louke-region="main"]');let content=main.querySelector('[data-tab-content="'+tabKey+'"]');if(!content){{content=document.createElement('div');content.dataset.tabContent=tabKey;main.append(content);}}content.hidden=false;if(tabKey==='settings')content.innerHTML={settings!r};else if(tabKey==='wiki')content.textContent='README';else if(tabKey==='dev-docs')content.textContent='Dev Docs';else if(tabKey==='end-user-docs')content.innerHTML='<div data-testid="enduserdocs-panel"><div data-testid="enduserdocs-preview"></div><textarea data-testid="enduserdocs-editor"></textarea><button type="button" data-testid="enduserdocs-save" disabled></button><span data-testid="enduserdocs-sha-display"></span><div data-testid="enduserdocs-toast" role="status" hidden></div><div data-testid="enduserdocs-conflict" hidden><strong>文件已被外部修改</strong><button type="button" data-enduserdocs-reload>重新加载并放弃我的编辑</button><button type="button" data-enduserdocs-force>仍要覆盖</button></div></div>';}}
+ function showMain(tabKey){{const main=document.querySelector('[data-louke-region="main"]');main.querySelectorAll('[data-tab-content]').forEach(node=>node.hidden=node.dataset.tabContent!==tabKey);let content=main.querySelector('[data-tab-content="'+tabKey+'"]');if(!content){{content=document.createElement('div');content.dataset.tabContent=tabKey;main.append(content);}}content.hidden=false;if(tabKey==='settings')content.innerHTML={settings!r};else if(tabKey==='wiki'&&!content.textContent.trim())content.textContent='README';else if(tabKey==='dev-docs'&&!content.textContent.trim())content.textContent='Dev Docs';else if(tabKey==='end-user-docs'&&!content.querySelector('[data-testid="enduserdocs-panel"]'))content.innerHTML='<div data-testid="enduserdocs-panel"><div data-testid="enduserdocs-preview"></div><textarea data-testid="enduserdocs-editor"></textarea><button type="button" data-testid="enduserdocs-save" disabled></button><span data-testid="enduserdocs-sha-display"></span><div data-testid="enduserdocs-toast" role="status" hidden></div><div data-testid="enduserdocs-conflict" hidden><strong>文件已被外部修改</strong><button type="button" data-enduserdocs-reload>重新加载并放弃我的编辑</button><button type="button" data-enduserdocs-force>仍要覆盖</button></div></div>';}}
  const saveLabel='S'+'ave'; let currentDoc=null; let currentMtime=null; let loadedBody='';
  function docPreview(body){{const preview=document.querySelector('[data-testid="enduserdocs-preview"]');preview.textContent=body;}}
  function setDocDirty(){{const editor=document.querySelector('[data-testid="enduserdocs-editor"]');const button=document.querySelector('[data-testid="enduserdocs-save"]');if(!editor||!button)return;button.disabled=editor.value===loadedBody;button.textContent=saveLabel+(button.disabled?'':' *');docPreview(editor.value);}}
  async function loadDoc(path){{openTab('end-user-docs');const response=await fetch('/api/files?path='+encodeURIComponent(path));if(!response.ok)return;const doc=await response.json();currentDoc=path;currentMtime=doc.mtime;loadedBody=doc.body_md;const editor=document.querySelector('[data-testid="enduserdocs-editor"]');editor.value=loadedBody;document.querySelector('[data-testid="enduserdocs-sha-display"]').textContent=doc.sha256;setDocDirty();}}
  async function saveDoc(force){{const editor=document.querySelector('[data-testid="enduserdocs-editor"]');const response=await fetch('/api/files',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{path:currentDoc,body_md:editor.value,expected_mtime:currentMtime,force:!!force}})}});const payload=await response.json();if(response.status===409){{const dialog=document.querySelector('[data-testid="enduserdocs-conflict"]');dialog.hidden=false;return;}}if(!response.ok){{const toast=document.querySelector('[data-testid="enduserdocs-toast"]');toast.textContent=payload.code+': '+payload.message;toast.hidden=false;return;}}loadedBody=editor.value;currentMtime=payload.version_token;document.querySelector('[data-testid="enduserdocs-sha-display"]').textContent=payload.sha256;setDocDirty();}}
 function renderSidebar(activity){{const sidebar=document.querySelector('[data-louke-region="sidebar"]');sidebar.dataset.sidebarKind=activity;sidebar.querySelectorAll('section[data-sidebar-kind]').forEach(s=>s.hidden=s.dataset.sidebarKind!==activity);}}
- const transcripts={{}}; let activeAgent='Maestro';
+ const transcripts={{}}; const sessions={{}}; const renderedMessages={{}}; let activeAgent='Maestro';
  document.querySelectorAll('[data-chat-agent]').forEach(button=>{{transcripts[button.dataset.chatAgent]=document.querySelector('[data-testid="chat-transcript-'+button.dataset.chatAgent.toLowerCase()+'"]');}});
  function showToast(message){{const toast=document.querySelector('[data-testid="chat-toast"]');toast.textContent=message;toast.hidden=false;}}
- function selectAgent(agent){{if(!transcripts[agent]){{showToast('未知 Agent: '+agent+'; 已回退到 Maestro');agent='Maestro';}}activeAgent=agent;document.querySelectorAll('[data-chat-agent]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.chatAgent===agent)));Object.entries(transcripts).forEach(([name,node])=>node.hidden=name!==agent);const input=document.querySelector('[data-testid="chat-input"]');input.placeholder='Type a message to '+agent+'...';}}
- function openTab(activity){{ensureTab(activity);activeTab=activity;document.querySelectorAll('[data-testid="workbench-tab"]').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tabKey===activity)));if(activity!=='settings')renderSidebar(activity);showMain(activity);if(activity==='chat')selectAgent(activeAgent);}}
+ function selectAgent(agent){{if(!transcripts[agent]){{showToast('未知 Agent: '+agent+'; 已回退到 Maestro');agent='Maestro';}}activeAgent=agent;document.querySelectorAll('[data-chat-agent]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.chatAgent===agent)));Object.entries(transcripts).forEach(([name,node])=>node.hidden=name!==agent);const input=document.querySelector('[data-testid="chat-input"]');input.placeholder='Message '+agent+'...';}}
+ function openTab(activity){{ensureTab(activity);activeTab=activity;document.querySelectorAll('[data-testid="workbench-tab"]').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tabKey===activity)));document.querySelectorAll('[data-activity]').forEach(button=>button.setAttribute('aria-current',button.dataset.activity===activity?'page':'false'));if(activity!=='settings')renderSidebar(activity);showMain(activity);if(activity==='chat')selectAgent(activeAgent);}}
   document.querySelectorAll('[data-activity]').forEach(button=>button.addEventListener('click',()=>{{const activity=button.dataset.activity;if(activity==='gears')return openTab('settings');if(activity==='accounts'){{document.querySelector('[data-testid="accounts-menu"]').hidden=false;return;}}openTab(activity);}}));
   document.querySelectorAll('[data-run-id]').forEach(button=>button.addEventListener('click',()=>{{document.querySelector('[data-tab-content="runs"]').hidden=false;}}));
   document.querySelectorAll('[data-stage-id]').forEach(button=>button.addEventListener('click',async()=>{{const detail=document.querySelector('[data-testid="stage-artifact-detail"]');const run=document.querySelector('[data-run-id]')?.dataset.runId||'run-active';const item=await (await fetch('/api/ui/runs/'+run+'/stages/'+button.dataset.stageId+'/artifact')).json();detail.innerHTML='<h2>Stage artifact</h2><dl><dt>sha256</dt><dd>'+String(item.digest||'')+'</dd><dt>verdict</dt><dd>'+String(item.verdict||'')+'</dd><dt>required_reviewer</dt><dd>'+String(item.required_reviewer||'')+'</dd><dt>review_conclusion</dt><dd>'+String(item.review_conclusion||'')+'</dd></dl>';detail.hidden=false;}}));
  document.querySelector('[data-testid="chat-agent-list"]').addEventListener('click',event=>{{const button=event.target.closest('[data-chat-agent]');if(button)selectAgent(button.dataset.chatAgent);}});
  document.addEventListener('click',event=>{{const button=event.target.closest('[data-chat-agent]');if(button&&!transcripts[button.dataset.chatAgent])selectAgent(button.dataset.chatAgent);}});
- document.querySelector('[data-testid="chat-form"]').addEventListener('submit',event=>{{event.preventDefault();const input=document.querySelector('[data-testid="chat-input"]');const content=input.value;if(!content)return;const message=document.createElement('p');message.dataset.role='user';message.textContent=content;transcripts[activeAgent].append(message);input.value='';transcripts[activeAgent].scrollTop=transcripts[activeAgent].scrollHeight;}});
+ function addChatMessage(agent,message){{const node=transcripts[agent];if(!node||!message||!message.content)return;const id=message.id||agent+'-'+message.role+'-'+message.content;renderedMessages[agent]??=new Set();if(renderedMessages[agent].has(id))return;renderedMessages[agent].add(id);const item=document.createElement('p');item.dataset.role=message.role;item.dataset.messageId=message.id||'';item.textContent=message.content;node.append(item);node.scrollTop=node.scrollHeight;}}
+ async function chatSession(agent){{if(sessions[agent])return sessions[agent];const list=await (await fetch('/api/opencode/instances')).json();const existing=(list.items||[]).find(item=>item.status==='running');if(existing)sessions[agent]=existing.id;else{{const created=await (await fetch('/api/opencode/instances',{{method:'POST'}})).json();sessions[agent]=created.instance.id;}}return sessions[agent];}}
+ async function refreshChat(agent){{const id=sessions[agent];if(!id)return;const response=await fetch('/api/opencode/instances/'+encodeURIComponent(id)+'/messages');if(!response.ok)return;const payload=await response.json();(payload.items||[]).forEach(message=>addChatMessage(agent,message));}}
+ async function sendChat(content){{const agent=activeAgent;const input=document.querySelector('[data-testid="chat-input"]');const button=document.querySelector('[data-testid="chat-submit"]');button.disabled=true;showToast('');try{{const id=await chatSession(agent);const response=await fetch('/api/opencode/instances/'+encodeURIComponent(id)+'/messages',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{content}})}});if(!response.ok)throw new Error('Chat request failed ('+response.status+')');await refreshChat(agent);input.value='';}}catch(error){{showToast(error.message||'Chat request failed');}}finally{{button.disabled=false;input.focus();}}}}
+ document.querySelector('[data-testid="chat-form"]').addEventListener('submit',event=>{{event.preventDefault();const input=document.querySelector('[data-testid="chat-input"]');const content=input.value.trim();if(content)sendChat(content);}});
  selectAgent('Maestro');
+ openTab(new URLSearchParams(location.search).has('doc')?'dev-docs':'chat');
 document.addEventListener('click',event=>{{const item=event.target.closest('[data-setting]');if(item)document.querySelector('[data-testid="settings-detail"]').textContent='待 v0.15';}});
 document.querySelector('[data-testid="accounts-logout"]').addEventListener('click',()=>fetch('/api/security/logout',{{method:'POST'}}).then(()=>location.href='/'));
  document.querySelectorAll('[data-devdocs-spec]').forEach(item=>item.addEventListener('toggle',()=>localStorage.setItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec,item.open?'expanded':'collapsed')));
@@ -356,5 +744,4 @@ document.querySelector('[data-testid="accounts-logout"]').addEventListener('clic
  document.querySelectorAll('[data-enduserdocs-path]').forEach(item=>item.addEventListener('click',()=>loadDoc(item.dataset.enduserdocsPath)));
  document.addEventListener('input',event=>{{if(event.target.matches('[data-testid="enduserdocs-editor"]'))setDocDirty();}});
  document.addEventListener('click',event=>{{if(event.target.matches('[data-testid="enduserdocs-save"]'))saveDoc(false);if(event.target.matches('[data-enduserdocs-reload]'))loadDoc(currentDoc);if(event.target.matches('[data-enduserdocs-force]')&&confirm('确认覆盖外部修改？'))saveDoc(true);}});
- if(new URLSearchParams(location.search).has('doc'))openTab('dev-docs');
 </script></body></html>"""
