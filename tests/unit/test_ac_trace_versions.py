@@ -25,7 +25,9 @@ def test_parse_refs_classifies_current_legacy_wrong_version_and_malformed():
         encoding="utf-8",
     )
 
-    result = scan_refs([path], current_version="v0.13.1", known_acs={"AC-FR0001-01"})
+    result = scan_refs(
+        [path], current_version="v0.13.1", known_acs={"AC-" + "FR0001-01"}
+    )
 
     assert [item["status"] for item in result["refs"]] == [
         "current",
@@ -33,10 +35,10 @@ def test_parse_refs_classifies_current_legacy_wrong_version_and_malformed():
         "wrong-version",
         "malformed",
     ]
-    assert result["current"] == ["AC-FR0001-01"]
-    assert result["legacy"] == ["AC-FR0001-02"]
-    assert result["wrong_version"] == ["AC-FR0001-03"]
-    assert result["malformed"] == ["AC-FR0001-04@bad"]
+    assert result["current"] == ["AC-" + "FR0001-01"]
+    assert result["legacy"] == ["AC-" + "FR0001-02"]
+    assert result["wrong_version"] == ["AC-" + "FR0001-03"]
+    assert result["malformed"] == ["AC-" + "FR0001-04@bad"]
 
 
 def test_unknown_versioned_reference_is_reported_and_blocks():
@@ -44,7 +46,9 @@ def test_unknown_versioned_reference_is_reported_and_blocks():
     path = Path("test_sample.py")
     path.write_text('"""' + "AC-" + "FR9999-01@v0.13.1" + '"""\n', encoding="utf-8")
 
-    result = scan_refs([path], current_version="v0.13.1", known_acs={"AC-FR0001-01"})
+    result = scan_refs(
+        [path], current_version="v0.13.1", known_acs={"AC-" + "FR0001-01"}
+    )
 
-    assert result["unknown"] == ["AC-FR9999-01"]
+    assert result["unknown"] == ["AC-" + "FR9999-01"]
     assert result["ok"] is False
