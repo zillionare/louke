@@ -1,26 +1,31 @@
 # v0.13.1 Project-Local Install Experience + Release Identity Sync
 
-## 目标
+## 1. 目标
 
-完成 v0.13.0 之后识别出的两个紧耦合缺口，使用户能在 5 分钟内把 louke 装到新项目、已有全局 louke 的用户能迁移到项目内 louke 而不动全局、release 时 louke 包版本自动与 git tag 同步。三者共享同一个 v0.13.1 release。
+完成 v0.13.0 之后识别出的两个紧耦合缺口，使得用户可以通过本地运行时、全局运行时来运行 louke。此外，还有一个小目标，即通过 louke 工作流发布的产品，始终有正确的版本号。
 
-## 用户故事
+## 2. 用户故事
 
-1. 作为新用户，我希望从 Git clone 或空目录开始，在 5 分钟内通过一个明确的命令序列（`python -m venv .venv && pip install -e .` 或等价的封装）把 louke 装进当前项目的 `.venv/`，并得到一个 `lk --version` 能解析的、与项目当前 git commit 对应的 pinned runtime identity，以便后续命令与项目 lifecycle 一致。
+1. 作为 linux/mac 新用户（最终用户），我希望能从 git clone 目录开始，在 5 分钟内，通过 curl | sh 命令，在当前目录下，创建 .venv 虚拟环境（使用 louke 兼容的最高 python 版本），并安装 louke python 包。
 
-2. 作为已有全局 louke 安装（`~/.louke/venv`）的用户，我希望通过一个项目内命令（如 `lk setup --local`）将 louke 安装到当前项目的 `.venv/` 并注册 pinned identity，**而全局 lk 安装不被修改、移除或升级**，以便项目与全局共存、不互相破坏。
+2. 作为 windows 新用户（最终用户），我希望能从 github 下载一个 bat/ps 文件到git clone 目录，双击后，在当前目录下，创建 .venv 虚拟环境（使用 louke 兼容的最高 python 版本），并安装 louke python 包。
 
-3. 作为项目用户，我希望 `lk upgrade` 在不同 venv 下行为不同：项目根目录内执行时升级项目 `.venv/`；全局 shell 中执行时升级全局 venv；任一路径都不会越界写另一处，以便两种使用方式互不串扰。
+> 在上述两种安装中，构建的运行环境（.venv 及 louke 包）被称为本地运行时。通过本地运行时执行`lk`命令的方式，被称为本地运行。
 
-4. 作为 release engineer，我希望 `git tag v0.13.x` 触发的 release workflow 在 build wheel 之前自动检查 `pyproject.toml` 的 `version` 字段是否等于 tag 名（去 `v` 前缀）；若不等，自动 commit 一个 `chore(release): bump version a → b` 并继续 build；若相等则直接构建，以便 release artifact 永远携带与 git tag 一致的 METADATA，不再出现 v0.13.0 wheel 报 0.12.1 的不一致。
+3. 在前面两步安装中，安装器还将在用户环境下的可执行路径中，安装一个全局的 lk 命令，从而可以通过 `lk install`，在任何 git clone 目录创建 .venv 环境并安装最新的 louke python 包。
 
-5. 作为用户，我希望 `lk --version` 输出形如 `<package_version> (pinned: <pinned_version> or "unpinned")`，让我能一眼看出当前 lk 是按 pinned identity 跑的还是 unpinned 跑的，以便项目内运行时不会因为 METADATA 漂移而误判身份。
+> 通过上述方式构建的运行环境（.venv 和 louke 包）被称为全局运行时。通过全局运行时执行`lk`命令的方式，被称为全局运行。
 
-## 当前边界
+4. 当运行`lk --version`命令时，根据使用的是本地运行时，还是全局运行时，显示各自的版本，不要混淆。如果是本地运行时，则在输出版本后，拼接上`(local)`；如果是全局运行时，则在输出版本后，拼接上`(global)`
 
-- 本版本**只**涉及 install / upgrade / version-identity 三个动作；不动 RuntimeSelector、project store、UI 或 workflow engine。
-- 本版本**不**改变 `~/.louke/venv` 作为全局默认安装路径的行为；现有 `install.sh` 默认模式不变，只增加 `--local <path>` 模式。
-- 本版本**不**删除任何历史 release tag 或 wheel；v0.13.0 错误的 METADATA 作为历史保留。
-- 本版本**不**为 Windows 原生平台提供 install 路径；WSL2/Docker 仍由 install.sh 的原有提示覆盖。
-- 本版本**不**改 `lk agent` 子命令集合；install-related 命令只新增 `lk setup --local`，不动 `lk init`。
-- 项目内 venv 的 Python 版本仍由 `python3 -m venv` 的发现策略决定（系统 python3）；本版本不强制 Python 3.11+ 检测，但若低于 3.11 则 `pip install` 会自然失败并显示明确信息。
+5. 在执行 `lk {command}`时，优先在当前目录下查找运行时。如果存在，则把`{command}`及参数传递给`{python-runtime} -m louke`作为参数。举例： `lk models list` -> `{python-runtime} -m louke models list`。
+
+6. 在执行 `lk {command}`时，如果当前目录下不存在本地运行时，则使用全局运行时来运行命令。
+
+7. 作为老用户，我希望在本地运行时下更新版本时，除更新.venv 和 louke python 包，还将根据当前项目已配置的 harness，自动执行 `board`命令以更新相关资源。
+
+8. 作为老用户（最终用户），我希望在本地运行时下执行升级命令时，能够有选项可以同时更新全局的安装。当然，此时不会去为每一个项目执行`board`命令。
+
+9. 作为最终用户，希望在执行更新时，可以指定 pypi index url，以及 louke 包的版本号。
+
+10. 作为最终用户，我希望 louke 提供一种机制，确保在 release 时，构建物的版本号与 git tag 所暗示的版本号一致。
