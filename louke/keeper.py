@@ -200,7 +200,8 @@ def resolve_scan_targets(
     )
     if rc != 0:
         return tests_roots
-    return [line for line in output.splitlines() if line.strip()]
+    changed = [line for line in output.splitlines() if line.strip()]
+    return changed or tests_roots
 
 
 def cmd_gate(args):
@@ -283,6 +284,7 @@ def cmd_gate(args):
                     spec_id,
                     "--tests",
                     *scan_targets,
+                    "--diff-only",
                 ],
                 cwd=cwd,
             ).returncode
