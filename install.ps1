@@ -47,6 +47,17 @@ function Install-Runtime([hashtable]$Python, [string]$VenvPath, [string]$Package
     }
 }
 
+function Add-UserPathEntry([string]$Entry) {
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $entries = @($userPath -split ";" | Where-Object { $_ })
+    if ($entries -notcontains $Entry) {
+        [Environment]::SetEnvironmentVariable("Path", (($entries + $Entry) -join ";"), "User")
+    }
+    if (($env:Path -split ";") -notcontains $Entry) {
+        $env:Path = "$Entry;$env:Path"
+    }
+}
+
 try {
     $python = Find-Python
     $versionText = (& $python.Path @($python.Arguments + @("-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"))).Trim()
@@ -62,14 +73,7 @@ try {
     Install-Runtime $python $globalVenv $package
 
     $globalScripts = Join-Path $globalVenv "Scripts"
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $entries = @($userPath -split ";" | Where-Object { $_ })
-    if ($entries -notcontains $globalScripts) {
-        [Environment]::SetEnvironmentVariable("Path", (($entries + $globalScripts) -join ";"), "User")
-    }
-    if (($env:Path -split ";") -notcontains $globalScripts) {
-        $env:Path = "$globalScripts;$env:Path"
-    }
+    Add-UserPathEntry $globalScripts
 
     Write-Output "louke installed in $projectVenv and $globalVenv"
     exit 0
