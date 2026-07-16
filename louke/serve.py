@@ -14,6 +14,7 @@ Behavior:
 from __future__ import annotations
 
 import argparse
+import atexit
 import os
 import sys
 from datetime import date
@@ -97,9 +98,9 @@ def register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--opencode-backend",
-        default="mock",
+        default="real",
         choices=["mock", "real"],
-        help="OpenCode adapter kind; default mock until real adapter lands",
+        help="OpenCode adapter kind; default real (use mock explicitly for tests)",
     )
 
 
@@ -107,9 +108,7 @@ def run(args: argparse.Namespace) -> int:
     root = _resolve_project_root(args.project_root)
     project_toml = root / ".louke" / "project" / "project.toml"
     setup_url = f"http://{args.host}:{args.port}/setup"
-    print(
-        f"lk serve: opencode backend = {args.opencode_backend} (real adapter pending)"
-    )
+    print(f"lk serve: opencode backend = {args.opencode_backend}")
 
     if not project_toml.exists() or not _current_stage_valid(project_toml):
         created = _ensure_minimal_project_toml(project_toml)
@@ -138,6 +137,11 @@ def _fail(message: str) -> int:
 
 
 def _serve_ready(args: argparse.Namespace, root: Path) -> int:
+    # The mounted Web API resolves its adapter lazily from this environment
+    # variable. Keep the CLI selection and the request-serving process on the
+    # same backend; otherwise ``--opencode-backend real`` would start a real
+    # child but the API would still silently resolve its mock default.
+    os.environ["LOUKE_OPENCODE_BACKEND"] = args.opencode_backend
     project_python = _project_venv_python(root)
     using_project_venv = project_python is not None
     local_version = __version__ if using_project_venv else "0.12.0"
@@ -172,11 +176,17 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
 
             if not os.environ.get("LOUKE_OPENCODE_BASE_URL"):
                 proc = OpenCodeServerProcess(
-                    host="127.0.0.1", port=0, opencode_bin="opencode"
+                    host="127.0.0.1",
+                    port=0,
+                    opencode_bin="opencode",
+                    cwd=root,
                 )
                 base_url = proc.start()
                 os.environ["LOUKE_OPENCODE_BASE_URL"] = base_url
                 os.environ["LOUKE_OPENCODE_OWNED_PID"] = str(proc.pid or 0)
+                atexit.register(proc.stop)
+            os.environ.setdefault("OPENCODE_DIRECTORY", str(root))
+            os.environ.setdefault("LOUKE_OPENCODE_USE_SERVER_DEFAULT", "1")
             adapter = get_default_adapter(kind="real")
             store = OpenCodeInstanceStore(root)
             instances_file = root / ".louke" / "opencode" / "instances.json"

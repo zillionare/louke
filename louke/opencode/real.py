@@ -150,10 +150,12 @@ class RealOpenCodeAdapter:
         resolved_dir = directory or os.environ.get(
             "OPENCODE_DIRECTORY", _DEFAULT_DIRECTORY
         )
-        body = {
-            "directory": resolved_dir,
-            "model": _parse_model_spec(resolved_model),
-        }
+        body = {"directory": resolved_dir}
+        # In managed Louke servers, allow OpenCode's own config to select the
+        # model (for example the user's local m3 provider). Unit callers retain
+        # the historical free-model default unless this switch is explicit.
+        if resolved_model or os.environ.get("LOUKE_OPENCODE_USE_SERVER_DEFAULT") != "1":
+            body["model"] = _parse_model_spec(resolved_model)
         resp = self._request(
             "POST",
             _SESSION_PATH,

@@ -64,6 +64,7 @@ class OpenCodeServerProcess:
         opencode_bin: str = _DEFAULT_BIN,
         cwd: Optional[Path] = None,
         env: Optional[dict[str, str]] = None,
+        pure: bool = True,
         startup_timeout: float = _PORT_ZERO_LOG_TIMEOUT,
     ) -> None:
         self._host = host
@@ -71,6 +72,7 @@ class OpenCodeServerProcess:
         self._bin = opencode_bin
         self._cwd = str(cwd) if cwd else None
         self._env = env
+        self._pure = pure
         self._startup_timeout = startup_timeout
         self._proc: Optional[subprocess.Popen] = None
         self._base_url: Optional[str] = None
@@ -140,7 +142,7 @@ class OpenCodeServerProcess:
 
     def _build_argv(self) -> list[str]:
         """Build the opencode serve command line."""
-        return [
+        argv = [
             self._bin,
             "serve",
             "--hostname",
@@ -148,6 +150,9 @@ class OpenCodeServerProcess:
             "--port",
             str(self._port),
         ]
+        if self._pure:
+            argv.append("--pure")
+        return argv
 
     def _build_env(self) -> Optional[dict[str, str]]:
         """Merge the extra env into a copy of os.environ."""
