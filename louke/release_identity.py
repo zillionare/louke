@@ -32,9 +32,9 @@ def verify_release_identity(
         result so callers can report it through their own release interface.
     """
     normalized = tag[1:] if tag and tag.startswith("v") else tag
-    if not normalized:
+    if _is_missing(normalized):
         return _failure(normalized, artifact_version, "missing tag")
-    if not artifact_version or not artifact_version.strip():
+    if _is_missing(artifact_version):
         return _failure(normalized, artifact_version, "missing artifact version")
     if "-dirty" in normalized or "+local" in normalized:
         return _failure(
@@ -61,3 +61,8 @@ def _failure(
 ) -> ReleaseIdentityResult:
     """Build the consistent failed-result shape used by validation branches."""
     return ReleaseIdentityResult(False, normalized_tag, artifact_version, diagnostic)
+
+
+def _is_missing(value: str | None) -> bool:
+    """Return whether a required identity value is absent or whitespace-only."""
+    return value is None or not value.strip()
