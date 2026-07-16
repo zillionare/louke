@@ -19,7 +19,6 @@ RE_FR_HEADING = re.compile(r"^##\s+((?:FR|NFR)-\d{4})\b", re.I)
 RE_AC_HEADING = re.compile(r"^###\s+AC-(\d+)\b", re.I)
 RE_AC_COLON = re.compile(r"^AC-(\d+)\s*:", re.I)
 RE_AC_REF = re.compile(r"\bAC-((?:FR|NFR)\d{4})-(\d{2})(?:@([A-Za-z0-9._-]+))?", re.I)
-RE_AC_CANDIDATE = re.compile(r"\bAC-(?:FR|NFR)[A-Za-z0-9_.@-]+", re.I)
 RE_VERSION = re.compile(r"v\d+\.\d+\.\d+$", re.I)
 TEST_EXTS = {
     ".py",
@@ -109,6 +108,7 @@ def scan_refs(
     files: list[Path],
     current_version: str = "v0.13.1",
     known_acs: set[str] | None = None,
+    first_lines_only: bool = False,
 ) -> dict[str, Any]:
     """Scan test files and classify AC references by version status.
 
@@ -125,34 +125,20 @@ def scan_refs(
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        for line_no, line in enumerate(text.splitlines(), start=1):
+        lines = text.splitlines()[:1] if first_lines_only else text.splitlines()
+        for line_no, line in enumerate(lines, start=1):
             matches = list(RE_AC_REF.finditer(line))
-            consumed: set[int] = set()
             for match in matches:
-                consumed.add(match.start())
                 ac_id = f"AC-{match.group(1).upper()}-{match.group(2)}"
                 suffix = match.group(3)
-                status = classify_reference_version(suffix, version)
+                status = classify_reference_version(
+                    suffix.rstrip(".,") if suffix else suffix, version
+                )
                 refs.append(
                     {
                         "ac": ac_id,
                         "raw": match.group(0),
                         "status": status,
-                        "file": str(path),
-                        "line": line_no,
-                    }
-                )
-            for candidate in RE_AC_CANDIDATE.finditer(line):
-                if any(
-                    abs(candidate.start() - start) < len(candidate.group(0))
-                    for start in consumed
-                ):
-                    continue
-                refs.append(
-                    {
-                        "ac": candidate.group(0),
-                        "raw": candidate.group(0),
-                        "status": "malformed",
                         "file": str(path),
                         "line": line_no,
                     }
