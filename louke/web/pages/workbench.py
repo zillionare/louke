@@ -149,7 +149,7 @@ def _devdocs_view(
     requested_spec: str | None,
     requested_doc: str | None,
 ) -> str:
-    """Render the initial read-only Dev Docs preview and source panel."""
+    """Render the Workbench document viewer with the legacy doc affordances."""
     if not specs or not specs[0][1]:
         return '<div data-tab-content="dev-docs" hidden></div>'
     spec_id, files = next(
@@ -167,15 +167,70 @@ def _devdocs_view(
     )
     path = specs_dir / spec_id / Path(selected).name
     body_md = path.read_text(encoding="utf-8")
-    rendered_html = render_markdown_view(body_md, kind="doc").rendered_html
+    doc_name = Path(selected).stem
+    rendered = render_markdown_view(body_md, kind="doc", doc_name=doc_name)
+    rendered_html = rendered.rendered_html.replace(
+        '<section class="discussion-block">',
+        '<section class="discussion-block" data-discussion="1">',
+    )
     links = _devdocs_cross_references(rendered_html, body_md, spec_id, specs_dir)
+    cards = _devdocs_verdict_cards(rendered.cards)
+    editable = doc_name in {"story", "spec", "acceptance"}
+    save_button = (
+        '<button type="button" data-doc-action="save">保存</button>' if editable else ""
+    )
     visibility = "" if requested_doc else " hidden"
     return (
-        f'<div data-tab-content="dev-docs"{visibility}><section data-testid="devdocs-view" style="display:block">'
-        f'<div data-testid="devdocs-rendered">{links}</div>'
-        f'<pre data-testid="devdocs-source">{escape(body_md)}</pre>'
+        f'<div data-tab-content="dev-docs"{visibility}>'
+        f'<section data-testid="devdocs-view" data-spec-id="{escape(spec_id)}" '
+        f'data-doc-name="{escape(doc_name)}" data-doc-path="{escape(path.relative_to(specs_dir.parent.parent).as_posix())}">'
+        '<header class="devdocs-toolbar">'
+        f"<strong>{escape(doc_name)}.md</strong>"
+        '<span data-testid="devdocs-save-status">未保存</span>'
+        '<div class="devdocs-tools">'
+        '<button type="button" data-doc-action="toggle-discussions" title="显示/隐藏 inline-discussion">讨论</button>'
+        '<button type="button" data-doc-action="next-discussion" title="跳转下一个 discussion">下个讨论</button>'
+        '<button type="button" data-doc-action="next-unresolved" title="跳转下一个 unresolved">下个 unresolved</button>'
+        '<button type="button" data-doc-action="split" title="切换源码/预览分屏">分屏</button>'
+        f"{save_button}"
+        '<button type="button" data-doc-action="reload" title="重新加载文档">重载</button>'
+        "</div></header>"
+        '<div data-testid="devdocs-layout" class="devdocs-layout split">'
+        f'<textarea data-testid="devdocs-editor" spellcheck="false">{escape(body_md)}</textarea>'
+        f'<article data-testid="devdocs-rendered">{links}</article>'
+        "</div>"
+        f'<section data-testid="devdocs-verdict">{cards}</section>'
+        '<div data-testid="devdocs-toast" role="status" hidden></div>'
         "</section></div>"
     )
+
+
+def _devdocs_verdict_cards(cards: list[dict]) -> str:
+    """Render requirement status/verdict cards from the existing renderer."""
+    if not cards:
+        return ""
+    rendered = []
+    for card in cards:
+        statuses = ("valid", "testable", "decided")
+        unresolved = not all(bool(card.get(field)) for field in statuses)
+        checks = "".join(
+            f'<button type="button" data-verdict-field="{field}" '
+            f'data-fr-id="{escape(str(card.get("id", "")))}" '
+            f'aria-pressed="{"true" if card.get(field) else "false"}">'
+            f"{'✓' if card.get(field) else '○'} {field}</button>"
+            for field in statuses
+        )
+        rendered.append(
+            f'<article class="verdict-card" data-testid="devdocs-verdict-card" '
+            f'data-fr-id="{escape(str(card.get("id", "")))}" '
+            f'data-unresolved="{"true" if unresolved else "false"}">'
+            f'<header><a href="#{escape(str(card.get("id", "")).lower())}">'
+            f"{escape(str(card.get('id', '')))} · {escape(str(card.get('title', '')))}</a>"
+            f'<span class="verdict-badge">{"UNRESOLVED" if unresolved else "PASS"}</span></header>'
+            f'<p>{escape(str(card.get("summary", "")))}</p><div class="verdict-checks">{checks}</div>'
+            "</article>"
+        )
+    return "".join(rendered)
 
 
 def _devdocs_cross_references(
@@ -623,6 +678,83 @@ button { color: inherit; }
   width: min(100%, 960px);
   margin: 0 auto;
 }
+[data-testid="devdocs-view"] { width: min(100%, 1120px); }
+.devdocs-toolbar {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+.devdocs-toolbar strong { color: var(--ink); font-size: 14px; }
+.devdocs-toolbar > span { margin-right: auto; color: var(--faint); font-size: 11px; }
+.devdocs-tools { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.devdocs-tools button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  background: #fff;
+  cursor: pointer;
+  font-size: 11px;
+}
+.devdocs-tools button:hover,
+.devdocs-tools button[data-active="true"] { color: var(--ink); border-color: #999; background: var(--hover); }
+.devdocs-layout {
+  display: grid;
+  min-height: 0;
+  gap: 14px;
+}
+.devdocs-layout.split { grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); }
+.devdocs-layout:not(.split) { grid-template-columns: minmax(0, 1fr); }
+.devdocs-layout:not(.split) [data-testid="devdocs-editor"] { display: none; }
+[data-testid="devdocs-editor"] {
+  width: 100%;
+  min-height: 480px;
+  padding: 18px;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  outline: none;
+  color: #4a4a4a;
+  background: #fafafa;
+  font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+}
+[data-testid="devdocs-editor"]:focus { border-color: #999; box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
+[data-testid="devdocs-rendered"] { min-width: 0; overflow: auto; }
+[data-testid="devdocs-verdict"] {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.verdict-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.verdict-card header { display: flex; align-items: center; gap: 8px; }
+.verdict-card header a { min-width: 0; flex: 1; color: var(--ink); font-weight: 600; text-decoration: none; }
+.verdict-card p { margin: 7px 0; color: var(--muted); }
+.verdict-badge { color: var(--faint); font: 10px ui-monospace, monospace; }
+.verdict-card[data-unresolved="true"] .verdict-badge { color: #9a6700; }
+.verdict-checks { display: flex; flex-wrap: wrap; gap: 5px; }
+.verdict-checks button {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--faint);
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 11px;
+}
+.verdict-checks button[aria-pressed="true"] { color: var(--ink); border-color: #a7a7a7; background: #f0f0f0; }
+.discussion-block { transition: opacity .15s ease; }
+.devdocs-discussions-hidden .discussion-block { display: none !important; }
+.devdocs-discussions-hidden [data-testid="devdocs-rendered"]::after { content: "Inline discussions hidden"; display: block; color: var(--faint); font-size: 11px; }
 [data-testid="devdocs-rendered"],
 [data-testid="devdocs-source"],
 [data-testid="enduserdocs-preview"],
@@ -712,6 +844,19 @@ button { color: inherit; }
 const tabs=new Set(['chat']); let activeTab='chat'; const labels={{chat:'Chat','dev-docs':'Dev Docs','end-user-docs':'End User Docs',wiki:'Wiki',runs:'Runs',settings:'Settings'}};
 function ensureTab(tabKey){{if(tabs.has(tabKey))return;tabs.add(tabKey);const tab=document.createElement('button');tab.type='button';tab.role='tab';tab.dataset.testid='workbench-tab';tab.dataset.tabKey=tabKey;tab.textContent=labels[tabKey]||tabKey;tab.setAttribute('aria-selected','false');document.querySelector('[role="tablist"]').append(tab);}}
  function showMain(tabKey){{const main=document.querySelector('[data-louke-region="main"]');main.querySelectorAll('[data-tab-content]').forEach(node=>node.hidden=node.dataset.tabContent!==tabKey);let content=main.querySelector('[data-tab-content="'+tabKey+'"]');if(!content){{content=document.createElement('div');content.dataset.tabContent=tabKey;main.append(content);}}content.hidden=false;if(tabKey==='settings')content.innerHTML={settings!r};else if(tabKey==='wiki'&&!content.textContent.trim())content.textContent='README';else if(tabKey==='dev-docs'&&!content.textContent.trim())content.textContent='Dev Docs';else if(tabKey==='end-user-docs'&&!content.querySelector('[data-testid="enduserdocs-panel"]'))content.innerHTML='<div data-testid="enduserdocs-panel"><div data-testid="enduserdocs-preview"></div><textarea data-testid="enduserdocs-editor"></textarea><button type="button" data-testid="enduserdocs-save" disabled></button><span data-testid="enduserdocs-sha-display"></span><div data-testid="enduserdocs-toast" role="status" hidden></div><div data-testid="enduserdocs-conflict" hidden><strong>文件已被外部修改</strong><button type="button" data-enduserdocs-reload>重新加载并放弃我的编辑</button><button type="button" data-enduserdocs-force>仍要覆盖</button></div></div>';}}
+ let devdocsVersionToken=''; let devdocsRenderTimer=null;
+ function devdocsView(){{return document.querySelector('[data-testid="devdocs-view"]');}}
+ function devdocsToast(message){{const toast=document.querySelector('[data-testid="devdocs-toast"]');if(!toast)return;toast.textContent=message;toast.hidden=!message;}}
+ function markDiscussionHtml(html){{return String(html||'').replaceAll('<section class="discussion-block">','<section class="discussion-block" data-discussion="1">');}}
+ async function loadDevDoc(){{const view=devdocsView();if(!view)return;const response=await fetch('/api/docs/'+encodeURIComponent(view.dataset.specId)+'/'+encodeURIComponent(view.dataset.docName));if(!response.ok){{devdocsToast('文档加载失败 ('+response.status+')');return;}}const data=await response.json();devdocsVersionToken=data.version_token||'';const editor=view.querySelector('[data-testid="devdocs-editor"]');if(editor&&document.activeElement!==editor)editor.value=data.body_md||'';const rendered=view.querySelector('[data-testid="devdocs-rendered"]');if(rendered)rendered.innerHTML=markDiscussionHtml(data.rendered_html);const status=view.querySelector('[data-testid="devdocs-save-status"]');if(status)status.textContent='已加载';}}
+ async function renderDevDoc(){{const view=devdocsView();if(!view)return;const editor=view.querySelector('[data-testid="devdocs-editor"]');const rendered=view.querySelector('[data-testid="devdocs-rendered"]');if(!editor||!rendered)return;const response=await fetch('/api/render',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{kind:'doc',doc_name:view.dataset.docName,body_md:editor.value}})}});if(!response.ok){{devdocsToast('预览失败 ('+response.status+')');return;}}const data=await response.json();rendered.innerHTML=markDiscussionHtml(data.rendered_html);}}
+ function nextDevdocsDiscussion(){{const view=devdocsView();if(!view)return;const items=[...view.querySelectorAll('[data-discussion="1"]')];if(!items.length){{devdocsToast('没有找到 inline-discussion');return;}}const current=view.dataset.discussionCursor?Number(view.dataset.discussionCursor):-1;const next=items[(current+1)%items.length];view.dataset.discussionCursor=String((current+1)%items.length);next.scrollIntoView({{behavior:'smooth',block:'center'}});}}
+ function nextDevdocsUnresolved(){{const view=devdocsView();if(!view)return;const cards=[...view.querySelectorAll('[data-testid="devdocs-verdict-card"][data-unresolved="true"]')];const discussions=[...view.querySelectorAll('[data-discussion="1"]')].filter(item=>!/[✓]|\[(?:resolved|已解决|已决定|decided)\]/i.test(item.textContent||''));const items=cards.length?cards:discussions;if(!items.length){{devdocsToast('所有 FR/NFR/AC 与 discussion 均已解决');return;}}const current=view.dataset.unresolvedCursor?Number(view.dataset.unresolvedCursor):-1;const next=items[(current+1)%items.length];view.dataset.unresolvedCursor=String((current+1)%items.length);next.scrollIntoView({{behavior:'smooth',block:'center'}});}}
+ async function saveDevDoc(){{const view=devdocsView();if(!view)return;const editor=view.querySelector('[data-testid="devdocs-editor"]');const response=await fetch('/api/docs/'+encodeURIComponent(view.dataset.specId)+'/'+encodeURIComponent(view.dataset.docName),{{method:'PUT',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{body_md:editor.value,version_token:devdocsVersionToken,force:false}})}});const data=await response.json();if(!response.ok){{devdocsToast(data.error||'保存失败');return;}}devdocsVersionToken=data.version_token||'';await loadDevDoc();}}
+ function handleDevdocsAction(action,button){{const view=devdocsView();if(!view)return;if(action==='toggle-discussions'){{const hidden=view.classList.toggle('devdocs-discussions-hidden');button.dataset.active=String(hidden);return;}}if(action==='next-discussion')return nextDevdocsDiscussion();if(action==='next-unresolved')return nextDevdocsUnresolved();if(action==='split'){{const layout=view.querySelector('[data-testid="devdocs-layout"]');layout.classList.toggle('split');button.dataset.active=String(layout.classList.contains('split'));return;}}if(action==='save')return saveDevDoc();if(action==='reload')return loadDevDoc();}}
+ document.querySelectorAll('[data-doc-action]').forEach(button=>button.addEventListener('click',()=>handleDevdocsAction(button.dataset.docAction,button)));
+ const devEditor=document.querySelector('[data-testid="devdocs-editor"]');if(devEditor){{devEditor.addEventListener('input',()=>{{const status=document.querySelector('[data-testid="devdocs-save-status"]');if(status)status.textContent='有未保存修改';clearTimeout(devdocsRenderTimer);devdocsRenderTimer=setTimeout(renderDevDoc,250);}});}}
+ if(new URLSearchParams(location.search).has('doc'))loadDevDoc();
  const saveLabel='S'+'ave'; let currentDoc=null; let currentMtime=null; let loadedBody='';
  function docPreview(body){{const preview=document.querySelector('[data-testid="enduserdocs-preview"]');preview.textContent=body;}}
  function setDocDirty(){{const editor=document.querySelector('[data-testid="enduserdocs-editor"]');const button=document.querySelector('[data-testid="enduserdocs-save"]');if(!editor||!button)return;button.disabled=editor.value===loadedBody;button.textContent=saveLabel+(button.disabled?'':' *');docPreview(editor.value);}}
