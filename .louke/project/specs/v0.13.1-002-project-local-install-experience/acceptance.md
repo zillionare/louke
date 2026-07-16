@@ -294,3 +294,40 @@ AC-NFR1503-01, AC-NFR1503-02, AC-NFR1503-03
 - 每种情况都断言布尔结果和一个非空诊断字符串。
 
 AC-NFR1504-01, AC-NFR1504-02
+
+---
+
+<a id="ac-nfr-1505"></a>
+## NFR-1505 {测试代码中 AC 引用格式升级}
+
+### AC-1
+- 本版本新增或更新的测试代码使用 `AC-{FR/NFR代码}@v0.13.1` 格式引用验收标准。
+- 例如，`AC-NFR1505-01@v0.13.1` 可被识别为当前 spec 的带版本 AC 引用。
+Test: 扫描本版本测试代码中的 AC 引用，并断言带 `@v0.13.1` 的引用可解析到 acceptance.md。
+
+### AC-2
+- 不带 `@` 的旧格式（例如 `AC-FR1510-01`）仍可被解析。
+- 旧格式测试函数不纳入本版本的严格归属检查范围。
+Test: 使用新旧两种格式分别执行解析，并断言旧格式可解析但不进入本版本严格归属检查。
+
+AC-NFR1505-01, AC-NFR1505-02
+
+---
+
+<a id="ac-nfr-1506"></a>
+## NFR-1506 {pre-commit hook}
+
+### AC-1
+- pre-commit hook 检查 commit subject 是否符合 `feat: green` / `fix: green` / `refactor:` 等允许的 prefix 约定。
+Test: 对符合和不符合约定的 commit subject 运行 hook，并断言对应通过或失败结果。
+
+### AC-2
+- 对非 `fix:` subject，hook 扫描测试代码第一行 docstring 中的 AC 编码，并检查该编码是否存在于 acceptance.md。
+- subject 以 `fix:` 开头时不执行此项 AC trace 检查。
+Test: 分别使用存在和不存在的 AC 编码以及 `fix:` subject 运行 hook，断言检查范围和结果。
+
+### AC-3
+- hook 执行 anti-pattern 扫描，并检查 FAKE-001/002/003/004/005/006/008 等反模式。
+Test: 在测试代码中分别放置可识别的反模式和不含反模式的代码，断言 hook 的扫描结果。
+
+AC-NFR1506-01, AC-NFR1506-02, AC-NFR1506-03
