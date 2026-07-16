@@ -99,10 +99,21 @@ def _do_upgrade(extra_args):
     )
     opts, rest = parser.parse_known_args(extra_args)
 
-    # 1. Find the venv: the lk entry script's shebang points to the venv python
+    # 1. Find the venv pip. Two paths:
+    #    - When invoked as the `lk` entry script, sys.argv[0] is /path/to/venv/bin/lk
+    #      → dirname → .../venv/bin → pip there.
+    #    - When invoked as `python -m louke upgrade`, sys.argv[0] is louke/__main__.py
+    #      → that path is wrong. Fall back to sys.executable: it lives at
+    #      <venv>/bin/python3 (or /usr/bin/python3), so dirname(sys.executable)/pip
+    #      works for venv invocations and falls back to system pip otherwise.
     lk_bin = os.path.realpath(sys.argv[0])
-    # /Users/.../.local/bin/lk -> symlink -> ~/.louke/venv/bin/lk
-    venv_bin = os.path.dirname(lk_bin)  # ~/.louke/venv/bin
+    lk_bin_dir = os.path.dirname(lk_bin)
+    if os.path.basename(lk_bin_dir) == "bin" and os.path.isfile(
+        os.path.join(lk_bin_dir, "pip")
+    ):
+        venv_bin = lk_bin_dir
+    else:
+        venv_bin = os.path.dirname(os.path.realpath(sys.executable))
     venv_pip = os.path.join(venv_bin, "pip")
     venv_python = os.path.join(venv_bin, "python3")
 
