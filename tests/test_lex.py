@@ -72,10 +72,10 @@ def _item_list_call(mock_check):
 
 
 def test_verify_project_parses_number_and_owner_from_user_url(monkeypatch):
-    """User-style project URL must yield `item-list <number> --owner <owner>`.
+    """User-style project URL must use the ``@me`` item-list owner.
 
     URL: https://github.com/users/quantclaws/projects/15
-    Expected gh argv: ["gh", "project", "item-list", "15", "--owner", "quantclaws", "--format", "json"]
+    Expected gh argv: ["gh", "project", "item-list", "15", "--owner", "@me", "--format", "json"]
     """
     _patch_env(monkeypatch, "https://github.com/users/quantclaws/projects/15")
     assert lex.cmd_verify_project(_make_args()) == 0
@@ -86,8 +86,8 @@ def test_verify_project_parses_number_and_owner_from_user_url(monkeypatch):
     assert "--owner" in argv, f"--owner flag missing from argv {argv}"
     owner_idx = argv.index("--owner") + 1
     assert owner_idx < len(argv), "--owner has no value"
-    assert argv[owner_idx] == "quantclaws", (
-        f"owner must be quantclaws, got {argv[owner_idx]!r}"
+    assert argv[owner_idx] == "@me", (
+        f"user-owned project must use @me, got {argv[owner_idx]!r}"
     )
     assert "https://github.com" not in " ".join(argv), (
         "full URL must NOT be passed to gh project item-list"

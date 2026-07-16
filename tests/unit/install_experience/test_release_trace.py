@@ -14,7 +14,7 @@ REQUIRED_TRACE = (
 
 
 def test_i10_existing_commits_are_mapped_to_issue_217() -> None:
-    """The pushed I-10 commits remain addressable without rewriting history."""
+    """The pushed I-10 commits remain addressable without rewriting history (AC-FR1510-01)."""
     content = TRACE.read_text(encoding="utf-8")
 
     assert all(marker in content for marker in REQUIRED_TRACE)
