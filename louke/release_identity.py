@@ -33,21 +33,15 @@ def verify_release_identity(
     """
     normalized = tag[1:] if tag and tag.startswith("v") else tag
     if not normalized:
-        return ReleaseIdentityResult(False, normalized, artifact_version, "missing tag")
+        return _failure(normalized, artifact_version, "missing tag")
     if not artifact_version:
-        return ReleaseIdentityResult(
-            False, normalized, artifact_version, "missing artifact version"
-        )
+        return _failure(normalized, artifact_version, "missing artifact version")
     if "-dirty" in normalized or "+local" in normalized:
-        return ReleaseIdentityResult(
-            False,
-            normalized,
-            artifact_version,
-            f"invalid dirty/local tag: {normalized}",
+        return _failure(
+            normalized, artifact_version, f"invalid dirty/local tag: {normalized}"
         )
     if normalized != artifact_version:
-        return ReleaseIdentityResult(
-            False,
+        return _failure(
             normalized,
             artifact_version,
             f"version mismatch: tag {normalized} != artifact {artifact_version}",
@@ -58,3 +52,12 @@ def verify_release_identity(
         artifact_version,
         f"release identity matches: {normalized}",
     )
+
+
+def _failure(
+    normalized_tag: str | None,
+    artifact_version: str | None,
+    diagnostic: str,
+) -> ReleaseIdentityResult:
+    """Build the consistent failed-result shape used by validation branches."""
+    return ReleaseIdentityResult(False, normalized_tag, artifact_version, diagnostic)
