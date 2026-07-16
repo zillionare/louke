@@ -34,7 +34,7 @@ def verify_release_identity(
     normalized = tag[1:] if tag and tag.startswith("v") else tag
     if not normalized:
         return _failure(normalized, artifact_version, "missing tag")
-    if not artifact_version:
+    if not artifact_version or not artifact_version.strip():
         return _failure(normalized, artifact_version, "missing artifact version")
     if "-dirty" in normalized or "+local" in normalized:
         return _failure(

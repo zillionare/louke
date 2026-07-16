@@ -57,3 +57,11 @@ def test_ac_nfr1504_02_missing_inputs_fail_with_diagnostic() -> None:
 
         assert result.passed is False
         assert result.diagnostic
+
+
+def test_ac_nfr1504_01_blank_inputs_are_reported_as_missing() -> None:
+    """AC-NFR1504-01: the pure contract reports blank stubs as missing input."""
+    result = verify_release_identity("v0.13.1", "   ")
+
+    assert result.passed is False
+    assert result.diagnostic == "missing artifact version"
