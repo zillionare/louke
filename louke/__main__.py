@@ -276,6 +276,7 @@ def print_help_text():
 
 def _cmd_release(argv: list[str]) -> int:
     """Run release-related public commands and return a process exit code."""
+    from dataclasses import asdict
     import json
 
     from .release_identity import verify_release_identity
@@ -292,7 +293,7 @@ def _cmd_release(argv: list[str]) -> int:
     if args.release_command != "verify":
         return 1
     result = verify_release_identity(args.tag, args.artifact_version)
-    print(json.dumps(result.__dict__, ensure_ascii=False, sort_keys=True))
+    print(json.dumps(asdict(result), ensure_ascii=False, sort_keys=True))
     return 0 if result.passed else 1
 
 
