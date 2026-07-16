@@ -149,7 +149,7 @@ def _devdocs_view(
     requested_spec: str | None,
     requested_doc: str | None,
 ) -> str:
-    """Render the Workbench document viewer with the legacy doc affordances."""
+    """Render the multi-document, live-editing Dev Docs workspace."""
     if not specs or not specs[0][1]:
         return '<div data-tab-content="dev-docs" hidden></div>'
     spec_id, files = next(
@@ -175,34 +175,262 @@ def _devdocs_view(
     )
     links = _devdocs_cross_references(rendered_html, body_md, spec_id, specs_dir)
     cards = _devdocs_verdict_cards(rendered.cards)
-    editable = doc_name in {"story", "spec", "acceptance"}
-    save_button = (
-        '<button type="button" data-doc-action="save">保存</button>' if editable else ""
-    )
+    documents = [Path(file).stem for file in files]
+    document_json = json.dumps(documents, ensure_ascii=False, separators=(",", ":"))
     visibility = "" if requested_doc else " hidden"
     return (
         f'<div data-tab-content="dev-docs"{visibility}>'
         f'<section data-testid="devdocs-view" data-spec-id="{escape(spec_id)}" '
+        f'data-initial-doc="{escape(doc_name)}" '
+        f'data-doc-list="{escape(document_json, quote=True)}" '
         f'data-doc-name="{escape(doc_name)}" data-doc-path="{escape(path.relative_to(specs_dir.parent.parent).as_posix())}">'
         '<header class="devdocs-toolbar">'
-        f"<strong>{escape(doc_name)}.md</strong>"
-        '<span data-testid="devdocs-save-status">未保存</span>'
+        "<strong>Dev Docs</strong><span>多文档实时编辑工作区</span>"
         '<div class="devdocs-tools">'
-        '<button type="button" data-doc-action="toggle-discussions" title="显示/隐藏 inline-discussion">讨论</button>'
-        '<button type="button" data-doc-action="next-discussion" title="跳转下一个 discussion">下个讨论</button>'
-        '<button type="button" data-doc-action="next-unresolved" title="跳转下一个 unresolved">下个 unresolved</button>'
-        '<button type="button" data-doc-action="split" title="切换源码/预览分屏">分屏</button>'
-        f"{save_button}"
-        '<button type="button" data-doc-action="reload" title="重新加载文档">重载</button>'
+        '<button type="button" data-workspace-action="split" title="新增一个文档分屏">新增分屏</button>'
         "</div></header>"
-        '<div data-testid="devdocs-layout" class="devdocs-layout split">'
-        f'<textarea data-testid="devdocs-editor" spellcheck="false">{escape(body_md)}</textarea>'
-        f'<article data-testid="devdocs-rendered">{links}</article>'
-        "</div>"
+        '<div data-testid="devdocs-pane-container" class="devdocs-pane-container"></div>'
         f'<section data-testid="devdocs-verdict">{cards}</section>'
+        f'<div data-testid="devdocs-rendered" hidden>{links}</div>'
+        f'<pre data-testid="devdocs-source" hidden>{escape(body_md)}</pre>'
         '<div data-testid="devdocs-toast" role="status" hidden></div>'
         "</section></div>"
     )
+
+
+def _devdocs_script() -> str:
+    """Return the client-side multi-pane editor used by the v0.13 Workbench."""
+    return """
+const docPanes = [];
+let docPaneSequence = 0;
+
+function docWorkspaceView() {
+  return document.querySelector('[data-testid="devdocs-view"]');
+}
+function docWorkspaceVersionToken() {
+  const pane = docPanes.find(item => item.docName === docWorkspaceView()?.dataset.initialDoc);
+  return pane?.versionToken || docPanes[0]?.versionToken || '';
+}
+function docWorkspaceToast(message) {
+  const toast = document.querySelector('[data-testid="devdocs-toast"]');
+  if (!toast) return;
+  toast.textContent = message || '';
+  toast.hidden = !message;
+}
+function isWritableDoc(docName) {
+  return ['story', 'spec', 'acceptance'].includes(docName);
+}
+function docValue(pane) {
+  return pane?.vditor?.getValue ? pane.vditor.getValue() : pane?.fallback?.value || '';
+}
+function setDocStatus(pane, text) {
+  const status = pane?.el?.querySelector('[data-pane-status]');
+  if (status) status.textContent = text;
+}
+function paneOptions(select, docs, selected) {
+  select.replaceChildren();
+  docs.forEach(doc => {
+    const option = document.createElement('option');
+    option.value = doc;
+    option.textContent = doc + '.md';
+    option.selected = doc === selected;
+    select.append(option);
+  });
+}
+function refreshDocPaneLayout() {
+  const view = docWorkspaceView();
+  const host = view?.querySelector('[data-testid="devdocs-pane-container"]');
+  if (host) host.dataset.paneCount = String(docPanes.length);
+}
+function markPaneDiscussions(pane) {
+  const root = pane?.el?.querySelector('.vditor-ir');
+  if (!root) return;
+  root.querySelectorAll('[data-discussion]').forEach(item => {
+    delete item.dataset.discussion;
+    delete item.dataset.resolved;
+  });
+  root.querySelectorAll('blockquote, p, li').forEach(item => {
+    const text = item.textContent || '';
+    if (/\\[T-\\d{3,4}\\]/.test(text) || item.tagName === 'BLOCKQUOTE') {
+      item.dataset.discussion = '1';
+      if (/✓|\\[(?:resolved|已解决|已决定|decided|wontfix)\\]/i.test(text)) item.dataset.resolved = '1';
+    }
+  });
+}
+function paneDiscussionItems(pane) {
+  markPaneDiscussions(pane);
+  return [...(pane?.el?.querySelectorAll('[data-discussion="1"]') || [])];
+}
+function nextDocPaneDiscussion(pane) {
+  const items = paneDiscussionItems(pane);
+  if (!items.length) return docWorkspaceToast('没有找到 inline-discussion');
+  const cursor = Number(pane.el.dataset.discussionCursor || -1);
+  const next = (cursor + 1) % items.length;
+  pane.el.dataset.discussionCursor = String(next);
+  items[next].scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+function nextDocPaneUnresolved(pane) {
+  const items = paneDiscussionItems(pane).filter(item => !item.dataset.resolved);
+  if (!items.length) return docWorkspaceToast('当前文档没有 unresolved discussion');
+  const cursor = Number(pane.el.dataset.unresolvedCursor || -1);
+  const next = (cursor + 1) % items.length;
+  pane.el.dataset.unresolvedCursor = String(next);
+  items[next].scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+function toggleDocPaneDiscussions(pane, button) {
+  pane.collapsed = !pane.collapsed;
+  pane.el.classList.toggle('discussions-collapsed', pane.collapsed);
+  button.dataset.active = String(pane.collapsed);
+  button.title = pane.collapsed ? '显示 inline-discussion' : '隐藏 inline-discussion';
+}
+function fallbackEditor(pane, body) {
+  const mount = pane.el.querySelector('.vditor-mount');
+  mount.replaceChildren();
+  const textarea = document.createElement('textarea');
+  textarea.spellcheck = false;
+  textarea.value = body;
+  mount.append(textarea);
+  pane.fallback = textarea;
+  pane.vditor = null;
+  textarea.addEventListener('input', () => {
+    pane.dirty = true;
+    setDocStatus(pane, '有未保存修改');
+  });
+}
+function initDocPaneEditor(pane, body) {
+  const mount = pane.el.querySelector('.vditor-mount');
+  pane.fallback = null;
+  if (typeof Vditor === 'undefined') {
+    fallbackEditor(pane, body);
+    return;
+  }
+  try {
+    pane.vditor = new Vditor(mount.id, {
+      mode: 'ir', value: body, height: '100%', toolbar: false,
+      cache: {enable: false},
+      after: () => { pane.ready = true; markPaneDiscussions(pane); },
+      input: () => {
+        if (pane.loading) return;
+        pane.dirty = true;
+        setDocStatus(pane, '有未保存修改');
+        clearTimeout(pane.discussionTimer);
+        pane.discussionTimer = setTimeout(() => markPaneDiscussions(pane), 250);
+      }
+    });
+    pane.ready = true;
+  } catch (error) {
+    fallbackEditor(pane, body);
+  }
+}
+async function loadDocPane(pane, docName) {
+  if (!pane) return;
+  const view = docWorkspaceView();
+  pane.loading = true;
+  pane.docName = docName;
+  pane.select.value = docName;
+  pane.saveButton.disabled = !isWritableDoc(docName);
+  pane.saveButton.title = isWritableDoc(docName) ? '保存（仅显式保存）' : '该文档只读';
+  try {
+    const response = await fetch('/api/docs/' + encodeURIComponent(view.dataset.specId) + '/' + encodeURIComponent(docName));
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || ('文档加载失败 (' + response.status + ')'));
+    pane.versionToken = data.version_token || '';
+    if (pane.vditor && pane.ready) {
+      pane.vditor.setValue(data.body_md || '');
+    } else {
+      initDocPaneEditor(pane, data.body_md || '');
+    }
+    pane.dirty = false;
+    setDocStatus(pane, '已加载');
+    markPaneDiscussions(pane);
+  } catch (error) {
+    setDocStatus(pane, '加载失败');
+    docWorkspaceToast(error.message || '文档加载失败');
+  } finally {
+    pane.loading = false;
+  }
+}
+function createDocPane(docName) {
+  const view = docWorkspaceView();
+  const host = view?.querySelector('[data-testid="devdocs-pane-container"]');
+  if (!view || !host) return;
+  if (docPanes.length >= 4) return docWorkspaceToast('最多同时打开 4 份文档');
+  const docs = JSON.parse(view.dataset.docList || '[]');
+  const selected = docName || docs[0];
+  const id = 'doc-pane-' + docPaneSequence++;
+  const paneEl = document.createElement('article');
+  paneEl.className = 'doc-pane';
+  paneEl.dataset.paneId = id;
+  paneEl.innerHTML = '<header class="doc-pane-bar"><select data-pane-doc aria-label="选择文档"></select>' +
+    '<span class="doc-pane-status" data-pane-status>加载中</span><div class="doc-pane-tools">' +
+    '<button type="button" data-pane-action="next-discussion" title="下个 discussion">↯</button>' +
+    '<button type="button" data-pane-action="collapse" title="隐藏 inline-discussion">◌</button>' +
+    '<button type="button" data-pane-action="next-unresolved" title="下个 unresolved">!</button>' +
+    '<button type="button" data-pane-action="split" title="新增文档分屏">＋</button>' +
+    '<button type="button" data-pane-action="save" title="保存">保存</button>' +
+    '<button type="button" data-pane-action="reload" title="重载">↻</button>' +
+    '<button type="button" data-pane-action="close" title="关闭分屏">×</button></div></header>' +
+    '<div class="vditor-mount" id="' + id + '-editor"></div>';
+  host.append(paneEl);
+  const pane = {
+    id, el: paneEl, select: paneEl.querySelector('[data-pane-doc]'),
+    saveButton: paneEl.querySelector('[data-pane-action="save"]'),
+    docName: selected, versionToken: '', vditor: null, fallback: null,
+    ready: false, dirty: false, loading: false, collapsed: false
+  };
+  paneOptions(pane.select, docs, selected);
+  pane.select.addEventListener('change', () => loadDocPane(pane, pane.select.value));
+  paneEl.querySelectorAll('[data-pane-action]').forEach(button => button.addEventListener('click', () => {
+    const action = button.dataset.paneAction;
+    if (action === 'next-discussion') nextDocPaneDiscussion(pane);
+    else if (action === 'collapse') toggleDocPaneDiscussions(pane, button);
+    else if (action === 'next-unresolved') nextDocPaneUnresolved(pane);
+    else if (action === 'split') createDocPane();
+    else if (action === 'save') saveDocPane(pane);
+    else if (action === 'reload') loadDocPane(pane, pane.docName);
+    else if (action === 'close') closeDocPane(pane);
+  }));
+  docPanes.push(pane);
+  refreshDocPaneLayout();
+  loadDocPane(pane, selected);
+}
+async function saveDocPane(pane) {
+  if (!pane || !isWritableDoc(pane.docName)) return docWorkspaceToast('该文档为只读');
+  const view = docWorkspaceView();
+  pane.saveButton.disabled = true;
+  try {
+    const response = await fetch('/api/docs/' + encodeURIComponent(view.dataset.specId) + '/' + encodeURIComponent(pane.docName), {
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({body_md: docValue(pane), version_token: pane.versionToken, force: false})
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '保存失败');
+    pane.versionToken = data.version_token || pane.versionToken;
+    pane.dirty = false;
+    setDocStatus(pane, '已保存');
+  } catch (error) {
+    setDocStatus(pane, '保存失败');
+    docWorkspaceToast(error.message || '保存失败');
+  } finally {
+    pane.saveButton.disabled = !isWritableDoc(pane.docName);
+  }
+}
+function closeDocPane(pane) {
+  if (docPanes.length <= 1) return docWorkspaceToast('至少保留一个文档分屏');
+  if (pane.vditor?.destroy) pane.vditor.destroy();
+  clearTimeout(pane.discussionTimer);
+  pane.el.remove();
+  docPanes.splice(docPanes.indexOf(pane), 1);
+  refreshDocPaneLayout();
+}
+function initDocWorkspace() {
+  const view = docWorkspaceView();
+  if (!view || view.dataset.workspaceReady === 'true') return;
+  view.dataset.workspaceReady = 'true';
+  createDocPane(view.dataset.initialDoc);
+  view.querySelector('[data-workspace-action="split"]')?.addEventListener('click', () => createDocPane());
+}
+"""
 
 
 def _devdocs_verdict_cards(cards: list[dict]) -> str:
@@ -725,6 +953,81 @@ button { color: inherit; }
 }
 [data-testid="devdocs-editor"]:focus { border-color: #999; box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
 [data-testid="devdocs-rendered"] { min-width: 0; overflow: auto; }
+.devdocs-pane-container {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  gap: 12px;
+  overflow: auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+.devdocs-pane-container[data-pane-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.devdocs-pane-container[data-pane-count="3"] { grid-template-columns: repeat(3, minmax(340px, 1fr)); }
+.devdocs-pane-container[data-pane-count="4"] { grid-template-columns: repeat(4, minmax(300px, 1fr)); }
+.doc-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 480px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+.doc-pane-bar {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--line);
+  background: #fafafa;
+}
+.doc-pane-bar select {
+  min-width: 0;
+  max-width: 190px;
+  padding: 6px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 11px;
+}
+.doc-pane-tools { display: flex; min-width: 0; margin-left: auto; gap: 3px; }
+.doc-pane-tools button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+}
+.doc-pane-tools button:hover { border-color: var(--line-strong); background: #f0f0f0; color: var(--ink); }
+.doc-pane-tools button[data-pane-action="save"] { width: auto; padding: 0 7px; border-color: var(--line); }
+.doc-pane-tools button[disabled] { cursor: not-allowed; opacity: .42; }
+.doc-pane-status { min-width: 42px; color: var(--faint); font-size: 10px; white-space: nowrap; }
+.vditor-mount { min-height: 0; flex: 1; overflow: auto; }
+.vditor-mount > textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  padding: 18px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  color: #4a4a4a;
+  background: #fff;
+  font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.doc-pane .vditor { height: 100%; border: 0; }
+.doc-pane .vditor-content { min-height: 100%; padding: 24px; }
+.doc-pane .vditor-ir .discussion-block[data-discussion="1"],
+.doc-pane .vditor-ir blockquote[data-discussion="1"] { transition: opacity .15s ease; }
+.doc-pane.discussions-collapsed [data-discussion="1"] { display: none !important; }
+.doc-pane.discussions-collapsed .doc-pane-bar::after { content: "讨论已隐藏"; color: var(--faint); font-size: 10px; }
 [data-testid="devdocs-verdict"] {
   display: grid;
   gap: 8px;
@@ -835,7 +1138,9 @@ button { color: inherit; }
 }
 """
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>Louke Workbench</title>
-<style>{styles}</style></head><body><div id="workbench">
+<style>{styles}</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css" />
+<script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script></head><body><div id="workbench">
 <div data-testid="workbench-toolbar" data-louke-region="toolbar" role="toolbar" aria-label="Workbench">{toolbar}</div>
  <aside data-testid="workbench-sidebar" data-louke-region="sidebar" role="complementary" data-sidebar-kind="chat">{chat_sidebar}{devdocs}{end_user_docs}{wiki}{runs_sidebar}</aside>
  <main data-testid="workbench-main" data-louke-region="main"><div role="tablist" aria-label="Open workbench tabs"><button role="tab" data-testid="workbench-tab" data-tab-key="chat" aria-selected="true">Chat</button><button role="tab" data-testid="workbench-tab" data-tab-key="dev-docs" aria-selected="false" hidden>Dev Docs</button><button role="tab" data-testid="workbench-tab" data-tab-key="runs" aria-selected="false" hidden>Runs</button></div>{chat_content}{devdocs_view}{runs_content}</main>
@@ -855,9 +1160,10 @@ function ensureTab(tabKey){{if(tabs.has(tabKey))return;tabs.add(tabKey);const ta
  async function saveDevDoc(){{const view=devdocsView();if(!view)return;const editor=view.querySelector('[data-testid="devdocs-editor"]');const response=await fetch('/api/docs/'+encodeURIComponent(view.dataset.specId)+'/'+encodeURIComponent(view.dataset.docName),{{method:'PUT',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{body_md:editor.value,version_token:devdocsVersionToken,force:false}})}});const data=await response.json();if(!response.ok){{devdocsToast(data.error||'保存失败');return;}}devdocsVersionToken=data.version_token||'';await loadDevDoc();}}
  function handleDevdocsAction(action,button){{const view=devdocsView();if(!view)return;if(action==='toggle-discussions'){{const hidden=view.classList.toggle('devdocs-discussions-hidden');button.dataset.active=String(hidden);return;}}if(action==='next-discussion')return nextDevdocsDiscussion();if(action==='next-unresolved')return nextDevdocsUnresolved();if(action==='split'){{const layout=view.querySelector('[data-testid="devdocs-layout"]');layout.classList.toggle('split');button.dataset.active=String(layout.classList.contains('split'));return;}}if(action==='save')return saveDevDoc();if(action==='reload')return loadDevDoc();}}
  document.querySelectorAll('[data-doc-action]').forEach(button=>button.addEventListener('click',()=>handleDevdocsAction(button.dataset.docAction,button)));
- document.querySelectorAll('[data-verdict-field]').forEach(button=>button.addEventListener('click',async()=>{{const view=devdocsView();const response=await fetch('/api/docs/'+encodeURIComponent(view.dataset.specId)+'/'+encodeURIComponent(view.dataset.docName)+'/toggle-status',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{fr_id:button.dataset.frId,field:button.dataset.verdictField,version_token:devdocsVersionToken}})}});if(!response.ok){{devdocsToast('状态更新失败 ('+response.status+')');return;}}location.reload();}}));
+ document.querySelectorAll('[data-verdict-field]').forEach(button=>button.addEventListener('click',async()=>{{const view=devdocsView();const response=await fetch('/api/docs/'+encodeURIComponent(view.dataset.specId)+'/'+encodeURIComponent(view.dataset.docName)+'/toggle-status',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{fr_id:button.dataset.frId,field:button.dataset.verdictField,version_token:docWorkspaceVersionToken()}})}});if(!response.ok){{devdocsToast('状态更新失败 ('+response.status+')');return;}}location.reload();}}));
  const devEditor=document.querySelector('[data-testid="devdocs-editor"]');if(devEditor){{devEditor.addEventListener('input',()=>{{const status=document.querySelector('[data-testid="devdocs-save-status"]');if(status)status.textContent='有未保存修改';clearTimeout(devdocsRenderTimer);devdocsRenderTimer=setTimeout(renderDevDoc,250);}});}}
  if(new URLSearchParams(location.search).has('doc'))loadDevDoc();
+ {_devdocs_script()}
  const saveLabel='S'+'ave'; let currentDoc=null; let currentMtime=null; let loadedBody='';
  function docPreview(body){{const preview=document.querySelector('[data-testid="enduserdocs-preview"]');preview.textContent=body;}}
  function setDocDirty(){{const editor=document.querySelector('[data-testid="enduserdocs-editor"]');const button=document.querySelector('[data-testid="enduserdocs-save"]');if(!editor||!button)return;button.disabled=editor.value===loadedBody;button.textContent=saveLabel+(button.disabled?'':' *');docPreview(editor.value);}}
@@ -868,7 +1174,7 @@ function renderSidebar(activity){{const sidebar=document.querySelector('[data-lo
  document.querySelectorAll('[data-chat-agent]').forEach(button=>{{transcripts[button.dataset.chatAgent]=document.querySelector('[data-testid="chat-transcript-'+button.dataset.chatAgent.toLowerCase()+'"]');}});
  function showToast(message){{const toast=document.querySelector('[data-testid="chat-toast"]');toast.textContent=message;toast.hidden=false;}}
  function selectAgent(agent){{if(!transcripts[agent]){{showToast('未知 Agent: '+agent+'; 已回退到 Maestro');agent='Maestro';}}activeAgent=agent;document.querySelectorAll('[data-chat-agent]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.chatAgent===agent)));Object.entries(transcripts).forEach(([name,node])=>node.hidden=name!==agent);const input=document.querySelector('[data-testid="chat-input"]');input.placeholder='Message '+agent+'...';}}
- function openTab(activity){{ensureTab(activity);activeTab=activity;document.querySelectorAll('[data-testid="workbench-tab"]').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tabKey===activity)));document.querySelectorAll('[data-activity]').forEach(button=>button.setAttribute('aria-current',button.dataset.activity===activity?'page':'false'));if(activity!=='settings')renderSidebar(activity);showMain(activity);if(activity==='chat')selectAgent(activeAgent);}}
+ function openTab(activity){{ensureTab(activity);activeTab=activity;document.querySelectorAll('[data-testid="workbench-tab"]').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tabKey===activity)));document.querySelectorAll('[data-activity]').forEach(button=>button.setAttribute('aria-current',button.dataset.activity===activity?'page':'false'));if(activity!=='settings')renderSidebar(activity);showMain(activity);if(activity==='dev-docs')initDocWorkspace();if(activity==='chat')selectAgent(activeAgent);}}
   document.querySelectorAll('[data-activity]').forEach(button=>button.addEventListener('click',()=>{{const activity=button.dataset.activity;if(activity==='gears')return openTab('settings');if(activity==='accounts'){{document.querySelector('[data-testid="accounts-menu"]').hidden=false;return;}}openTab(activity);}}));
   document.querySelectorAll('[data-run-id]').forEach(button=>button.addEventListener('click',()=>{{document.querySelector('[data-tab-content="runs"]').hidden=false;}}));
   document.querySelectorAll('[data-stage-id]').forEach(button=>button.addEventListener('click',async()=>{{const detail=document.querySelector('[data-testid="stage-artifact-detail"]');const run=document.querySelector('[data-run-id]')?.dataset.runId||'run-active';const item=await (await fetch('/api/ui/runs/'+run+'/stages/'+button.dataset.stageId+'/artifact')).json();detail.innerHTML='<h2>Stage artifact</h2><dl><dt>sha256</dt><dd>'+String(item.digest||'')+'</dd><dt>verdict</dt><dd>'+String(item.verdict||'')+'</dd><dt>required_reviewer</dt><dd>'+String(item.required_reviewer||'')+'</dd><dt>review_conclusion</dt><dd>'+String(item.review_conclusion||'')+'</dd></dl>';detail.hidden=false;}}));
