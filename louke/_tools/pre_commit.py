@@ -10,7 +10,15 @@ from pathlib import Path
 from .check_acs import parse_acceptance, scan_refs
 from .check_assertions import scan_file
 
-PREFIXES = ("feat: green", "fix: green", "refactor:", "fix:", "docs:", "chore:", "e2e:")
+PREFIXES = (
+    "feat: green",
+    "fix: green",
+    "refactor:",
+    "fix:",
+    "docs:",
+    "chore:",
+    "e2e:",
+)
 TEST_SUFFIXES = {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".sh", ".bats"}
 
 
@@ -52,9 +60,7 @@ def run_quality_checks(subject: str, files: list[Path]) -> list[str]:
     """Run anti-pattern and, unless fixing, AC checks on staged tests."""
     findings: list[str] = []
     for path in files:
-        findings.extend(
-            f"{item['code']} {path}:{item['line']}" for item in scan_file(path)
-        )
+        findings.extend(_format_scan_finding(path, item) for item in scan_file(path))
     if not should_scan_ac_trace(subject):
         return findings
     if not files:
@@ -79,6 +85,11 @@ def run_quality_checks(subject: str, files: list[Path]) -> list[str]:
     if not result["refs"]:
         findings.append("AC trace missing from staged test code")
     return findings
+
+
+def _format_scan_finding(path: Path, item: dict[str, object]) -> str:
+    """Format one Keeper anti-pattern finding for hook output."""
+    return f"{item['code']} {path}:{item['line']}"
 
 
 def _project_version() -> str:
