@@ -19,7 +19,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--acceptance")
     ap.add_argument("--spec")
-    ap.add_argument("--tests", default="tests")
+    ap.add_argument("--tests", nargs="+", default=["tests"])
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--diff-only", action="store_true")
     args = ap.parse_args()
@@ -44,7 +44,7 @@ def main() -> int:
         "--acceptance",
         str(acceptance),
         "--tests",
-        args.tests,
+        *args.tests,
         "--exclude",
         *exclude,
     ]
@@ -52,7 +52,7 @@ def main() -> int:
         sys.executable,
         str(root / "check_assertions.py"),
         "--tests",
-        args.tests,
+        *args.tests,
         "--exclude",
         *exclude,
     ]
