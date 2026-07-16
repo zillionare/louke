@@ -35,7 +35,6 @@ v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
 v0_12_001 = "shipped (2026-07-15, tag v0.12.1; programmatic-workflow-runtime stabilization)"
 v0_13_001 = "shipped (2026-07-16, tag v0.13.0; web-ui-foundation)"
-v0_13_001 = "M-ARCH (2026-07-15, v0.13-001-web-ui-foundation)"
 
 [integration]
 # v0.13: Starlette TestClient (in-process) + real temporary workspace + SQLite store + contract adapter.
