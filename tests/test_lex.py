@@ -81,7 +81,7 @@ def test_verify_project_parses_number_and_owner_from_user_url(monkeypatch):
     assert lex.cmd_verify_project(_make_args()) == 0
 
     argv = _item_list_call(lex.subprocess.check_output)
-    assert argv is not None, "gh project item-list was never invoked"
+    assert argv and "item-list" in argv, "gh project item-list was never invoked"
     assert "15" in argv, f"project number 15 missing from argv {argv}"
     assert "--owner" in argv, f"--owner flag missing from argv {argv}"
     owner_idx = argv.index("--owner") + 1
@@ -104,7 +104,7 @@ def test_verify_project_parses_number_and_owner_from_repo_url(monkeypatch):
     assert lex.cmd_verify_project(_make_args()) == 0
 
     argv = _item_list_call(lex.subprocess.check_output)
-    assert argv is not None, "gh project item-list was never invoked"
+    assert argv and "item-list" in argv, "gh project item-list was never invoked"
     assert "9" in argv, f"project number 9 missing from argv {argv}"
     assert "--owner" in argv, f"--owner flag missing from argv {argv}"
     owner_idx = argv.index("--owner") + 1
