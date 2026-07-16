@@ -1,3 +1,8 @@
+---
+locked: true
+locked-at: 2026-07-16T10:46:40Z
+locked-by: lk agent sage record-lock
+---
 # v0.13.1 项目本地安装体验 + 发布身份同步 — 规格
 
 - **Spec ID**: v0.13.1-002-project-local-install-experience
