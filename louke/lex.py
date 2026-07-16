@@ -230,6 +230,11 @@ def cmd_verify_project(args):
         print(f"would verify {len(frs)} FR issues in {repo} against {project_url}")
         return 0
     try:
+        # gh routes user-owned Projects through the Projects v2 GraphQL
+        # endpoint when ``@me`` is used.  Passing the login for a user-owned
+        # project can incorrectly fall back to the repository-project REST
+        # endpoint and return 404, even though the Project exists.
+        item_list_owner = "@me" if "/users/" in project_url else owner
         items_out = subprocess.check_output(
             [
                 "gh",
@@ -237,7 +242,7 @@ def cmd_verify_project(args):
                 "item-list",
                 project_number,
                 "--owner",
-                owner,
+                item_list_owner,
                 "--format",
                 "json",
             ],
