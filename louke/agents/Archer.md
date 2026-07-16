@@ -315,3 +315,8 @@ run = "pytest -q tests/integration"
 ## 8. Session save
 
 At the end of each round of session, use the `lk-reserve-memory` skill to save the session to `.louke/raw/{yy-mm-dd}/{session-id}.md`; the saved note should include frontmatter with at least `session:` and `status:`.
+
+<!--todo:
+1. 设计和更新 CI -- 在架构阶段。
+2. 定义 integration 测试要 cover 哪些 AC， e2e 测试要 cover哪些 AC
+-->
