@@ -51,6 +51,11 @@ def register(subparsers):
     p.add_argument(
         "--skip-anti-pattern", action="store_true", help="skip anti-pattern scan"
     )
+    p.add_argument(
+        "--full-scan",
+        action="store_true",
+        help="manually scan complete test roots instead of changed files",
+    )
 
     p = sub.add_parser(
         "regression", help="regression check (per-bug-fix, compare before/after fix)"
@@ -181,6 +186,23 @@ def _resolve_tests_roots(raw_roots) -> list[str]:
     return normalize_repo_relative_roots(raw_roots, default=["tests/"])
 
 
+def resolve_scan_targets(
+    commit_range: str,
+    tests_roots: list[str],
+    cwd: Path = None,
+    full_scan: bool = False,
+) -> list[str]:
+    """Resolve all changed test files in a range, or use manual full-scan mode."""
+    if full_scan:
+        return tests_roots
+    rc, output, _ = git(
+        "diff", "--name-only", commit_range, "--", *tests_roots, cwd=cwd
+    )
+    if rc != 0:
+        return tests_roots
+    return [line for line in output.splitlines() if line.strip()]
+
+
 def cmd_gate(args):
     """per-commit gate check: commit format + R-G-R order + AC trace + anti-pattern scan."""
     if args.tests:
@@ -204,9 +226,15 @@ def cmd_gate(args):
 
     cwd = Path.cwd()
     tests_roots = _resolve_tests_roots(args.tests_root)
+    scan_targets = resolve_scan_targets(
+        args.commit_range, tests_roots, cwd=cwd, full_scan=args.full_scan
+    )
     print("=== Keeper Gate ===")
     print(f"Commit range: {args.commit_range}")
     print(f"Tests roots: {', '.join(tests_roots)}")
+    print(
+        f"Scan targets: {', '.join(scan_targets) if scan_targets else '(no changed tests)'}"
+    )
     print()
 
     all_findings = []
@@ -240,6 +268,8 @@ def cmd_gate(args):
             print(
                 "missing spec-id: pass --spec-id or set project.toml [project]/[meta].spec_id"
             )
+        elif not scan_targets:
+            print("--- AC Trace: SKIP (no changed tests) ---")
         else:
             rc = subprocess.run(
                 [
@@ -252,7 +282,7 @@ def cmd_gate(args):
                     "--spec",
                     spec_id,
                     "--tests",
-                    *tests_roots,
+                    *scan_targets,
                 ],
                 cwd=cwd,
             ).returncode
@@ -267,7 +297,7 @@ def cmd_gate(args):
             else:
                 print("--- AC Trace: PASS ---")
 
-    if not args.skip_anti_pattern:
+    if not args.skip_anti_pattern and scan_targets:
         legacy_baseline = (
             cwd / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
         )
@@ -278,7 +308,7 @@ def cmd_gate(args):
             "-m",
             "louke._tools.check_assertions",
             "--tests",
-            *tests_roots,
+            *scan_targets,
             "--exclude",
             "tests/fixtures",
         ]
@@ -292,6 +322,8 @@ def cmd_gate(args):
             print("--- Anti-Pattern: FAIL ---")
         else:
             print("--- Anti-Pattern: PASS ---")
+    elif not args.skip_anti_pattern:
+        print("--- Anti-Pattern: SKIP (no changed tests) ---")
 
     spec_id = _resolve_spec_id(args.spec_id)
     has_blocking = any(f.get("severity") in ("critical", "high") for f in all_findings)
