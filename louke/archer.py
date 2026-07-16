@@ -25,6 +25,7 @@ def register(subparsers):
     g.add_argument("--acceptance")
     p.add_argument("--tests", nargs="+", default=["tests/"])
     p.add_argument("--json", action="store_true")
+    p.add_argument("--diff-only", action="store_true")
 
     # check-acs: AC coverage check
     p = sub.add_parser("check-acs", help="AC reference closure check")
@@ -72,6 +73,8 @@ def cmd_ci_scan(args):
         cmd.extend(["--acceptance", f".louke/project/specs/{args.spec}/acceptance.md"])
     if args.json:
         cmd.append("--json")
+    if args.diff_only:
+        cmd.append("--diff-only")
     result = subprocess.run(
         cmd,
         cwd=Path.cwd(),

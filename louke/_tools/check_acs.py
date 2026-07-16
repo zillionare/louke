@@ -203,6 +203,7 @@ def main() -> int:
     )
     ap.add_argument("--legacy-baseline")
     ap.add_argument("--version", default="v0.13.1")
+    ap.add_argument("--diff-only", action="store_true")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -220,7 +221,11 @@ def main() -> int:
         Path(args.legacy_baseline) if args.legacy_baseline else None
     )
 
-    missing = sorted([ac for ac in acs if ac not in refs and ac not in baseline])
+    missing = (
+        []
+        if args.diff_only
+        else sorted([ac for ac in acs if ac not in refs and ac not in baseline])
+    )
     baseline_missing = sorted([ac for ac in acs if ac not in refs and ac in baseline])
     unknown = sorted(set(versioned["unknown"]) | {ac for ac in refs if ac not in acs})
     ok = (

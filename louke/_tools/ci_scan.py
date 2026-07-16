@@ -21,6 +21,7 @@ def main() -> int:
     ap.add_argument("--spec")
     ap.add_argument("--tests", default="tests")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--diff-only", action="store_true")
     args = ap.parse_args()
     if args.acceptance:
         acceptance = Path(args.acceptance)
@@ -61,6 +62,8 @@ def main() -> int:
     if args.json:
         ac_cmd.append("--json")
         assert_cmd.append("--json")
+    if args.diff_only:
+        ac_cmd.append("--diff-only")
     ac_status, ac_out = run(ac_cmd)
     assert_status, assert_out = run(assert_cmd)
     ok = ac_status == 0 and assert_status == 0
