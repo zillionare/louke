@@ -2,6 +2,11 @@
 
 from louke._tools import ci_scan
 
+MULTIPLE_TARGETS = [
+    "tests/unit/test_quality_gate.py",
+    "tests/unit/test_pre_commit_quality_gate.py",
+]
+
 
 def test_ci_scan_applies_project_baseline_to_ac_and_assertion_scans(
     tmp_path, monkeypatch
@@ -49,8 +54,7 @@ def test_ci_scan_forwards_multiple_diff_only_test_targets(
             "--acceptance",
             "acceptance.md",
             "--tests",
-            "tests/unit/test_quality_gate.py",
-            "tests/unit/test_pre_commit_quality_gate.py",
+            *MULTIPLE_TARGETS,
             "--diff-only",
         ],
     )
@@ -59,8 +63,7 @@ def test_ci_scan_forwards_multiple_diff_only_test_targets(
     assert len(commands) == 2
     for command in commands:
         assert command[command.index("--tests") + 1 : command.index("--exclude")] == [
-            "tests/unit/test_quality_gate.py",
-            "tests/unit/test_pre_commit_quality_gate.py",
+            *MULTIPLE_TARGETS,
         ]
         assert "--diff-only" in command or command[1].endswith("check_assertions.py")
 
