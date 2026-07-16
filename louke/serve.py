@@ -140,7 +140,7 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     selector = RuntimeSelector(
         project_root=str(root),
         declared_version="0.12.0",
-        local_present=(root / ".louke" / "runtime" / "lk").is_file(),
+        local_present=_has_local_runtime(root),
     )
     try:
         identity = selector.resolve()
@@ -211,6 +211,15 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     if args.dry_run:
         return 0
     return _run_uvicorn(args, root, setup_only=False)
+
+
+def _has_local_runtime(root: Path) -> bool:
+    """Return whether ``root`` itself contains the local runtime executable.
+
+    The check intentionally does not search parent directories: a project may
+    only run with the runtime installed beneath its own ``.louke`` directory.
+    """
+    return (root / ".louke" / "runtime" / "lk").is_file()
 
 
 def _start_or_dry_run(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:
