@@ -43,6 +43,15 @@ TEST_EXTS = {
 }
 
 
+def classify_reference_version(suffix: str | None, current_version: str) -> str:
+    """Return the trace status for an AC version suffix."""
+    if suffix is None:
+        return "legacy"
+    if not RE_VERSION.fullmatch(suffix):
+        return "malformed"
+    return "current" if suffix == current_version else "wrong-version"
+
+
 def canonical(fr: str, ac_no: str | int) -> str:
     fr_norm = fr.upper().replace("-", "")
     return f"AC-{fr_norm}-{int(ac_no):02d}"
@@ -123,12 +132,7 @@ def scan_refs(
                 consumed.add(match.start())
                 ac_id = f"AC-{match.group(1).upper()}-{match.group(2)}"
                 suffix = match.group(3)
-                if suffix is None:
-                    status = "legacy"
-                elif not RE_VERSION.fullmatch(suffix):
-                    status = "malformed"
-                else:
-                    status = "current" if suffix == version else "wrong-version"
+                status = classify_reference_version(suffix, version)
                 refs.append(
                     {
                         "ac": ac_id,
