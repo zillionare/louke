@@ -1,26 +1,23 @@
 [project]
-version = "0.13"
+version = "0.13.1"
 repo = "github.com/zillionare/louke"
-project = "louke-v0.13"
-project_id = "https://github.com/users/quantclaws/projects/18"
-spec_id = "v0.13-001-web-ui-foundation"
-release_branch = "releases/0.13"
+project = "louke-0.13.1"
+project_id = "https://github.com/users/quantclaws/projects/19"
+spec_id = "v0.13.1-002-project-local-install-experience"
+release_branch = "releases/0.13.1"
 
 [meta]
-created = "2026-07-15"
-current_stage = "M-MILESTONE"
+created = "2026-07-16"
+current_stage = "M-FOUND"
 security_audit = "disabled"
-tag = "v0.13.0 (zillionare/louke@v0.13.0)"
 pre_commit = "installed (python + base)"
 acknowledged_orphan_releases = ["releases/v0.10", "releases/v0.11", "releases/v0.4", "releases/v0.8"]
-smoke_test_issue = "#186 (closed)"
-smoke_test_pr = "N/A (L3 smoke local test only)"
-dod = "All e2e tests pass + unit test coverage >=80% (UI-focused threshold)"
+smoke_test_issue = "#207 (closed)"
+smoke_test_pr = "#208 (closed)"
+dod = "TBD (Sage drafts in M-SPEC)"
 
 story = """
-v0.13-001-web-ui-foundation：尽早提供一个可持续使用的 Louke Web 主界面，使用户可以通过真实 UI 体验已有的 Chat、设计文档、最终用户文档、Wiki 和 Runs 能力。
-
-该版本建立稳定的 UI chrome 和只读观察面，不提前实现 workflow reflow，也不纳入高风险的 shell 命令、AI 写回和模型等级配置。
+v0.13.1-002-project-local-install-experience：完成 v0.13.0 之后识别出的两个紧耦合缺口，使用户能在 5 分钟内把 louke 装到新项目、已有全局 louke 的用户能迁移到项目内 louke 而不动全局、release 时 louke 包版本自动与 git tag 同步。
 """
 test_framework = "pytest"
 backlog_project = "https://github.com/users/quantclaws/projects/10"
@@ -35,6 +32,7 @@ v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
 v0_12_001 = "shipped (2026-07-15, tag v0.12.1; programmatic-workflow-runtime stabilization)"
 v0_13_001 = "shipped (2026-07-16, tag v0.13.0; web-ui-foundation)"
+v0_13_1_002 = "active (M-FOUND; project-local install experience + release identity sync)"
 
 [integration]
 # v0.13: Starlette TestClient (in-process) + real temporary workspace + SQLite store + contract adapter.
