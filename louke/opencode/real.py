@@ -24,12 +24,13 @@ returned ``[]`` because the real list endpoint ignores query params.
 from __future__ import annotations
 
 import os
+import json
 import time
-from typing import Any, List, Optional
+from typing import Any, Iterator, List, Optional
 
 import httpx
 
-from .adapter import Instance, Message, new_id
+from .adapter import Instance, Message, StreamEvent, new_id
 
 
 _HEALTH_PATH = "/global/health"
@@ -298,6 +299,97 @@ class RealOpenCodeAdapter:
             if m.id == after_message_id:
                 return messages[i + 1 :]
         return messages
+
+    def stream_events(
+        self, instance_id: str, last_event_id: Optional[str] = None
+    ) -> Iterator[StreamEvent]:
+        """Yield normalized events from OpenCode's project-level ``/event`` SSE."""
+        assistant_messages: set[str] = set()
+        text_parts: set[str] = set()
+        with self._client.stream(
+            "GET",
+            f"{self._base_url}/event",
+            headers={"Last-Event-ID": last_event_id} if last_event_id else None,
+            timeout=None,
+        ) as response:
+            if not response.is_success:
+                raise RuntimeError(
+                    f"opencode GET /event -> HTTP {response.status_code}: {_snippet(response)}"
+                )
+            if "text/event-stream" not in response.headers.get("content-type", ""):
+                raise RuntimeError(
+                    "opencode GET /event did not return text/event-stream"
+                )
+            for raw in response.iter_lines():
+                if not raw or not raw.startswith("data:"):
+                    continue
+                try:
+                    event = json.loads(raw[5:].strip())
+                except json.JSONDecodeError:
+                    continue
+                event_id = str(event.get("id") or new_id())
+                event_type = event.get("type")
+                data = event.get("data") or event.get("properties") or {}
+                if event_type == "message.updated":
+                    if data.get("sessionID") != instance_id:
+                        continue
+                    info = data.get("info") or {}
+                    if info.get("role") == "assistant" and info.get("id"):
+                        assistant_messages.add(str(info["id"]))
+                    continue
+                if event_type == "message.part.updated":
+                    if data.get("sessionID") != instance_id:
+                        continue
+                    part = data.get("part") or {}
+                    if part.get("type") == "text" and part.get("id"):
+                        message_id = part.get("messageID") or part.get("messageId")
+                        if message_id in assistant_messages:
+                            text_parts.add(str(part["id"]))
+                    continue
+                if event_type == "message.part.delta":
+                    if (
+                        data.get("sessionID") != instance_id
+                        or data.get("field") != "text"
+                    ):
+                        continue
+                    if data.get("messageID") not in assistant_messages:
+                        continue
+                    if data.get("partID") not in text_parts:
+                        continue
+                    yield StreamEvent(
+                        event_id=event_id,
+                        type="delta",
+                        message_id=str(data["messageID"]),
+                        delta=str(data.get("delta") or ""),
+                    )
+                    continue
+                if (
+                    event_type == "session.idle"
+                    and data.get("sessionID") == instance_id
+                ):
+                    messages = self.list_messages(instance_id, after_message_id=None)
+                    assistant = next(
+                        (m for m in reversed(messages) if m.role == "assistant"), None
+                    )
+                    if assistant is not None:
+                        yield StreamEvent(
+                            event_id=event_id,
+                            type="completed",
+                            message_id=assistant.id,
+                            content=assistant.content,
+                        )
+                    continue
+                if (
+                    event_type == "session.error"
+                    and data.get("sessionID") == instance_id
+                ):
+                    error = data.get("error") or "OpenCode session error"
+                    yield StreamEvent(
+                        event_id=event_id,
+                        type="error",
+                        message_id=next(iter(assistant_messages), ""),
+                        error=str(error),
+                    )
 
     def cancel(self, instance_id: str, *, correlation_id: str) -> None:
         """Cancel the current generation for a session.

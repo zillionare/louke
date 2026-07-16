@@ -11,6 +11,7 @@ from typing import List, Literal, Optional, Protocol
 InstanceStatus = Literal["starting", "running", "stopping", "stopped", "error"]
 MessageRole = Literal["user", "assistant", "system"]
 MessageKind = Literal["message", "command", "status", "error"]
+StreamEventType = Literal["delta", "completed", "error"]
 
 
 def new_id() -> str:
@@ -55,6 +56,32 @@ class Message:
         }
 
 
+@dataclass
+class StreamEvent:
+    """Normalized assistant-stream event exposed by the OpenCode adapter."""
+
+    event_id: str
+    type: StreamEventType
+    message_id: str
+    delta: Optional[str] = None
+    content: Optional[str] = None
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict[str, object]:
+        result: dict[str, object] = {
+            "event_id": self.event_id,
+            "type": self.type,
+            "message_id": self.message_id,
+        }
+        if self.delta is not None:
+            result["delta"] = self.delta
+        if self.content is not None:
+            result["content"] = self.content
+        if self.error is not None:
+            result["error"] = self.error
+        return result
+
+
 class OpenCodeAdapter(Protocol):
     def create(self, *, correlation_id: str) -> Instance: ...
     def list(self) -> List[Instance]: ...
@@ -65,3 +92,7 @@ class OpenCodeAdapter(Protocol):
     def list_messages(
         self, instance_id: str, *, after_message_id: Optional[str]
     ) -> List[Message]: ...
+
+    def stream_events(
+        self, instance_id: str, last_event_id: Optional[str] = None
+    ) -> object: ...

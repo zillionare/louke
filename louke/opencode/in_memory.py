@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import List, Optional
 
-from .adapter import Instance, Message, new_id
+from .adapter import Instance, Message, StreamEvent, new_id
 
 
 class InMemoryOpenCodeAdapter:
@@ -73,6 +73,35 @@ class InMemoryOpenCodeAdapter:
             if m.id == after_message_id:
                 return msgs[i + 1 :]
         return msgs
+
+    def stream_events(self, instance_id: str, last_event_id: Optional[str] = None):
+        """Emit a deterministic stand-in stream for the public SSE contract."""
+        messages = self.list_messages(instance_id, after_message_id=None)
+        assistant = next((m for m in reversed(messages) if m.role == "assistant"), None)
+        if assistant is None:
+            return
+        if last_event_id:
+            # The in-memory stream is intentionally short-lived; a caller that
+            # reconnects receives the final completion as a safe resync.
+            yield StreamEvent(
+                event_id=new_id(),
+                type="completed",
+                message_id=assistant.id,
+                content=assistant.content,
+            )
+            return
+        yield StreamEvent(
+            event_id=new_id(),
+            type="delta",
+            message_id=assistant.id,
+            delta=assistant.content,
+        )
+        yield StreamEvent(
+            event_id=new_id(),
+            type="completed",
+            message_id=assistant.id,
+            content=assistant.content,
+        )
 
 
 _singleton: Optional[InMemoryOpenCodeAdapter] = None

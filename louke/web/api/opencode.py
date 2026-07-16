@@ -27,6 +27,7 @@ HTTP error (503/502/504/500) and never silently faked as a 200 echo.
 from __future__ import annotations
 
 import os
+import json
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -36,7 +37,9 @@ from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.responses import StreamingResponse
 from starlette.routing import Route
+from starlette.concurrency import iterate_in_threadpool
 
 from louke.opencode import dispatch
 from louke.opencode.adapter import Instance
@@ -108,6 +111,10 @@ def _routes() -> list[Route]:
             "/instances/{instance_id}/messages",
             endpoint=send_message,
             methods=["POST"],
+        ),
+        Route(
+            "/instances/{instance_id}/events",
+            endpoint=stream_instance_events,
         ),
         Route(
             "/instances/{instance_id}/abort",
@@ -539,6 +546,36 @@ async def send_message(request: Request) -> JSONResponse:
     return JSONResponse(
         _envelope(adapter, {"message": user_msg.to_dict(), "accepted": accepted})
     )
+
+
+async def stream_instance_events(request: Request) -> StreamingResponse | JSONResponse:
+    """Bridge the adapter's normalized events as an SSE response."""
+    adapter, err = _resolve_or_error(request)
+    if err is not None:
+        return err
+    stream = getattr(adapter, "stream_events", None)
+    if stream is None:
+        return _real_error(
+            503, "OPENCODE_STREAM_UNAVAILABLE", "adapter has no event stream"
+        )
+    instance_id = request.path_params["instance_id"]
+    last_event_id = request.headers.get("last-event-id")
+
+    async def events():
+        async for event in iterate_in_threadpool(stream(instance_id, last_event_id)):
+            payload = event.to_dict()
+            event_name = {
+                "delta": "chat.message.delta",
+                "completed": "chat.message.completed",
+                "error": "chat.message.error",
+            }[event.type]
+            yield (
+                f"id: {event.event_id}\n"
+                f"event: {event_name}\n"
+                f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            ).encode("utf-8")
+
+    return StreamingResponse(events(), media_type="text/event-stream")
 
 
 async def abort_instance(request: Request) -> JSONResponse:
