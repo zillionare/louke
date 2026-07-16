@@ -67,3 +67,5 @@ louke.egg-info/
 .louke/templates/
 .opencode/agents/
 .louke/project/stage-results
+.tmp_bundle
+**/*.lock
