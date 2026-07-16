@@ -56,6 +56,7 @@ def main() -> int:
         *exclude,
     ]
     if legacy_baseline.exists():
+        ac_cmd.extend(["--legacy-baseline", str(legacy_baseline)])
         assert_cmd.extend(["--legacy-baseline", str(legacy_baseline)])
     if args.json:
         ac_cmd.append("--json")

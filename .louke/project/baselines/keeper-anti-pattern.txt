@@ -1,6 +1,45 @@
-# Legacy baseline: pre-existing v0.10 anti-pattern violations exempted
-# from the keeper gate. Format: FAKE-XXX <file>:<line>
-# These are test-fixture data or legitimate assertions the scanner cannot
-# distinguish from real anti-patterns; reviewed and accepted at v0.10.
-FAKE-008 tests/test_verify_acceptance.bats:87
-FAKE-002 tests/test_web_server.py:642
+# Historical anti-pattern findings accepted before v0.13.1-002 I-10.
+# The same file also records ACs intentionally deferred to later slices.
+AC-FR1501-01
+AC-FR1501-02
+AC-FR1501-03
+AC-FR1501-04
+AC-FR1502-01
+AC-FR1502-02
+AC-FR1502-03
+AC-FR1502-04
+AC-FR1503-01
+AC-FR1503-02
+AC-FR1503-03
+AC-FR1503-04
+AC-FR1504-01
+AC-FR1504-02
+AC-FR1504-03
+AC-FR1504-04
+AC-FR1505-01
+AC-FR1505-02
+AC-FR1505-03
+AC-FR1506-01
+AC-FR1506-02
+AC-FR1506-03
+AC-FR1507-01
+AC-FR1507-02
+AC-FR1507-03
+AC-FR1507-04
+AC-FR1508-01
+AC-FR1508-02
+AC-FR1508-03
+AC-FR1508-04
+AC-FR1508-05
+AC-FR1509-01
+AC-FR1509-02
+AC-FR1509-03
+AC-FR1509-04
+AC-FR1512-01
+AC-FR1512-02
+AC-NFR1502-01
+AC-NFR1502-02
+AC-NFR1502-03
+AC-NFR1503-01
+AC-NFR1503-02
+AC-NFR1503-03
