@@ -295,7 +295,7 @@ M-ARCH 必须在 `architecture.md` 中记录所选机制，并链接回此 FR-15
 
 在 `lk server` 启动的 Web UI 中，Settings 页面显示当前运行时（`{version} (local|global)`），便于用户在设置区域确认当前激活的是本地还是全局运行时。
 
-> **Aaron:** 请在此指定 UI 位置。
+> **Aaron [RESOLVED]:** 请在此指定 UI 位置。
 >> **Sage:** 已根据用户在 Step 3 给出的口头决策，在 FR-1512 描述中将 UI 位置指定为 Settings 页面。请由 initiator（**Aaron**）标记 `[RESOLVED]` 以关闭本 thread。
 
 验收: `AC-FR1512-01`, `AC-FR1512-02`。
@@ -304,7 +304,22 @@ M-ARCH 必须在 `architecture.md` 中记录所选机制，并链接回此 FR-15
 
 ## 非功能需求
 
-### NFR-1502 {幂等性与安全重运行}
+### NFR-1502 {跨平台支持矩阵}
+
+| Valid | Testable | Decided |
+| ----- | -------- | ------- |
+| ✅     | ✅        | ✅       |
+
+- CI 应覆盖 linux x86_64、macOS x86_64、macOS arm64 和 Windows x86_64。
+- 每个平台应执行首次安装端到端，并验证本地 `.venv/` 存在且已安装 louke。
+- 支持的 Python 版本应覆盖 3.11、3.12 和 3.13（以 CI 镜像可用版本为准），安装程序选择最高可用的兼容版本。
+- Windows 验证应在原生 Windows 环境执行，不依赖 WSL、Docker 或其他虚拟化层。
+
+验收: `AC-NFR1502-01`, `AC-NFR1502-02`, `AC-NFR1502-03`。
+
+---
+
+### NFR-1503 {幂等性与安全重运行}
 
 | Valid | Testable | Decided |
 | ----- | -------- | ------- |
@@ -315,6 +330,8 @@ M-ARCH 必须在 `architecture.md` 中记录所选机制，并链接回此 FR-15
 - 当两个运行时已存在时，重新运行安装程序对于已存在且版本相同的运行时为 no-op，对于已安装版本与"最新"（或 `--version`）不同的运行时则执行升级。
 - 当 `<CWD>/.venv/` 已存在时，重新运行 `lk install` 应根据用户确认的拒绝规则以非零退出——它 SHALL NOT 静默升级，也 SHALL NOT 覆盖已有文件。
 - `lk upgrade` 在浅层意义上是幂等的: 连续运行两次且无中间变化应两次均以 0 退出。
+
+验收: `AC-NFR1503-01`, `AC-NFR1503-02`, `AC-NFR1503-03`。
 
 
 ---
