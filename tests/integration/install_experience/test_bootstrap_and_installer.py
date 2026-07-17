@@ -58,3 +58,12 @@ def test_windows_entrypoint_forces_execution_policy_bypass() -> None:
     text = (ROOT / "install.bat").read_text(encoding="utf-8")
     assert "-ExecutionPolicy Bypass" in text
     assert "install.ps1" in text
+
+
+def test_unix_installer_verifies_both_installed_versions() -> None:
+    """I-02/I-06 / AC-FR1503-01, AC-FR1506-03@v0.13.1: verify package truth."""
+    text = (ROOT / "install.sh").read_text(encoding="utf-8")
+    assert "runtime_package_version" in text
+    assert "PROJECT_PACKAGE_VERSION" in text
+    assert "GLOBAL_PACKAGE_VERSION" in text
+    assert "requested louke $VERSION but installed $PROJECT_PACKAGE_VERSION" in text

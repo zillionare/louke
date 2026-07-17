@@ -126,6 +126,18 @@ install_runtime() {
 install_runtime "$PROJECT_VENV"
 install_runtime "$GLOBAL_VENV"
 
+runtime_package_version() {
+    "$1" -c 'import importlib.metadata; print(importlib.metadata.version("louke"))'
+}
+
+PROJECT_PACKAGE_VERSION="$(runtime_package_version "$PROJECT_VENV/bin/python")"
+GLOBAL_PACKAGE_VERSION="$(runtime_package_version "$GLOBAL_VENV/bin/python")"
+[ -n "$PROJECT_PACKAGE_VERSION" ] || die "could not verify project-local louke version"
+[ "$PROJECT_PACKAGE_VERSION" = "$GLOBAL_PACKAGE_VERSION" ] || die "runtime version mismatch: local=$PROJECT_PACKAGE_VERSION global=$GLOBAL_PACKAGE_VERSION"
+if [ "$VERSION" != "latest" ] && [ "$EDITABLE" -eq 0 ] && [ "$PROJECT_PACKAGE_VERSION" != "$VERSION" ]; then
+    die "requested louke $VERSION but installed $PROJECT_PACKAGE_VERSION"
+fi
+
 # ---------- Install a strict-CWD local-first shim ----------
 mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/lk" <<'SHIM'
@@ -173,8 +185,7 @@ if [ -n "$SHELL_RC" ] && [ -w "$(dirname "$SHELL_RC")" ] && ! grep -q "${BIN_DIR
 fi
 
 # ---------- Verify ----------
-INSTALLED_VERSION="$("$PROJECT_VENV/bin/python" -m louke --version 2>/dev/null || echo '?')"
-note "louke ${INSTALLED_VERSION} installed at $PROJECT_VENV"
+note "louke ${PROJECT_PACKAGE_VERSION} installed at $PROJECT_VENV"
 note "global runtime installed at $GLOBAL_VENV"
 note ""
 note "next steps:"

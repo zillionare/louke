@@ -34,6 +34,8 @@ def test_ac_fr1509_01_both_targets_receive_index_and_version(
 
     def fake_run(command, **kwargs):
         calls.append((list(command), kwargs))
+        if "-c" in command:
+            return SimpleNamespace(returncode=0, stdout="1.2.3\n", stderr="")
         return SimpleNamespace(
             returncode=0,
             stdout="Successfully installed louke-1.2.3",
@@ -66,6 +68,27 @@ def test_ac_fr1509_01_both_targets_receive_index_and_version(
         )
     assert sum("board" in call[0] for call in calls) == 1
     assert "Running (local board)" in capsys.readouterr().out
+
+
+def test_ac_fr1509_02_requested_version_is_verified_after_pip(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """AC-FR1509-02@v0.13.1: upgrade rejects a mismatched installed version."""
+    monkeypatch.chdir(tmp_path)
+    _runtime(tmp_path, ".venv/bin/python")
+
+    def fake_run(command, **kwargs):
+        if "-c" in command:
+            return SimpleNamespace(returncode=0, stdout="0.13.0\n", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout="Successfully installed louke-0.13.0\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    assert _do_upgrade(["--version", "0.13.1"]) == 1
+    assert "requested 0.13.1, installed 0.13.0" in capsys.readouterr().err
 
 
 def test_ac_fr1507_02_failed_pip_does_not_board(tmp_path: Path, monkeypatch) -> None:

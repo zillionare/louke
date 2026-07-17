@@ -137,6 +137,20 @@ def _do_upgrade(extra_args):
         if result.returncode != 0:
             print(f"lk upgrade: {name} pip upgrade failed", file=sys.stderr)
             return result.returncode
+        installed_version = _runtime_package_version(python)
+        if installed_version is None:
+            print(
+                f"lk upgrade: unable to verify the installed {name} runtime version",
+                file=sys.stderr,
+            )
+            return 1
+        if opts.version and installed_version != opts.version:
+            print(
+                f"lk upgrade: {name} runtime version mismatch: "
+                f"requested {opts.version}, installed {installed_version}",
+                file=sys.stderr,
+            )
+            return 1
         changed = _pip_changed(stdout, stderr)
         if name == "local" and _project_harness_args(Path.cwd()) and changed:
             board_rc = _run_board(Path.cwd(), python)
@@ -144,7 +158,7 @@ def _do_upgrade(extra_args):
                 return board_rc
         elif name == "local":
             print("lk upgrade: local harness not configured; board skipped")
-        print(f"✓ louke {name} runtime upgraded")
+        print(f"✓ louke {installed_version} ({name})")
     return 0
 
 
@@ -163,6 +177,25 @@ def _runtime_python(kind: str, root: Path | None = None) -> Path | None:
         venv / "Scripts" / "python",
     )
     return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def _runtime_package_version(python: Path) -> str | None:
+    """Read the package version from the target runtime after pip succeeds."""
+    import subprocess
+
+    result = subprocess.run(
+        [
+            str(python),
+            "-c",
+            "import importlib.metadata; print(importlib.metadata.version('louke'))",
+        ],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    version = (result.stdout or "").strip()
+    return version or None
 
 
 def _project_harness_args(root: Path) -> list[str]:

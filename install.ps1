@@ -47,6 +47,15 @@ function Install-Runtime([hashtable]$Python, [string]$VenvPath, [string]$Package
     }
 }
 
+function Get-RuntimeVersion([string]$VenvPath) {
+    $venvPython = Join-Path $VenvPath "Scripts\python.exe"
+    $installed = (& $venvPython -c "import importlib.metadata; print(importlib.metadata.version('louke'))").Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($installed)) {
+        throw "Could not verify the installed louke version in $VenvPath."
+    }
+    return $installed
+}
+
 function Add-UserPathEntry([string]$Entry) {
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     $entries = @($userPath -split ";" | Where-Object { $_ })
@@ -95,9 +104,18 @@ try {
     Install-Runtime $python $projectVenv $package
     Install-Runtime $python $globalVenv $package
 
+    $projectVersion = Get-RuntimeVersion $projectVenv
+    $globalVersion = Get-RuntimeVersion $globalVenv
+    if ($projectVersion -ne $globalVersion) {
+        throw "Runtime version mismatch: local=$projectVersion global=$globalVersion."
+    }
+    if (-not $Editable -and $Version -ne "latest" -and $projectVersion -ne $Version) {
+        throw "Requested louke $Version but installed $projectVersion."
+    }
+
     Install-LocalFirstShim $globalVenv
 
-    Write-Output "louke installed in $projectVenv and $globalVenv; local-first lk shim installed"
+    Write-Output "louke $projectVersion installed in $projectVenv and $globalVenv; local-first lk shim installed"
     exit 0
 }
 catch {
