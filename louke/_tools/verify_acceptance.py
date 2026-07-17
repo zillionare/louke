@@ -10,13 +10,14 @@ Design goals:
 - Zero extra dependencies: Python stdlib only
 - Offline-testable: supports --offline + fixture files, bats can feed samples directly
 
-Checks (L1-L5):
+Checks (L1-L6):
   L1 File exists:        .louke/project/specs/{id}/acceptance.md exists
   L2 FR/NFR section exists:   every FR/NFR in spec.md has a matching ## section in acceptance.md
   L3 AC numbering sequential:     within each FR/NFR section, ### AC-N starts at 1 and increments by 1
   L4 AC content non-empty:     each ### AC-N has at least 1 bullet, with concrete assertable content
   L5 Reverse coverage:        every ## FR/NFR section in acceptance.md corresponds to an FR/NFR in spec.md
                       (prevents "ghost FRs" in acceptance that do not exist in spec)
+  L6 Max requirements:       active FR/NFR count ≤ 30; deprecated (Valid=❌) excluded; non-waivable gate
 
 Usage:
   python louke/_tools/verify_acceptance.py --spec v0.1-001-louke
@@ -56,6 +57,147 @@ RE_BULLET = re.compile(r"^[\s]*[-*]\s+(.+)$")
 PLACEHOLDER_PATTERNS = [
     re.compile(r"\{\{.*?\}\}"),  # {{ variable }} — Jinja-style unreplaced placeholder
 ]
+
+# ---------- L6 helpers: table metadata parsing ----------
+
+# Table row: | <col1> | <col2> | <col3> |
+RE_TABLE_ROW = re.compile(r"^\s*\|\s*(.+?)\s*\|\s*$")
+# Header separator row: |---|---|---| or |:--|:--:|--:|
+RE_TABLE_SEP = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
+# Top-level section heading: ## Functional Requirements / ## Non-functional Requirements
+RE_TOP_HEADING = re.compile(r"^##\s+\S")
+# Code fence
+RE_FENCE = re.compile(r"^\s*(```|~~~)")
+
+# Column name aliases for metadata tables (English + Chinese).
+# NOTE: the Chinese keys below are intentional — they map Chinese spec.md column
+# headers to English field names so the parser handles spec files written in
+# EITHER Chinese or English. Do not remove them.
+_COLUMN_ALIASES = {
+    "有效需求": "valid",
+    "Valid": "valid",
+    "valid": "valid",
+    "可测性": "testability",
+    "Testable": "testability",
+    "testability": "testability",
+    "是否已决定": "resolved",
+    "已决定": "resolved",
+    "Decided": "resolved",
+    "resolved": "resolved",
+}
+
+
+def _find_deprecated_frnfr(spec_text: str) -> set[str]:
+    """Find FR/NFR IDs that are explicitly deprecated via metadata Valid=❌.
+
+    Parses the metadata tables within each FR/NFR section and returns the set
+    of FR-XXXX/NFR-XXXX IDs whose *Valid* column equals ``❌``.
+
+    This reuses the same column-alias logic as ``quote_parser.COLUMN_ALIASES``
+    so English and Chinese headers are handled consistently.
+    """
+    lines = spec_text.splitlines()
+    deprecated: set[str] = set()
+    current_unit: str | None = None
+    in_code_block = False
+    table_buf: list[list[str]] = []
+    in_table = False
+    col_map: dict[str, int] = {}
+
+    for line in lines:
+        # Top-level section heading ends the current unit
+        if RE_TOP_HEADING.match(line):
+            current_unit = None
+            table_buf = []
+            in_table = False
+            col_map = {}
+            continue
+
+        # Code fence toggles
+        if RE_FENCE.match(line):
+            in_code_block = not in_code_block
+            table_buf = []
+            in_table = False
+            col_map = {}
+            continue
+
+        if in_code_block:
+            continue
+
+        # Unit heading: ### FR-XXXX or ### NFR-XXXX
+        m_head = RE_FR_SECTION.match(line)
+        if m_head:
+            kind = m_head.group(1)
+            num = m_head.group(2)
+            current_unit = f"{kind}-{num}"
+            table_buf = []
+            in_table = False
+            col_map = {}
+            continue
+
+        if current_unit is None:
+            continue
+
+        # Table row parsing
+        m_row = RE_TABLE_ROW.match(line)
+        if m_row:
+            cells = [c.strip() for c in m_row.group(1).split("|")]
+            table_buf.append(cells)
+            if len(table_buf) == 2 and RE_TABLE_SEP.match(line):
+                in_table = True
+                header = table_buf[0]
+                col_map = {}
+                for idx, col_name in enumerate(header):
+                    key = _COLUMN_ALIASES.get(col_name.strip())
+                    if key:
+                        col_map[key] = idx
+            elif in_table and len(table_buf) >= 3:
+                for key, idx in col_map.items():
+                    if key == "valid" and idx < len(cells):
+                        val = cells[idx]
+                        if val == "❌":
+                            deprecated.add(current_unit)
+            continue
+        else:
+            if table_buf:
+                table_buf = []
+                in_table = False
+                col_map = {}
+
+    return deprecated
+
+
+def check_L6_max_requirements(spec_text: str) -> AccResult:
+    """Validate that active FR/NFR count does not exceed the hard limit of 30.
+
+    Active means not explicitly deprecated with metadata ``Valid=❌``.
+    Deprecated requirements retain their IDs but are excluded from the count.
+    This is a non-waivable scope-size gate.
+    """
+    r = AccResult(
+        code="L6",
+        name="Max requirements ≤ 30",
+        passed=False,
+    )
+    all_frs = parse_fr_sections(spec_text)
+    deprecated = _find_deprecated_frnfr(spec_text)
+    active_count = sum(1 for f in all_frs if f.fr_id not in deprecated)
+    deprecated_count = len(all_frs) - active_count
+
+    if active_count > 30:
+        r.message = f"active FR/NFR count {active_count} exceeds maximum 30"
+        r.failures.append(
+            f"Spec has {active_count} active requirements (max 30 allowed). "
+            f"({deprecated_count} deprecated excluded). "
+            f"Split the Story/spec into smaller independently deliverable Stories."
+        )
+        return r
+
+    r.passed = True
+    r.message = f"active FR/NFR count {active_count} ≤ 30" + (
+        f" ({deprecated_count} deprecated excluded)" if deprecated_count else ""
+    )
+    return r
 
 
 # ---------- Data classes ----------
@@ -358,6 +500,7 @@ def run_checks(
         check_L3_ac_sequential(acc_sections),
         check_L4_ac_content(norm_acc, acc_sections),
         check_L5_reverse_cover(spec_frs, acc_sections),
+        check_L6_max_requirements(spec_text),
     ]
 
 
