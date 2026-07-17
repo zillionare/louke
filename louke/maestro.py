@@ -25,7 +25,7 @@ STAGES = [
     ("M-FULL", "full", None, None),
     ("M-FOUND", "foundation", "Scout", "Warden"),
     ("M-SPEC", "define requirements", "Sage", "Lex"),
-    ("M-TESTPLAN", "define test plan", "Archer", "Sage"),
+    ("M-TESTPLAN", "define test plan", "Archer", "Prism"),
     ("M-ARCH", "architecture design", "Archer", "Prism"),
     ("M-LOCK", "requirement lock", "Maestro", "human"),
     ("M-DEV", "development execution", "Devon", "Prism -> Keeper"),
@@ -252,7 +252,7 @@ def _holdpoint(stage, args):
             spec,
             "M-TESTPLAN",
             "review-result",
-            "Sage",
+            "Prism",
             "pass",
             metadata={"source_command": "review"},
         )

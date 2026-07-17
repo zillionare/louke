@@ -7,6 +7,7 @@
 > **Responsibility split**: This document only describes the requirements themselves (FR/NFR descriptions + metadata).
 > The canonical product narrative, user stories, happy path, and usage scenarios remain in `story.md`; do not copy or rewrite them here.
 > Each FR/NFR records only the relevant Story seed or section ID in its `Source` field, without duplicating the source text.
+> A Spec may contain at most 30 active FR/NFR units. Requirements explicitly marked `Valid=❌` retain their IDs but do not count toward the limit. Runtime enforces this before Lex review.
 > Acceptance criteria (observable, assertable pass conditions) live in `acceptance.md` so they can grow without bloating spec.
 > The test plan (`test-plan.md`) references both spec.md and acceptance.md as inputs.
 

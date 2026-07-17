@@ -59,6 +59,19 @@ def register(subparsers):
     p.add_argument("--diff", default="HEAD", help="ref to scan")
 
     p = sub.add_parser(
+        "review-testplan",
+        help="test-plan review preflight + Prism stage artifact",
+    )
+    p.add_argument("--spec-id", required=True)
+    p.add_argument(
+        "--reviewed-target",
+        dest="reviewed_targets",
+        action="append",
+        default=[],
+        help="repeatable contract target reviewed by Prism",
+    )
+
+    p = sub.add_parser(
         "review-arch",
         help="architecture review (semantic document checks + stage artifact)",
     )
@@ -74,7 +87,11 @@ def register(subparsers):
     p = sub.add_parser(
         "record-review", help="persist Prism review verdict as a stage artifact"
     )
-    p.add_argument("--stage", required=True, choices=["M-ARCH", "M-DEV", "M-E2E"])
+    p.add_argument(
+        "--stage",
+        required=True,
+        choices=["M-TESTPLAN", "M-ARCH", "M-DEV", "M-E2E"],
+    )
     p.add_argument("--spec-id", required=True)
     p.add_argument("--verdict", required=True, choices=["pass", "reject"])
     p.add_argument(
@@ -109,6 +126,7 @@ def run(args):
         "test-patterns": cmd_test_patterns,
         "security-quick-scan": cmd_security_quick_scan,
         "code-quality": cmd_code_quality,
+        "review-testplan": cmd_review_testplan,
         "review-arch": cmd_review_arch,
         "record-review": cmd_record_review,
     }
@@ -320,12 +338,41 @@ def cmd_review_arch(args):
     return 0
 
 
+def cmd_review_testplan(args):
+    """Run deterministic preflight and persist Prism's M-TESTPLAN artifact."""
+    reviewed_targets = args.reviewed_targets or [
+        f".louke/project/specs/{args.spec_id}/spec.md",
+        f".louke/project/specs/{args.spec_id}/acceptance.md",
+        f".louke/project/specs/{args.spec_id}/test-plan.md",
+        ".louke/project/project.toml",
+    ]
+    blocking_findings = _review_testplan_documents(args.spec_id)
+    path = _write_review_artifact(
+        stage="M-TESTPLAN",
+        spec_id=args.spec_id,
+        verdict="fail" if blocking_findings else "pass",
+        reviewed_targets=reviewed_targets,
+        blocking_findings=blocking_findings,
+        source_command="review",
+    )
+    print("=== Prism M-TESTPLAN Review ===")
+    for item in blocking_findings:
+        print(f"- {item}")
+    if path:
+        marker = "✗" if blocking_findings else "✓"
+        print(f"{marker} review artifact written: {path}")
+    return 1 if blocking_findings else 0
+
+
 def cmd_record_review(args):
     """Persist Prism's verdict so Maestro can gate on a concrete artifact."""
-    if args.stage in {"M-ARCH", "M-DEV", "M-E2E"} and args.verdict == "pass":
+    if (
+        args.stage in {"M-TESTPLAN", "M-ARCH", "M-DEV", "M-E2E"}
+        and args.verdict == "pass"
+    ):
         print(
             f"prism record-review: pass artifacts for {args.stage} must come from "
-            "lk agent prism review ... or lk agent prism review-arch --spec-id ...",
+            "a Prism review command with source_command=review",
             file=sys.stderr,
         )
         return 2
@@ -428,6 +475,40 @@ def _review_arch_documents(spec_id):
     if "[e2e]" not in contents["project.toml"]:
         failures.append(
             "project.toml missing [e2e] section required by Archer contract"
+        )
+    if "test_framework" not in contents["project.toml"]:
+        failures.append("project.toml missing [meta].test_framework")
+    return failures
+
+
+def _review_testplan_documents(spec_id):
+    spec_dir = Path(f".louke/project/specs/{spec_id}")
+    checks = {
+        "spec.md": spec_dir / "spec.md",
+        "acceptance.md": spec_dir / "acceptance.md",
+        "test-plan.md": spec_dir / "test-plan.md",
+        "project.toml": Path(".louke/project/project.toml"),
+    }
+    failures = []
+    contents = {}
+    for label, path in checks.items():
+        if not path.exists():
+            failures.append(f"missing {path.as_posix()}")
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace").strip()
+        if not text:
+            failures.append(f"empty {path.as_posix()}")
+            continue
+        contents[label] = text
+    if failures:
+        return failures
+
+    if "AC-" not in contents["acceptance.md"]:
+        failures.append("acceptance.md must define acceptance criteria")
+    lowered = contents["test-plan.md"].lower()
+    if not any(token in lowered for token in ("unit", "integration", "e2e")):
+        failures.append(
+            "test-plan.md must describe at least one test layer (unit/integration/e2e)"
         )
     if "test_framework" not in contents["project.toml"]:
         failures.append("project.toml missing [meta].test_framework")

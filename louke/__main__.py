@@ -410,7 +410,9 @@ def print_help_text():
     print("Agent commands:")
     print("  lk agent <name> <cmd> [opts]")
     print("    scout      identity-check, foundation, invite-owner, commit-foundation")
-    print("    sage       quote-check, commit-spec, create-issues, record-lock")
+    print(
+        "    sage       quote-check, commit-spec, create-issues, record-lock (legacy adapters)"
+    )
     print("    warden     foundation-check")
     print("    lex        verify-acceptance, verify-issue, verify-project, quote-check")
     print(
@@ -418,7 +420,10 @@ def print_help_text():
     )
     print("    keeper     gate, regression")
     print("    judge      security-audit, quick-scan")
-    print("    prism      review, test-patterns, security-quick-scan, code-quality")
+    print(
+        "    prism      review, review-testplan, review-arch, test-patterns, "
+        "security-quick-scan, code-quality"
+    )
     print("    devon      run-tests, commit-rgr")
     print("    shield     run-e2e, commit-e2e")
     print("    librarian  distill, lint, rebuild-index, compact, rewrite")

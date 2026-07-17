@@ -4,51 +4,41 @@
 
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
-# ---------- New architecture: issue form + schema validator ----------
+# ---------- v0.14 semantic/program boundary ----------
 
-@test "SAGE-FORM-001: sage_knows_issue_form_path" {
-    run grep -q "ISSUE_TEMPLATE" "$AGENTS_DIR/Sage.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Sage.md does not reference .github/ISSUE_TEMPLATE"
-        false
-    }
+@test "SAGE-BOUNDARY-001: Sage does not drive program side effects" {
+    run grep -Eq "lk agent sage (commit-spec|quote-check|create-issues|record-lock)" "$AGENTS_DIR/Sage.md"
+    [ "$status" -ne 0 ]
 }
 
-@test "SAGE-FORM-002: sage_uses_form_fields_to_construct_body" {
-    for field in "Requirement ID" "Spec Link" "Acceptance Criteria"; do
-        run grep -q "$field" "$AGENTS_DIR/Sage.md"
-        [ "$status" -eq 0 ] || { echo "FAIL: Sage.md missing field $field" >&2; false; }
-    done
-}
-
-@test "SAGE-FORM-003: sage_uses_lowercase_fr_XXX_anchor" {
-    # A literal fr-NNN placeholder is sufficient; no longer requires exact \d{3} format
-    run grep -qE "fr-[0-9]{3}" "$AGENTS_DIR/Sage.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Sage.md does not use lowercase fr-NNN anchor"
-        false
-    }
-}
-
-@test "LEX-SCHEMA-001: lex_runs_verify_issue_schema_py" {
-    run grep -q "verify_issue_schema.py" "$AGENTS_DIR/Lex.md"
-    [ "$status" -eq 0 ] || {
-        echo "FAIL: Lex.md does not reference verify_issue_schema.py"
-        false
-    }
-}
-
-@test "LEX-SCHEMA-002: lex_lists_L1_to_L8_validation_items" {
-    for level in L1 L2 L3 L4 L5 L6 L7 L8; do
-        run grep -q "$level " "$AGENTS_DIR/Lex.md"
-        [ "$status" -eq 0 ] || { echo "FAIL: Lex.md does not list $level" >&2; false; }
-    done
-}
-
-@test "LEX-SCHEMA-003: lex_exit_criteria_includes_schema_validation" {
-    run grep -q "verify_issue_schema.py" "$AGENTS_DIR/Lex.md"
+@test "SAGE-BOUNDARY-002: inline discussion is default and question is fallback" {
+    run grep -q "question.*例外" "$AGENTS_DIR/Sage.md"
     [ "$status" -eq 0 ]
-    run grep -q "Schema" "$AGENTS_DIR/Lex.md"
+    run grep -q "inline discussion" "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "SAGE-ANALYSIS-001: Sage checks Happy Path and Devon-only implementability" {
+    run grep -q "Happy Path 每一步" "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+    run grep -q "Devon 只读取 spec.md 和 acceptance.md" "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "LEX-BOUNDARY-001: Lex does not repeat program validation" {
+    run grep -Eq "lk agent lex (verify-acceptance|verify-issue|verify-project|quote-check)" "$AGENTS_DIR/Lex.md"
+    [ "$status" -ne 0 ]
+}
+
+@test "LEX-SEMANTIC-001: Lex checks Story coverage and assertability" {
+    run grep -q "Happy Path" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+    run grep -q "可断言" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "RUNTIME-SCOPE-001: Maestro checks Spec scope before Lex" {
+    run grep -q "spec_scope_check" "$AGENTS_DIR/Maestro.md"
     [ "$status" -eq 0 ]
 }
 

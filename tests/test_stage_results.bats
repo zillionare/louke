@@ -127,7 +127,7 @@ PY
     [[ "$output" == *"artifact metadata mismatch"* ]]
 }
 
-@test "stage-results: M-TESTPLAN advance requires Sage review artifact" {
+@test "stage-results: M-TESTPLAN advance requires Prism review artifact" {
     write_arch_fixture
 
     run python -m louke agent maestro advance --stage M-TESTPLAN --spec-id demo
@@ -145,14 +145,14 @@ PY
         --verdict pass \
         --reviewed-target .louke/project/specs/demo/architecture.md
     [ "$status" -ne 0 ]
-    [[ "$output" == *"must come from lk agent prism review"* ]]
+    [[ "$output" == *"must come from a Prism review command"* ]]
 }
 
 @test "stage-results: M-TESTPLAN advance passes with author + review artifacts" {
     write_arch_fixture
     python -m louke agent archer validate-test-plan --spec demo >/dev/null
-    python -m louke agent sage review-testplan \
-        --spec demo \
+    python -m louke agent prism review-testplan \
+        --spec-id demo \
         --reviewed-target .louke/project/specs/demo/test-plan.md >/dev/null
 
     run python -m louke agent maestro advance --stage M-TESTPLAN --spec-id demo
@@ -166,7 +166,7 @@ PY
 @test "stage-results: M-TESTPLAN rejects review artifact with missing source_command" {
     write_arch_fixture
     python -m louke agent archer validate-test-plan --spec demo >/dev/null
-    python -m louke agent sage review-testplan --spec demo >/dev/null
+    python -m louke agent prism review-testplan --spec-id demo >/dev/null
     python - <<'PY'
 import json
 from pathlib import Path
@@ -186,15 +186,16 @@ PY
     [[ "$output" == *"artifact metadata mismatch"* ]]
 }
 
-@test "stage-results: M-TESTPLAN pass artifact cannot be minted via record-testplan-review" {
+@test "stage-results: M-TESTPLAN pass artifact cannot be minted via record-review" {
     write_arch_fixture
 
-    run python -m louke agent sage record-testplan-review \
-        --spec demo \
+    run python -m louke agent prism record-review \
+        --stage M-TESTPLAN \
+        --spec-id demo \
         --verdict pass \
         --reviewed-target .louke/project/specs/demo/test-plan.md
     [ "$status" -ne 0 ]
-    [[ "$output" == *"must come from lk agent sage review-testplan"* ]]
+    [[ "$output" == *"must come from a Prism review command"* ]]
 }
 
 @test "stage-results: M-DEV advance requires Prism review artifact and writes Keeper gate artifact" {
@@ -219,7 +220,7 @@ PY
         --commit-range HEAD~1..HEAD \
         --reviewed-target tests/test_trace.py
     [ "$status" -ne 0 ]
-    [[ "$output" == *"must come from lk agent prism review"* ]]
+    [[ "$output" == *"must come from a Prism review command"* ]]
 }
 
 @test "stage-results: stale contract bundle blocks M-ARCH advance" {

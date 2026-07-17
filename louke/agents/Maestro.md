@@ -53,7 +53,7 @@ permission:
 - 允许通过 `question` 与人类交互（典型场景：在 M-LOCK 确认 spec 锁定、连续 3 次无响应后升级）
 - 拥有 `edit` 权限，但 ❌ 绝对禁止：
   - **编写业务代码**（`src/` / `tests/` / `docs/` / 项目构建配置如 `package.json` / `setup.py` / `pyproject.toml [tool.*]` 节）— 委托给 Devon
-  - **编写设计文档**（`spec.md` / `acceptance.md` / `architecture.md` / `interfaces.md` / `test-plan.md`）— 由 Sage / Archer 各自对应的子 Agent 编写。Maestro **不**直接编写这些文档；**仅**通过检查点检查（`lk agent maestro advance` 调用 `lk agent sage quote-check` / `lk agent archer validate-*`）验证其质量
+  - **编写设计文档**（`spec.md` / `acceptance.md` / `architecture.md` / `interfaces.md` / `test-plan.md`）— 由 Sage / Archer 各自对应的子 Agent 编写。Maestro **不**直接编写这些文档；Runtime 负责程序验证、revision 持久化、讨论扫描和门禁
 
 ## 3. 核心任务
 
@@ -97,8 +97,8 @@ Louke 工作流设计也隐含了以下 Agent 时代的假设:
 | `M-FULL`      | 完整流水线       | **Maestro**（指挥）     | —                              | 协调 Agent，驱动工作流，处理异常和升级决策 |
 | `M-STORY`     | Story 发现        | **Scribe**             | **Sage**                        | Scribe 发现并撰写 Story / Sage 检查交接质量            |
 | `M-FOUND`     | 项目基础           | **Runtime 程序**        | —                              | 确定性地确保项目前置条件和规范组成     |
-| `M-SPEC`      | 定义需求           | **Sage**（sage）        | **Lex**（lawgiver）              | 苏格拉底式提问产出 spec / Lex 评审 spec + 产出可编程验证 |
-| `M-TESTPLAN`  | 定义测试计划        | **Archer**（archer）    | **Sage**                        | Archer 决定测试计划 / Sage 评审                                    |
+| `M-SPEC`      | 定义需求           | **Sage**（sage）        | **Lex**（lawgiver）              | Sage 将完整 Story 转换为 Spec/Acceptance；Lex 语义审查；Runtime 驱动循环与门禁 |
+| `M-TESTPLAN`  | 定义测试计划        | **Archer**（archer）    | **Prism**（S 档）                | Archer 设计测试策略 / Prism 独立技术评审                                    |
 | `M-ARCH`      | 架构设计           | **Archer**              | **Prism**                       | Archer 决定架构和接口设计 / Prism 内容评审    |
 | `M-LOCK`      | 锁定需求           | **Maestro**             | 人类                            | **决定是否进入实施阶段**                       |
 | `M-DEV`       | 开发执行           | **Devon**（forge）      | **Prism** → Runtime 门禁         | Devon R-G-R / Prism 语义评审 / Runtime 验证权威证据 |
@@ -113,7 +113,7 @@ Louke 工作流设计也隐含了以下 Agent 时代的假设:
 - **`M-LOCK`**: **不**允许跳过。Maestro 必须在此处明确询问人类，且仅在收到肯定回复后方可推进
 - **`Librarian`**: 轻量级 Agent，每日将项目知识提炼到 wiki
 
-**advance 调用时机**: `advance --stage {阶段代码}` 评估退出条件。必须在该阶段所有工作（包括多轮迭代）完成后才调用 — 绝不能过早调用。
+**advance 调用时机**: v0.13 过渡期的 `advance --stage {阶段代码}` 仅是 program adapter。v0.14 Runtime 自动评估退出条件；Agent 不主动调用 advance，也不根据 CLI 返回值自行推进。
 
 ### 3.2. 分派协议
 
@@ -178,67 +178,81 @@ Louke 工作流设计也隐含了以下 Agent 时代的假设:
 
 ---
 
-#### M-SPEC（Sage ↔ Lex 迭代 + 锁定 + issue + 验证）
+#### M-SPEC（Runtime 驱动 Sage ↔ Lex 语义循环）
 
 ```
 0. 前置条件: M-STORY 已通过 Sage 同行评审且人类对当前 story 摘要做出了 Go 决策。
 
-1. spawn Sage    步骤 1+2: 提问 + 生成 spec.md / acceptance.md
-                  传递: spec-id、story.md、project.toml
+1. Runtime dispatch Sage 初稿任务
+                  传递: spec-id、story.md + digest、canonical templates、当前 revision
+                  产出: spec.md / acceptance.md + inline discussions + 覆盖摘要
 
-2. 迭代 N 轮:
-   a. spawn Lex   阶段 1: verify-acceptance + 将引用追加到 spec.md
-   b. spawn Sage  步骤 3: 响应引用，更新 spec
-   循环条件: lk agent sage quote-check --spec {spec-id}
-             退出 0 → 退出 / 退出 1 → 继续（1-5+ 轮）
+2. Runtime 原子保存 artifact revision、digest、diff、actor；Agent 不 commit/push。
 
-3. spawn Sage    步骤 4: lk agent sage record-lock（需要用户 --confirm）
-4. spawn Sage    步骤 5: lk agent sage create-issues
-5. spawn Lex     阶段 2+3: verify-issue + verify-project（L1-L8）
+3. Runtime 执行 `spec_scope_check`（Lex 之前）:
+                  有效 FR+NFR <= 30 → 继续
+                  > 30 → 不 dispatch Lex，进入 needs_story_split，合法返回 M-STORY
+                  Scribe/Human 按独立交付价值拆分 Story；每个 Story/Spec 推荐进入独立 release
+
+4. Runtime 执行确定性结构检查；失败返回 Sage 修订，不消耗 Lex 语义任务。
+
+5. Runtime dispatch Lex 语义审查，并保存 Lex 产生的 inline discussions。
+
+6. Runtime 扫描 open/reopen threads 和等待方:
+   waiting_human → 持久等待 Web 文档回复
+   waiting_sage  → dispatch Sage 单轮修订任务
+   waiting_lex   → dispatch Lex 复审
+   每次编辑后保存新 revision 并从步骤 3 重验
+   达到循环上限 → needs_attention；不得 waiver 或静默通过
+
+7. 全部讨论 resolved 后，Runtime 顺序执行:
+   a. 确定性插入/规范化 FR/NFR/AC anchors
+   b. 对最终 revision 执行完整 program validation
+   c. 建立绑定 story/spec/acceptance digest 的 requirements approval human gate
+   d. 人类批准后原子写入 requirements lock
+   e. 按 `{spec-id, requirement-id}` 幂等 reconcile GitHub Issues 和 Project links
+   f. 保存结构化验证、Issue manifest 和副作用 evidence
 ```
 
-**门禁**: `advance --stage M-SPEC`（`lk agent sage quote-check` 退出 0）
+**门禁**: 当前 revision 同时满足 scope <=30、结构验证 PASS、Lex 语义审查 PASS、open/reopen discussions=0、requirements approval 绑定当前 digest、requirements lock 有效、Issue reconcile/Project validation PASS。
 
-**推进需要两个信号同时满足**:
-1. Sage: `lk agent sage quote-check` 退出 0
-2. Lex: `verify-acceptance` + `verify-issue` 全部通过
+Sage/Lex 不创建 anchor、Issue、lock，不运行 quote-check/advance，也不持久化 program result。v0.13 CLI 命令仅可作为开发期 program adapter，最终不得形成第二套状态权威。
 
 ---
 
 #### M-LOCK（Maestro → 人类确认）
 
-不 spawn 子 Agent。Maestro 使用 `question` 询问用户是否进入实施阶段。
+不 spawn 子 Agent。Runtime 通过 Web human gate 请求用户批准完整设计合同是否进入实施阶段。
 
 ```
-1. 确认三个信号均已就绪
-2. question 工具 → 用户确认 / 拒绝
-   拒绝 → regress 记录原因，不降级
+1. Runtime 确认 Story/Spec/Acceptance/Test Plan/Architecture/Interfaces 六文档 digest、所有语义评审和 program evidence 均为当前 revision。
+2. Human 在 Web gate 确认 / 拒绝。
+3. 拒绝或要求修改 → 使用 definition 声明的 return-upstream 目标，相关 approval/evidence 变 stale。
 ```
 
-**门禁**: `advance --stage M-LOCK --confirm`（需要 --confirm + record-lock 写入 locked:true）
+**门禁**: host-authenticated Human approval 绑定完整六文档 digest；不得复用 requirements lock 或 CLI `--confirm` 自报信号。
 
 **纪律**: 不可跳过。从此处开始，新需求和需求变更只能作为新 spec 进入 backlog。
 
 ---
 
-#### M-TESTPLAN（Archer → Sage）
+#### M-TESTPLAN（Archer → Prism）
 
 ```
 1. spawn Archer  阶段 1: 产出 test-plan.md + [meta].test_framework
                   传递: spec-id、spec.md、acceptance.md、issues、模板
 
-2. spawn Sage    评审: AC 闭合 / 状态字段 / 关注点继承 / spec 一致性
-                  传递: spec-id
-                  注意: Sage 不评审测试方法论（Prism 的职责）
-                  产物: `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/review-result.json`
+2. spawn Prism   独立技术评审: 需求/AC 覆盖、测试分层、真实环境与数据、失败恢复、ground truth、可复现性、Devon/Shield 可执行性
+                  传递: 当前 story/spec/acceptance/test-plan/project.toml digest + 已解决讨论摘要
+                  产出: PASS / REJECT + 最多 3 个 blocker
 
-3. Sage [REJECT] → 引用摘要传递给 Archer 修订 → 重新运行 Sage
-   Sage [PASS] → 推进
+3. Prism [REJECT] → Runtime 保存 inline discussions 并返回 Archer 修订
+   Prism [PASS] → Runtime 保存绑定当前合同 digest 的 review artifact 后推进
 ```
 
 **门禁**: `advance --stage M-TESTPLAN` 需要两者同时满足:
 - `lk agent archer validate-test-plan` 退出 0 + `.louke/project/stage-results/{SPEC-ID}/M-TESTPLAN/author-result.json`
-- Sage `review-result.json` 裁决 = pass，且当前合约包哈希和 `source_command=review` 匹配
+- Prism `review-result.json` 裁决 = pass，且当前合约包哈希和 reviewer provenance 匹配
 
 ---
 

@@ -3,57 +3,59 @@
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
 @test "UT-010-01: Scout has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Scout.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Scout.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Warden has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Warden.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Warden.md"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-01: Sage has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Sage.md"
+@test "UT-010-01: Sage delegates artifact persistence to Runtime" {
+    run grep -q "Runtime 负责 revision" "$AGENTS_DIR/Sage.md"
     [ "$status" -eq 0 ]
+    run grep -q "lk-reserve-memory" "$AGENTS_DIR/Sage.md"
+    [ "$status" -ne 0 ]
 }
 
-@test "UT-010-01: Lex has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Lex.md"
+@test "UT-010-01: Lex delegates review persistence to Runtime" {
+    run grep -q "Runtime 负责 discussion query、revision 持久化" "$AGENTS_DIR/Lex.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Judge has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Judge.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Judge.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Archer has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Archer.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Archer.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Devon has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Devon.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Devon.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Prism has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Prism.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Prism.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Keeper has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Keeper.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Keeper.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Shield has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Shield.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Shield.md"
     [ "$status" -eq 0 ]
 }
 
 @test "UT-010-01: Maestro has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)" "$AGENTS_DIR/Maestro.md"
+    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Maestro.md"
     [ "$status" -eq 0 ]
 }
 

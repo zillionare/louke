@@ -53,6 +53,11 @@ TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/template
     [ "$status" -ne 0 ] || { echo "spec.md must not duplicate story.md narrative sections" >&2; false; }
 }
 
+@test "UT-012-05: spec.md declares the 30 active requirement limit" {
+    run grep -q "at most 30 active FR/NFR" "$TEMPLATES_DIR/spec.md"
+    [ "$status" -eq 0 ]
+}
+
 @test "UT-012-03: task-log.md has all required level-2 headings" {
     for heading in "Phase 1: Red" "Phase 2: Green" "Phase 3: Refactor" "Keeper"; do
         run grep -q "^## ${heading}" "$TEMPLATES_DIR/task-log.md"

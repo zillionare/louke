@@ -41,7 +41,10 @@
 - [ ] 回退开关记录 actor、reason、scope、目标 runtime、开始/结束时间和受影响 run；切回新 Runtime 前执行 readiness、schema、版本和单一权威检查。
 - [ ] 使用 Louke 自己的 v0.14 spec 和实现工作完整 dogfood 一轮新 `new_feature` workflow，保存从 Story 到 history 的公开证据，并证明过程未 dispatch Scout、Warden、Keeper。
 - [ ] 只有 installed-wheel E2E 与 Louke v0.14 dogfood 均通过、阻塞缺陷闭合、生产文档完成切换后，才允许删除旧可执行路径和受控回退开关。
-- [ ] Aaron: 一个 release 不得超过30条需求。超过时会在 Lex 阶段回退。这可以成为一个用来测试的用例。
+- [ ] 每个 Spec 最多包含 30 条有效 FR+NFR（`Valid=❌` 的历史需求不计数）；恰好 30 条允许，超过时不可 waiver。Louke 推荐一个 Story/Spec 对应一个 release，但硬门禁作用域是单个 Spec，不累计同一 release 的多个 Spec。
+- [ ] 30 条上限由 Runtime 在 Sage 初稿/修订持久化后、dispatch Lex 之前执行；超限返回稳定错误 `SPEC_SCOPE_TOO_LARGE`，Lex 不参与是否拆分的决定，且不得执行 anchor、Issue、approval 或 lock 副作用。
+- [ ] 超限 run 进入 `needs_story_split` 并合法返回 M-STORY；原 Story/Spec/Acceptance revision 完整保留。Scribe 提出独立价值切片，Human 决定；确认后原 Story 标记为 Split parent，子 Story 记录 `parent_story_id` 并进入后续独立 release/run。
+- [ ] installed-wheel E2E 使用含 31 条有效需求的 Spec 证明：Runtime 在 Lex 前拒绝、无下游副作用、回退状态可重启恢复、父子 Story 可追溯、拆分后的子 Story 能独立继续；另验证 30 条通过及 `Valid=❌` 不计数。
 
 ## 追踪规则
 

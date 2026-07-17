@@ -9,8 +9,8 @@ from .store import ProjectStore, ValidationError
 
 
 ROLE_TO_AGENTS = {
-    "S": ["Judge"],
-    "A": ["Maestro", "Sage", "Scribe", "Archer", "Devon", "Prism", "Shield"],
+    "S": ["Judge", "Sage", "Archer", "Prism"],
+    "A": ["Maestro", "Scribe", "Devon", "Shield"],
     "B": ["Lex", "Warden", "Keeper", "Scout", "Librarian"],
 }
 AGENT_TO_ROLE = {

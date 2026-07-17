@@ -146,7 +146,7 @@ M-ARCH 必须完成下列职责并在同一轮设计中交付；它们不是 M-D
 
 - story / spec（`.louke/project/specs/{SPEC-ID}/spec.md`）
 - acceptance.md（`.louke/project/specs/{SPEC-ID}/acceptance.md`）
-- GitHub issue 列表（已由 Sage 创建）
+- GitHub issue manifest（由 Runtime 在 requirements approval/lock 后幂等创建并验证）
 - `.louke/templates/test-plan.md`（全局模板）
 - 项目信息（`.louke/project/project.toml`）
 
