@@ -46,6 +46,27 @@
 - [ ] 超限 run 进入 `needs_story_split` 并合法返回 M-STORY；原 Story/Spec/Acceptance revision 完整保留。Scribe 提出独立价值切片，Human 决定；确认后原 Story 标记为 Split parent，子 Story 记录 `parent_story_id` 并进入后续独立 release/run。
 - [ ] installed-wheel E2E 使用含 31 条有效需求的 Spec 证明：Runtime 在 Lex 前拒绝、无下游副作用、回退状态可重启恢复、父子 Story 可追溯、拆分后的子 Story 能独立继续；另验证 30 条通过及 `Valid=❌` 不计数。
 
+## F. Cutover 后旧 workflow CLI 命令缺位合同与 unknown-command 处置
+
+> 与 BS-30 / story.md §0.1 第 11 条（2026-07-17 修订） / research-report §15.17（2026-07-17 修订） 对齐；本节是 v0.14 切换日生效的稳定合同，不得在实现阶段自行放宽。本节取代并废止先前"deprecated no-op 行为合同与 audit 事件合同"（旧 BS-30、旧 §0.1 第 11/13 条、旧 research-report §15.17、旧 cutover-checklist §F 全部不再适用）。
+
+- [ ] v0.14 release cutover 生效后，旧 workflow CLI 命令（包括但不限于 `lk agent ...` 等曾用于推进 workflow 的命令）**不作为公开命令存在**：它们不在 CLI 注册表中注册、不出现在 `--help` / shell completion / 任何文档/UI 命令列表中、不会被 CLI dispatcher 路由到 Runtime / 任何 Agent / 任何 workflow。
+- [ ] cutover 后不存在 `cli_legacy_deprecated_noop` 这类专用 audit 事件类型；不存在 deprecated no-op 退出码合同；不存在专门的 exit-0 合同或专用迁移警告合同；唯一适用的是 CLI 自身的普通 unknown/unsupported-command 处置路径。
+- [ ] 当 cutover 后用户尝试调用一个不再注册的旧 workflow 命令（无论通过 shell、脚本、CI、文档示例还是 dogfood），该调用只能命中 CLI 的普通 unknown/unsupported-command 行为：CLI 以与其它任何未知/不支持命令一致的方式向用户报告，不抛专用于"已废弃命令"的特殊错误码、不写专用于"已废弃命令"的 audit 事件、不提供任何 deprecated no-op 兼容 fallback、不静默转发到旧 Runtime / 旧 Agent / 旧 workflow、不 mutate 任何 run / project / Git 状态。
+- [ ] v0.13 baseline 上的 pre-cutover 开发期间（在 v0.14 release tag 之前），CLI 仍按既有 v0.13 行为提供 workflow 推进命令以便 dogfood 与调试；cutover 由 Runtime 在 release cutover 阶段统一执行，过渡期不出现"新旧入口半切"的中间形态。
+- [ ] 运维白名单命令（`lk serve`、`lk upgrade` 等）的行为不受本节约束影响；本节只针对 cutover 后被从公开命令表面移除的旧 workflow 推进命令。
+- [ ] installed-wheel E2E 必须双向断言：(a) cutover 后的 CLI 不注册任何旧 workflow 命令，旧命令不在 `--help` / completion / 任何命令列表中可见；(b) 对一次典型旧命令的调用（例如 `lk agent ...`），CLI 走普通 unknown/unsupported-command 路径，不存在专用 deprecated no-op 退出码、不存在专用 audit 事件、不发生状态变更；(c) pre-cutover v0.13 baseline（v0.14 dev 期）允许存在并执行既有 CLI workflow 命令。
+
+## G. Sage 例外 `question` 通道与 `waiting_human` 持久化
+
+> 与 BS-31 / story.md §0.1 第 12 条 / research-report §15.12 对齐；本节是 Sage 例外 `question` 通道的稳定合同，不得在实现阶段自行放宽。
+
+- [ ] Sage 在 M-SPEC 阶段例外使用 `question` 通道向 Human 提问时，Runtime 必须持久化 `waiting_human` 状态；被阻塞需求保持 `Decided=⚠️`。
+- [ ] Runtime 不做默认决定、不消耗 review 轮次、不解除 requirements approval 或 M-LOCK 阻塞——`waiting_human` 期间该 run 必须停留在原状态。
+- [ ] `lk serve` 重启并重新进入 chat 窗口后，Sage 通过例外 `question` 提出的未决问题必须仍可见；可观察性由 opencode session 恢复机制承载，Runtime 自身的 `waiting_human` 持久化与 gate 阻塞语义不依赖 opencode session 恢复。
+- [ ] 只有匹配的 Human 回复落入同一 spec revision 后，Runtime 才恢复该 task 并继续后续 gate 判定；未匹配的回复或跨 revision 的回复不应被 Runtime 自动接受。
+- [ ] installed-wheel E2E 必须双向断言：(a) 触发例外 `question` 后不回复，`waiting_human` 状态可读、需求 `Decided=⚠️`、round 计数不变、approval/lock 仍阻塞；(b) 重启 `lk serve` 后重新进入 chat 窗口仍可见 Sage 的提问；(c) 给出匹配的 Human 回复后 task 恢复并继续 gate 判定。
+
 ## 追踪规则
 
 后续规格必须为本清单每个条目建立稳定 requirement/AC 或明确的 release exit condition，并在实现计划中映射到 Issue、代码、测试和发布证据。任何条目若因范围变化被推迟，必须由人类显式批准目标版本与风险，不能在实现阶段自行删除。
