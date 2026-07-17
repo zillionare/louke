@@ -104,21 +104,23 @@ def _find_deprecated_frnfr(spec_text: str) -> set[str]:
     in_table = False
     col_map: dict[str, int] = {}
 
+    def _reset_table_state() -> None:
+        nonlocal table_buf, in_table, col_map
+        table_buf = []
+        in_table = False
+        col_map = {}
+
     for line in lines:
         # Top-level section heading ends the current unit
         if RE_TOP_HEADING.match(line):
             current_unit = None
-            table_buf = []
-            in_table = False
-            col_map = {}
+            _reset_table_state()
             continue
 
         # Code fence toggles
         if RE_FENCE.match(line):
             in_code_block = not in_code_block
-            table_buf = []
-            in_table = False
-            col_map = {}
+            _reset_table_state()
             continue
 
         if in_code_block:
@@ -130,9 +132,7 @@ def _find_deprecated_frnfr(spec_text: str) -> set[str]:
             kind = m_head.group(1)
             num = m_head.group(2)
             current_unit = f"{kind}-{num}"
-            table_buf = []
-            in_table = False
-            col_map = {}
+            _reset_table_state()
             continue
 
         if current_unit is None:
@@ -160,9 +160,7 @@ def _find_deprecated_frnfr(spec_text: str) -> set[str]:
             continue
         else:
             if table_buf:
-                table_buf = []
-                in_table = False
-                col_map = {}
+                _reset_table_state()
 
     return deprecated
 
