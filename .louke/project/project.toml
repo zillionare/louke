@@ -8,13 +8,13 @@ release_branch = "releases/0.13.1"
 
 [meta]
 created = "2026-07-16"
-current_stage = "M-E2E"
+current_stage = "M-MILESTONE"
 security_audit = "disabled"
 pre_commit = "installed (python + base)"
 acknowledged_orphan_releases = ["releases/v0.10", "releases/v0.11", "releases/v0.4", "releases/v0.8"]
 smoke_test_issue = "#207 (closed)"
 smoke_test_pr = "#208 (closed)"
-dod = "TBD (Sage drafts in M-SPEC)"
+dod = "v0.13.1: project-local install + AC@version + pre-commit gate (lock v0.13.1)"
 
 story = """
 v0.13.1-002-project-local-install-experience：完成 v0.13.0 之后识别出的两个紧耦合缺口，使用户能在 5 分钟内把 louke 装到新项目、已有全局 louke 的用户能迁移到项目内 louke 而不动全局、release 时 louke 包版本自动与 git tag 同步。
@@ -32,7 +32,7 @@ v0_11_001 = "shipped (2026-07-11, tag v0.11.0; web-ide API + 6 sub-apps)"
 v0_11_002 = "paused (web-ui-integration; superseded for new work by v0.12 Projects UI contract)"
 v0_12_001 = "shipped (2026-07-15, tag v0.12.1; programmatic-workflow-runtime stabilization)"
 v0_13_001 = "shipped (2026-07-16, tag v0.13.0; web-ui-foundation)"
-v0_13_1_002 = "active (M-ARCH; project-local install experience + release identity sync)"
+v0_13_1_002 = "shipped (2026-07-16, tag v0.13.1; project-local install experience + AC@version + pre-commit gate)"
 
 [integration]
 # Bootstrap explicitly resolves the repository `.venv` on the current OS and
