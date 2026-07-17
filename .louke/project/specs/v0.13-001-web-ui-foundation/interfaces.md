@@ -1,8 +1,8 @@
 ---
-status: Draft — M-ARCH
+status: Locked — M-ARCH complete
 spec_id: v0.13-001-web-ui-foundation
 created: 2026-07-15
-locked: false
+locked: true
 ---
 
 # Web UI Foundation — External Interfaces Contract

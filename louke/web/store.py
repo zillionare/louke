@@ -41,10 +41,17 @@ from ..models import config_path, load_config  # noqa: E402
 
 
 DOC_NAME_TO_FILE = {
+    "story": "story.md",
     "spec": "spec.md",
     "acceptance": "acceptance.md",
     "test-plan": "test-plan.md",
+    "architecture": "architecture.md",
+    "interfaces": "interfaces.md",
+    "gap-analysis": "gap-analysis.md",
+    "m-lock": "m-lock.md",
 }
+WRITABLE_DOC_NAMES = frozenset({"story", "spec", "acceptance"})
+MAX_DOC_BYTES = 1024 * 1024
 
 
 class ConflictError(RuntimeError):
@@ -164,9 +171,17 @@ class ProjectStore:
         return _pick_highest_version_spec(available)
 
     def doc_path(self, spec_id: str, doc_name: str) -> Path:
-        if doc_name not in DOC_NAME_TO_FILE:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", spec_id):
+            raise ValidationError(f"unsupported spec id: {spec_id}")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", doc_name):
             raise ValidationError(f"unsupported document name: {doc_name}")
-        path = self.specs_dir / spec_id / DOC_NAME_TO_FILE[doc_name]
+        path = (
+            self.specs_dir / spec_id / DOC_NAME_TO_FILE.get(doc_name, f"{doc_name}.md")
+        )
+        try:
+            path.resolve().relative_to(self.specs_dir.resolve())
+        except ValueError as exc:
+            raise ValidationError("document path is outside the specs root") from exc
         if not path.exists():
             raise FileNotFoundError(path)
         return path
@@ -191,12 +206,21 @@ class ProjectStore:
         actor_name: str,
         force: bool = False,
     ) -> tuple[str, ResourceMetadata]:
+        if doc_name not in WRITABLE_DOC_NAMES:
+            raise ValidationError(
+                "PATH_NOT_ALLOWED: only story.md, spec.md, and acceptance.md are writable"
+            )
+        encoded = body_md.encode("utf-8")
+        if not encoded:
+            raise ValidationError("VALIDATION_FAILED: body_md must not be empty")
+        if len(encoded) > MAX_DOC_BYTES:
+            raise ValidationError("TOO_LARGE: body_md exceeds 1 MiB")
         path = self.doc_path(spec_id, doc_name)
         self._check_actor(actor_name)
         current = path.read_text(encoding="utf-8")
         if not force:
             self._assert_token(path, current, version_token)
-        self._atomic_write_text(path, self._ensure_trailing_newline(body_md))
+        self._atomic_write_text(path, body_md)
         metadata = self.record_activity("document.updated", path, actor_name)
         return self._token_for_text(path, body_md), metadata
 

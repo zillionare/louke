@@ -7,7 +7,7 @@ locked-by: lk agent sage record-lock
 
 - **Spec ID**：`v0.13-001-web-ui-foundation`
 - **Created**：2026-07-15
-- **Status**：Pre-M-LOCK — Stage 1 draft (3 blockers fixed in-place 2026-07-15)
+- **Status**：Shipped — v0.13.0 (M-MILESTONE complete)
 - **Priority**：P0
 
 > 本文描述 v0.13 Web UI 基础版面的完整用户需求与行为边界。可观察、可断言的通过条件位于 `acceptance.md`。当前不得以提前形成的 architecture / test-plan / interfaces 草稿反向限制本文；正式设计只能在需求审批门通过后产生。

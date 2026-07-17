@@ -29,8 +29,9 @@ from louke.web.api.opencode import create_app
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Return a TestClient backed by a fresh in-memory opencode sub-app."""
+    monkeypatch.chdir(tmp_path)
     return TestClient(create_app())
 
 

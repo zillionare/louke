@@ -54,7 +54,7 @@ async def workbench(request: Request) -> HTMLResponse:
 
 
 def _settings(root: Path) -> str:
-    """Render the runtime identity and paths on every Settings page render."""
+    """Render v0.13 placeholders alongside the v0.13.1 runtime identity."""
     from louke import __version__
     from louke.__main__ import _runtime_mode
 
@@ -64,13 +64,16 @@ def _settings(root: Path) -> str:
     local_path = str(root / ".venv")
     return (
         '<section data-settings-pane="menu"><button type="button" '
-        'data-testid="settings-menu-version" data-setting="version">版本更新</button>'
+        'data-testid="settings-menu-version" data-setting="version" aria-disabled="true">'
+        "版本更新 <span>待 v0.15</span></button>"
         '<button type="button" data-testid="settings-menu-server" '
-        'data-setting="server">服务器配置</button>'
+        'data-setting="server" aria-disabled="true">服务器配置 <span>待 v0.15</span></button>'
         '<button type="button" data-testid="settings-menu-model" '
-        'data-setting="model">S/A/B 模型绑定</button></section>'
+        'data-setting="model" aria-disabled="true">S/A/B 模型绑定 <span>待 v0.15</span></button></section>'
         '<section data-settings-pane="detail" data-testid="settings-detail">'
-        "<h2>运行时</h2>"
+        '<h2 data-testid="settings-placeholder-title">版本更新</h2>'
+        '<p data-testid="settings-placeholder-detail">待 v0.15；当前仅提供运行时身份信息。</p>'
+        "<h3>当前运行时</h3>"
         f'<p data-testid="settings-runtime-identity"><strong>{escape(identity)}</strong></p>'
         f'<dl><dt>当前解释器</dt><dd data-testid="settings-runtime-executable">{escape(executable)}</dd>'
         f'<dt>项目目录</dt><dd data-testid="settings-project-root">{escape(str(root))}</dd>'
@@ -202,6 +205,14 @@ def _devdocs_view(
         '<section class="discussion-block" data-discussion="1">',
     )
     links = _devdocs_cross_references(rendered_html, body_md, spec_id, specs_dir)
+    reference_links = "".join(
+        dict.fromkeys(
+            re.findall(
+                r'<a data-testid="devdocs-cross-ref-[^"]+" href="[^"]+">[^<]+</a>',
+                links,
+            )
+        )
+    )
     cards = _devdocs_verdict_cards(rendered.cards)
     documents = [Path(file).stem for file in files]
     document_json = json.dumps(documents, ensure_ascii=False, separators=(",", ":"))
@@ -218,6 +229,7 @@ def _devdocs_view(
         '<button type="button" data-workspace-action="split" title="新增一个文档分屏">新增分屏</button>'
         "</div></header>"
         '<div data-testid="devdocs-pane-container" class="devdocs-pane-container"></div>'
+        f'<nav data-testid="devdocs-cross-references" aria-label="文档交叉引用">{reference_links}</nav>'
         f'<section data-testid="devdocs-verdict">{cards}</section>'
         f'<div data-testid="devdocs-rendered" hidden>{links}</div>'
         f'<pre data-testid="devdocs-source" hidden>{escape(body_md)}</pre>'
@@ -254,6 +266,13 @@ function docValue(pane) {
 function setDocStatus(pane, text) {
   const status = pane?.el?.querySelector('[data-pane-status]');
   if (status) status.textContent = text;
+}
+function setDocPaneDirty(pane) {
+  if (!pane) return;
+  pane.dirty = docValue(pane) !== pane.loadedBody;
+  pane.saveButton.disabled = !isWritableDoc(pane.docName) || !pane.dirty;
+  pane.saveButton.textContent = pane.dirty ? '保存 *' : '保存';
+  setDocStatus(pane, pane.dirty ? '有未保存修改' : '已加载');
 }
 function paneOptions(select, docs, selected) {
   select.replaceChildren();
@@ -321,8 +340,7 @@ function fallbackEditor(pane, body) {
   pane.fallback = textarea;
   pane.vditor = null;
   textarea.addEventListener('input', () => {
-    pane.dirty = true;
-    setDocStatus(pane, '有未保存修改');
+    setDocPaneDirty(pane);
   });
 }
 function initDocPaneEditor(pane, body) {
@@ -339,8 +357,7 @@ function initDocPaneEditor(pane, body) {
       after: () => { pane.ready = true; markPaneDiscussions(pane); },
       input: () => {
         if (pane.loading) return;
-        pane.dirty = true;
-        setDocStatus(pane, '有未保存修改');
+        setDocPaneDirty(pane);
         clearTimeout(pane.discussionTimer);
         pane.discussionTimer = setTimeout(() => markPaneDiscussions(pane), 250);
       }
@@ -363,12 +380,15 @@ async function loadDocPane(pane, docName) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || ('文档加载失败 (' + response.status + ')'));
     pane.versionToken = data.version_token || '';
+    pane.loadedBody = data.body_md || '';
     if (pane.vditor && pane.ready) {
       pane.vditor.setValue(data.body_md || '');
     } else {
       initDocPaneEditor(pane, data.body_md || '');
     }
     pane.dirty = false;
+    pane.saveButton.disabled = true;
+    pane.saveButton.textContent = '保存';
     setDocStatus(pane, '已加载');
     markPaneDiscussions(pane);
   } catch (error) {
@@ -398,13 +418,16 @@ function createDocPane(docName) {
     '<button type="button" data-pane-action="save" title="保存">保存</button>' +
     '<button type="button" data-pane-action="reload" title="重载">↻</button>' +
     '<button type="button" data-pane-action="close" title="关闭分屏">×</button></div></header>' +
+    '<div data-pane-conflict hidden><strong>文件已被外部修改</strong>' +
+    '<button type="button" data-pane-conflict-action="reload">重新加载并放弃我的编辑</button>' +
+    '<button type="button" data-pane-conflict-action="force">仍要覆盖</button></div>' +
     '<div class="vditor-mount" id="' + id + '-editor"></div>';
   host.append(paneEl);
   const pane = {
     id, el: paneEl, select: paneEl.querySelector('[data-pane-doc]'),
     saveButton: paneEl.querySelector('[data-pane-action="save"]'),
     docName: selected, versionToken: '', vditor: null, fallback: null,
-    ready: false, dirty: false, loading: false, collapsed: false
+    ready: false, dirty: false, loading: false, collapsed: false, loadedBody: ''
   };
   paneOptions(pane.select, docs, selected);
   pane.select.addEventListener('change', () => loadDocPane(pane, pane.select.value));
@@ -418,29 +441,43 @@ function createDocPane(docName) {
     else if (action === 'reload') loadDocPane(pane, pane.docName);
     else if (action === 'close') closeDocPane(pane);
   }));
+  paneEl.querySelector('[data-pane-conflict-action="reload"]').addEventListener('click', () => {
+    paneEl.querySelector('[data-pane-conflict]').hidden = true;
+    loadDocPane(pane, pane.docName);
+  });
+  paneEl.querySelector('[data-pane-conflict-action="force"]').addEventListener('click', () => {
+    if (confirm('确认覆盖外部修改？')) saveDocPane(pane, true);
+  });
   docPanes.push(pane);
   refreshDocPaneLayout();
   loadDocPane(pane, selected);
 }
-async function saveDocPane(pane) {
+async function saveDocPane(pane, force = false) {
   if (!pane || !isWritableDoc(pane.docName)) return docWorkspaceToast('该文档为只读');
   const view = docWorkspaceView();
   pane.saveButton.disabled = true;
   try {
     const response = await fetch('/api/docs/' + encodeURIComponent(view.dataset.specId) + '/' + encodeURIComponent(pane.docName), {
       method: 'PUT', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({body_md: docValue(pane), version_token: pane.versionToken, force: false})
+      body: JSON.stringify({body_md: docValue(pane), version_token: pane.versionToken, force: !!force})
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '保存失败');
+    if (response.status === 409 && !force) {
+      pane.el.querySelector('[data-pane-conflict]').hidden = false;
+      setDocStatus(pane, '保存冲突');
+      return;
+    }
+    if (!response.ok) throw new Error(data.message || data.error || '保存失败');
     pane.versionToken = data.version_token || pane.versionToken;
+    pane.loadedBody = data.body_md || docValue(pane);
     pane.dirty = false;
+    pane.saveButton.textContent = '保存';
     setDocStatus(pane, '已保存');
   } catch (error) {
     setDocStatus(pane, '保存失败');
     docWorkspaceToast(error.message || '保存失败');
   } finally {
-    pane.saveButton.disabled = !isWritableDoc(pane.docName);
+    pane.saveButton.disabled = !isWritableDoc(pane.docName) || !pane.dirty;
   }
 }
 function closeDocPane(pane) {
@@ -1217,8 +1254,8 @@ function renderSidebar(activity){{const sidebar=document.querySelector('[data-lo
  document.querySelector('[data-testid="chat-form"]').addEventListener('submit',event=>{{event.preventDefault();const input=document.querySelector('[data-testid="chat-input"]');const content=input.value.trim();if(content)sendChat(content);}});
  selectAgent('Maestro');
  openTab(new URLSearchParams(location.search).has('doc')?'dev-docs':'chat');
-document.addEventListener('click',event=>{{const item=event.target.closest('[data-setting]');if(item)document.querySelector('[data-testid="settings-detail"]').dataset.selectedSetting=item.dataset.setting;}});
-document.querySelector('[data-testid="accounts-logout"]').addEventListener('click',()=>fetch('/api/security/logout',{{method:'POST'}}).then(()=>location.href='/'));
+document.addEventListener('click',event=>{{const item=event.target.closest('[data-setting]');if(!item)return;const detail=document.querySelector('[data-testid="settings-detail"]');detail.dataset.selectedSetting=item.dataset.setting;detail.querySelector('[data-testid="settings-placeholder-title"]').textContent=item.childNodes[0].textContent.trim();detail.querySelector('[data-testid="settings-placeholder-detail"]').textContent='待 v0.15；当前入口不会执行任何写操作。';}});
+document.querySelector('[data-testid="accounts-logout"]').addEventListener('click',()=>fetch('/api/auth/logout',{{method:'POST'}}).then(()=>location.href='/'));
  document.querySelectorAll('[data-devdocs-spec]').forEach(item=>item.addEventListener('toggle',()=>localStorage.setItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec,item.open?'expanded':'collapsed')));
  document.querySelectorAll('[data-devdocs-spec]').forEach(item=>{{item.open=localStorage.getItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec)==='expanded';}});
  document.querySelectorAll('[data-doc-path]').forEach(item=>item.addEventListener('click',()=>{{const parts=item.dataset.docPath.split('/');location.href='/workbench?spec='+encodeURIComponent(parts[3])+'&doc='+encodeURIComponent(parts[4].replace(/\\.md$/,''));}}));

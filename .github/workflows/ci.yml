@@ -143,7 +143,7 @@ jobs:
           which python3
           bats tests/*.bats
 
-  # ── AC traceability scan (non-blocking, parallel with pytest/bats) ─
+  # ── AC traceability scan ──────────────────────────────────────────
   ac-scan:
     name: AC traceability scan
     needs: build
@@ -165,26 +165,40 @@ jobs:
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
       - name: AC traceability scan
-        # NOTE: continue-on-error because lk agent archer ci-scan reports
-        # pre-existing baseline warnings:
-        # (a) Unknown ACs from v0.11-001 Web IDE spec (e.g. AC-FR0001-04)
-        #     that are not in the v0.12.001 acceptance scope.
-        # (b) FAKE-005/006 patterns in test files outside v0.12.1 work.
-        # The full audit and override rationale is in
-        # docs/v0121_evidence/v0.12.1_release_audit.md section 13.
-        # When the pre-existing baseline is cleaned up in v0.13, remove
-        # continue-on-error.
-        continue-on-error: true
         run: |
           export PATH="/tmp/lk-venv/bin:$PATH"
           if [ -d .louke/project/specs ]; then
             for spec in .louke/project/specs/*; do
               [ -d "$spec" ] || continue
-              lk agent archer ci-scan --spec "$(basename "$spec")"
+            lk agent archer ci-scan --spec "$(basename "$spec")"
             done
           else
             echo "No .louke specs found; skipping louke ci-scan"
           fi
+
+  # ── v0.13 Chromium product journey ───────────────────────────────
+  web-e2e:
+    name: v0.13 Chromium product journey
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: louke-wheel
+          path: dist/
+      - name: Create project runner venv
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet dist/louke-*.whl pytest pytest-cov build playwright
+          .venv/bin/playwright install --with-deps chromium
+      - name: Run the single product-runtime journey
+        run: |
+          cd /tmp
+          "$GITHUB_WORKSPACE/tests/e2e/run-project-venv" e2e --profile all --runtime both
 
   # ── First-install platform matrix (v0.13.1) ──────────────────────
   install-matrix:

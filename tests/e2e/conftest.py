@@ -116,6 +116,9 @@ def browser_page(request, live_server_url):
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
+        executable = getattr(p, request.param).executable_path
+        if not Path(executable).exists():
+            pytest.skip(f"AC-NFR0101-01: Playwright {request.param} is not installed")
         browser = getattr(p, request.param).launch(headless=True)
         page = browser.new_page()
         yield page

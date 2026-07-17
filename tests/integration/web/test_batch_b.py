@@ -12,12 +12,16 @@ def _html() -> str:
 
 
 def test_settings_menu_3_disabled_items() -> None:
-    """AC-FR1512-01@v0.13.1: settings exposes runtime identity metadata."""
+    """AC-FR1303-02/03/04 and AC-FR1512-01@v0.13.1 stay compatible."""
     html = _html()
     for name in ("version", "server", "model"):
         assert f'data-testid="settings-menu-{name}"' in html
+    assert html.count('aria-disabled="true"') >= 3
+    assert html.count("待 v0.15") >= 4
     assert 'data-testid="settings-detail"' in html
+    assert 'data-testid="settings-placeholder-detail"' in html
     assert 'data-testid="settings-runtime-identity"' in html
+    assert "不会执行任何写操作" in html
 
 
 def test_accounts_logout() -> None:
@@ -25,7 +29,7 @@ def test_accounts_logout() -> None:
     html = _html()
     assert 'data-testid="accounts-menu"' in html
     assert 'data-testid="accounts-logout"' in html
-    assert "/api/security/logout" in html
+    assert "/api/auth/logout" in html
     assert "location.href='/'" in html
 
 

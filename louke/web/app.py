@@ -588,9 +588,18 @@ async def api_bindings(request: Request) -> JSONResponse:
                 "updated_at": store.read_bindings()[2].updated_at,
             },
         )
-        return JSONResponse({"error": str(exc)}, status_code=409)
+        return JSONResponse(
+            {"code": "CONFLICT", "message": str(exc), "error": str(exc)},
+            status_code=409,
+        )
     except ValidationError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=400)
+        message = str(exc)
+        code = message.split(":", 1)[0] if ":" in message else "VALIDATION_FAILED"
+        status = 403 if code == "PATH_NOT_ALLOWED" else 400
+        return JSONResponse(
+            {"code": code, "message": message, "error": message},
+            status_code=status,
+        )
     broker.publish_nowait(
         "bindings.updated",
         {

@@ -2,7 +2,7 @@
 
 - **Spec ID**：`v0.13-001-web-ui-foundation`
 - **Created**：2026-07-15
-- **Status**：Pre-M-LOCK — Stage 1 draft
+- **Status**：Shipped — v0.13.0
 
 > 每个条件从浏览器端可见的 Web UI、公开 HTTP API 或 Runtime 持久化观察出口验证。不得通过读取或修改内部 Python 对象伪造通过。所有 AC-FR13XX-NN 与 v0.12-001 的 AC-FR24XX-NN 不冲突；本 spec 复用 v0.12-001 已批准字段时只做引用，不复制其 AC。
 

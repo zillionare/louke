@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -12,11 +13,15 @@ from .store import ConflictError, ProjectStore, ValidationError
 def get_doc_payload(store: ProjectStore, spec_id: str, doc_name: str) -> dict[str, Any]:
     body_md, version_token, metadata = store.read_doc(spec_id, doc_name)
     rendered = render_markdown_view(body_md, kind="doc", doc_name=doc_name)
+    path = store.doc_path(spec_id, doc_name)
+    stat = path.stat()
     return {
         "spec_id": spec_id,
         "doc_name": doc_name,
         "path": store.relative_path(store.doc_path(spec_id, doc_name)),
         "body_md": body_md,
+        "sha256": hashlib.sha256(body_md.encode("utf-8")).hexdigest(),
+        "mtime": stat.st_mtime_ns,
         "rendered_html": rendered.rendered_html,
         "version_token": version_token,
         "updated_at": metadata.updated_at,
@@ -47,6 +52,7 @@ def save_doc_payload(
     payload["version_token"] = token
     payload["updated_at"] = metadata.updated_at
     payload["last_modified_by"] = metadata.last_modified_by
+    payload["saved_at"] = metadata.updated_at
     return payload
 
 
