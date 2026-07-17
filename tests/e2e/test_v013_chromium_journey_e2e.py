@@ -47,7 +47,7 @@ def _wait_for_health(base_url: str) -> None:
 @pytest.mark.chrome_e2e
 @pytest.mark.skipif(
     not _chromium_available(),
-    reason="Chromium or Playwright is not installed; run: python -m playwright install chromium",
+    reason="Chromium or Playwright is not installed; run: python -m playwright install chromium; issue #180",
 )
 def test_v013_chromium_main_journey() -> None:
     """AC-FR1317-01/02/03/04: Chromium navigates Dev Docs, Wiki, and Runs."""

@@ -271,6 +271,8 @@ class TestInstalledLkServeBoot:
             f"expected 303 redirect from / in setup-only mode, got {status}; "
             f"location={location!r}"
         )
-        assert location is not None and location.rstrip("/").endswith("/setup"), (
+        assert location is not None and location.rstrip("/").endswith(
+            "/setup"
+        ), (  # AC-FR1801-01
             f"expected / to redirect to /setup, got location={location!r}"
         )

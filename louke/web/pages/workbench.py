@@ -6,6 +6,7 @@ from html import escape
 import json
 from pathlib import Path
 import re
+import sys
 
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
@@ -47,7 +48,34 @@ async def workbench(request: Request) -> HTMLResponse:
             _chat_sidebar(agents),
             _chat_content(agents),
             _runs_content(store.root),
+            _settings(store.root),
         )
+    )
+
+
+def _settings(root: Path) -> str:
+    """Render the runtime identity and paths on every Settings page render."""
+    from louke import __version__
+    from louke.__main__ import _runtime_mode
+
+    mode = _runtime_mode()
+    identity = f"{__version__} ({mode})"
+    executable = str(Path(sys.executable).resolve())
+    local_path = str(root / ".venv")
+    return (
+        '<section data-settings-pane="menu"><button type="button" '
+        'data-testid="settings-menu-version" data-setting="version">版本更新</button>'
+        '<button type="button" data-testid="settings-menu-server" '
+        'data-setting="server">服务器配置</button>'
+        '<button type="button" data-testid="settings-menu-model" '
+        'data-setting="model">S/A/B 模型绑定</button></section>'
+        '<section data-settings-pane="detail" data-testid="settings-detail">'
+        "<h2>运行时</h2>"
+        f'<p data-testid="settings-runtime-identity"><strong>{escape(identity)}</strong></p>'
+        f'<dl><dt>当前解释器</dt><dd data-testid="settings-runtime-executable">{escape(executable)}</dd>'
+        f'<dt>项目目录</dt><dd data-testid="settings-project-root">{escape(str(root))}</dd>'
+        f'<dt>项目本地运行时</dt><dd data-testid="settings-local-runtime">{escape(local_path)}</dd></dl>'
+        "</section>"
     )
 
 
@@ -600,8 +628,8 @@ def _page(
     chat_sidebar: str,
     chat_content: str,
     runs_content: str,
+    settings: str,
 ) -> str:
-    settings = """<section data-settings-pane="menu"><button type="button" data-testid="settings-menu-version" aria-disabled="true" data-setting="version">版本更新</button><button type="button" data-testid="settings-menu-server" aria-disabled="true" data-setting="server">服务器配置</button><button type="button" data-testid="settings-menu-model" aria-disabled="true" data-setting="model">S/A/B 模型绑定</button></section><section data-settings-pane="detail" data-testid="settings-detail">待 v0.15</section>"""
     styles = """
 :root {
   color-scheme: light;
@@ -1189,7 +1217,7 @@ function renderSidebar(activity){{const sidebar=document.querySelector('[data-lo
  document.querySelector('[data-testid="chat-form"]').addEventListener('submit',event=>{{event.preventDefault();const input=document.querySelector('[data-testid="chat-input"]');const content=input.value.trim();if(content)sendChat(content);}});
  selectAgent('Maestro');
  openTab(new URLSearchParams(location.search).has('doc')?'dev-docs':'chat');
-document.addEventListener('click',event=>{{const item=event.target.closest('[data-setting]');if(item)document.querySelector('[data-testid="settings-detail"]').textContent='待 v0.15';}});
+document.addEventListener('click',event=>{{const item=event.target.closest('[data-setting]');if(item)document.querySelector('[data-testid="settings-detail"]').dataset.selectedSetting=item.dataset.setting;}});
 document.querySelector('[data-testid="accounts-logout"]').addEventListener('click',()=>fetch('/api/security/logout',{{method:'POST'}}).then(()=>location.href='/'));
  document.querySelectorAll('[data-devdocs-spec]').forEach(item=>item.addEventListener('toggle',()=>localStorage.setItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec,item.open?'expanded':'collapsed')));
  document.querySelectorAll('[data-devdocs-spec]').forEach(item=>{{item.open=localStorage.getItem('louke.dev-docs.tree.'+item.dataset.devdocsSpec)==='expanded';}});

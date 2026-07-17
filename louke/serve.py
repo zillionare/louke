@@ -25,6 +25,7 @@ from .runtime.runtime_selector import (
     GlobalModeError,
     IntegrityError,
     InvalidRuntimeError,
+    RuntimeMode,
     RuntimeSelector,
     VersionMismatchError,
 )
@@ -144,12 +145,23 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     os.environ["LOUKE_OPENCODE_BACKEND"] = args.opencode_backend
     project_python = _project_venv_python(root)
     using_project_venv = project_python is not None
+    legacy_runtime = root / ".louke" / "runtime" / "lk"
+    explicit_global = os.environ.get("LOUKE_RUNTIME_MODE", "").lower() == "global"
+    runtime_mode = (
+        RuntimeMode.LOCAL
+        if using_project_venv or legacy_runtime.is_file() or not explicit_global
+        else RuntimeMode.GLOBAL
+    )
     local_version = __version__ if using_project_venv else "0.12.0"
     selector = RuntimeSelector(
         project_root=str(root),
-        declared_version=local_version,
-        local_present=_has_local_runtime(root),
-        actual_version=local_version,
+        mode=runtime_mode,
+        declared_version=local_version if runtime_mode == RuntimeMode.LOCAL else "",
+        global_version=__version__ if runtime_mode == RuntimeMode.GLOBAL else "",
+        local_present=_has_local_runtime(root)
+        if runtime_mode == RuntimeMode.LOCAL
+        else False,
+        actual_version=local_version if runtime_mode == RuntimeMode.LOCAL else None,
         local_executable=str(project_python) if project_python else None,
     )
     try:
@@ -220,7 +232,7 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
         print("lk serve: opencode backend=mock; skipping recovery scan")
 
     print(
-        f'lk serve: runtime = {identity.mode.name}, mode=local, version="{identity.version}"'
+        f'lk serve: runtime = {identity.mode.name}, mode={identity.mode.name.lower()}, version="{identity.version}"'
     )
     print(f"lk serve: effective root = {identity.effective_root}")
     print(f"lk serve: listening on http://{args.host}:{args.port}")

@@ -61,7 +61,7 @@ jobs:
         run: |
           /tmp/lk-venv/bin/python -c "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages, louke.cli_v12; print('OK')"
       - name: "Package smoke: lk --version"
-        run: /tmp/lk-venv/bin/lk --version | grep "0.12.1"
+        run: /tmp/lk-venv/bin/lk --version | grep "0.13.1"
       - name: "Package smoke: lk --help"
         run: /tmp/lk-venv/bin/lk --help
       - name: Upload wheel artifact
@@ -185,3 +185,52 @@ jobs:
           else
             echo "No .louke specs found; skipping louke ci-scan"
           fi
+
+  # ── First-install platform matrix (v0.13.1) ──────────────────────
+  install-matrix:
+    name: first install (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, python-version: "3.11" }
+          - { os: ubuntu-22.04, python-version: "3.12" }
+          - { os: ubuntu-22.04, python-version: "3.13" }
+          - { os: macos-13, python-version: "3.11" }
+          - { os: macos-13, python-version: "3.12" }
+          - { os: macos-13, python-version: "3.13" }
+          - { os: macos-14, python-version: "3.11" }
+          - { os: macos-14, python-version: "3.12" }
+          - { os: macos-14, python-version: "3.13" }
+          - { os: windows-2022, python-version: "3.11" }
+          - { os: windows-2022, python-version: "3.12" }
+          - { os: windows-2022, python-version: "3.13" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unix first install
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash install.sh --version 0.13.1
+          export PATH="$HOME/.local/bin:$PATH"
+          test -x .venv/bin/python
+          .venv/bin/python -c "import louke"
+          test -x "$HOME/.louke/venv/bin/python"
+          "$HOME/.louke/venv/bin/python" -c "import louke"
+          test "$(command -v lk)" = "$HOME/.local/bin/lk"
+          lk --version | grep -E '\(local\)$'
+      - name: Windows first install
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\install.ps1 -Version 0.13.1
+          if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw 'local venv missing' }
+          & .\.venv\Scripts\python.exe -c "import louke"
+          if (-not (Test-Path "$env:USERPROFILE\.louke\venv\Scripts\python.exe")) { throw 'global venv missing' }
+          & "$env:USERPROFILE\.louke\venv\Scripts\python.exe" -c "import louke"
+          & "$env:USERPROFILE\.louke\bin\lk.cmd" --version

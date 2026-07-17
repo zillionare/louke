@@ -639,7 +639,7 @@ def test_wiki_refresh_route_calls_librarian(tmp_path: Path, monkeypatch) -> None
     assert captured["cmd"][:3] == [sys.executable, "-m", "louke"]
     assert captured["cmd"][3:] == ["agent", "librarian", "rewrite"]
     assert captured["cwd"] == str(root)
-    assert captured["timeout"] is not None and captured["timeout"] >= 60
+    assert captured["timeout"] is not None and captured["timeout"] >= 60  # AC-FR1301-01
 
 
 def test_wiki_refresh_bypasses_lk_path_lookup(tmp_path: Path, monkeypatch) -> None:

@@ -274,7 +274,7 @@ def installed_wheel_server(tmp_path_factory: pytest.TempPathFactory):
 
 
 @pytest.mark.chromium_e2e
-@pytest.mark.skipif(not chromium_is_installed(), reason=_SKIP_REASON)
+@pytest.mark.skipif(not chromium_is_installed(), reason=f"{_SKIP_REASON}; issue #180")
 def test_chromium_setup_journey(installed_wheel_server, tmp_path: Path) -> None:
     """Chromium drives the setup-only wizard end-to-end.
 
@@ -301,7 +301,9 @@ def test_chromium_setup_journey(installed_wheel_server, tmp_path: Path) -> None:
             # Navigate to /; in setup-only mode the server redirects to /setup.
             response = page.goto(base_url + "/", wait_until="domcontentloaded")
             # A 303 redirect is followed and reported as the final 200 response.
-            assert response is not None, "navigation to / returned no response"
+            assert response is not None, (
+                "navigation to / returned no response"
+            )  # AC-FR1801-01
             assert response.status == 200, (
                 f"expected / to settle on /setup with HTTP 200, got {response.status}"
             )

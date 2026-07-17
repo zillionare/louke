@@ -131,6 +131,11 @@ def create_app(
                 "/api/ui/dev-docs/tree", endpoint=api_ui_devdocs_tree, methods=["GET"]
             ),
             Route(
+                "/api/ui/settings/runtime",
+                endpoint=api_ui_settings_runtime,
+                methods=["GET"],
+            ),
+            Route(
                 "/api/ui/wiki/{page:path}", endpoint=api_ui_wiki_page, methods=["GET"]
             ),
             Route("/api/render", endpoint=api_render, methods=["POST"]),
@@ -204,6 +209,21 @@ def create_app(
 
 async def health(request: Request) -> JSONResponse:
     return JSONResponse(request.app.state.store.health_payload())
+
+
+async def api_ui_settings_runtime(request: Request) -> JSONResponse:
+    """Expose the server's runtime identity for the Settings read model."""
+    from louke import __version__
+    from louke.__main__ import _runtime_mode
+
+    mode = _runtime_mode()
+    return JSONResponse(
+        {
+            "version": __version__,
+            "mode": mode,
+            "display": f"{__version__} ({mode})",
+        }
+    )
 
 
 async def asset_file(request: Request) -> Response:

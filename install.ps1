@@ -58,6 +58,29 @@ function Add-UserPathEntry([string]$Entry) {
     }
 }
 
+function Install-LocalFirstShim([string]$GlobalVenv) {
+    $shimDir = Join-Path $env:USERPROFILE ".louke\bin"
+    New-Item -ItemType Directory -Force -Path $shimDir | Out-Null
+    $shim = Join-Path $shimDir "lk.cmd"
+    $content = @"
+@echo off
+if exist "%CD%\.venv\Scripts\python.exe" (
+  set "LOUKE_RUNTIME_MODE=local"
+  "%CD%\.venv\Scripts\python.exe" -m louke %*
+  exit /b %ERRORLEVEL%
+)
+if exist "$GlobalVenv\Scripts\python.exe" (
+  set "LOUKE_RUNTIME_MODE=global"
+  "$GlobalVenv\Scripts\python.exe" -m louke %*
+  exit /b %ERRORLEVEL%
+)
+echo no louke runtime found; run install.bat / install.ps1 / lk install first 1>&2
+exit /b 1
+"@
+    Set-Content -LiteralPath $shim -Value $content -Encoding ASCII
+    Add-UserPathEntry $shimDir
+}
+
 try {
     $python = Find-Python
     $versionText = (& $python.Path @($python.Arguments + @("-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"))).Trim()
@@ -72,10 +95,9 @@ try {
     Install-Runtime $python $projectVenv $package
     Install-Runtime $python $globalVenv $package
 
-    $globalScripts = Join-Path $globalVenv "Scripts"
-    Add-UserPathEntry $globalScripts
+    Install-LocalFirstShim $globalVenv
 
-    Write-Output "louke installed in $projectVenv and $globalVenv"
+    Write-Output "louke installed in $projectVenv and $globalVenv; local-first lk shim installed"
     exit 0
 }
 catch {

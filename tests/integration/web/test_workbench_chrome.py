@@ -1,4 +1,4 @@
-"""Integration coverage for the workbench chrome public HTML contract."""
+"""AC-FR1512-01@v0.13.1: workbench chrome and runtime identity contract."""
 
 from __future__ import annotations
 
@@ -90,3 +90,24 @@ def test_data_testid_present() -> None:
         "workbench-sidebar",
         "workbench-main",
     }
+
+
+def test_settings_shows_current_runtime_identity(monkeypatch) -> None:
+    """AC-FR1512-01@v0.13.1: Settings exposes the active version and mode."""
+    monkeypatch.setenv("LOUKE_RUNTIME_MODE", "global")
+    html = _workbench_html()
+    assert 'data-testid="settings-runtime-identity"' in html
+    assert "(global)" in html
+    assert 'data-testid="settings-project-root"' in html
+    assert 'data-testid="settings-local-runtime"' in html
+
+
+def test_settings_runtime_read_model_is_public(monkeypatch) -> None:
+    """AC-FR1512-01@v0.13.1: the runtime read model is JSON and uncached."""
+    monkeypatch.setenv("LOUKE_RUNTIME_MODE", "global")
+    response = TestClient(create_app()).get("/api/ui/settings/runtime")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "global"
+    assert payload["display"].endswith(" (global)")

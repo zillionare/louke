@@ -61,7 +61,10 @@ def run_quality_checks(subject: str, files: list[Path]) -> list[str]:
     findings: list[str] = []
     for path in files:
         findings.extend(_format_scan_finding(path, item) for item in scan_file(path))
-    if not should_scan_ac_trace(subject):
+    # The pre-commit stage has no commit subject. AC ownership is evaluated by
+    # the commit-msg hook, where the subject is available; the pre-commit stage
+    # still performs the anti-pattern scan above.
+    if not subject or not should_scan_ac_trace(subject):
         return findings
     if not files:
         return findings

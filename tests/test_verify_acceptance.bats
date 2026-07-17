@@ -84,7 +84,7 @@ EOF
 ## FR-0001
 
 ### AC-1
-- {{TODO: replace this}}
+    - {{TODO: replace this}} # issue #207
 EOF
     run $PY agent lex verify-acceptance --spec test --spec-file "$SPEC_FILE" --acceptance-file "$ACC_FILE"
     [ "$status" -eq 1 ]

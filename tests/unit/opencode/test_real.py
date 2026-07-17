@@ -479,13 +479,16 @@ def test_version_probe_returns_health_payload():
 #      pytest -m real_opencode tests/unit/opencode/test_real.py -v
 
 
-@pytest.mark.real_opencode
+@pytest.mark.real_opencode  # issue #207
+# issue #207: live OpenCode is opt-in and unavailable on the base CI runner.
 @pytest.mark.skipif(
     not (
         os.environ.get("OPENCODE_INTEGRATION") == "1"
         and os.environ.get("OPENCODE_LIVE_BASE_URL")
     ),
-    reason=("Set OPENCODE_INTEGRATION=1 + OPENCODE_LIVE_BASE_URL to run live test"),
+    reason=(
+        "Set OPENCODE_INTEGRATION=1 + OPENCODE_LIVE_BASE_URL to run live test; issue #207"
+    ),
 )
 def test_real_opencode_live_create_send_list_delete_with_free_model():
     """AC-FR1401-01: live opencode serve with opencode/big-pickle (free) responds.
@@ -530,6 +533,7 @@ def test_real_opencode_live_create_send_list_delete_with_free_model():
 
 
 @pytest.mark.real_opencode
+# issue #207: live OpenCode is opt-in and unavailable on the base CI runner.
 @pytest.mark.skipif(
     not (
         os.environ.get("OPENCODE_INTEGRATION") == "1"

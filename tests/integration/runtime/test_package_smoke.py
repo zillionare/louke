@@ -49,7 +49,7 @@ EXPECTED_WHEEL_MODULES: tuple[str, ...] = (
 )
 
 #: The release version every source must converge on. Bumped per release.
-EXPECTED_VERSION = "0.12.1"
+EXPECTED_VERSION = "0.13.1"
 
 
 def _repo_root() -> Path:

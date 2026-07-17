@@ -101,28 +101,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build
 
-      - name: Sync package version with tag (PEP 440)
-        # Override the literal "0.3.0" in pyproject.toml with the tag version
-        # so the wheel filename matches the tag. Use Python (not sed) for
-        # cross-platform reliability (BSD vs GNU sed differ on -E behavior).
+      - name: Save original pyproject.toml for restore
+        run: cp pyproject.toml pyproject.toml.original
+
+      - name: Prepare package version with the self-host adapter
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          python3 -c "
-          import os, re, pathlib
-          new_version = os.environ['VERSION'].lstrip('v')
-          p = pathlib.Path('pyproject.toml')
-          text = p.read_text()
-          new = re.sub(r'^version = .*$', f'version = \"{new_version}\"', text, count=1, flags=re.MULTILINE)
-          p.write_text(new)
-          print('updated version to:', new_version)
-          for line in new.splitlines():
-              if line.startswith('version'):
-                  print(line)
-          "
+          python tools/louke_python_release_adapter.py prepare --tag "$VERSION"
 
-      - name: Save original pyproject.toml for restore
-        run: cp pyproject.toml pyproject.toml.original
+      - name: Install Louke CLI for the release identity gate
+        run: python -m pip install --quiet .
 
       - name: Sync package data + build wheel/sdist
         # The repo no longer ships a root-level agents/ or templates/
@@ -148,6 +137,18 @@ jobs:
       - name: Restore original pyproject.toml
         if: always()
         run: mv -f pyproject.toml.original pyproject.toml
+
+      - name: Verify every built artifact against the git tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          for artifact in dist/louke-*.whl dist/louke-*.tar.gz; do
+            [ -f "$artifact" ] || { echo "::error::missing artifact $artifact"; exit 1; }
+            metadata=$(python tools/louke_python_release_adapter.py inspect --artifact "$artifact")
+            artifact_version=$(python -c 'import json,pathlib,sys; d=json.loads(sys.argv[2]); expected=str(pathlib.Path(sys.argv[1]).resolve()); actual=d.get("artifact"); version=d.get("version"); assert actual == expected, f"artifact path mismatch: {actual!r} != {expected!r}"; assert isinstance(version,str) and version.strip(), "artifact version missing"; print(version)' "$artifact" "$metadata")
+            python -m louke release verify --tag "$VERSION" --artifact-version "$artifact_version"
+          done
 
       - name: Publish to PyPI
         # Inline twine upload instead of pypa/gh-action-pypi-publish.

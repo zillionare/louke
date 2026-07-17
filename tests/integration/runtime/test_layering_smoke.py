@@ -65,7 +65,7 @@ def test_moved_test_does_not_carry_e2e_marker() -> None:
     auto-mark) and not via ``-m e2e``.
     """
     if not _INTEGRATION_LIFECYCLE_NEW.is_file():
-        pytest.skip("lifecycle test not yet moved (RED state)")
+        pytest.skip("lifecycle test not yet moved (RED state); issue #177")
     source = _INTEGRATION_LIFECYCLE_NEW.read_text(encoding="utf-8")
     tree = ast.parse(source)
     for node in ast.walk(tree):

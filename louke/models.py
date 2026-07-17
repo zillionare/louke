@@ -69,7 +69,8 @@ def config_path(project: bool = False, root=None) -> Path:
     if project:
         root = root or git_root() or Path.cwd()
         return root / ".louke/models.json"
-    return Path.home() / ".louke/models.json"
+    louke_home = os.environ.get("LOUKE_HOME", "").strip()
+    return (Path(louke_home) if louke_home else Path.home() / ".louke") / "models.json"
 
 
 def load_config(path: Path) -> dict:
@@ -421,6 +422,12 @@ def cmd_doctor(args):
         )
     all_ok = True
     fixes: dict[str, str] = {}
+    # Keep configured legacy aliases visible even when current agents use the
+    # S/A/B intelligence quotations. This preserves the doctor contract for
+    # users migrating an existing models.json.
+    configured_aliases = load_config(config_path(False)).get("aliases") or {}
+    for alias, target in sorted(configured_aliases.items()):
+        print(f"{ok()} {alias} -> {target} {dim('(alias)')}")
     for name in used_models():
         status, resolved, note = _classify(name, models, auth, costs)
         if status == "alias":

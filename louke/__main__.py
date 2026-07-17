@@ -9,6 +9,7 @@ User-facing commands:
     lk models list|doctor|bind|unbind  Manage abstract model bindings
     lk board opencode|status    Generate IDE agent boards
     lk serve [--host H --port P] Start the web collaboration server
+    lk install                  Install a project-local runtime
     lk upgrade                  Upgrade louke via pip
     lk version                  Print version (also: lk --version, lk -v)
     lk help                     Print help (also: lk --help, lk -h)
@@ -31,6 +32,7 @@ Design:
 import argparse
 import os
 import sys
+import tomllib
 from pathlib import Path
 
 from . import __version__
@@ -64,6 +66,7 @@ def build_parser():
     cli_v12.register_subcommands(subparsers)
     subparsers.add_parser("version", add_help=False)
     subparsers.add_parser("help", add_help=False)
+    subparsers.add_parser("install", add_help=False)
     subparsers.add_parser("upgrade", add_help=False)
     agent_parser = subparsers.add_parser("agent", add_help=False)
     if hasattr(agent_main, "register"):
@@ -72,83 +75,188 @@ def build_parser():
 
 
 def _do_upgrade(extra_args):
-    """lk upgrade — find the venv that owns lk and pip install --upgrade louke there.
-
-    Supported louke-level options (the rest are forwarded to pip as-is):
-      --index URL        Specify PyPI source (e.g. https://test.pypi.org/simple/);
-                         internally translated to pip's --index-url
-      --pre              Allow pre-release / dev versions
-      --dry-run          Show the pip command that would run, without executing it
-    """
+    """Upgrade one or both v0.13 runtimes and refresh local harness resources."""
     import subprocess
-    import os
 
-    # 0. Parse louke-level options; forward the rest to pip unchanged
     parser = argparse.ArgumentParser(prog="lk upgrade", add_help=True)
-    parser.add_argument(
-        "--index",
-        metavar="URL",
-        help="PyPI source URL (e.g. https://test.pypi.org/simple/)",
+    targets = parser.add_mutually_exclusive_group()
+    targets.add_argument("--local", dest="target", action="store_const", const="local")
+    targets.add_argument(
+        "--global", dest="target", action="store_const", const="global"
     )
-    parser.add_argument(
-        "--pre", action="store_true", help="allow pre-release / dev versions"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="show the pip command that would run, without executing it",
-    )
-    opts, rest = parser.parse_known_args(extra_args)
+    targets.add_argument("--both", dest="target", action="store_const", const="both")
+    parser.set_defaults(target="local")
+    parser.add_argument("--index", metavar="URL", help="pip index URL")
+    parser.add_argument("--version", metavar="VERSION", help="louke package version")
+    parser.add_argument("--pre", action="store_true", help="allow pre-releases")
+    parser.add_argument("--dry-run", action="store_true")
+    try:
+        opts, rest = parser.parse_known_args(extra_args)
+    except SystemExit as exc:
+        return int(exc.code) if isinstance(exc.code, int) else 1
 
-    # 1. Find the venv pip. Two paths:
-    #    - When invoked as the `lk` entry script, sys.argv[0] is /path/to/venv/bin/lk
-    #      → dirname → .../venv/bin → pip there.
-    #    - When invoked as `python -m louke upgrade`, sys.argv[0] is louke/__main__.py
-    #      → that path is wrong. Fall back to sys.executable: it lives at
-    #      <venv>/bin/python3 (or /usr/bin/python3), so dirname(sys.executable)/pip
-    #      works for venv invocations and falls back to system pip otherwise.
-    lk_bin = os.path.realpath(sys.argv[0])
-    lk_bin_dir = os.path.dirname(lk_bin)
-    if os.path.basename(lk_bin_dir) == "bin" and os.path.isfile(
-        os.path.join(lk_bin_dir, "pip")
+    runtimes: list[tuple[str, Path]] = []
+    if opts.target in {"local", "both"}:
+        local = _runtime_python("local")
+        if local is None:
+            print(
+                f"lk upgrade: local runtime not found at {Path.cwd() / '.venv'}; run lk install first",
+                file=sys.stderr,
+            )
+            return 1
+        runtimes.append(("local", local))
+    if opts.target in {"global", "both"}:
+        global_python = _runtime_python("global")
+        if global_python is None:
+            print(
+                f"lk upgrade: global runtime not found at {Path.home() / '.louke' / 'venv'}; run install.sh / install.bat first",
+                file=sys.stderr,
+            )
+            return 1
+        runtimes.append(("global", global_python))
+
+    package = "louke" if not opts.version else f"louke=={opts.version}"
+    for name, python in runtimes:
+        cmd = [str(python), "-m", "pip", "install", "--upgrade", package]
+        if opts.index:
+            cmd.extend(["--index-url", opts.index])
+        if opts.pre:
+            cmd.append("--pre")
+        cmd.extend(rest)
+        print(f"Running ({name}): {' '.join(cmd)}")
+        if opts.dry_run:
+            _print_board_dry_run(name)
+            continue
+        result = subprocess.run(cmd, text=True, capture_output=True)
+        stdout = getattr(result, "stdout", "") or ""
+        stderr = getattr(result, "stderr", "") or ""
+        if stdout:
+            print(stdout, end="")
+        if stderr:
+            print(stderr, end="", file=sys.stderr)
+        if result.returncode != 0:
+            print(f"lk upgrade: {name} pip upgrade failed", file=sys.stderr)
+            return result.returncode
+        changed = _pip_changed(stdout, stderr)
+        if name == "local" and _project_harness_args(Path.cwd()) and changed:
+            board_rc = _run_board(Path.cwd(), python)
+            if board_rc != 0:
+                return board_rc
+        elif name == "local":
+            print("lk upgrade: local harness not configured; board skipped")
+        print(f"✓ louke {name} runtime upgraded")
+    return 0
+
+
+def _runtime_python(kind: str, root: Path | None = None) -> Path | None:
+    """Return the executable for a strict-CWD local or user-global runtime."""
+    if kind == "local":
+        venv = (root or Path.cwd()) / ".venv"
+    elif kind == "global":
+        venv = Path.home() / ".louke" / "venv"
+    else:  # pragma: no cover - callers use the closed target set
+        raise ValueError(f"unknown runtime kind: {kind}")
+    candidates = (
+        venv / "bin" / "python",
+        venv / "bin" / "python3",
+        venv / "Scripts" / "python.exe",
+        venv / "Scripts" / "python",
+    )
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def _project_harness_args(root: Path) -> list[str]:
+    """Return board arguments declared by the project harness manifest.
+
+    v0.13.1 deliberately does not infer a harness from generated files such as
+    ``opencode.json`` or ``.opencode``.  The project contract is the explicit
+    ``[harness].board_args`` string array in project.toml; a missing table is a
+    documented no-op.
+    """
+    manifest = root / ".louke" / "project" / "project.toml"
+    if not manifest.is_file():
+        return []
+    try:
+        with manifest.open("rb") as stream:
+            data = tomllib.load(stream)
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    harness = data.get("harness")
+    if not isinstance(harness, dict):
+        return []
+    board_args = harness.get("board_args")
+    if not isinstance(board_args, list) or not all(
+        isinstance(argument, str) for argument in board_args
     ):
-        venv_bin = lk_bin_dir
-    else:
-        venv_bin = os.path.dirname(os.path.realpath(sys.executable))
-    venv_pip = os.path.join(venv_bin, "pip")
-    venv_python = os.path.join(venv_bin, "python3")
+        return []
+    return board_args
 
-    if not os.path.isfile(venv_pip):
-        print(f"lk upgrade: cannot find venv pip at {venv_pip}", file=sys.stderr)
-        print("hint: run install.sh again to recreate the venv", file=sys.stderr)
+
+def _pip_changed(stdout: str, stderr: str) -> bool:
+    """Detect pip's no-op result so repeated upgrades do not re-board."""
+    output = f"{stdout}\n{stderr}".lower()
+    return "already satisfied" not in output
+
+
+def _print_board_dry_run(name: str) -> None:
+    if name == "local" and _project_harness_args(Path.cwd()):
+        print("Running (local board): lk board opencode")
+    elif name == "local":
+        print("Skipping (local board): no harness configured")
+
+
+def _run_board(root: Path, python: Path) -> int:
+    """Refresh the project's configured harness after a successful local pip run."""
+    import subprocess
+
+    board_args = _project_harness_args(root)
+    if not board_args:
+        return 0
+    cmd = [str(python), "-m", "louke", "board", *board_args]
+    print(f"Running (local board): {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=str(root), text=True)
+    if result.returncode != 0:
+        print("lk upgrade: board refresh failed", file=sys.stderr)
+    return result.returncode
+
+
+def _do_install(extra_args):
+    """Create a project-local ``.venv`` from the global runtime."""
+    import subprocess
+
+    parser = argparse.ArgumentParser(prog="lk install")
+    parser.add_argument("--index", metavar="URL")
+    parser.add_argument("--version", metavar="VERSION")
+    parser.add_argument("--dry-run", action="store_true")
+    try:
+        opts = parser.parse_args(extra_args)
+    except SystemExit as exc:
+        return int(exc.code) if isinstance(exc.code, int) else 1
+    root = Path.cwd()
+    local_venv = root / ".venv"
+    if local_venv.exists():
+        print(
+            f"lk install: local runtime already exists at {local_venv}; run lk upgrade",
+            file=sys.stderr,
+        )
         return 1
-
-    cmd = [venv_python, "-m", "pip", "install", "--upgrade", "louke"]
-    if opts.index:
-        cmd.extend(["--index-url", opts.index])
-    if opts.pre:
-        cmd.append("--pre")
-    cmd.extend(rest)
-
-    print(f"Running: {' '.join(cmd)}")
+    package = "louke" if not opts.version else f"louke=={opts.version}"
+    create = [sys.executable, "-m", "venv", str(local_venv)]
+    print(f"Running: {' '.join(create)}")
     if opts.dry_run:
         return 0
-    result = subprocess.run(cmd)
-    if result.returncode == 0:
-        # Verify
-        try:
-            out = subprocess.check_output(
-                [
-                    venv_python,
-                    "-c",
-                    "from louke import __version__; print(__version__)",
-                ],
-                text=True,
-            ).strip()
-            print(f"✓ louke upgraded to {out}")
-        except Exception:
-            pass
-    return result.returncode
+    result = subprocess.run(create)
+    if result.returncode != 0:
+        return result.returncode
+    python = _runtime_python("local", root)
+    if python is None:
+        print(f"lk install: local Python not found under {local_venv}", file=sys.stderr)
+        return 1
+    pip = [str(python), "-m", "pip", "install", "--upgrade", package]
+    if opts.index:
+        pip.extend(["--index-url", opts.index])
+    print(f"Running: {' '.join(pip)}")
+    return subprocess.run(pip, cwd=str(root)).returncode
 
 
 def build_command_parser(module, prog):
@@ -168,6 +276,8 @@ def main(argv=None):
     if raw[0] in ("--help", "-h", "help"):
         print_help_text()
         return 0
+    if raw[0] == "install":
+        return _do_install(raw[1:])
     if raw[0] == "upgrade":
         return _do_upgrade(raw[1:])
     if raw[0] == "release":
@@ -248,7 +358,10 @@ def print_help_text():
     print(
         "  lk serve [--host H --port P] [--project-root PATH]  Start the web collaboration server"
     )
-    print("  lk upgrade [--index URL] [--pre] [--dry-run]  Upgrade louke via pip")
+    print("  lk install                  Install a project-local runtime")
+    print(
+        "  lk upgrade [--local|--global|--both] [--index URL] [--version VERSION] [--pre] [--dry-run]  Upgrade louke"
+    )
     print(
         "  lk release verify --tag TAG --artifact-version VERSION  Verify release identity"
     )

@@ -12,13 +12,12 @@ def _html() -> str:
 
 
 def test_settings_menu_3_disabled_items() -> None:
-    """AC-FR1303-01/02/03/04: settings exposes clickable v0.15 placeholders."""
+    """AC-FR1512-01@v0.13.1: settings exposes runtime identity metadata."""
     html = _html()
     for name in ("version", "server", "model"):
         assert f'data-testid="settings-menu-{name}"' in html
-        assert 'aria-disabled="true"' in html
     assert 'data-testid="settings-detail"' in html
-    assert "待 v0.15" in html
+    assert 'data-testid="settings-runtime-identity"' in html
 
 
 def test_accounts_logout() -> None:
