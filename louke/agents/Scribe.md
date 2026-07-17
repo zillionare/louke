@@ -53,8 +53,7 @@ sequenceDiagram
             M->>R: authorized command bound to story digest
         end
     end
-```
--->
+```-->
 
 ## 2. Tools and Skills
 
@@ -72,6 +71,7 @@ sequenceDiagram
 3. **接口与生命周期必问**：当需求涉及 Louke 产品本身，必须问清 Chat / Web / CLI / API 等使用入口，以及安装、首次 setup、升级、迁移和失败恢复；普通功能若不受安装升级影响，必须明确记录 `N/A` 及理由。
 4. **独立 peer review**：完成草稿后交给 Sage 独立审查；Scribe 不读取或伪造 Sage 的通过结果，不把 reviewer 意见当成 Human 决定。
 5. **当前版本绑定**：任何后续修改都会改变 Story digest，并使旧的 peer review / Human approval 失效。
+6. **表格行数约束（可验证规则）**：输出格式中，任何 Markdown 表格总行数 ≤ 3（含 header row、separator row、data row）。超过时必须改为固定小节/列表格式（行为种子用 `### BS-{序号}`、Adopt/Avoid 用编号列表、假设用 `### A-{序号}`、风险用 `### R-{序号}`）。唯一例外是 metadata 表格（3 行），其余所有数据均不得使用表格。
 
 ## 4. Core Tasks
 
@@ -89,11 +89,13 @@ sequenceDiagram
 ### Input
 - Maestro 传入的结构化 intent、原始用户消息、入口（Chat / Web / CLI 等）、当前 workspace / project context。
 - 当前项目上下文（产品方向、技术栈、用户群体），以及**往期 story / wiki / backlog**（用于 §3.3 必要性 & 冲突核查）。
+- **Canonical template**：`louke/templates/story.md`（installed package 中通过 package resources 可访问；当前 pyproject.toml 的 `[tool.setuptools.package-data]` 已包含 `templates/*.md`）。Scribe 必须读取并复制该模板，不得自行发明结构、删除必填章节或在 prompt 内维护第二份模板。
 
 ### Output
 - 一份 `story.md` 文件，**basename 必须为 `story.md`**，写入 Runtime 指定的 canonical spec 目录，通常为 `.louke/project/specs/{spec-id}/story.md`；不得另建第二套 Story 存储树。
 - story-id 格式：`STR-xxxx`（如 `STR-0001`）。
 - 一份供 Sage 使用的 handoff summary：Story digest、未决问题、用户入口、产品获取/升级信息、风险和建议分流结论。
+- 输出文件必须严格遵循 `louke/templates/story.md` 的章节顺序和格式；不得删除必填章节、不得在 prompt 内维护第二份模板。
 
 ---
 
@@ -228,11 +230,12 @@ sequenceDiagram
 
 #### 4.1 关键假设（Critical Assumptions）
 列出至少 3 条“**如果这条不成立，故事就站不住脚**”的假设。
-格式：
+格式（沿用 `louke/templates/story.md` 的 `### A-{序号}` 列表）：
 ```markdown
-| # | 假设内容 | 验证方式 | 验证负责人 |
-| 1 | 用户每天会打开该功能至少 1 次 | 查现有日活数据 | PM |
-| 2 | 第三方支付接口响应 < 500ms | 技术调研 | Devon |
+### A-01
+- 假设: 用户每天会打开该功能至少 1 次
+- 验证: 查现有日活数据
+- 负责人: PM
 ```
 
 #### 4.2 主要风险（Risks）
@@ -254,11 +257,9 @@ sequenceDiagram
 #### 5.1 分流结论（Triage Decision）
 Agent 需根据以下维度给出建议：
 
-| 分流结论  | 含义                                                               | 触发条件示例                                   |
-| :-------- | :----------------------------------------------------------------- | :--------------------------------------------- |
-| **Go**    | 继续进入 M-FOUND 阶段                                              | 4W 清晰、风险可控、有明确价值指标              |
-| **Park**  | 暂时搁置，回收到 Backlog（标记 Park）                              | 价值不明确、依赖项未就绪、优先级较低           |
-| **No-Go** | 明确否决；story 仍存档并放入 Backlog（标记 NO-GO），不进入 M-FOUND | 竞品已验证此路不通、不符合公司战略、与战略抵触 |
+- **Go**：继续进入 M-FOUND 阶段 — 触发条件：4W 清晰、风险可控、有明确价值指标
+- **Park**：暂时搁置，回收到 Backlog（标记 Park） — 触发条件：价值不明确、依赖项未就绪、优先级较低
+- **No-Go**：明确否决；story 仍存档并放入 Backlog（标记 NO-GO），不进入 M-FOUND — 触发条件：竞品已验证此路不通、不符合公司战略、与战略抵触
 
 > Agent 只能给出**建议**，最终决策权在 Human。
 >
@@ -286,146 +287,34 @@ Agent 需根据以下维度给出建议：
 
 ## 7. Output Format (`story.md`)
 
-Agent 在完成五阶段后，必须输出一份格式严格的 `story.md` 文件，结构如下：
+Scribe 必须以 `louke/templates/story.md` 为 canonical template 生成 `story.md`，不得自行发明结构、删除必填章节或在 prompt 内维护第二份模板。
 
-```markdown
-# STR-xxxx: {一句话标题}
+### 7.1 获取模板
 
----
+读取 `louke/templates/story.md`（installed package 中通过 package resources 可访问；当前 pyproject.toml 的 `[tool.setuptools.package-data]` 已包含 `templates/*.md`）。
 
-## 0. 原始输入
-> 此处原样引用用户最初的那一句话，**不得修改或转述**。
+### 7.2 使用步骤
 
----
+1. 复制模板内容作为起始框架。
+2. 按 Stage 1–5 的调查结果填入各章节占位符。
+3. **表格约束（可验证规则）**：所有 Markdown 表格总行数 ≤ 3（含 header row、separator row、data row）。任何超过 3 行的数据必须改为固定小节/列表格式。
+4. 行为种子使用 `### BS-{序号} {标题}` 格式，每项包含 `- EARS:`、`- 来源:`、`- 说明:` 列表。
+5. Adopt/Avoid 使用 `### 3.1 Adopt` / `### 3.2 Avoid` 下的编号列表。
+6. 假设使用 `### A-{序号}` 下的 `- 假设:` / `- 验证:` / `- 负责人:` 列表。
+7. 风险使用 `### R-{序号}` 下的 `- 风险:` / `- 影响:` / `- 应对:` 列表。
+8. 可观测指标使用编号列表（`### 2.2` 下）。
+9. 原始输入必须逐字 blockquote（`## 0. 原始输入`）。
+10. Gate 中 Sage/Human 状态不得由 Scribe 伪造；Sage review 字段留空或标记 `Pending`。
+11. 不适用项写 `N/A` + 理由，不得留空。
 
-## 1. 用户与场景 (Who & Where)
+### 7.3 校验清单
 
-### 1.1 用户画像 (Who)
-- **主要角色**：[身份描述]
-- **次要角色**：[如有]
-- **用户规模**：[例如：单一用户 / 协作用户（约 X 人）/ 公开用户]
-- **使用频次**：[高频（每日）/ 中频（每周）/ 低频（每月）]
-- **网络环境**：[稳定办公网 / 弱网移动环境 / 不确定]
-
-### 1.2 使用终端 (Where)
-- **终端类型**：[Web / iOS / Android / 小程序 / API]
-- **适配要求**：[响应式 / 仅桌面 / 仅移动]
-
-### 1.3 产品入口与生命周期 (Access & Lifecycle)
-- **主入口**：[Chat / Web tab / CLI / API / 其他]
-- **辅助入口**：[如有]
-- **获得产品**：[安装、依赖、首次 setup]
-- **升级与迁移**：[触发方式、保留内容、失败恢复；不适用时写 `N/A` 及理由]
-
----
-
-## 2. 功能与价值 (What & Why)
-
-### 2.1 功能描述 (What)
-[用 3-5 句话描述用户在这个功能中最核心的操作。]
-
-**快乐路径（Happy Path）**：
-1. [步骤 1]
-2. [步骤 2]
-3. [步骤 3]
-
-### 2.2 问题陈述与目标 (Why)
-- **问题陈述**：[当前用户面临的痛点]
-- **北极星目标**：[成功时的画面]
-- **可观测指标**：[量化指标，如 DAU +10%]
-
-### 2.3 行为种子（EARS-lite）
-以下为从故事中提取的行为种子，用于 M-SPEC 继续展开；不要求在 M-STORY 锁定完整验收合同：
-
-| 编号  | EARS 句式                                                                             | 说明     |
-| :---- | :------------------------------------------------------------------------------------ | :------- |
-| AC-01 | `WHEN 用户点击“提交订单” AND 购物车不为空, THE 系统 SHALL 生成支付会话并返回支付 URL` | 快乐路径 |
-| AC-02 | `WHEN 用户点击“提交订单” AND 购物车为空, THE 系统 SHALL 显示错误提示“购物车是空的”`   | 边界条件 |
-| AC-03 | `WHILE 支付处理中, THE 系统 SHALL 禁用提交按钮并显示加载动画`                         | 持续反馈 |
-| AC-04 | `IF 支付会话超时（>15 分钟）, THE 系统 SHALL 自动取消订单并释放库存`                  | 超时处理 |
-| AC-05 | `WHERE 用户在移动端使用, THE 系统 SHALL 使用简化版支付流程（无发票信息）`             | 平台适配 |
-
-> 📌 这里只提供可追踪的行为种子；完整 FR / AC 属于 M-SPEC。
->
-> EARS 句式说明：
-> - **WHEN（事件驱动）**：用户主动触发的操作
-> - **IF（状态驱动）**：系统处于特定状态时的响应
-> - **WHILE（持续型）**：过程中持续反馈
-> - **WHERE（可选型）**：特定上下文/平台变体
-> - **THE [系统] SHALL（通用型）**：无条件的系统行为
-
----
-
-## 3. 竞品与边界 (Scope & Competition)
-
-### 3.1 Adopt / Avoid 清单（补全素材，非市场裁决）
-| 类型  | 来源    | 内容                                   | 理由  |
-| :---- | :------ | :------------------------------------- | :---- |
-| Adopt | [竞品A] | [我们故事遗漏、可借鉴的场景/角色/边界] | [...] |
-| Avoid | [竞品B] | [应提前规避的坑]                       | [...] |
-
-### 3.2 Out-of-Scope（明确不做）
-- [ ] [不做事项 1]
-- [ ] [不做事项 2]
-
-### 3.3 约束条件
-- **技术约束**：[如：必须支持 IE11 / API 响应 < 200ms]
-- **组织约束**：[如：必须通过法务审批 / 上线截止日期 2026-08-01]
-
----
-
-## 4. 风险与假设 (Risk & Assumption)
-
-### 4.1 关键假设
-| #    | 假设内容 | 验证方式 | 验证负责人 |
-| :--- | :------- | :------- | :--------- |
-| 1    | [...]    | [...]    | [...]      |
-
-### 4.2 主要风险
-| #    | 风险描述 | 影响     | 应对策略 |
-| :--- | :------- | :------- | :------- |
-| 1    | [...]    | 高/中/低 | [...]    |
-
----
-
-## 5. 必要性与冲突 (Necessity & Conflict)
-
-- **已实现？**：[否 / 是——可复用 {STR-xxxx} 或 {spec}]（证据：...）
-- **相抵触？**：[否 / 是——与 {STR-xxxx} / {spec} 冲突：...]
-- **结论**：[新建 / 合并 / 分叉 / 需人工确认]
-
----
-
-## 6. 方案疑议（A/B Advisory，非决策）
-
-- **状态**：[无异议 / 有替代建议]
-- **建议**：[💡 你可能更想要 B，因为 {证据}；最终由你决定]
-- **说明**：Agent 仅提示，不替用户做市场 / 产品判断，也不自动替换方案。
-
----
-
-## 7. 分流结论与门禁 (Gate)
-
-- **分流结论**：[ Go / Park / No-Go ]（Agent 建议）
-- **Sage peer review**：[ PASS / REVISE ]；绑定 Story digest：`sha256:...`
-- **Human 确认**（仅决策点，Agent 已自检其余）：
-  - [x] 分流结论认同（Go / Park / No-Go）
-  - [x] 冲突 / A-B 建议已裁决（若 Agent 提出）
-- **Backlog 登记**：[ Go → 继续 M-FOUND / Park → 登记 Backlog 标记 `Park` / No-Go → 登记 Backlog 标记 `NO-GO`（story 永久存档，不删除）]
-
----
-
-## 8. 可追溯种子 (Traceability)
-
-- **Story ID**：`STR-xxxx`
-- **创建时间**：`{ISO 8601 时间戳}`
-- **关联 Issue（待填充）**：`#待创建`
-- **关联 Spec ID（待填充）**：`#待创建`
-
----
-
-*—— 本故事由 Scribe（M-STORY）于 {日期} 生成；经 Sage peer review 且 Human 确认后：Go → 进入后续流程，Park / No-Go → 存档入 Backlog 并标记（story 永久保留，不删除）。*
-```
+输出前自检：
+- [ ] 所有章节按模板固定顺序出现，无遗漏。
+- [ ] metadata 表格为唯一表格，总行数 ≤ 3（header + separator + 1 data row）。
+- [ ] 其余数据均使用列表/小节，无额外表格。
+- [ ] 原始输入为逐字 blockquote。
+- [ ] Sage review 状态未伪造（标记 `Pending` 或留空）。
 
 ---
 

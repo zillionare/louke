@@ -5,24 +5,10 @@
 - **Status**: {Draft / Reviewing / Confirmed}
 
 > **Responsibility split**: This document only describes the requirements themselves (FR/NFR descriptions + metadata).
+> The canonical product narrative, user stories, happy path, and usage scenarios remain in `story.md`; do not copy or rewrite them here.
+> Each FR/NFR records only the relevant Story seed or section ID in its `Source` field, without duplicating the source text.
 > Acceptance criteria (observable, assertable pass conditions) live in `acceptance.md` so they can grow without bloating spec.
 > The test plan (`test-plan.md`) references both spec.md and acceptance.md as inputs.
-
-## User Stories
-
-### US-0010
-story: As a {role}, I want {feature}, so that {value}
-priority: P0
-
-### US-0020
-story: As a {role}, I want {feature}, so that {value}
-priority: P0
-
-## Usage Scenarios
-
-### scenario-0010
-
-{Describe how the user should use this software}
 
 ## Functional Requirements
 
@@ -45,6 +31,8 @@ priority: P0
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
+- **Source**: {Story behavior seed or section ID, e.g. `BS-01` / `§3.4`}
+
 {Requirement description}
 
 ---
@@ -54,6 +42,8 @@ priority: P0
 | Valid | Testable | Decided |
 |---|---|---|
 | ✅ | ⚠️ {reason} | ⚠️ |
+
+- **Source**: {Story behavior seed or section ID}
 
 {Requirement description}
 
@@ -68,6 +58,8 @@ priority: P0
 | Valid | Testable | Decided |
 |---|---|---|
 | ✅ | ✅ | ✅ |
+
+- **Source**: {Story behavior seed or section ID}
 
 {Requirement description}
 

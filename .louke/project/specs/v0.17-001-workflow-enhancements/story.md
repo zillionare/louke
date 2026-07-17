@@ -21,6 +21,7 @@
 7. **Waiver 高级治理**：expiry/renew/revoke、多 waiver 冲突处理。
 8. **测试与证据补齐**：v0.12.1 测试债务清理、通用真实环境矩阵、全面浏览器覆盖。
 9. **Hotfix/Branch 模型完善**：Hotfix 延迟同步、夜间重构的完整规则。
+10. **CLI 退役与运维化**：v0.14 发布当日 CLI 已退化为 `lk serve` / `lk upgrade` 等少数运维命令；v0.17 负责完成 CLI 的完整退役/清理、运维命令清单收敛、文档与 README 同步更新，并保证 CLI 不再是 workflow 推进的任何入口。
 
 ---
 
@@ -134,6 +135,7 @@
 - 所有增强项必须基于 v0.14 的稳定生产工作流扩展，不得破坏 v0.14 已建立的 Runtime 权威、Human/AI/Program 边界和不可 waive 不变量。
 - 跨 definition migration 不得破坏用户文件、Git history 和 Trace/Evidence 资产 identity。
 - 项目自定义 hook 必须在安全约束下运行（限制执行环境、超时、权限），不得绕过 Runtime gate authority。
+- v0.14 release 之后的 workflow 入口为 Web Chat 唯一；CLI 仅保留 `lk serve` / `lk upgrade` 等运维命令。任何 v0.17 增强不得重新引入 CLI 作为 workflow 推进入口。
 
 ---
 

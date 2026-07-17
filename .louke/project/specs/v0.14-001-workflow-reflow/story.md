@@ -2,6 +2,12 @@
 
 ---
 
+| Story ID | 创建时间 | 分流结论 |
+| :--- | :--- | :--- |
+| STR-1401 | 2026-07-17T00:00:00+08:00 | Go（Agent 建议） |
+
+---
+
 ## 0. 原始输入
 
 > 把 v0.12 Runtime 核心、v0.13 Web/Chat、v0.13.1 安装和质量门整合为唯一生产工作流，并增加首版可靠但简单的 return-upstream、bounded waiver、no-new-debt adoption 和内置 lifecycle hooks。
@@ -17,6 +23,7 @@
 ## 1. 用户与场景 (Who & Where)
 
 ### 1.1 用户画像 (Who)
+
 - **主要角色**：使用 Louke 开发项目的产品负责人兼技术维护者。该角色既是需求的提出者（决定 Go/Park/No-Go、批准 requirements、M-LOCK、waiver、adoption），也是技术方案的参与者（可参与技术 review、暂停 reviewer、提出 constraint）。
 - **次要角色**：Louke 自身的发布维护者（负责验证 installed-wheel E2E、dogfood 全流程、执行受控回退）。
 - **用户规模**：单一用户（本地桌面应用，无多用户协作）。
@@ -24,13 +31,17 @@
 - **网络环境**：稳定办公网络。离线场景下可本地操作，但 Git push、外部 API 调用等需要网络。
 
 ### 1.2 使用终端 (Where)
-- **终端类型**：Web（桌面浏览器）、CLI、Chat（通过 Web 端 Chat tab）。三者必须看到同一 project、run、当前步骤、合法动作和证据。
+
+- **终端类型**：Web（桌面浏览器）。**v0.14 发布后**的核心开发流程唯一入口为 Web Chat（基于 Web 页面的 Chat tab）；CLI 仅保留少数运维命令（`lk serve`、`lk upgrade`），不作为 `new_feature`/`bug_fix` 开发推进入口；API 是内部 program boundary，供 program handler 和 adapter 调用，不是用户开发入口。
+- **v0.14 开发期（v0.13 基础上）**：在 v0.14 正式发布前的开发与调试阶段，CLI 与 Web Chat **并行可用**，CLI 仍按 v0.13 行为提供 workflow 推进、运行调试、`lk agent ...` 等命令；Web Chat 作为 v0.14 的产品入口并先接入新的 dispatch。发布日（v0.14 release tag）后立即切换为 Web Chat 唯一入口，CLI 退化为运维。
 - **适配要求**：桌面浏览器，不要求移动端适配。
 - **离线场景**：核心 workflow 推进（program step、语义 Agent 工作、human gate）在本地完成；Git push、CI report 接收等需要网络，离线时允许延后但不静默跳过。
 
 ### 1.3 产品入口与生命周期 (Access & Lifecycle)
-- **主入口**：`lk serve` 启动后，通过 Web 端 Chat/Chat tab 开始和完成操作。CLI 作为辅助入口。
-- **辅助入口**：CLI（`lk` 命令）、API（供 program handler 和 adapter 调用）。
+
+- **主入口（v0.14 发布后）**：Web Chat（通过 `lk serve` 启动后，在 Web 页面 Chat tab 中完成所有核心开发操作）。这是 `new_feature` 和 `bug_fix` 的唯一开发入口。
+- **辅助入口**：CLI（仅限少数运维命令：`lk serve` 启动服务、`lk upgrade` 升级；不提供 workflow 推进能力）。API（供 program handler 和 adapter 调用，内部 program boundary）。
+- **双接口过渡期（v0.14 开发期）**：v0.14 在 v0.13 之上开发，发布前 CLI 与 Web Chat **并存**。CLI 在过渡期继续提供 v0.13 风格的 `lk agent ...` / `lk serve` / `lk ...` workflow 推进能力，以便当前阶段的运行、调试与 dogfood；Web Chat 同步接入新的 Runtime dispatch。v0.14 release tag 当日起，CLI 仅保留 `lk serve` / `lk upgrade` 等运维命令，workflow 推进由 Web Chat 独占。
 - **获得产品**：用户通过 `curl | sh`（Linux/macOS）或 bat/ps（Windows）安装全局 `lk`；在项目目录中 `lk install` 创建本地 `.venv` 并安装 Louke Python 包。首次 setup 通过 `lk serve` 启动后由 Web init-wizard 完成项目初始化、依赖检查和模型就绪确认。
 - **升级与迁移**：
   - **升级触发**：用户主动执行 `lk upgrade`（项目级或全局级）。v0.14 不自动升级。
@@ -44,7 +55,12 @@
 
 ### 2.1 功能描述 (What)
 
-v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 v0.13.1 的安装与质量门装配为**唯一生产级工作流**。用户安装后启动 `lk serve`，即可通过 Web/CLI/Chat 任一入口创建 `new_feature` 或 `bug_fix` run，经历完整的 Story → 需求审批 → 设计/M-LOCK → 实现 → 权威测试 → 发布确认 → 归档的流程。
+v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 v0.13.1 的安装与质量门装配为**唯一生产级工作流**。用户安装后启动 `lk serve`，即可通过 Web Chat 创建 `new_feature` 或 `bug_fix` run，经历完整的 Story → 需求审批 → 设计/M-LOCK → 实现 → 权威测试 → 发布确认 → 归档的流程。CLI 仅保留少数运维命令（`lk serve`、`lk upgrade`），核心开发流程只能通过 Web Chat 完成。
+
+> **Aaron [RESOLVED]:** v0.14发布后，CLI 模式将只允许少数运维相关命令如`lk upgrade`, `lk serve`。核心开发流程只能通过 Chat (基于 web page，以下称 Web Chat)来完成。
+
+
+>> **Scribe:** 已按此约束更新用户终端、产品入口、功能描述、北极星目标、Happy Path、BS-01 和 BS-15：**v0.14 发布后**核心开发唯一入口为 Web Chat；CLI 仅保留 lk serve、lk upgrade 等少数运维命令；API 仅为内部 program boundary。同时在 1.2/1.3/3.4 增加过渡期说明：**v0.14 在 v0.13 基础上开发期间** CLI 与 Web Chat 并存，CLI 继续提供 v0.13 风格的 workflow 推进以便 dogfood 与调试；release tag 当日切换为 Web Chat 唯一入口。请 initiator 确认后关闭本讨论。
 
 核心能力包括：
 
@@ -60,7 +76,7 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 **快乐路径（Happy Path）**：
 
 1. 用户安装 v0.14，在项目目录执行 `lk serve`，Web 端打开项目。
-2. 用户在 Chat 中提出新功能设想，Runtime 自动创建 `new_feature` run 并 dispatch Scribe semantic task。
+2. 用户在 Web Chat 中提出新功能设想，Runtime 自动创建 `new_feature` run 并 dispatch Scribe semantic task。
 3. Scribe 完成 Story 调研与撰写，Sage 独立 peer review。用户确认 Go 并批准 requirements。
 4. Runtime 自动推进到设计阶段，dispatch 对应的 semantic Agent（Archer/Lex 等）。Agent 完成 Test Plan、Architecture、Interfaces 设计草案。
 5. 用户可选参与技术 review（暂停 reviewer、查看 diff），最终批准 M-LOCK。
@@ -70,54 +86,123 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 9. 用户关闭浏览器。重启 `lk serve` 后，历史 run 完整可读，active run 可继续推进。
 
 ### 2.2 问题陈述与目标 (Why)
+
 - **问题陈述**：当前 v0.12 Runtime 核心类库、v0.13 Web/Chat 观察面和 v0.13.1 安装/质量门各自独立，尚未装配为唯一生产工作流。用户从 `lk serve` 启动后无法完成一条从 Story 到发布归档的完整旅程。Scout/Warden/Keeper 仍是三个只包装工具的 Agent，消耗 session 和上下文。没有自动 Driver、production composition root、权威 program result 边界、return-upstream、waiver 和 adoption 机制。
-- **北极星目标**：用户安装 v0.14 后，只需 `lk serve` 即可通过 Web/CLI/Chat 任一入口完成一条完整的 `new_feature` 产品旅程，全程由 Runtime 驱动，Agent 只做语义工作，Human 只做产品决策，程序验证所有事实。
+- **北极星目标**：用户安装 v0.14 后，只需 `lk serve` 即可通过 Web Chat 完成一条完整的 `new_feature` 产品旅程，全程由 Runtime 驱动，Agent 只做语义工作，Human 只做产品决策，程序验证所有事实。
 - **可观测指标**：
-  - 一条完整的 installed-wheel `new_feature` E2E 旅程（setup → Story → 审批 → 设计 → M-LOCK → 实现 → 测试 → release → archive）可无阻塞完成。
-  - 该旅程中 Scout、Warden、Keeper 的 task/session/dispatch 数量均为零。
-  - program result 不能由客户端或 Agent 伪造（通过 E2E 断言验证）。
-  - Louke 自身的 v0.14 开发通过 dogfood 完整使用新 workflow，证明新流程可承担真实项目工作。
+  1. 一条完整的 installed-wheel `new_feature` E2E 旅程（setup → Story → 审批 → 设计 → M-LOCK → 实现 → 测试 → release → archive）可无阻塞完成。
+  2. 该旅程中 Scout、Warden、Keeper 的 task/session/dispatch 数量均为零。
+  3. program result 不能由客户端或 Agent 伪造（通过 E2E 断言验证）。
+  4. Louke 自身的 v0.14 开发通过 dogfood 完整使用新 workflow，证明新流程可承担真实项目工作。
 
 ### 2.3 行为种子（EARS-lite）
 
-以下为从故事中提取的行为种子，用于 M-SPEC 继续展开；不要求在 M-STORY 锁定完整验收合同：
+以下为从故事中提取的行为种子，用于 M-SPEC 继续展开；不要求在 M-STORY 锁定完整验收合同。
 
-| 编号   | EARS 句式                                                                                                                                                                                     | 说明                         |
-| :----- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------- |
-| AC-01  | `WHEN 用户通过 Web/CLI/Chat 启动 new_feature, THE 系统 SHALL 创建 WorkflowRun 并自动执行 program steps 和 dispatch semantic tasks`                                                             | 自动 Driver 入口             |
-| AC-02  | `WHEN 一个 Agent 或客户端提交 program result, THE 系统 SHALL 拒绝，仅接受对应 program handler 的真实执行结果`                                                                                | 权威 program result 边界     |
-| AC-03  | `WHEN Louke 服务重启, THE 系统 SHALL 从持久化 store 恢复 run、gate、task、artifact、evidence 和当前步骤，允许从原位置继续`                                                                    | 重启恢复                     |
-| AC-04  | `WHEN 用户从 Web、CLI 或 Chat 任一入口查看项目, THE 系统 SHALL 呈现相同的 project、run、当前步骤、合法动作和证据`                                                                            | 多入口一致性                 |
-| AC-05  | `WHEN 用户请求 return-upstream AND 当前 run 为 active 且未发布, THE 系统 SHALL 展示 definition 声明的固定合法上游目标并等待用户确认`                                                          | return-upstream 目标选择     |
-| AC-06  | `WHEN return-upstream 执行, THE 系统 SHALL 将目标步骤及下游 artifact/approval/evidence 标记为 stale/superseded，保留文件、文档和 commit 历史`                                                 | return-upstream 下游 stale   |
-| AC-07  | `IF return-upstream 遇到不可逆外部副作用（已 publish/tag）, THE 系统 SHALL 拒绝自动回退并进入 needs_attention`                                                                               | return-upstream 不可逆边界   |
-| AC-08  | `WHEN 用户对 waivable 检查提交 waiver, THE 系统 SHALL 记录 actor/reason/scope/target evidence/revision 并保留原始失败证据，不将 FAIL 改写为 PASS`                                             | bounded waiver 记录          |
-| AC-09  | `WHERE 检查为 requirements approval、M-LOCK、identity/secret、CAS、artifact freshness、Agent 自批或 release identity mismatch, THE 系统 SHALL 拒绝任何 waiver`                                | 不可 waive 不变量            |
-| AC-10  | `WHEN 用户对既有项目请求 adoption preview, THE 系统 SHALL 固定 Git revision/workspace digest、运行全部适用检查并展示可 baseline 的历史问题与阻断 adoption 的新问题`                           | no-new-debt adoption preview |
-| AC-11  | `IF baseline 文件在 adoption 后被首次修改, THE 系统 SHALL 对该文件执行当前全部适用检查，全部通过后该文件永久退出 baseline`                                                                    | touch-to-clean               |
-| AC-12  | `IF adoption 或 baseline 操作失败, THE 系统 SHALL NOT 破坏用户文件、Git history 或既有证据`                                                                                                  | adoption 失败安全保证        |
-| AC-13  | `WHEN 语义结果、用户决定或 session 被保存, THE 系统 SHALL 调用已注册的内置 versioned lifecycle hook`                                                                                          | 内置 lifecycle hooks 调度    |
-| AC-14  | `THE 系统 SHALL NOT 在新 workflow run 中创建 Scout、Warden 或 Keeper 的 task、session 或 dispatch`                                                                                            | Agent 注销                   |
-| AC-15  | `THE 系统 SHALL NOT 允许以不同内容重新注册同一 workflow definition version`                                                                                                                   | workflow definition 不可变   |
-| AC-16  | `THE 系统 SHALL 支持从公开入口（lk serve、Web/CLI）完成 new_feature 和 bug_fix 的完整产品旅程（Story → 审批 → 设计 → M-LOCK → 实现 → 测试 → release → archive）`                             | 完整可完成 workflow          |
-| AC-17  | `WHEN installed-wheel E2E 执行, THE 系统 SHALL 断言 Scout/Warden/Keeper dispatch 数量为零且 program result 不可由客户端/Agent 伪造`                                                          | E2E 权威验证                 |
+> EARS 句式说明：
+> - **WHEN（事件驱动）**：用户主动触发的操作
+> - **IF（状态驱动）**：系统处于特定状态时的响应
+> - **WHILE（持续型）**：过程中持续反馈
+> - **WHERE（可选型）**：特定上下文/平台变体
+> - **THE [系统] SHALL（通用型）**：无条件的系统行为
+
+### BS-01 自动 Driver 入口
+- EARS: `WHEN 用户通过 Web Chat 启动 new_feature, THE 系统 SHALL 创建 WorkflowRun 并自动执行 program steps 和 dispatch semantic tasks`
+- 来源: 快乐路径
+- 说明: 核心开发唯一入口为 Web Chat；CLI 仅保留运维命令，不作为 workflow 推进入口
+
+### BS-02 权威 program result 边界
+- EARS: `WHEN 一个 Agent 或客户端提交 program result, THE 系统 SHALL 拒绝，仅接受对应 program handler 的真实执行结果`
+- 来源: 核心原则
+- 说明: 防止 Agent 或客户端伪造测试结果、gate 状态或审批
+
+### BS-03 重启恢复
+- EARS: `WHEN Louke 服务重启, THE 系统 SHALL 从持久化 store 恢复 run、gate、task、artifact、evidence 和当前步骤，允许从原位置继续`
+- 来源: 快乐路径
+- 说明: 关闭浏览器或 Agent 失败后不丢失进度
+
+### BS-04 return-upstream 目标选择
+- EARS: `WHEN 用户请求 return-upstream AND 当前 run 为 active 且未发布, THE 系统 SHALL 展示 definition 声明的固定合法上游目标并等待用户确认`
+- 来源: 快乐路径
+- 说明: 返回上游有固定合法目标，不可任意跳转
+
+### BS-05 return-upstream 下游 stale
+- EARS: `WHEN return-upstream 执行, THE 系统 SHALL 将目标步骤及下游 artifact/approval/evidence 标记为 stale/superseded，保留文件、文档和 commit 历史`
+- 来源: 边界条件
+- 说明: 下游产物标记过期但不删除，保留完整历史
+
+### BS-06 return-upstream 不可逆边界
+- EARS: `IF return-upstream 遇到不可逆外部副作用（已 publish/tag）, THE 系统 SHALL 拒绝自动回退并进入 needs_attention`
+- 来源: 边界条件
+- 说明: 已发布/tag 的副作用不可自动回退，需人工介入
+
+### BS-07 bounded waiver 记录
+- EARS: `WHEN 用户对 waivable 检查提交 waiver, THE 系统 SHALL 记录 actor/reason/scope/target evidence/revision 并保留原始失败证据，不将 FAIL 改写为 PASS`
+- 来源: 边界条件
+- 说明: waiver 保留原始失败，不改写结果
+
+### BS-08 不可 waive 不变量
+- EARS: `WHERE 检查为 requirements approval、M-LOCK、identity/secret、CAS、artifact freshness、Agent 自批或 release identity mismatch, THE 系统 SHALL 拒绝任何 waiver`
+- 来源: 核心原则
+- 说明: 安全关键检查永远不可豁免
+
+### BS-09 no-new-debt adoption preview
+- EARS: `WHEN 用户对既有项目请求 adoption preview, THE 系统 SHALL 固定 Git revision/workspace digest、运行全部适用检查并展示可 baseline 的历史问题与阻断 adoption 的新问题`
+- 来源: 快乐路径
+- 说明: 只读预览，不修改用户文件
+
+### BS-10 touch-to-clean
+- EARS: `IF baseline 文件在 adoption 后被首次修改, THE 系统 SHALL 对该文件执行当前全部适用检查，全部通过后该文件永久退出 baseline`
+- 来源: 边界条件
+- 说明: 修改 baseline 文件触发全量检查，通过后不再享受 baseline 豁免
+
+### BS-11 adoption 失败安全保证
+- EARS: `IF adoption 或 baseline 操作失败, THE 系统 SHALL NOT 破坏用户文件、Git history 或既有证据`
+- 来源: 边界条件
+- 说明: adoption 失败不产生副作用
+
+### BS-12 内置 lifecycle hooks 调度
+- EARS: `WHEN 语义结果、用户决定或 session 被保存, THE 系统 SHALL 调用已注册的内置 versioned lifecycle hook`
+- 来源: 快乐路径
+- 说明: Hook 由 Runtime 调度，无 transition/gate 权限
+
+### BS-13 Agent 注销
+- EARS: `THE 系统 SHALL NOT 在新 workflow run 中创建 Scout、Warden 或 Keeper 的 task、session 或 dispatch`
+- 来源: 核心原则
+- 说明: 旧 Agent 完全注销，不再参与新 workflow
+
+### BS-14 workflow definition 不可变
+- EARS: `THE 系统 SHALL NOT 允许以不同内容重新注册同一 workflow definition version`
+- 来源: 竞品补全（Adopt: GitHub Actions）
+- 说明: 已注册版本不可变，防止在途 run 不一致
+
+### BS-15 完整可完成 workflow
+- EARS: `THE 系统 SHALL 支持通过 Web Chat（经 lk serve 启动）完成 new_feature 和 bug_fix 的完整产品旅程（Story → 审批 → 设计 → M-LOCK → 实现 → 测试 → release → archive）；CLI 仅保留少数运维命令（lk serve、lk upgrade），不作为开发推进入口`
+- 来源: 北极星目标
+- 说明: 核心开发唯一入口为 Web Chat，CLI 仅运维
+
+### BS-16 E2E 权威验证
+- EARS: `WHEN installed-wheel E2E 执行, THE 系统 SHALL 断言 Scout/Warden/Keeper dispatch 数量为零且 program result 不可由客户端/Agent 伪造`
+- 来源: 可观测指标
+- 说明: E2E 自动验证核心不变量
 
 ---
 
 ## 3. 竞品与边界 (Scope & Competition)
 
-### 3.1 Adopt / Avoid 清单（补全素材，非市场裁决）
+### 3.1 Adopt
 
 鉴于 v0.14 是 Louke 自身 workflow 架构的整合与升级，而非面向终端用户的新功能，本 Story 无直接竞品。以下基于类似 CI/CD pipeline-as-code 产品的实践模式做补全式分析：
 
-| 类型  | 来源                       | 内容                                                                                     | 理由                                                                                     |
-| :---- | :------------------------- | :--------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| Adopt | GitHub Actions / Jenkins   | 将 workflow definition 作为版本化不可变合同，run 创建后固定 definition version，不随定义更新而改变在途 run | 防止 workflow 定义变更导致在途 run 进入不一致状态，与我们已有 catalog 设计一致            |
-| Adopt | GitLab CI / CircleCI       | 程序化 gate 执行：pipeline 状态只能由真实执行的 job 结果推进，不能由 API 调用者声明 "pass" | 直接对应 v0.14 的"Agent 不能伪造 program result"核心要求                                  |
-| Avoid | 部分 CI 产品的 blanket skip | 允许跳过整组检查的 `--force` 或全局 bypass，导致安全门被静默绕过                         | 我们的旧 `--force` waiver 就是这种模式。v0.14 的 bounded waiver 必须保留原始失败、限制 waivable 范围、永不可 waive 关键不变量 |
-| Avoid | 某些 Agent 自批模式        | 允许生成代码的 Agent 自行声明测试通过或代码审查通过，没有独立验证                         | 直接对应 v0.14 的"Agent 不能自批、自报测试或伪造 program result"                          |
+1. [GitHub Actions / Jenkins]: 将 workflow definition 作为版本化不可变合同，run 创建后固定 definition version，不随定义更新而改变在途 run — 防止 workflow 定义变更导致在途 run 进入不一致状态，与我们已有 catalog 设计一致
+2. [GitLab CI / CircleCI]: 程序化 gate 执行——pipeline 状态只能由真实执行的 job 结果推进，不能由 API 调用者声明 "pass" — 直接对应 v0.14 的"Agent 不能伪造 program result"核心要求
 
-### 3.2 Out-of-Scope（明确不做）
+### 3.2 Avoid
+
+1. [部分 CI 产品的 blanket skip]: 允许跳过整组检查的 `--force` 或全局 bypass，导致安全门被静默绕过 — 我们的旧 `--force` waiver 就是这种模式。v0.14 的 bounded waiver 必须保留原始失败、限制 waivable 范围、永不可 waive 关键不变量
+2. [某些 Agent 自批模式]: 允许生成代码的 Agent 自行声明测试通过或代码审查通过，没有独立验证 — 直接对应 v0.14 的"Agent 不能自批、自报测试或伪造 program result"
+
+### 3.3 Out-of-Scope（明确不做）
 
 以下内容明确属于 v0.17 或更晚版本，不在 v0.14 范围内：
 
@@ -133,7 +218,8 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - [ ] 复杂 controlled legacy fallback、旧 Runtime 双版本兼容。
 - [ ] 版本号提议/写入的重新设计（复用 v0.13.1 release identity）。
 
-### 3.3 约束条件
+### 3.4 约束条件
+
 - **技术约束**：
   - 程序化 workflow 必须基于 Python（与现有 Louke 技术栈一致）。
   - 持久化 store 必须支持重启恢复，不依赖内存状态或 Agent 会话。
@@ -141,6 +227,7 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - **组织约束**：
   - installed-wheel E2E 和 Louke dogfood 均通过后方可删除旧执行路径和受控回退开关。
   - Spec/AC/Issue/commit hash/artifact digest 等 Trace/Evidence 资产 identity 不因 workflow 变化而重写。
+  - v0.14 开发期 CLI 与 Web Chat 双接口并存；v0.14 release tag 当日切换为 Web Chat 唯一入口（CLI 仅保留运维命令）。Scribe 等语义 Agent 在过渡期可继续通过 `lk agent ...` 调用，由 Runtime 在 v0.14 临近 release 时主动收敛。
 
 ---
 
@@ -148,22 +235,52 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 
 ### 4.1 关键假设
 
-| #   | 假设内容                                                                     | 验证方式                                       | 验证负责人 |
-| :-- | :--------------------------------------------------------------------------- | :--------------------------------------------- | :--------- |
-| 1   | 现有 v0.12 Runtime 核心类库（Store、Catalog、Orchestrator、ProgramStepExecutor）可以无重大重构装配为 production composition root | 代码走查 + 装配原型验证                        | 技术负责人 |
-| 2   | v0.13 Web/Chat 的 OpenCode transport 和 SSE streaming 可以可靠接入新 Runtime 的 semantic task dispatch | 集成测试：Chat 中启动 Scribe task 并验证 Runtime state | 技术负责人 |
-| 3   | 现有 Git 项目（非 Louke 项目）可以接受 no-new-debt adoption 的 baseline 模型，用户愿意接受"历史问题冻结但不通过"的约束 | 在真实既有项目上试运行 adoption preview        | PM         |
-| 4   | return-upstream 的"固定合法目标 + 统一下游 stale"策略覆盖 80% 以上的实际返工场景 | 收集 v0.12/v0.13 开发期间的返工案例并对照验证   | PM         |
+### A-01
+- 假设: 现有 v0.12 Runtime 核心类库（Store、Catalog、Orchestrator、ProgramStepExecutor）可以无重大重构装配为 production composition root
+- 验证: 代码走查 + 装配原型验证
+- 负责人: 技术负责人
+
+### A-02
+- 假设: v0.13 Web/Chat 的 OpenCode transport 和 SSE streaming 可以可靠接入新 Runtime 的 semantic task dispatch
+- 验证: 集成测试：Chat 中启动 Scribe task 并验证 Runtime state
+- 负责人: 技术负责人
+
+### A-03
+- 假设: 现有 Git 项目（非 Louke 项目）可以接受 no-new-debt adoption 的 baseline 模型，用户愿意接受"历史问题冻结但不通过"的约束
+- 验证: 在真实既有项目上试运行 adoption preview
+- 负责人: PM
+
+### A-04
+- 假设: return-upstream 的"固定合法目标 + 统一下游 stale"策略覆盖 80% 以上的实际返工场景
+- 验证: 收集 v0.12/v0.13 开发期间的返工案例并对照验证
+- 负责人: PM
 
 ### 4.2 主要风险
 
-| #   | 风险描述                                                                           | 影响     | 应对策略                                                                                     |
-| :-- | :--------------------------------------------------------------------------------- | :------- | :------------------------------------------------------------------------------------------- |
-| 1   | Runtime API 当前可接受客户端提供的 result 字符串，关闭此路径可能影响现有 adapter  | 高       | 逐 adapter 迁移到 program handler 真实执行，设置过渡期标记和 deprecated 警告                  |
-| 2   | 从旧 Maestro 驱动切换到自动 Driver 后，隐藏的依赖顺序或副作用可能暴露              | 高       | 先建立完整 responsibility inventory，逐项验证后再注销 Scout/Warden/Keeper                     |
-| 3   | no-new-debt adoption 的 baseline 模型可能对既有大型项目过于严格，导致 adoption 失败率高 | 中       | 提供 preview 模式让用户提前评估；必要时允许分步 adoption 或 workspace-level 豁免（v0.17 增强） |
-| 4   | installed-wheel E2E 旅程可能因环境差异（Python 版本、OS、网络）而不可复现          | 中       | 使用隔离 venv + 固定依赖版本；CI 中运行 E2E 作为门禁                                          |
-| 5   | 重启恢复依赖持久化 store 的完整性；store 损坏或 schema 不兼容可能导致 run 丢失    | 中       | 持久化 store 添加 schema version 和完整性校验；提供只读导出入口                               |
+### R-01
+- 风险: Runtime API 当前可接受客户端提供的 result 字符串，关闭此路径可能影响现有 adapter
+- 影响: 高
+- 应对: 逐 adapter 迁移到 program handler 真实执行，设置过渡期标记和 deprecated 警告
+
+### R-02
+- 风险: 从旧 Maestro 驱动切换到自动 Driver 后，隐藏的依赖顺序或副作用可能暴露
+- 影响: 高
+- 应对: 先建立完整 responsibility inventory，逐项验证后再注销 Scout/Warden/Keeper
+
+### R-03
+- 风险: no-new-debt adoption 的 baseline 模型可能对既有大型项目过于严格，导致 adoption 失败率高
+- 影响: 中
+- 应对: 提供 preview 模式让用户提前评估；必要时允许分步 adoption 或 workspace-level 豁免（v0.17 增强）
+
+### R-04
+- 风险: installed-wheel E2E 旅程可能因环境差异（Python 版本、OS、网络）而不可复现
+- 影响: 中
+- 应对: 使用隔离 venv + 固定依赖版本；CI 中运行 E2E 作为门禁
+
+### R-05
+- 风险: 重启恢复依赖持久化 store 的完整性；store 损坏或 schema 不兼容可能导致 run 丢失
+- 影响: 中
+- 应对: 持久化 store 添加 schema version 和完整性校验；提供只读导出入口
 
 ---
 
@@ -186,7 +303,10 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 ## 7. 分流结论与门禁 (Gate)
 
 - **分流结论**：Go（Agent 建议）
-- **Sage peer review**：PASS；绑定 Story digest：`sha256:4ebac1502e4ef4a842cb264767ed35a2cf45e95349b928bb085589d1f6dbd9a8`；blockers: 0；handoff_ready: true
+- **Sage peer review**：[Pending]（由 Sage 独立填写，Scribe 不得伪造）
+- **绑定 Story digest**：[待 Sage review 后填入]
+- **Review History**：
+  - 2026-07-17: `sha256:4ebac1502e4ef4a842cb264767ed35a2cf45e95349b928bb085589d1f6dbd9a8` — PASS, 0 blockers（旧 digest，格式重构后 stale，不再有效）
 - **Human 确认**（仅决策点，Agent 已自检其余）：
   - [ ] 分流结论认同（Go / Park / No-Go）
   - [ ] 冲突 / A-B 建议已裁决（无异议）
