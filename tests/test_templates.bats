@@ -42,10 +42,15 @@ TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/template
 }
 
 @test "UT-012-02: spec.md has all required level-2 headings" {
-    for heading in "User Stories" "Functional Requirements" "Non-Functional Requirements" "Clarification Log"; do
+    for heading in "Functional Requirements" "Non-Functional Requirements" "Clarification Log"; do
         run grep -q "^## ${heading}" "$TEMPLATES_DIR/spec.md"
         [ "$status" -eq 0 ] || { echo "Missing heading: ## ${heading}" >&2; false; }
     done
+}
+
+@test "UT-012-04: spec.md does not duplicate Story narrative sections" {
+    run grep -Eq "^## (User Stories|Usage Scenarios)$" "$TEMPLATES_DIR/spec.md"
+    [ "$status" -ne 0 ] || { echo "spec.md must not duplicate story.md narrative sections" >&2; false; }
 }
 
 @test "UT-012-03: task-log.md has all required level-2 headings" {

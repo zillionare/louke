@@ -41,6 +41,7 @@
 - [ ] 回退开关记录 actor、reason、scope、目标 runtime、开始/结束时间和受影响 run；切回新 Runtime 前执行 readiness、schema、版本和单一权威检查。
 - [ ] 使用 Louke 自己的 v0.14 spec 和实现工作完整 dogfood 一轮新 `new_feature` workflow，保存从 Story 到 history 的公开证据，并证明过程未 dispatch Scout、Warden、Keeper。
 - [ ] 只有 installed-wheel E2E 与 Louke v0.14 dogfood 均通过、阻塞缺陷闭合、生产文档完成切换后，才允许删除旧可执行路径和受控回退开关。
+- [ ] Aaron: 一个 release 不得超过30条需求。超过时会在 Lex 阶段回退。这可以成为一个用来测试的用例。
 
 ## 追踪规则
 
