@@ -485,7 +485,7 @@ Ground Truth 不需要独立算法实现：digest 用 stdlib 直接从 fixture b
 - `TP-FR-0500-1`：Story identity bytes 冲突 → 非成功响应 + `STORY_INITIALIZATION_CONFLICT`；status code 待 M-ARCH。
 - `TP-FR-0900-1`：Agent 无文档变化却完成 → 非成功响应 + `STORY_CHANGE_REQUIRED`；status code 待 M-ARCH。
 - `TP-FR-1100-1`：Human 编辑后伪造 no-comment → 非成功响应 + `HUMAN_REVIEW_EDITED`；status code 待 M-ARCH。
-- `TP-FR-1300-1`：Sage 返回前 Human save → 非成功响应 + `DOCUMENT_WRITE_CONFLICT`；31 个 FR+NFR → 非成功响应 + `SPEC_SCOPE_TOO_LARGE`；两者 status code 待 M-ARCH。
+- `TP-FR-1300-1`：Sage 返回前 Human save → 非成功响应 + `DOCUMENT_WRITE_CONFLICT`；31 个有效 FR（NFR 不计入上限）→ 非成功响应 + `SPEC_SCOPE_TOO_LARGE`；两者 status code 待 M-ARCH。
 - `TP-FR-1500-1`：非法上游目标 → 非成功响应 + `UPSTREAM_RETURN_TARGET_INVALID`；status code 待 M-ARCH。
 - `TP-FR-1600-1a`：Acceptance coverage 缺口 → 非成功响应且明列 requirement ID；status code 待 M-ARCH。`TP-FR-1600-1b`：Human edited 后伪造 no-comment → 非成功响应 + `HUMAN_REVIEW_EDITED`；status code 待 M-ARCH。
 - `TP-FR-1700-1`：非法/stale gate → HTTP 409 + `WORKFLOW_STATE_CONFLICT`；锁后写 → HTTP 423 + `REQUIREMENTS_LOCKED`。

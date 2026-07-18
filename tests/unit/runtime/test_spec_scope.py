@@ -45,19 +45,19 @@ def _context() -> StepContext:
     )
 
 
-def test_exactly_30_active_requirements_pass() -> None:
+def test_exactly_30_active_frs_pass() -> None:
     evaluation = evaluate_spec_scope(_spec(30))
     assert evaluation.within_limit
     assert evaluation.active_count == 30
 
 
-def test_fr_and_nfr_share_one_spec_limit() -> None:
-    evaluation = evaluate_spec_scope(_spec(20, nfr=11))
-    assert not evaluation.within_limit
-    assert evaluation.active_count == 31
+def test_nfrs_do_not_count_toward_fr_scope_limit() -> None:
+    evaluation = evaluate_spec_scope(_spec(30, nfr=31))
+    assert evaluation.within_limit
+    assert evaluation.active_count == 30
 
 
-def test_deprecated_requirements_do_not_count() -> None:
+def test_deprecated_frs_do_not_count() -> None:
     evaluation = evaluate_spec_scope(_spec(30, deprecated=5))
     assert evaluation.within_limit
     assert evaluation.active_count == 30

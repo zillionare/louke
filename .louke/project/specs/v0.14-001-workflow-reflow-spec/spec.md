@@ -196,7 +196,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 - **Source**: BS-10; `flow.md` L59-L66
 - 当前 Story revision 的 Human 与 Sage review 都通过后，Runtime 必须导航到 `spec.md`、保持 Human 只读，并派发 Sage author task；输入必须包含已批准 Story digest、Story review上下文、canonical Spec模板、允许写路径和本次 revision。
-- Sage 返回前不得开放 Human 编辑；返回后 Runtime 必须验证 `spec.md` 非空、每个 FR/NFR 具有四位唯一 ID、Source、canonical metadata，且草案 FR+NFR 总数不超过 30，然后提交仅该文档并开放 Human review。
+- Sage 返回前不得开放 Human 编辑；返回后 Runtime 必须验证 `spec.md` 非空、每个 FR/NFR 具有四位唯一 ID、Source、canonical metadata，且有效 FR 总数不超过 30（NFR 不计入此产品范围上限），然后提交仅该文档并开放 Human review。
 - 结构失败必须返回可定位 requirement/line 的错误并把任务留在 Sage修订，不得启动 Lex或进入 M-ACC。
 
 ---

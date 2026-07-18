@@ -262,7 +262,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 请求被拒绝且Spec bytes不变；Sage返回有效草案后Runtime提交仅`spec.md`并开放Human编辑。
 
 ### AC-3
-- **Given** 草案含重复ID、缺Source/metadata、空内容或31个FR+NFR
+- **Given** 草案含重复ID、缺Source/metadata、空内容或31个有效FR（NFR不计入上限）
 - **When** 结构验证执行
 - **Then** 返回包含requirement/line或`SPEC_SCOPE_TOO_LARGE`的错误，Lex task数为0且run留在Sage修订。
 

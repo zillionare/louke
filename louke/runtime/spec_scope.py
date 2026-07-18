@@ -1,8 +1,9 @@
 """Deterministic pre-Lex scope gate for M-SPEC.
 
 Runtime executes this gate after persisting a Sage draft or revision and before
-dispatching Lex. It limits one Spec to 30 active FR/NFR units. Deprecated units
-remain traceable but do not count toward the limit.
+dispatching Lex. It limits one Spec to 30 active FR units. NFR units are not
+part of this product-scope limit. Deprecated FR units remain traceable but do
+not count toward the limit.
 """
 
 from __future__ import annotations
@@ -49,10 +50,10 @@ def evaluate_spec_scope(
     spec_text: str,
     max_active: int = MAX_ACTIVE_REQUIREMENTS,
 ) -> SpecScopeEvaluation:
-    """Count active FR/NFR units in ``spec_text``.
+    """Count active FR units in ``spec_text``.
 
-    A requirement is deprecated only when its metadata explicitly says
-    ``Valid=❌``. Missing or undecided metadata remains active.
+    NFR units do not count. An FR is deprecated only when its metadata
+    explicitly says ``Valid=❌``. Missing or undecided metadata remains active.
     """
 
     units = _parse_requirement_units(spec_text)
@@ -123,7 +124,7 @@ def _parse_requirement_units(spec_text: str) -> list[_RequirementUnit]:
             kind, number = heading.groups()
             current_unit = None
             reset_table()
-            if kind in {"FR", "NFR"}:
+            if kind == "FR":
                 current_unit = _RequirementUnit(f"{kind}-{number}")
                 units.append(current_unit)
             continue

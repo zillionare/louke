@@ -58,7 +58,7 @@ TEMPLATES_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/template
 }
 
 @test "UT-012-05: spec.md declares the 30 active requirement limit" {
-    run grep -q "最多包含 30 个有效 FR/NFR" "$TEMPLATES_DIR/spec.md"
+    run grep -q "最多包含 30 个有效 FR；NFR 不计入" "$TEMPLATES_DIR/spec.md"
     [ "$status" -eq 0 ]
 }
 
