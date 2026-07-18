@@ -3,9 +3,9 @@
 #   FR-0020: 5 agents (Warden/Judge/Archer/Librarian/Maestro) must have permission block
 #   FR-0030: board.py passes through permission field
 #   FR-0040: lk agent lint validation + single primary constraint
-#   FR-0060.2: 11 subagents have mode: subagent
+#   FR-0060.2: 12 subagents have mode: subagent
 #   FR-0060.1: Maestro has mode: primary
-#   FR-0070.2: 4 interactive subagents have permission.question: allow; 7 non-interactive have deny; Maestro has deny
+#   FR-0070.2: 5 interactive subagents have permission.question: allow
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 AGENTS_DIR="$REPO_ROOT/louke/agents"
@@ -55,10 +55,10 @@ snapshot_agent() {
     done
 }
 
-@test "FR-0020: remaining 7 subagents do not require permission block" {
-    # 7 subagents: sage lex devon scout shield keeper prism
+@test "FR-0020: remaining 8 subagents do not require permission block" {
+    # 8 subagents: scribe sage lex devon scout shield keeper prism
     # They have permission.question block (FR-0070) but don't need the full 11-key block
-    for agent in sage lex devon scout shield keeper prism; do
+    for agent in scribe sage lex devon scout shield keeper prism; do
         # At least mode must be subagent (tested separately below)
         run grep -q "^mode: subagent" "$(agent_file $agent)"
         [ "$status" -eq 0 ]
@@ -77,8 +77,8 @@ snapshot_agent() {
     }
 }
 
-@test "FR-0060.2: 11 non-Maestro agents have mode: subagent" {
-    for agent in sage lex devon scout archer shield keeper prism warden judge librarian; do
+@test "FR-0060.2: 12 non-Maestro agents have mode: subagent" {
+    for agent in scribe sage lex devon scout archer shield keeper prism warden judge librarian; do
         run grep -E "^mode: subagent" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: ${agent}.md mode must be 'subagent'"
@@ -88,7 +88,7 @@ snapshot_agent() {
 }
 
 @test "NFR-0050: no mode: all remnants" {
-    for agent in maestro sage lex devon scout archer shield keeper prism warden judge librarian; do
+    for agent in maestro scribe sage lex devon scout archer shield keeper prism warden judge librarian; do
         run grep -E "^mode: all" "$(agent_file $agent)"
         [ "$status" -ne 0 ] || {
             echo "FAIL: ${agent}.md still has 'mode: all' (deprecated)"
@@ -160,17 +160,16 @@ snapshot_agent() {
 }
 
 # ───────────────────────────────────────────────────────────────────
-# FR-0070: 4 interactive subagents + 7 non-interactive
+# FR-0070: interactive and non-interactive subagents
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0070.2: 4 interactive subagents have permission.question: allow" {
-    for agent in scout sage archer judge; do
-        # 4 role agents (archer judge) already have permission block with question: allow
-        # 2 non-role agents (scout sage) have separate permission block with question: allow
+@test "FR-0070.2: 5 interactive subagents have permission.question: allow" {
+    for agent in scribe scout sage archer judge; do
+        # Role agents (archer/judge) and authoring agents declare question explicitly.
         if [ "$agent" = "archer" ] || [ "$agent" = "judge" ]; then
             run grep -E "^  question: allow" "$(agent_file $agent)"
         else
-            # scout / sage separate permission block
+            # scribe / scout / sage separate permission block
             run grep -E "^  question: allow" "$(agent_file $agent)"
         fi
         [ "$status" -eq 0 ] || {
@@ -323,6 +322,28 @@ PYEOF
     rm -f /tmp/louke_inject_unknown.py
 }
 
+@test "FR-0040: lint validates a declared permission block even when it is not required" {
+    cd "$REPO_ROOT"
+    snapshot_agent scribe
+    python3 -c "
+text = open('$AGENTS_DIR/Scribe.md').read()
+text = text.replace('  bash: allow', '  bash: allow\\n  todowrite: allow', 1)
+open('$AGENTS_DIR/Scribe.md', 'w').write(text)
+"
+    run python3 -m louke agent lint
+    [ "$status" -ne 0 ] || { echo "FAIL: lint should validate Scribe permission keys"; false; }
+    [[ "$output" == *"scribe: permission has unknown keys"* ]]
+}
+
+@test "v0.14: Scribe/Sage/Lex descriptions cover their current workflow roles" {
+    run grep -E '^description: .*Go/Park/No-Go recommendation$' "$AGENTS_DIR/Scribe.md"
+    [ "$status" -eq 0 ]
+    run grep -E '^description: Story peer review and requirements authoring .*Spec and Acceptance contracts$' "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+    run grep -E '^description: Requirements semantic reviewer .*Spec/Acceptance assertability.*$' "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+}
+
 @test "NFR-0050: multiple primary → lint fail" {
     cd "$REPO_ROOT"
     snapshot_agent sage
@@ -340,11 +361,11 @@ PYEOF
 
 # === v0.6.14 GLM review: subagent permission completeness ===
 
-@test "v0.6.14: 11 subagents must have task: deny (prevents question tool hallucination regression)" {
-    for agent in sage scout devon keeper lex archer judge librarian warden keeper prism shield; do
+@test "v0.6.14: 12 subagents must have task: deny (prevents question tool hallucination regression)" {
+    for agent in scribe sage scout devon keeper lex archer judge librarian warden prism shield; do
         # Skip if file doesn't exist
         [ -f "$(agent_file $agent)" ] || continue
-        # 11 subagents must have task: deny (excludes Maestro which is primary)
+        # 12 subagents must have task: deny (excludes Maestro which is primary)
         run grep -q "^  task: deny" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent missing 'task: deny' in permission block"
@@ -356,8 +377,8 @@ PYEOF
     done
 }
 
-@test "v0.6.14: 4 interactive subagents (Scout/Sage/Archer/Judge) must have question: allow" {
-    for agent in scout sage archer judge; do
+@test "v0.6.14: 5 interactive subagents (Scribe/Scout/Sage/Archer/Judge) must have question: allow" {
+    for agent in scribe scout sage archer judge; do
         [ -f "$(agent_file $agent)" ] || continue
         run grep -q "^  question: allow" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {

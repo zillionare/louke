@@ -285,12 +285,13 @@ def cmd_lint(args):
         name = fm.get("name") or fp.stem
         agents_fm[name] = fm
 
-        # FR-0040 AC-2: 5 agents require a permission block
-        if name in PERMISSION_REQUIRED:
-            if "permission" not in fm:
-                errors.append(f"missing permission block for {name}")
-                continue
+        # Required agents must declare permissions; every declared block must
+        # still be validated so newly added agents cannot bypass the allowlist.
+        if "permission" in fm:
             _check_permission_block(name, fm["permission"], errors)
+        elif name in PERMISSION_REQUIRED:
+            errors.append(f"missing permission block for {name}")
+            continue
 
         # FR-0040 AC-2: mode field is required and must be valid
         mode = fm.get("mode")
@@ -339,7 +340,7 @@ def cmd_lint(args):
 
     print(
         f"{ok()} {len(agents_fm)} agents pass lint "
-        f"{dim('(')}{cyan(str(sum(1 for n in agents_fm if n in PERMISSION_REQUIRED)))}{dim(' with permission)')}",
+        f"{dim('(')}{cyan(str(sum(1 for fm in agents_fm.values() if 'permission' in fm)))}{dim(' with permission)')}",
         flush=True,
     )
     return 0
