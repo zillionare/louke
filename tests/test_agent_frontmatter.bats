@@ -123,7 +123,7 @@ snapshot_agent() {
     [ "$status" -eq 0 ] || { echo "FAIL: Judge.question must be allow"; false; }
 }
 
-@test "FR-0010.3: Archer has 11 keys (including edit: allow + question: allow)" {
+@test "FR-0010.3: Archer has 11 keys (including edit: allow + question: deny)" {
     local f="$AGENTS_DIR/Archer.md"
     for key in bash read edit grep glob task question webfetch websearch external_directory doom_loop; do
         run grep -qE "^  $key: " "$f"
@@ -131,8 +131,8 @@ snapshot_agent() {
     done
     run grep -E "^  edit: allow" "$f"
     [ "$status" -eq 0 ] || { echo "FAIL: Archer.edit must be allow"; false; }
-    run grep -E "^  question: allow" "$f"
-    [ "$status" -eq 0 ] || { echo "FAIL: Archer.question must be allow"; false; }
+    run grep -E "^  question: deny" "$f"
+    [ "$status" -eq 0 ] || { echo "FAIL: Archer.question must be deny"; false; }
 }
 
 @test "FR-0010.4: Librarian has 11 keys (including edit: allow, question: deny)" {
@@ -163,15 +163,9 @@ snapshot_agent() {
 # FR-0070: interactive and non-interactive subagents
 # ───────────────────────────────────────────────────────────────────
 
-@test "FR-0070.2: 5 interactive subagents have permission.question: allow" {
-    for agent in scribe scout sage archer judge; do
-        # Role agents (archer/judge) and authoring agents declare question explicitly.
-        if [ "$agent" = "archer" ] || [ "$agent" = "judge" ]; then
-            run grep -E "^  question: allow" "$(agent_file $agent)"
-        else
-            # scribe / scout / sage separate permission block
-            run grep -E "^  question: allow" "$(agent_file $agent)"
-        fi
+@test "FR-0070.2: 4 interactive subagents have permission.question: allow" {
+    for agent in scribe scout sage judge; do
+        run grep -E "^  question: allow" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
             echo "FAIL: $agent must have question: allow"
             false
@@ -377,8 +371,8 @@ open('$AGENTS_DIR/Scribe.md', 'w').write(text)
     done
 }
 
-@test "v0.6.14: 5 interactive subagents (Scribe/Scout/Sage/Archer/Judge) must have question: allow" {
-    for agent in scribe scout sage archer judge; do
+@test "v0.6.14: 4 interactive subagents (Scribe/Scout/Sage/Judge) must have question: allow" {
+    for agent in scribe scout sage judge; do
         [ -f "$(agent_file $agent)" ] || continue
         run grep -q "^  question: allow" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
@@ -388,8 +382,8 @@ open('$AGENTS_DIR/Scribe.md', 'w').write(text)
     done
 }
 
-@test "v0.6.14: 6 non-interactive subagents must have question: deny" {
-    for agent in devon keeper librarian warden prism shield; do
+@test "v0.6.14: 7 non-interactive subagents must have question: deny" {
+    for agent in devon keeper librarian warden prism shield archer; do
         [ -f "$(agent_file $agent)" ] || continue
         run grep -q "^  question: deny" "$(agent_file $agent)"
         [ "$status" -eq 0 ] || {
