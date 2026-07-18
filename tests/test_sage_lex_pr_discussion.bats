@@ -25,6 +25,15 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
     [ "$status" -eq 0 ]
 }
 
+@test "SAGE-ANALYSIS-002: Sage checks human-facing interaction dimensions and inherited contracts" {
+    run grep -q "面向人的交互合同" "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+    run grep -q "一个 BS 到一个 FR 的编号映射" "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+    run grep -q "artifact identity、revision/digest 和需求锚点" "$AGENTS_DIR/Sage.md"
+    [ "$status" -eq 0 ]
+}
+
 @test "LEX-BOUNDARY-001: Lex does not repeat program validation" {
     run grep -Eq "lk agent lex (verify-acceptance|verify-issue|verify-project|quote-check)" "$AGENTS_DIR/Lex.md"
     [ "$status" -ne 0 ]
@@ -34,6 +43,24 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
     run grep -q "Happy Path" "$AGENTS_DIR/Lex.md"
     [ "$status" -eq 0 ]
     run grep -q "可断言" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "LEX-SEMANTIC-002: Lex independently rejects incomplete interaction contracts" {
+    run grep -q "面向人的交互完整性" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+    run grep -q "只映射到一个 FR 编号" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+    run grep -q "不得只证明后台状态发生变化" "$AGENTS_DIR/Lex.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "SCRIBE-DISCOVERY-001: Scribe captures interaction facts without designing UI" {
+    run grep -q "交互闭环" "$AGENTS_DIR/Scribe.md"
+    [ "$status" -eq 0 ]
+    run grep -q "不设计组件树、CSS 或内部 API" "$AGENTS_DIR/Scribe.md"
+    [ "$status" -eq 0 ]
+    run grep -q "复用现有界面/交互" "$AGENTS_DIR/Scribe.md"
     [ "$status" -eq 0 ]
 }
 
