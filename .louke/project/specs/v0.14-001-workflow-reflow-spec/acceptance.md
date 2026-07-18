@@ -1,12 +1,12 @@
 ---
-status: Draft v3 (HTML anchors added; pending re-LOCK with new digests)
+status: Draft v4 (HTML anchors + ac-fr/ac-nfr dual anchors; pending re-LOCK with new digests)
 spec_id: v0.14-001-workflow-reflow-spec
 bound_story: STR-1402
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
-spec_digest: sha256:4b5bffd973af46536a7efda3d14de668211d7f89c58e6408cfff1f01adae093f
-acceptance_digest: sha256:59d952e897ede1ce9e271c0ee59423b5a099d4098b344d46b561d5889ccdd9ce
-doc_index_digest_sha256: sha256:1fb2ade318cf68a7954ce75b120262ad80572a9467d053de8f7c2047875fb12d
-revision: 3
+spec_digest: sha256:d4c9dfefcc46893e79344b0cc17fbd908522d73486afeb30120dfde52fee984b
+acceptance_digest: sha256:47a63a540bda22db625b90a50ba96d8fcb682299c15c4e1e807f05c9a97ef9db
+doc_index_digest_sha256: sha256:dbc657cb1fa7fb6d75a0fb2b6356de5d21dc9e697332b8066cbe7c7dbe9900ac
+revision: 4
 lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md
 ---
 
@@ -16,6 +16,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0100
 <a id="fr-0100"></a>
+<a id="ac-fr-0100"></a>
 
 ### AC-1
 - **Given** 一个缺少model/provider或OpenCode的workspace
@@ -34,6 +35,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0200
 <a id="fr-0200"></a>
+<a id="ac-fr-0200"></a>
 
 ### AC-1
 - **Given** Git remote、项目资料和认证身份产生候选值
@@ -57,6 +59,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0300
 <a id="fr-0300"></a>
+<a id="ac-fr-0300"></a>
 
 ### AC-1
 - **Given** `/projects/new`收到空story或非法release version
@@ -75,6 +78,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0400
 <a id="fr-0400"></a>
+<a id="ac-fr-0400"></a>
 
 ### AC-1
 - **Given** declared remote刷新失败或上一开发分支尚未合入权威main
@@ -98,6 +102,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0500
 <a id="fr-0500"></a>
+<a id="ac-fr-0500"></a>
 
 ### AC-1
 - **Given** 有效Human设想S和canonical Story template T
@@ -116,6 +121,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0600
 <a id="fr-0600"></a>
+<a id="ac-fr-0600"></a>
 
 ### AC-1
 - **Given** run当前在M-SPEC revision R
@@ -129,6 +135,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0700
 <a id="fr-0700"></a>
+<a id="ac-fr-0700"></a>
 
 ### AC-1
 - **Given** M-STORY开始且Story revision为R
@@ -147,6 +154,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0800
 <a id="fr-0800"></a>
+<a id="ac-fr-0800"></a>
 
 ### AC-1
 - **Given** Human对当前Story选择Park或No-Go并提供理由
@@ -165,6 +173,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-0900
 <a id="fr-0900"></a>
+<a id="ac-fr-0900"></a>
 
 ### AC-1
 - **Given** Human已裁决Go且原Scribe session为S
@@ -183,6 +192,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1000
 <a id="fr-1000"></a>
+<a id="ac-fr-1000"></a>
 
 ### AC-1
 - **Given** Human与Agent持有同一旧version token或错误lease
@@ -201,6 +211,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1100
 <a id="fr-1100"></a>
+<a id="ac-fr-1100"></a>
 
 ### AC-1
 - **Given** Human打开当前revision的review页
@@ -219,6 +230,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1200
 <a id="fr-1200"></a>
+<a id="ac-fr-1200"></a>
 
 ### AC-1
 - **Given** Story handoff commit为C、digest为D
@@ -237,6 +249,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1300
 <a id="fr-1300"></a>
+<a id="ac-fr-1300"></a>
 
 ### AC-1
 - **Given** 当前Story双方review PASS且digest为D
@@ -255,6 +268,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1400
 <a id="fr-1400"></a>
+<a id="ac-fr-1400"></a>
 
 ### AC-1
 - **Given** committed spec revision为R
@@ -278,6 +292,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1500
 <a id="fr-1500"></a>
+<a id="ac-fr-1500"></a>
 
 ### AC-1
 - **Given** run分别处于M-SPEC和M-ACC
@@ -296,6 +311,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1600
 <a id="fr-1600"></a>
+<a id="ac-fr-1600"></a>
 
 ### AC-1
 - **Given** Spec语义与格式结果均为当前PASS
@@ -314,6 +330,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1700
 <a id="fr-1700"></a>
+<a id="ac-fr-1700"></a>
 
 ### AC-1
 - **Given** 三份文档任一review、format或discussion未闭合
@@ -332,6 +349,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1800
 <a id="fr-1800"></a>
+<a id="ac-fr-1800"></a>
 
 ### AC-1
 - **Given** M-LOCK-1尚未批准
@@ -360,6 +378,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-1900
 <a id="fr-1900"></a>
+<a id="ac-fr-1900"></a>
 
 ### AC-1
 - **Given** Scribe author、Sage author/reviewer和Lex reviewer tasks已派发
@@ -383,6 +402,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-2000
 <a id="fr-2000"></a>
+<a id="ac-fr-2000"></a>
 
 ### AC-1
 - **Given** workspace含预先staged、unstaged、untracked和其它文档修改
@@ -401,6 +421,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # FR-2100
 <a id="fr-2100"></a>
+<a id="ac-fr-2100"></a>
 
 ### AC-1
 - **Given** run停在任一review round且包含write lease、tasks和Human wait
@@ -419,6 +440,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # NFR-0100
 <a id="nfr-0100"></a>
+<a id="ac-nfr-0100"></a>
 
 ### AC-1
 - **Given** 可在run状态/event事务提交边界注入崩溃
@@ -442,6 +464,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # NFR-0200
 <a id="nfr-0200"></a>
+<a id="ac-nfr-0200"></a>
 
 ### AC-1
 - **Given** 一条流程完成setup到Issue关联
@@ -460,6 +483,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 
 # NFR-0300
 <a id="nfr-0300"></a>
+<a id="ac-nfr-0300"></a>
 
 ### AC-1
 - **Given** 安装后的release candidate、干净Git workspace和受控桌面浏览器

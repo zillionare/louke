@@ -1,12 +1,12 @@
 ---
-status: Draft v3 (HTML anchors added; pending re-LOCK with new digests)
+status: Draft v4 (HTML anchors + ac-fr/ac-nfr dual anchors; pending re-LOCK with new digests)
 spec_id: v0.14-001-workflow-reflow-spec
 bound_story: STR-1402
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
-spec_digest: sha256:4b5bffd973af46536a7efda3d14de668211d7f89c58e6408cfff1f01adae093f
-acceptance_digest: sha256:59d952e897ede1ce9e271c0ee59423b5a099d4098b344d46b561d5889ccdd9ce
-doc_index_digest_sha256: sha256:1fb2ade318cf68a7954ce75b120262ad80572a9467d053de8f7c2047875fb12d
-revision: 3
+spec_digest: sha256:d4c9dfefcc46893e79344b0cc17fbd908522d73486afeb30120dfde52fee984b
+acceptance_digest: sha256:47a63a540bda22db625b90a50ba96d8fcb682299c15c4e1e807f05c9a97ef9db
+doc_index_digest_sha256: sha256:dbc657cb1fa7fb6d75a0fb2b6356de5d21dc9e697332b8066cbe7c7dbe9900ac
+revision: 4
 lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md
 ---
 
