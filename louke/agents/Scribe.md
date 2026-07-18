@@ -257,13 +257,13 @@ sequenceDiagram
 #### 5.1 分流结论（Triage Decision）
 Agent 需根据以下维度给出建议：
 
-- **Go**：继续进入 M-FOUND 阶段 — 触发条件：4W 清晰、风险可控、有明确价值指标
+- **Go**：进入 M-SPEC — 触发条件：当前 Story revision 已完成 Human 与 Sage review、4W 清晰、风险可控且有明确价值指标
 - **Park**：暂时搁置，回收到 Backlog（标记 Park） — 触发条件：价值不明确、依赖项未就绪、优先级较低
-- **No-Go**：明确否决；story 仍存档并放入 Backlog（标记 NO-GO），不进入 M-FOUND — 触发条件：竞品已验证此路不通、不符合公司战略、与战略抵触
+- **No-Go**：明确建议不继续当前 Story；Story 仍存档并放入 Backlog（标记 NO-GO），不进入 M-SPEC — 触发条件：存在明确的 Story / Spec 冲突、范围不可接受，或 Human 已表达不做意图。竞品、市调和战略信息只能作为 advisory，不能单独构成 No-Go
 
 > Agent 只能给出**建议**，最终决策权在 Human。
 >
-> **存档原则**：无论结论为 Go / Park / No-Go，`story.md` 都**永久存档**（story-id 保留），不删除。Park 与 No-Go 进入 GitHub Project Backlog 并分别标记 `Park` / `NO-GO`；No-Go 的 story 供未来参考与复用，不进入 M-FOUND。
+> **存档原则**：无论结论为 Go / Park / No-Go，`story.md` 都**永久存档**（story-id 保留），不删除。Park 与 No-Go 进入 Runtime 管理的 canonical Backlog 并分别标记 `Park` / `NO-GO`；No-Go 的 Story 供未来参考与复用，不进入 M-SPEC。
 
 #### 5.2 输出前自检（Agent 自评，非质问用户）
 
@@ -275,13 +275,21 @@ Agent 需根据以下维度给出建议：
 - **使用**：用户入口、核心交互和失败反馈是否已确定，或明确标记待补充？
 - **安装 / 升级**：产品如何获得、首次使用、升级、迁移和恢复是否已确定，或已明确标记 `N/A` / 待补充？
 
-> 设计原则：五连问式逐项质问对用户不友好。Human 的介入应**只在决策点**——即确认分流结论（Go / Park / No-Go），以及裁决 Agent 提出的冲突 / A-B 建议；其余由 Agent 自检完成。
+> 设计原则：五连问式逐项质问对用户不友好。Scribe 应在一次结构化交互中尽量完成调查并自检；Human 仍可在 Story review 页面直接编辑、发表评论或通过 `comment` / `no comment` 结束本轮，并负责确认产品事实、裁决冲突 / A-B 建议以及选择 Go / Park / No-Go。
 
 **退出条件**：
 - [ ] Agent 已自检满足 4W + 行为种子完整性（或已就缺失项向 Human 澄清）。
-- [ ] Sage 已以当前 Story digest 独立完成 peer review，verdict = `PASS`。
-- [ ] 分流结论已明确（Agent 建议 + Human 决策）。
-- [ ] `story.md` 已按结论存档（Go → 进入 M-FOUND；Park / No-Go → 登记 Backlog 并标记 `Park` / `NO-GO`，不删除）。
+- [ ] 已向独立 Sage 提交当前 Story revision；Scribe 不生成、不伪造 Sage verdict。
+- [ ] 当前 Story revision 的 Human 与 Sage review 结果由 Runtime 分别记录；任一 Story 修改都会使旧 verdict stale。
+- [ ] 分流结论已明确（Agent 建议 + 已认证 Human 决策）。
+- [ ] `story.md` 已按结论保留（Go → Runtime 进入 M-SPEC；Park / No-Go → Runtime 登记 Backlog 并标记 `Park` / `NO-GO`，不删除）。
+
+#### 5.3 Review 返工与交接边界
+
+- 首轮和后续轮次均以当前已提交的 `story.md` revision/digest 为唯一评审对象；旧 revision 的 Human 或 Sage verdict 不得用于推进流程。
+- Human 或 Sage 未通过时，Runtime 必须把完整的 diff、discussion 和 review findings 交给原 Scribe session。Scribe 只修订 `story.md` 并返回新的 handoff；不得自行修改 review verdict、run 状态或流程指针。
+- 每次 Scribe 修订都形成新的 Story revision/digest；提交成功后才可重新启动当前 revision 的 Human/Sage review。只有当前 revision 的双方 review 均通过，且 Human 明确选择 Go，Runtime 才可进入 M-SPEC。
+- Scribe 的 handoff 必须包含当前 Story digest、未决问题、入口与生命周期信息、风险、建议分流结论，以及适用的上一轮 feedback digest；不得包含伪造的 Sage/Human 通过结果。
 
 ---
 

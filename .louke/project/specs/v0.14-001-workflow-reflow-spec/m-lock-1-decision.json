@@ -1,0 +1,60 @@
+{
+  "spec_id": "v0.14-001-workflow-reflow-spec",
+  "spec_directory": ".louke/project/specs/v0.14-001-workflow-reflow-spec",
+  "stage": "M-LOCK-1",
+  "decision": "approved",
+  "approver": {
+    "actor_name": "Aaron",
+    "principal_id": "prin_pending_first_user_setup",
+    "decision_method": "maestro_interview"
+  },
+  "approved_at": "2026-07-18T15:56:00+08:00",
+  "story": {
+    "story_id": "STR-1402",
+    "bound_story_digest": "sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634",
+    "spec_digest": "sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596",
+    "acceptance_digest": "sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556",
+    "doc_index_digest_sha256": "sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b"
+  },
+  "spec_artifact_state": {
+    "spec_revision": 2,
+    "acceptance_revision": 2,
+    "spec_review_artifact": ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md",
+    "spec_lex_verdict": "PASS-WITH-COMMENTS",
+    "total_active_units": 24,
+    "fr_count": 21,
+    "nfr_count": 3,
+    "active_unit_upper_bound": 30,
+    "within_scope": true
+  },
+  "binding_decisions": {
+    "issue_one_per_requirement": true,
+    "lease_isolation_algorithm_owner": "Archer (Architecture stage)",
+    "opencode_result_validation_adapter_allowed": true,
+    "scope_lower_bound": "flow.md L1-L95 (install -> M-LOCK-1 + GitHub Issues)",
+    "scope_upper_bound": "hard-capped at flow.md L95; L96+ excluded by spec Out-of-Scope"
+  },
+  "lex_decision_artifact_reference": ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md",
+  "downstream_artifacts_required": {
+    "m_testplan": "Authored by Archer; reviewed by S-tier Prism (sole technical reviewer); Shield may provide executability feedback but not approve; Sage MUST NOT approve M-TESTPLAN.",
+    "m_arch": "Authored by Archer; reviewed by Prism; defines workflow driver, write ownership lease, review verdict semantics, semantic task/session persistence, OpenCode result validation adapter, reconcile identity contracts.",
+    "m_dev": "Driven by Devon; covered by FR-1900 / FR-2000 / FR-2100 / NFR-0100 / NFR-0200 / NFR-0300; the four out-of-scope items (return-upstream/bounded waiver/no-new-debt adoption/CLI absence) belong to v0.14 spec 2/3/4."
+  },
+  "side_effects_after_approval": {
+    "documents_become_readonly": ["story.md", "spec.md", "acceptance.md"],
+    "issues_created": false,
+    "issues_created_reason": "M-LOCK-1 approval is bound to this digest; FR-1800 Issue creation belongs to the next workflow run after M-LOCK-1 is human-approved in Web. This JSON records the approval; it does NOT trigger Issue creation.",
+    "git_commits": "pending implementation by Devon in v0.14 spec 2/3/4",
+    "release_branch_created": "pending implementation",
+    "release_project_created": "pending implementation"
+  },
+  "stale_triggers": [
+    "Any byte change in story.md, spec.md, or acceptance.md invalidates this decision.",
+    "Any change in bound_story_digest, spec_digest, acceptance_digest, or doc_index_digest_sha256 invalidates this decision.",
+    "Adoption of FR-0910 / FR-0110 / FR-0720 contracts into this Spec is forbidden and would invalidate the scope statement."
+  ],
+  "notes": [
+    "This decision is recorded by Maestro into the spec directory as a non-authoritative human-approval artifact; it does not commit, push, call Runtime, or create Issues.",
+    "Downstream Spec 2/3/4 MUST not reinterpret the 24 active units; they only add M-TESTPLAN / M-ARCH / M-DEV support."
+  ]
+}
