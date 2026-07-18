@@ -1,9 +1,9 @@
 [project]
 version = "0.13.1"
 repo = "github.com/zillionare/louke"
-project = "louke-0.13.1"
-project_id = "https://github.com/users/quantclaws/projects/19"
-spec_id = "v0.13.1-002-project-local-install-experience"
+project = "louke-0.14.0"
+project_id = "https://github.com/users/quantclaws/projects/20"
+spec_id = "v0.14-001-workflow-reflow-spec"
 release_branch = "releases/0.13.1"
 
 [meta]
