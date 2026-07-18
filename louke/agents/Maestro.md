@@ -34,12 +34,12 @@ permission:
 
 **`lk agent maestro` 子命令**（通过 `bash` 调用）:
 
-| 子命令                        | 用途                                                              | 退出码 |
-| --------------------------- | -------------------------------------------------------------------- | --------- |
-| `lk agent maestro status`   | 显示项目管理信息。帮助 Maestro 在推进前确定当前所处阶段 | 0         |
-| `lk agent maestro advance`  | 对当前阶段执行检查点检查，并推进到下一阶段 | 0         |
-| `lk agent maestro regress`  | 记录经验教训                                               | 0         |
-| `lk agent maestro escalate` | 提醒用户并请求决策                                | 0         |
+| 子命令                      | 用途                                                    | 退出码 |
+| --------------------------- | ------------------------------------------------------- | ------ |
+| `lk agent maestro status`   | 显示项目管理信息。帮助 Maestro 在推进前确定当前所处阶段 | 0      |
+| `lk agent maestro advance`  | 对当前阶段执行检查点检查，并推进到下一阶段              | 0      |
+| `lk agent maestro regress`  | 记录经验教训                                            | 0      |
+| `lk agent maestro escalate` | 提醒用户并请求决策                                      | 0      |
 
 
 ### 2.2. 技能
@@ -92,20 +92,20 @@ Louke 工作流设计也隐含了以下 Agent 时代的假设:
 
 完整功能开发按下表顺序推进。
 
-| 阶段代码      | 阶段           | 实施者                  | 评审者                          | 单行任务                                                                  |
-| ------------- | -------------- | --------------------- | ------------------------------ | -------------------------------------------------------------------------- |
-| `M-FULL`      | 完整流水线       | **Maestro**（指挥）     | —                              | 协调 Agent，驱动工作流，处理异常和升级决策 |
-| `M-STORY`     | Story 发现        | **Scribe**             | **Sage**                        | Scribe 发现并撰写 Story / Sage 检查交接质量            |
-| `M-FOUND`     | 项目基础           | **Runtime 程序**        | —                              | 确定性地确保项目前置条件和规范组成     |
-| `M-SPEC`      | 定义需求           | **Sage**（sage）        | **Lex**（lawgiver）              | Sage 将完整 Story 转换为 Spec/Acceptance；Lex 语义审查；Runtime 驱动循环与门禁 |
-| `M-TESTPLAN`  | 定义测试计划        | **Archer**（archer）    | **Prism**（S 档）                | Archer 设计测试策略 / Prism 独立技术评审                                    |
-| `M-ARCH`      | 架构设计           | **Archer**              | **Prism**                       | Archer 决定架构和接口设计 / Prism 内容评审    |
-| `M-LOCK`      | 锁定需求           | **Maestro**             | 人类                            | **决定是否进入实施阶段**                       |
-| `M-DEV`       | 开发执行           | **Devon**（forge）      | **Prism** → Runtime 门禁         | Devon R-G-R / Prism 语义评审 / Runtime 验证权威证据 |
-| `M-E2E`       | 集成/e2e 开发      | **Shield**（集成/e2e 编写者） | **Prism** → Runtime 门禁 | Shield 编写宿主项目测试 / Prism 评审 / Runtime 验证证据 |
-| `M-BUGFIX`    | Bug 修复           | **Devon**               | Runtime 回归门禁                 | Devon 复用 R-G-R / 程序执行权威回归              |
-| `M-SECURITY`  | 安全审计           | **Judge**（等级 S）      | 人类                            | 深度安全审计（每个里程碑一次；DoD 可禁用）                       |
-| `M-MILESTONE` | 里程碑结束         | **Maestro**             | **人类**                        | Maestro 发布此版本并推进到下一个里程碑           |
+| 阶段代码      | 阶段          | 实施者                        | 评审者                   | 单行任务                                                                       |
+| ------------- | ------------- | ----------------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `M-FULL`      | 完整流水线    | **Maestro**（指挥）           | —                        | 协调 Agent，驱动工作流，处理异常和升级决策                                     |
+| `M-STORY`     | Story 发现    | **Scribe**                    | **Sage**                 | Scribe 发现并撰写 Story / Sage 检查交接质量                                    |
+| `M-FOUND`     | 项目基础      | **Runtime 程序**              | —                        | 确定性地确保项目前置条件和规范组成                                             |
+| `M-SPEC`      | 定义需求      | **Sage**（sage）              | **Lex**（lawgiver）      | Sage 将完整 Story 转换为 Spec/Acceptance；Lex 语义审查；Runtime 驱动循环与门禁 |
+| `M-TESTPLAN`  | 定义测试计划  | **Archer**（archer）          | **Prism**（S 档）        | Archer 设计测试策略 / Prism 独立技术评审                                       |
+| `M-ARCH`      | 架构设计      | **Archer**                    | **Prism**                | Archer 决定架构和接口设计 / Prism 内容评审                                     |
+| `M-LOCK`      | 锁定需求      | **Maestro**                   | 人类                     | **决定是否进入实施阶段**                                                       |
+| `M-DEV`       | 开发执行      | **Devon**（forge）            | **Prism** → Runtime 门禁 | Devon R-G-R / Prism 语义评审 / Runtime 验证权威证据                            |
+| `M-E2E`       | 集成/e2e 开发 | **Shield**（集成/e2e 编写者） | **Prism** → Runtime 门禁 | Shield 编写宿主项目测试 / Prism 评审 / Runtime 验证证据                        |
+| `M-BUGFIX`    | Bug 修复      | **Devon**                     | Runtime 回归门禁         | Devon 复用 R-G-R / 程序执行权威回归                                            |
+| `M-SECURITY`  | 安全审计      | **Judge**（等级 S）           | 人类                     | 深度安全审计（每个里程碑一次；DoD 可禁用）                                     |
+| `M-MILESTONE` | 里程碑结束    | **Maestro**                   | **人类**                 | Maestro 发布此版本并推进到下一个里程碑                                         |
 
 **补充说明**:
 
@@ -190,7 +190,7 @@ Louke 工作流设计也隐含了以下 Agent 时代的假设:
 2. Runtime 原子保存 artifact revision、digest、diff、actor；Agent 不 commit/push。
 
 3. Runtime 执行 `spec_scope_check`（Lex 之前）:
-                  有效 FR+NFR <= 30 → 继续
+                  有效 FR <= 30 → 继续
                   > 30 → 不 dispatch Lex，进入 needs_story_split，合法返回 M-STORY
                   Scribe/Human 按独立交付价值拆分 Story；每个 Story/Spec 推荐进入独立 release
 
