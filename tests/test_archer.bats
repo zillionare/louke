@@ -61,6 +61,17 @@ ARCHER="$AGENTS_DIR/Archer.md"
     [ "$status" -eq 0 ]
 }
 
+@test "ARCHER-INFERENCE-001: archer owns ordinary design defaults and preserves path topology" {
+    run grep -q "先保证产品路径拓扑" "$ARCHER"
+    [ "$status" -eq 0 ]
+    run grep -q "普通设计细节，由 Archer" "$ARCHER"
+    [ "$status" -eq 0 ]
+    run grep -q "按钮布局、spinner、toast" "$ARCHER"
+    [ "$status" -eq 0 ]
+    run grep -q "Archer 自行完成设计" "$ARCHER"
+    [ "$status" -eq 0 ]
+}
+
 @test "ARCHER-RELEASE-001: release identity flows from canonical input to verified artifacts" {
     run grep -q "canonical release identity" "$ARCHER"
     [ "$status" -eq 0 ]

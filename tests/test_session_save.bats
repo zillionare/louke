@@ -12,16 +12,18 @@ AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
     [ "$status" -eq 0 ]
 }
 
-@test "UT-010-01: Sage delegates artifact persistence to Runtime" {
-    run grep -q "Runtime 负责 revision" "$AGENTS_DIR/Sage.md"
-    [ "$status" -eq 0 ]
+@test "UT-010-01: Sage does not perform artifact persistence" {
     run grep -q "lk-reserve-memory" "$AGENTS_DIR/Sage.md"
+    [ "$status" -ne 0 ]
+    run grep -Eq "lk agent sage (commit-spec|quote-check|create-issues|record-lock)" "$AGENTS_DIR/Sage.md"
     [ "$status" -ne 0 ]
 }
 
-@test "UT-010-01: Lex delegates review persistence to Runtime" {
-    run grep -q "Runtime 负责 discussion query、revision 持久化" "$AGENTS_DIR/Lex.md"
-    [ "$status" -eq 0 ]
+@test "UT-010-01: Lex does not perform review persistence" {
+    run grep -q "lk-reserve-memory" "$AGENTS_DIR/Lex.md"
+    [ "$status" -ne 0 ]
+    run grep -Eq "lk agent lex (verify-acceptance|verify-issue|verify-project|quote-check)" "$AGENTS_DIR/Lex.md"
+    [ "$status" -ne 0 ]
 }
 
 @test "UT-010-01: Judge has session save instructions" {

@@ -1,71 +1,71 @@
-# {Feature Title} — Spec
+# {功能标题} — 需求规格
 
-- **Spec ID**: {SPEC-ID}
-- **Created**: {YYYY-MM-DD}
-- **Status**: {Draft / Reviewing / Confirmed}
+- **规格 ID**：{SPEC-ID}
+- **创建日期**：{YYYY-MM-DD}
+- **状态**：{草稿 / 评审中 / 已确认}
 
-> **Responsibility split**: This document only describes the requirements themselves (FR/NFR descriptions + metadata).
-> The canonical product narrative, user stories, happy path, and usage scenarios remain in `story.md`; do not copy or rewrite them here.
-> Each FR/NFR records only the relevant Story seed or section ID in its `Source` field, without duplicating the source text.
-> A Spec may contain at most 30 active FR/NFR units. Requirements explicitly marked `Valid=❌` retain their IDs but do not count toward the limit. Runtime enforces this before Lex review.
-> Acceptance criteria (observable, assertable pass conditions) live in `acceptance.md` so they can grow without bloating spec.
-> The test plan (`test-plan.md`) references both spec.md and acceptance.md as inputs.
+> **职责边界**：本文档只描述需求本身（FR/NFR 描述及元数据）。
+> 规范的产品叙事、用户故事、主路径和使用场景保留在 `story.md` 中；不要在这里复制或改写。
+> 每个 FR/NFR 只在“来源”字段记录相关 Story 行为种子或章节 ID，不重复来源正文。
+> 一个 Spec 最多包含 30 个有效 FR/NFR 单元。明确标记为“有效需求=❌”的需求保留原 ID，但不计入上限。
+> 验收标准（可观察、可断言的通过条件）写入 `acceptance.md`，避免 Spec 因验收细节持续膨胀。
+> 测试计划（`test-plan.md`）同时以 `spec.md` 和 `acceptance.md` 为输入。
 
-## Functional Requirements
+## 功能需求
 
-> **Format convention (must read)**: Each FR unit starts with a level-3 heading + space + FR-XXXX (uppercase, 4-digit zero-padded) + {title}, immediately followed by a 3-column metadata table (Valid / Testable / Decided), then the requirement description; separate FRs with `---`.
+> **格式约定（必读）**：每个 FR 单元以三级标题开头，格式为“`### FR-XXXX {标题}`”；其中 FR 必须大写，编号必须为四位并补零。标题后紧跟包含“有效需求 / 可测性 / 是否已决定”三列的元数据表，再写需求描述。不同 FR 之间使用 `---` 分隔。
 >
-> **Numbering convention (must read)**: FR codes use **4 digits**, zero-padded, **starting from 100 in the initial draft, stepping by 100** (FR-0001, FR-0101, FR-0201, ...); **after the first review round, insert by step 10** (FR-0011 between FR-0001 and FR-0101); **after the second round, use sequential numbering**. This 100/10/1 spacing reserves room for future insertions and avoids large-scale renumbering.
+> **编号约定（必读）**：FR 编号在初稿中按 **100** 的间隔预留（FR-0001、FR-0101、FR-0201……）；第一次评审后，新增需求按 **10** 的间隔插入（例如在 FR-0001 与 FR-0101 之间插入 FR-0011）；第二次评审后使用连续编号。100/10/1 的间隔用于给后续插入留出空间，避免大规模重编号。
 >
-> **Must read**: The FR-XXXX code is the id of that requirement. Never delete an existing requirement id to avoid reference confusion; if a FR must be deprecated, change `Valid` to `❌` in the table and explain in the clarification log.
+> **ID 约定（必读）**：FR-XXXX 是该需求的唯一 ID。不得删除既有需求 ID，以免造成引用混乱；若某项 FR 需要废弃，将表格中的“有效需求”改为 `❌`，并在“澄清记录”中说明原因。
 >
-> **AC reference**: Acceptance criteria use the `AC-FRXXXX-YY` format (4-digit FR + 2-digit AC), see `acceptance.md`.
+> **AC 引用**：验收标准使用 `AC-FRXXXX-YY` 格式（四位 FR 编号 + 两位 AC 编号），详见 `acceptance.md`。
 >
-> **Metadata fields (table columns)**:
-> - Valid (formerly yaml `valid`): `✅` = still active, `❌` = deprecated
-> - Testable (formerly yaml `testability`): `✅` = can be tested/asserted, `⚠️ {reason}` = has reservations
-> - Decided (formerly yaml `resolved`): `✅` = user approved, `⚠️` = pending clarification, `❌` = user explicitly rejected
+> **元数据字段（表格列）**：
+> - 有效需求（原 YAML `valid`）：`✅` = 仍然有效，`❌` = 已废弃
+> - 可测性（原 YAML `testability`）：`✅` = 可以测试/断言，`⚠️ {理由}` = 存在保留意见
+> - 是否已决定（原 YAML `resolved`）：`✅` = 已由 Human 明确决定，或可从已批准的产品事实/惯例中得到可追溯且无歧义的稳定推导；`⚠️` = 仍存在多个会产生实质不同产品结果的方向，需要进一步澄清；`❌` = 已被 Human 或权威上游合同明确拒绝。Human 的沉默绝不构成对真正未决方向的批准。
 
-### FR-0010 {title}
+### FR-0010 {标题}
 
-| Valid | Testable | Decided |
+| 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **Source**: {Story behavior seed or section ID, e.g. `BS-01` / `§3.4`}
+- **来源**：{Story 行为种子或章节 ID，例如 `BS-01` / `§3.4`}
 
-{Requirement description}
+{需求描述}
 
 ---
 
-### FR-0020 {title}
+### FR-0020 {标题}
 
-| Valid | Testable | Decided |
+| 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
-| ✅ | ⚠️ {reason} | ⚠️ |
+| ✅ | ⚠️ {理由} | ⚠️ |
 
-- **Source**: {Story behavior seed or section ID}
+- **来源**：{Story 行为种子或章节 ID}
 
-{Requirement description}
+{需求描述}
 
 ---
 
-## Non-Functional Requirements
+## 非功能需求
 
-> **Must read**: Format and numbering rules are the same as FR; omitted here.
+> **必读**：格式和编号规则与 FR 相同，此处不再重复。
 
-### NFR-0010 {title}
+### NFR-0010 {标题}
 
-| Valid | Testable | Decided |
+| 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **Source**: {Story behavior seed or section ID}
+- **来源**：{Story 行为种子或章节 ID}
 
-{Requirement description}
+{需求描述}
 
 ---
 
-## Clarification Log
+## 澄清记录
 
-> Record questions raised during user review, Sage/Lex replies, reasons for deprecated requirements, and any decisions that affect FR/NFR table status.
+> 记录 Human 评审中提出的问题、Sage/Lex 的回应、需求废弃原因，以及影响 FR/NFR 表格状态的决定。
