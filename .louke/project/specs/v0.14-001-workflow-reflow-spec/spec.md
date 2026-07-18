@@ -1,12 +1,12 @@
 ---
-status: Draft v5 (anchor-before-heading for L6 context; pending re-LOCK with new digests)
+status: Draft v6 (ac-anchors repositioned for L7 context check; pending re-LOCK with new digests)
 spec_id: v0.14-001-workflow-reflow-spec
 bound_story: STR-1402
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
-spec_digest: sha256:99746e3a8a87d625f468fc7a7eeb022975236aaea9429075c22509d0f596dc58
-acceptance_digest: sha256:7492ae05add0a23e282477a7dccb2f7730c72c5359d355d23cfa65d8da3f8a6f
-doc_index_digest_sha256: sha256:e2b2767556b34f2085fa9ce2d0dde480665bfb95beec4c8dd158a7ead5db747b
-revision: 5
+spec_digest: sha256:1507b61f5caf3a64c88234eed8ca550a171b60ad2fa4e7aeec78d32bf580ea21
+acceptance_digest: sha256:a414d1574f396d1ec03a5c69d85f1193a252b21591f0aa16f758291ddb57dfd5
+doc_index_digest_sha256: sha256:6cbb8c7756b30e7851e8af713f1ebc37f7b022dae391a1f691d94914a0e02197
+revision: 6
 lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md
 ---
 
