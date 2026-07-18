@@ -1,11 +1,11 @@
 ---
 spec_id: v0.14-001-workflow-reflow-spec
-bound_spec_digest: sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596
-bound_acceptance_digest: sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556
+bound_spec_digest: sha256:4b5bffd973af46536a7efda3d14de668211d7f89c58e6408cfff1f01adae093f
+bound_acceptance_digest: sha256:59d952e897ede1ce9e271c0ee59423b5a099d4098b344d46b561d5889ccdd9ce
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
-bound_doc_index_digest_sha256: sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b
-revision: 2
-status: Draft v2 (pending Prism re-review)
+bound_doc_index_digest_sha256: sha256:1fb2ade318cf68a7954ce75b120262ad80572a9467d053de8f7c2047875fb12d
+revision: 3
+status: Draft v3 (bound digests refreshed after anchor insertion; pending Prism re-review)
 ---
 
 # v0.14 Workflow Reflow（启动至 M-LOCK-1 + Issues）— Test Plan
@@ -15,10 +15,10 @@ status: Draft v2 (pending Prism re-review)
 - **spec_id**: `v0.14-001-workflow-reflow-spec`
 - **spec_status**: `Draft v2 / pending Prism re-review`
 - **created**: `2026-07-18`
-- **bound_spec_digest**: `sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596`
-- **bound_acceptance_digest**: `sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556`
+- **bound_spec_digest**: `sha256:4b5bffd973af46536a7efda3d14de668211d7f89c58e6408cfff1f01adae093f`
+- **bound_acceptance_digest**: `sha256:59d952e897ede1ce9e271c0ee59423b5a099d4098b344d46b561d5889ccdd9ce`
 - **bound_story_digest**: `sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634`
-- **bound_doc_index_digest_sha256**: `sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b`
+- **bound_doc_index_digest_sha256**: `sha256:1fb2ade318cf68a7954ce75b120262ad80572a9467d053de8f7c2047875fb12d`
 - **approval fixture**: `m-lock-1-decision.json`；只作为已锁定 digest/decision 的输入证据，不触发 Runtime、Issue 或其它副作用。
 - **related acceptance**: `.louke/project/specs/v0.14-001-workflow-reflow-spec/acceptance.md`
 - **interfaces status**: M-ARCH / Spec 3 尚未交付；本初稿只声明 acceptance 所需的可观察结果，§10 列出的出口须在 M-ARCH review 后闭合。

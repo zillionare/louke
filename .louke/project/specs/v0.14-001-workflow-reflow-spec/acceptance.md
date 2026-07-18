@@ -1,12 +1,12 @@
 ---
-status: Draft v2 (pending M-LOCK-1)
+status: Draft v3 (HTML anchors added; pending re-LOCK with new digests)
 spec_id: v0.14-001-workflow-reflow-spec
 bound_story: STR-1402
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
-spec_digest: sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596
-acceptance_digest: sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556
-doc_index_digest_sha256: sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b
-revision: 2
+spec_digest: sha256:4b5bffd973af46536a7efda3d14de668211d7f89c58e6408cfff1f01adae093f
+acceptance_digest: sha256:59d952e897ede1ce9e271c0ee59423b5a099d4098b344d46b561d5889ccdd9ce
+doc_index_digest_sha256: sha256:1fb2ade318cf68a7954ce75b120262ad80572a9467d053de8f7c2047875fb12d
+revision: 3
 lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md
 ---
 
@@ -15,6 +15,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 > 每节与 `spec.md` 的一个 FR/NFR 一一对应。所有条件只能通过公开Web/API、持久化artifact/event或外部Git/GitHub/OpenCode边界断言。M-LOCK-1 批准后本 acceptance 与 spec 共同 digest 进入只读；FR-1800 Issue 创建以此 digest 为 reconcile identity 之一。
 
 # FR-0100
+<a id="fr-0100"></a>
 
 ### AC-1
 - **Given** 一个缺少model/provider或OpenCode的workspace
@@ -32,6 +33,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 进程退出码非0，stderr含失败dependency名称与非空修复动作，且WorkflowRun与外部create调用数均为0。
 
 # FR-0200
+<a id="fr-0200"></a>
 
 ### AC-1
 - **Given** Git remote、项目资料和认证身份产生候选值
@@ -54,6 +56,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** Web显示`waiting_human`及精确匹配详情，不按模糊title选择，manifest不标记setup complete。
 
 # FR-0300
+<a id="fr-0300"></a>
 
 ### AC-1
 - **Given** `/projects/new`收到空story或非法release version
@@ -71,6 +74,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** entry仍显示原story、version、阻塞原因、created time和source identity。
 
 # FR-0400
+<a id="fr-0400"></a>
 
 ### AC-1
 - **Given** declared remote刷新失败或上一开发分支尚未合入权威main
@@ -93,6 +97,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** Web显示每个相关full ref、SHA、关系与非空remediation，foundation状态非PASS且M-STORY task数不增加；Human完成修复并重新检查通过前，确认请求不能绕过阻塞，最终release branch起点SHA字节等于M。
 
 # FR-0500
+<a id="fr-0500"></a>
 
 ### AC-1
 - **Given** 有效Human设想S和canonical Story template T
@@ -110,6 +115,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** URL指向当前spec的Story编辑页，页面显示相同run ID、M-STORY和revision identity。
 
 # FR-0600
+<a id="fr-0600"></a>
 
 ### AC-1
 - **Given** run当前在M-SPEC revision R
@@ -122,6 +128,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 页面显示与持久化出口相同的step、status、artifact revision、writer、round、task/session、verdict和last error。
 
 # FR-0700
+<a id="fr-0700"></a>
 
 ### AC-1
 - **Given** M-STORY开始且Story revision为R
@@ -139,6 +146,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 请求被拒绝且裁决记录为空；当前Human对R提交三个合法值之一时记录包含actor、R、value和time。
 
 # FR-0800
+<a id="fr-0800"></a>
 
 ### AC-1
 - **Given** Human对当前Story选择Park或No-Go并提供理由
@@ -156,6 +164,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** run为`needs_attention`，页面列出阻塞identity，相关ref和用户文件bytes保持不变且无force/reset调用。
 
 # FR-0900
+<a id="fr-0900"></a>
 
 ### AC-1
 - **Given** Human已裁决Go且原Scribe session为S
@@ -173,6 +182,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 新commit只含当前`story.md`，evidence含digest、parent/commit SHA和task/attempt/session，随后才出现review tasks。
 
 # FR-1000
+<a id="fr-1000"></a>
 
 ### AC-1
 - **Given** Human与Agent持有同一旧version token或错误lease
@@ -190,6 +200,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 仅当最近已接受revision的精确bytes/digest可从公开revision evidence核对时，系统才只移除违规patch、保留其它workspace/index bytes并通知Agent重读；基线不可取得或来源不可隔离时状态为`needs_attention`且不执行repository-wide revert。
 
 # FR-1100
+<a id="fr-1100"></a>
 
 ### AC-1
 - **Given** Human打开当前revision的review页
@@ -207,6 +218,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 均不产生PASS；只有无编辑的当前revision提交`no comment`且无open/reopen thread才记录digest-bound Human PASS。
 
 # FR-1200
+<a id="fr-1200"></a>
 
 ### AC-1
 - **Given** Story handoff commit为C、digest为D
@@ -224,6 +236,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 原Scribe session继续使用，D/D2 verdict标为stale，新一轮只评审D3；双方均PASS D3后current step才变为M-SPEC。
 
 # FR-1300
+<a id="fr-1300"></a>
 
 ### AC-1
 - **Given** 当前Story双方review PASS且digest为D
@@ -241,6 +254,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 返回包含requirement/line或`SPEC_SCOPE_TOO_LARGE`的错误，Lex task数为0且run留在Sage修订。
 
 # FR-1400
+<a id="fr-1400"></a>
 
 ### AC-1
 - **Given** committed spec revision为R
@@ -263,6 +277,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 页面显示具体file/line/rule，current step仍为M-SPEC且M-ACC task数为0；校验通过后才进入M-ACC。
 
 # FR-1500
+<a id="fr-1500"></a>
 
 ### AC-1
 - **Given** run分别处于M-SPEC和M-ACC
@@ -280,6 +295,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** run step和revision保持不变并显示等待Human决定。
 
 # FR-1600
+<a id="fr-1600"></a>
 
 ### AC-1
 - **Given** Spec语义与格式结果均为当前PASS
@@ -297,6 +313,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** Project current页显示current step `M-LOCK-1`；随后任一Story或Spec digest变化会把Acceptance verdict标为stale并隐藏approve。
 
 # FR-1700
+<a id="fr-1700"></a>
 
 ### AC-1
 - **Given** 三份文档任一review、format或discussion未闭合
@@ -314,6 +331,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 批准记录含actor/time/challenge/revision/digests，写请求返回HTTP 423且body含`REQUIREMENTS_LOCKED`，三文件bytes保持不变。
 
 # FR-1800
+<a id="fr-1800"></a>
 
 ### AC-1
 - **Given** M-LOCK-1尚未批准
@@ -341,6 +359,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 该Issue不被复用，页面显示以`_CONFLICT`结尾的稳定code或`needs_attention`及不匹配字段；在Human消除歧义前不创建第二个候选Issue。
 
 # FR-1900
+<a id="fr-1900"></a>
 
 ### AC-1
 - **Given** Scribe author、Sage author/reviewer和Lex reviewer tasks已派发
@@ -363,6 +382,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 原attempt显示`lost`或`interrupted`，新attempt拥有新session ID并引用相同权威input digests，任何attempt都未被自动标为PASS。
 
 # FR-2000
+<a id="fr-2000"></a>
 
 ### AC-1
 - **Given** workspace含预先staged、unstaged、untracked和其它文档修改
@@ -380,6 +400,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 页面显示`CONTROLLED_COMMIT_CONFLICT`，下一review未启动且无reset、checkout、force push或无关文件变化。
 
 # FR-2100
+<a id="fr-2100"></a>
 
 ### AC-1
 - **Given** run停在任一review round且包含write lease、tasks和Human wait
@@ -397,6 +418,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 页面从持久化出口恢复当前document revision和task/session identity，且未因客户端断开创建重复task或外部资源。
 
 # NFR-0100
+<a id="nfr-0100"></a>
 
 ### AC-1
 - **Given** 可在run状态/event事务提交边界注入崩溃
@@ -419,6 +441,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** Web/API返回以`_CONFLICT`结尾的稳定code或显示`needs_attention`，列出resource kind、provider namespace及冲突字段，且资源create/reuse调用数均不增加；只有精确字段匹配的单一候选可被复用。
 
 # NFR-0200
+<a id="nfr-0200"></a>
 
 ### AC-1
 - **Given** 一条流程完成setup到Issue关联
@@ -436,6 +459,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 - **Then** 原始字节串匹配数为0，只出现redacted值、非秘密identity或digest。
 
 # NFR-0300
+<a id="nfr-0300"></a>
 
 ### AC-1
 - **Given** 安装后的release candidate、干净Git workspace和受控桌面浏览器

@@ -1,12 +1,12 @@
 ---
-status: Draft v2 (pending M-LOCK-1)
+status: Draft v3 (HTML anchors added; pending re-LOCK with new digests)
 spec_id: v0.14-001-workflow-reflow-spec
 bound_story: STR-1402
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
-spec_digest: sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596
-acceptance_digest: sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556
-doc_index_digest_sha256: sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b
-revision: 2
+spec_digest: sha256:4b5bffd973af46536a7efda3d14de668211d7f89c58e6408cfff1f01adae093f
+acceptance_digest: sha256:59d952e897ede1ce9e271c0ee59423b5a099d4098b344d46b561d5889ccdd9ce
+doc_index_digest_sha256: sha256:1fb2ade318cf68a7954ce75b120262ad80572a9467d053de8f7c2047875fb12d
+revision: 3
 lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md
 ---
 
@@ -19,6 +19,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ## Functional Requirements
 
 ### FR-0100 `lk serve` 启动诊断与产品入口
+<a id="fr-0100"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -32,6 +33,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0200 Workspace Setup Preview、确认与 Manifest
+<a id="fr-0200"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -46,6 +48,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0300 Web Release 请求与单活跃主 Release
+<a id="fr-0300"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -59,6 +62,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0400 新 Release 的 `main` 前置检查与 Foundation
+<a id="fr-0400"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -72,6 +76,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0500 初始 `story.md` Revision 与页面跳转
+<a id="fr-0500"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -85,6 +90,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0600 Runtime 权威工作流与 Web 当前状态
+<a id="fr-0600"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -98,6 +104,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0700 Scribe 调查、分流建议与 Human 裁决
+<a id="fr-0700"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -111,6 +118,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0800 Park/No-Go 的 Backlog 与安全退出
+<a id="fr-0800"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -124,6 +132,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-0900 Go 后的访谈、Story 完成与交接 Revision
+<a id="fr-0900"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -137,6 +146,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1000 文档 Write Ownership、CAS 与脏编辑保护
+<a id="fr-1000"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -150,6 +160,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1100 Human Review 的编辑、Discussion 与明确结论
+<a id="fr-1100"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -163,6 +174,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1200 Story 的独立 Sage Review 与多轮返工
+<a id="fr-1200"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -176,6 +188,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1300 M-SPEC 的 Sage 起草
+<a id="fr-1300"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -189,6 +202,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1400 M-SPEC Human/Lex 语义 Review 与格式验收
+<a id="fr-1400"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -202,6 +216,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1500 Human 主导的合法返回上游
+<a id="fr-1500"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -215,6 +230,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1600 M-ACC 的 Acceptance 起草与 Review
+<a id="fr-1600"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -228,6 +244,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1700 M-LOCK-1 三文档批准与只读锁定
+<a id="fr-1700"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -241,6 +258,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1800 M-LOCK-1 后的 GitHub Issue 创建与 Project 关联
+<a id="fr-1800"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -255,6 +273,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-1900 Semantic Task、Agent Session 与受控结果
+<a id="fr-1900"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -269,6 +288,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-2000 受控 Git Revision 与无关工作区保护
+<a id="fr-2000"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -282,6 +302,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### FR-2100 全流程中断恢复与外部副作用 Reconcile
+<a id="fr-2100"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -297,6 +318,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ## Non-Functional Requirements
 
 ### NFR-0100 原子性、CAS 与竞争请求
+<a id="nfr-0100"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -311,6 +333,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### NFR-0200 可追溯性与 Secret 安全
+<a id="nfr-0200"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
@@ -324,6 +347,7 @@ lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-re
 ---
 
 ### NFR-0300 安装产物的公开入口 E2E
+<a id="nfr-0300"></a>
 
 | Valid | Testable | Decided |
 |---|---|---|
