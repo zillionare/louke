@@ -1,0 +1,39 @@
+{
+  "spec_id": "v0.14-001-workflow-reflow-spec",
+  "release_version": "0.14.0",
+  "event": "post-m-lock-1 operational setup by Maestro (per user authorization, 2026-07-18)",
+  "branch": {
+    "name": "releases/0.14.0",
+    "created_from": "releases/0.13.1@2f2e38b",
+    "status": "to_be_created",
+    "method": "git checkout -b releases/0.14.0 && git push -u origin releases/0.14.0 (no force)"
+  },
+  "tag": {
+    "name": "v0.14.0",
+    "target_commit": "to_be_pinned_on_releases/0.14.0 HEAD",
+    "method": "git tag -a v0.14.0 <sha> -m 'v0.14.0 release cutover' && git push origin v0.14.0"
+  },
+  "github_project": {
+    "url": "https://github.com/users/quantclaws/projects/20",
+    "id": "PVT_kwHOED0Dk84Bdvjw",
+    "number": 20,
+    "owner": "quantclaws",
+    "title": "louke-0.14.0",
+    "rationale": "Active gh token belongs to `quantclaws` (`gh auth status`); the repository lives at `zillionare/louke`. Per Louke spec 1 contracts (FR-0200 / FR-1800 / NFR-0100), Project ownership is not required to match the repository owner; Project is bound to the gh user identity that drives the action. The historical `{owner}` placeholder in scout.py / wiki / older specs is template text and not a v0.14 product contract.",
+    "user_directed_corrections_2026_07_18": [
+      "There is no v0.14 contract requiring Project to live under the repository owner namespace.",
+      "Project MUST be created under the current gh auth login (== `quantclaws` here), with explicit repo linking by the Runtime and an optional collaborator invite. This matches Louke's check_identity.py L6 collaboration modes.",
+      "Future Runtime code must derive gh user from `gh auth status`, derive repo owner from `git remote get-url origin`, and create the Project under the gh user. Louke final-user deployments use these same derivations; no static owner name is hardcoded."
+    ],
+    "platform_constraint_noted": "GitHub Projects v2 linkProjectV2ToRepository requires Project owner to match the linked repository owner. Cross-owner link is rejected by GraphQL with VALIDATION 'Only projects owned by the same owner as the repository can be linked.' This is a platform limitation independent of Louke's contract; downstream linking requires running Project actions under the repository owner account."
+  },
+  "github_issues": {
+    "plan": "Per FR-1800 contract bound to bound_spec_digest sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596 and doc_index_digest sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b. 1 issue per FR/NFR (21 FR + 3 NFR = 24 issues) under v0.14-001 workflow reflow spec. Title prefix '[FR-XXXX]' / '[NFR-XXXX]'."
+  },
+  "constraints": [
+    "Bound to m-lock-1-decision.json (story/spec/acceptance digests); any document change invalidates this setup log.",
+    "Spec/Acceptance/Test Plan remain M-LOCK-1 approved; Story remains peer-reviewed; further cuts require Sage+Lex+Prism+Human gate.",
+    "User explicitly authorized skipping default M-FOUNDATION + M-START due to v0.13.1 -> v0.14.0 release continuity (current host was on releases/0.13.1 branch).",
+    "FR-0910 cutover CLI absence contract does NOT apply to this transition; the release branch is created via the regular git CLI by Maestro per user command."
+  ]
+}
