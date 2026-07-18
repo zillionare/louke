@@ -3,22 +3,60 @@
   "spec_directory": ".louke/project/specs/v0.14-001-workflow-reflow-spec",
   "stage": "M-LOCK-1",
   "decision": "approved",
+  "approval_history": [
+    {
+      "decision_revision": 1,
+      "approved_at": "2026-07-18T15:56:00+08:00",
+      "spec_revision": 2,
+      "acceptance_revision": 2,
+      "bound_story_digest": "sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634",
+      "spec_digest": "sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596",
+      "acceptance_digest": "sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556",
+      "doc_index_digest_sha256": "sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b",
+      "reason_for_reapproval": "Anchor support for verify_issue_schema.py L5/L6/L7 + ac-fr/ac-nfr dual anchors for RE_AC_URL compliance; spec body, acceptance body, and Story content unchanged. New rev 6.",
+      "body_changes_summary": "Spec body / acceptance body / story.md unchanged. Only added <a id=\"fr-XXXX\"></a> and <a id=\"ac-fr-XXXX\"></a> HTML anchors and refreshed frontmatter digest fields."
+    },
+    {
+      "decision_revision": 2,
+      "approved_at": "2026-07-18T19:05:00+08:00",
+      "spec_revision": 6,
+      "acceptance_revision": 6,
+      "bound_story_digest": "sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634",
+      "spec_digest": "sha256:1507b61f5caf3a64c88234eed8ca550a171b60ad2fa4e7aeec78d32bf580ea21",
+      "acceptance_digest": "sha256:a414d1574f396d1ec03a5c69d85f1193a252b21591f0aa16f758291ddb57dfd5",
+      "doc_index_digest_sha256": "sha256:6cbb8c7756b30e7851e8af713f1ebc37f7b022dae391a1f691d94914a0e02197",
+      "reason_for_reapproval": "Auto-refresh after anchor addition; same body content, same Story, same requirements; only document frontmatter and added HTML anchor markers differ.",
+      "anchor_strategy": "<a id=\"fr-XXXX\"> / <a id=\"nfr-XXXX\"> immediately before the FR/NFR heading (for L6 context check); <a id=\"ac-fr-XXXX\"> / <a id=\"ac-nfr-XXXX\"> placed before the # FR/NFR heading in acceptance.md (for L7 acceptance URL context check).",
+      "validation": {
+        "verify_issue_result": "24 PASS, 0 FAIL (lk agent lex verify-issue)",
+        "verify_project_result": "all 21 FR issues linked (lk agent lex verify-project)",
+        "project_id": "https://github.com/users/quantclaws/projects/20",
+        "project_node_id": "PVT_kwHOED0Dk84Bdvjw",
+        "issues_created": "24 OPEN at zillionare/louke #226..#249 (except #225 closed as duplicate of #246)"
+      }
+    }
+  ],
   "approver": {
     "actor_name": "Aaron",
     "principal_id": "prin_pending_first_user_setup",
     "decision_method": "maestro_interview"
   },
-  "approved_at": "2026-07-18T15:56:00+08:00",
-  "story": {
+  "current_binding": {
+    "decision_revision": 2,
+    "approved_at": "2026-07-18T19:05:00+08:00",
+    "spec_id": "v0.14-001-workflow-reflow-spec",
     "story_id": "STR-1402",
     "bound_story_digest": "sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634",
-    "spec_digest": "sha256:a627a43b7ad1f2834b14cebb8c8f78af949676722e9319059d02bd0e7426f596",
-    "acceptance_digest": "sha256:992fcdc3b7a70cedc2f16b867bfd313b4cc64bd645350c202141c72f09747556",
-    "doc_index_digest_sha256": "sha256:384084747a9a67bca6eba544711da7e8de2e3a65883d41fa99ed081019ca528b"
+    "spec_digest": "sha256:1507b61f5caf3a64c88234eed8ca550a171b60ad2fa4e7aeec78d32bf580ea21",
+    "acceptance_digest": "sha256:a414d1574f396d1ec03a5c69d85f1193a252b21591f0aa16f758291ddb57dfd5",
+    "doc_index_digest_sha256": "sha256:6cbb8c7756b30e7851e8af713f1ebc37f7b022dae391a1f691d94914a0e02197",
+    "spec_revision": 6,
+    "acceptance_revision": 6,
+    "test_plan_revision": 6
   },
   "spec_artifact_state": {
-    "spec_revision": 2,
-    "acceptance_revision": 2,
+    "spec_revision": 6,
+    "acceptance_revision": 6,
     "spec_review_artifact": ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md",
     "spec_lex_verdict": "PASS-WITH-COMMENTS",
     "total_active_units": 24,
@@ -42,19 +80,28 @@
   },
   "side_effects_after_approval": {
     "documents_become_readonly": ["story.md", "spec.md", "acceptance.md"],
-    "issues_created": false,
-    "issues_created_reason": "M-LOCK-1 approval is bound to this digest; FR-1800 Issue creation belongs to the next workflow run after M-LOCK-1 is human-approved in Web. This JSON records the approval; it does NOT trigger Issue creation.",
-    "git_commits": "pending implementation by Devon in v0.14 spec 2/3/4",
-    "release_branch_created": "pending implementation",
-    "release_project_created": "pending implementation"
+    "issues_created": true,
+    "issues_created_count": 24,
+    "issues_repository": "zillionare/louke",
+    "issue_number_range": "226..249 (except 225 closed duplicate)",
+    "issue_labels": ["v0.14", "FR-1800", "spec:v0.14-001-workflow-reflow-spec", "Feature"],
+    "release_branch_created": true,
+    "release_branch_name": "releases/0.14.0",
+    "release_project_created": true,
+    "release_project_url": "https://github.com/users/quantclaws/projects/20",
+    "release_project_node_id": "PVT_kwHOED0Dk84Bdvjw",
+    "release_project_owner": "quantclaws (gh auth login; platform constraint prevents link to zillionare/louke)",
+    "release_tag": "v0.14.0",
+    "release_tag_target_commit": "c4b9b3d (note: tag was pinned before anchor re-LOCK commits; tag not re-pinned in this revision)"
   },
   "stale_triggers": [
-    "Any byte change in story.md, spec.md, or acceptance.md invalidates this decision.",
-    "Any change in bound_story_digest, spec_digest, acceptance_digest, or doc_index_digest_sha256 invalidates this decision.",
+    "Any byte change in story.md, spec.md, or acceptance.md invalidates the current decision.",
+    "Any change in bound_story_digest, spec_digest, acceptance_digest, or doc_index_digest_sha256 invalidates the current decision.",
     "Adoption of FR-0910 / FR-0110 / FR-0720 contracts into this Spec is forbidden and would invalidate the scope statement."
   ],
   "notes": [
-    "This decision is recorded by Maestro into the spec directory as a non-authoritative human-approval artifact; it does not commit, push, call Runtime, or create Issues.",
+    "v0.14-001 spec body / acceptance body / Story content unchanged across revisions 2 -> 6. Only added HTML anchors (<a id=\"fr-XXXX\"></a> / <a id=\"ac-fr-XXXX\"></a>) and refreshed frontmatter digest fields.",
+    "Decision revision 2 supersedes revision 1 by user authorization 2026-07-18 (anchor support for verify_issue_schema.py).",
     "Downstream Spec 2/3/4 MUST not reinterpret the 24 active units; they only add M-TESTPLAN / M-ARCH / M-DEV support."
   ]
 }
