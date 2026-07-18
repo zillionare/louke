@@ -32,6 +32,20 @@ Scribe 在 Story 推进过程中通过 inline-discussion 与 initiator 反复确
 12. **Sage 例外 `question` 通道与 `waiting_human` 持久化（2026-07-17 稳定化）**：v0.14 默认 Sage 在 M-SPEC 阶段走 draft-first + 锚定 inline discussion（BS-26）。`question` 仅作为无法形成文档锚点或必须立即取得产品决定时的例外通道。**例外通道一旦开启且 Human 未回复：Runtime SHALL 持久化 `waiting_human` 状态；被阻塞需求 SHALL 保持 `Decided=⚠️`；Runtime SHALL NOT 做出默认决定、SHALL NOT 消耗 review 轮次、SHALL NOT 解除 requirements approval 或 M-LOCK 的阻塞**。"重新进入 chat 窗口仍能看到 Sage 的提问"由 opencode session 恢复机制承载，不替代 Runtime 自身的 `waiting_human` 持久化与 gate 阻塞语义；只有匹配的 Human 回复落入同一 spec revision 后，Runtime 才恢复该 task 并继续后续 gate 判定。（详见 BS-31、cutover-checklist §G、research-report §15.12）
 13. ~~**i18n 与本地化时序**：deprecated no-op 警告文本 v0.14 仅英文；v0.16 才引入 i18n 与多语种警告。v0.14 不构建任何翻译管线、消息目录或多语种运行时开关。~~（已于 2026-07-17 废止：cutover 后不存在 deprecated no-op 迁移警告，相应 i18n 时序声明随之失效；多语种本地化策略由后续 Story 单独定义。）
 
+14. **无 GitHub Backlog Project（2026-07-17 Human 裁决）**：v0.14 不创建、不依赖、不检查任何 per-repository GitHub backlog Project。Louke 的 Backlog 是 Runtime-native 持久化状态，Park/No-Go 和被阻塞的项目请求使用该 canonical backlog。项目 setup 流程不得创建/复用/检查 GitHub backlog Project；`backlog_project` 不作为 v0.14 的活动需求元数据。物理存储格式/路径由 Architecture 决定，但重启持久化、单一权威 store、无 split-brain、无丢失是产品需求。
+
+15. **无权限探测 Issue/PR（2026-07-17 Human 裁决）**：`gh auth status` 仅证明认证健康，不得作为仓库/资源操作权限的证据。粗糙信号（如仓库 `viewerPermission`）仅可作诊断参考，不是未来操作通过的权威凭证。Runtime 使用真实的即时远程认证业务操作（push、Issue/PR API、per-release GitHub Project 操作、release/tag 发布等）。若这些操作因认证/权限失败，Runtime 持久化该失败操作和可操作错误，进入 `waiting_human`；Human 授予/变更授权后，Runtime 以相同 idempotency key 重试同一操作。权限失败不得被跳过、豁免、猜测或转换为 PASS；在真实操作成功前，下游不得推进。不得产生一次性探测 Issue/PR 的副作用。本地 commit 不是 GitHub 权限操作，不在本约束范围内。
+
+16. **Setup 元数据权威推导（2026-07-17 Human 裁决）**：项目 setup 元数据应尽可能从 Git remote、有效项目元数据、已认证身份和其它权威来源推导；展示 provenance。仅当值缺失、冲突或涉及权限变更决策时询问 Human；不得静默覆盖冲突值。
+
+17. **无 v0.13 → v0.14 Louke 状态/工作流迁移或共存合同（2026-07-17 Human 裁决）**：支持的升级行为：用旧版本完成当前 release，停止/卸载/移除旧 Louke 安装，安装 v0.14，然后启动新 v0.14 run。v0.14 不导入、不映射、不恢复、不修改、不附加 authority 到 v0.13 的 active run、stage、gate、task、session、evidence、catalog、audit 状态或 WorkflowDefinition。无双版本状态命名空间、无兼容桥、无迁移向导、无 in-flight 迁移、无混合新旧 authority。Pre-cutover v0.13 CLI 仅为 release cutover 前的开发基线，不是 v0.14 安装后的同步生产兼容面。对既有 Git 仓库/代码库的 no-new-debt adoption 保留为**全新 v0.14 项目**（经显式 preview/confirm 后采用）；该 adoption 可检查代码/历史，但不得从 v0.13 Louke 状态（`current_stage`、evidence 等）迁移或推断 v0.14 权威 run 状态。此区分在 Story、research、cutover 中所有提及"旧 workspace 迁移/adoption"的地方必须明确。
+
+18. **Agent 退役清单与表面清理（2026-07-17 Human 裁决）**：职责清单覆盖 Scout、Warden 和 Keeper（不仅是 Scout/Warden）。cutover 后，active catalog、docs、help、prompts、路由必须排除这些 Agent；不可变的历史/审计 artifact 可保留其名称，不得仅因擦除名称而重写历史。
+
+19. **Runtime Backlog UI 与项目启动行为（继承 v0.12 FR-1001/FR-1101/FR-1701，2026-07-17 Human 裁决）**：同一 workspace 最多一个 active 非 hotfix 主 Project；已发布产品的 `bug_fix`/hotfix 是唯一并行例外且完全隔离。主 Project active 时，新 `new_feature` 请求保存/reconcile 到 Runtime-native Backlog，不创建第二个主 run。Web 列出所有 Backlog 条目（Park、No-Go、被阻塞请求），提供 Human 操作入口以考虑启动条目。该操作不得直接创建 run——它打开正常的创建项目表单/预览，预填 source story/request，重新运行当前验证/就绪检查和 active-project 策略；Human 必须显式确认预览。仅确认后原子创建最多一个新 Project/WorkflowRun。若主槽位仍被占用，不创建 run，条目保留在 Backlog。Park 和 No-Go 条目均可可见/可选；Human 决定是否启动。原始决定/状态/历史保持不可变/可审计，即使后续 run 已创建；不得破坏性删除条目。重复/并发 start/confirm 保持幂等，最多绑定一个新 run。继承 v0.12 FR-1001（AC-4：active 主 Project 期间新 `new_feature` 进入 backlog）、FR-1101（AC-3：预览确认后原子创建）、FR-1701（AC-5：路由到 backlog）的已批准行为。
+
+20. **M-FOUND 分支 reconciliation（2026-07-17 Human 裁决 + Sage B-08/B-09/B-10/B-11 补充）**：M-FOUND 在 Story Go 后、M-SPEC 前。扫描绑定到成功刷新的 declared remote 的权威 `main` SHA；本地 main 不匹配/分叉是可见阻塞 reconciliation 条件，不静默选择本地 main。枚举本地 `refs/heads/*` 加上成功刷新的 declared-remote 分支 ref；排除 symbolic/非分支 ref 和绑定的权威 main ref。**本地 main reconciliation（B-11）**：本地 `refs/heads/main` 和权威 remote main 均排除在普通非 main 分支的 merge/delete 候选之外；本地 main 永不被删除或通过分支保留行处理。本地 main reconciliation 单独展示，绑定 exact local main SHA + 权威 remote main SHA + scan revision，状态为 equal/behind/ahead/diverged（使用 ancestry/merge-base 判定）。equal → 允许分支扫描继续。behind → Web 提供 Human 确认的安全 fast-forward 本地 main 到 remote main；dirty/冲突 worktree 或不确定更新以可操作错误阻塞；操作后 reconcile/rescan。ahead → Web 提供 Human 确认的 publish/push 本地 main（仅通过适用权威检查后；无 force push）；auth 失败用 BS-33 相同 key waiting_human/retry；刷新/rescan 必须达到 equal 才能 PASS。diverged → Web 可提供 Human 确认的 merge 权威 remote main 到本地 main，然后权威验证和非 force push；merge conflict/check 失败保持 blocked/waiting_human，无 reset/force/delete；Human 也可在外部解决，但 M-FOUND 仅在 refs 变化且权威 rescan 证明 allowed/equal 状态后恢复。持久化状态、两个 SHA、merge-base、决策、actor、时间戳、操作/证据/idempotency identities；重启安全恢复。任何 SHA 变化使决策 stale。仅 equal 状态可产生 M-FOUND PASS。永不 force-push、reset/discard 独有 commit、或删除任一 main ref。规范发现 identity = repository + full ref name + head SHA。相同 ref/SHA 的重复发现折叠；本地分支与其配置 upstream 同 SHA 时可显示为一个逻辑行并带两个别名/provenance；SHA 不同时显示为独立分叉行。不同分支名即使同 SHA 仍为独立行（决策/删除作用于名称）。持久化 source refs/aliases、branch SHA、bound main SHA、merge-base SHA。`fully_merged=true` 当且仅当分支 head 是 bound main head 的祖先；`ahead_count` = 从分支 head 可达且 bound main 不可达的 commit 数（`main..branch`）；UI 省略 behind 数。Declared-remote 枚举/fetch 必须权威完成：auth/权限失败进入 BS-33 相同 key waiting_human/reconcile/retry；瞬时网络失败持久化为 retryable_external_failure。Stale tracking ref 或部分枚举不得产生 PASS。**保护 active-run 分支（B-09）**：绑定到 active WorkflowRun 的分支（含当前/并行 release 或 fix 分支）为 `protected_active_run`。它被展示并参与扫描/staleness 证据，但 M-FOUND 不得 merge 或 delete 它；其 merge/delete 由该 run 的 M-LOCK/test/release/hotfix gate 独占。对 ahead protected 分支，Web 禁用/拒绝 merge+delete 复选框，要求 Human 确认非空 retain/protected 理由（绑定 exact heads/revision）；这可解决当前 F10 扫描而不绕过 owning workflow。Fully merged protected 分支始终展示，永不自动删除。对 protected 分支尝试选中 merge/delete 被无修改拒绝，在有效 protected-retain 决策存在前不通过。**范围（B-10）**：Out-of-Scope 缩窄为复杂/通用 branch/worktree 生命周期自动化，但有限 BS-37 M-FOUND reconciliation 操作除外。BS-37 允许的自动化仅为权威扫描、本地 main reconciliation、Human-bound retain 决策、非 protected 选中分支的 merge→validate→push→delete。它不创建任意分支/worktree、不推断目标、不执行延迟 hotfix 同步、不替代 owning workflow 的 release/hotfix gate。
+
 > **Aaron [RESOLVED]:** v0.14发布后，CLI 模式将只允许少数运维相关命令如`lk upgrade`, `lk serve`。核心开发流程只能通过 Chat (基于 web page，以下称 Web Chat)来完成。
 >> **Scribe:** 已按此约束更新用户终端、产品入口、功能描述、北极星目标、Happy Path、BS-01 和 BS-15：**v0.14 发布后**核心开发唯一入口为 Web Chat；CLI 仅保留 lk serve、lk upgrade 等少数运维命令；API 仅为内部 program boundary。同时在 1.2/1.3/3.4 增加过渡期说明：**v0.14 在 v0.13 基础上开发期间** CLI 与 Web Chat 并存，CLI 继续提供 v0.13 风格的 workflow 推进以便 dogfood 与调试；release tag 当日切换为 Web Chat 唯一入口。请 initiator 确认后关闭本讨论。
 >
@@ -45,7 +59,7 @@ Scribe 在 Story 推进过程中通过 inline-discussion 与 initiator 反复确
 ### 1.1 用户画像 (Who)
 
 - **主要角色**：使用 Louke 开发项目的产品负责人兼技术维护者。该角色既是需求的提出者（决定 Go/Park/No-Go、批准 requirements、M-LOCK、waiver、adoption），也是技术方案的参与者（可参与技术 review、暂停 reviewer、提出 constraint）。
-- **次要角色**：Louke 自身的发布维护者（负责验证 installed-wheel E2E、dogfood 全流程、执行受控回退）。
+- **次要角色**：Louke 自身的发布维护者（负责验证 installed-wheel E2E、dogfood 全流程）。
 - **用户规模**：单一用户（本地桌面应用，无多用户协作）。
 - **使用频次**：高频（每日）。该角色在推进功能或修复缺陷时持续与 workflow 交互。
 - **网络环境**：稳定办公网络。离线场景下可本地操作，但 Git push、外部 API 调用等需要网络。
@@ -66,9 +80,10 @@ Scribe 在 Story 推进过程中通过 inline-discussion 与 initiator 反复确
 - **获得产品**：用户通过 `curl | sh`（Linux/macOS）或 bat/ps（Windows）安装全局 `lk`；在项目目录中 `lk install` 创建本地 `.venv` 并安装 Louke Python 包。首次 setup 通过 `lk serve` 启动后由 Web init-wizard 完成项目初始化、依赖检查和模型就绪确认。
 - **升级与迁移**：
   - **升级触发**：用户主动执行 `lk upgrade`（项目级或全局级）。v0.14 不自动升级。
-  - **旧 workspace 迁移**：用户通过显式 preview/confirm 采用 v0.14 新 workflow。旧 `current_stage` 不推断为新 run；旧证据只读保留。迁移失败时，旧 workspace 保持原样，用户可在新项目/workspace 使用新 workflow。
+  - **支持的 v0.13 → v0.14 升级路径（2026-07-17 Human 裁决）**：用旧版本完成当前 release，停止/卸载/移除旧 Louke 安装，安装 v0.14，然后启动新 v0.14 run。v0.14 不导入、不映射、不恢复、不修改、不附加 authority 到 v0.13 的 active run、stage、gate、task、session、evidence、catalog、audit 状态或 WorkflowDefinition。无双版本状态命名空间、无兼容桥、无迁移向导、无 in-flight 迁移、无混合新旧 authority。Pre-cutover v0.13 CLI 仅为 release cutover 前的开发基线，不是 v0.14 安装后的同步生产兼容面。
+  - **既有 Git 仓库的 no-new-debt adoption（全新 v0.14 项目）**：对既有 Git 仓库/代码库，用户通过显式 preview/confirm 采用 v0.14 新 workflow——这是**全新 v0.14 项目**，不是从 v0.13 状态迁移。Adoption 可检查代码/历史，但不得从 v0.13 Louke 状态（`current_stage`、evidence 等）迁移或推断 v0.14 权威 run 状态。旧 v0.13 证据保留在原 workspace 中只读，不附加 authority 到新 v0.14 run。
   - **失败恢复**：adoption 失败不破坏用户文件、Git history 和既有证据。必要时允许 breaking adoption，用户在新 workspace 使用新流程。
-  - **v0.14 不承诺**：跨 workflow definition version 的 in-flight run 迁移、旧 workflow 兼容。这些属于 v0.17。
+  - **v0.14 不承诺**：跨 workflow definition version 的 in-flight run 迁移、旧 workflow 兼容、v0.13→v0.14 Louke 状态迁移。这些属于 v0.17。
 
 ---
 
@@ -92,20 +107,23 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - **Workflow definition 版本化不可变**：同一版本不可用不同内容重新注册；新 run 默认使用当前 approved definition；已开始 run 固定原版本。
 - **Spec 规模硬门禁与拆分回退**：单个 Spec 最多 30 条有效 FR+NFR；Runtime 在 Sage 初稿/修订持久化后、dispatch Lex 前执行 count 检查；超限返回 `SPEC_SCOPE_TOO_LARGE` 并进入 `needs_story_split` 返回 M-STORY；Runtime 不决定拆分边界，Scribe 提案、Human 决策；原 Story 作为 Split parent 保留，子 Story 带 `parent_story_id` 进入后续独立 release/run。
 - **Sage 交互策略**：M-SPEC 默认 draft-first + 锚定 inline discussion 澄清；`question` 保留为无法形成文档锚点或必须立即取得产品决定时的例外通道；若例外 `question` 发出后 Human 未回复，Runtime 持久化 `waiting_human`，被阻塞需求保持 `Decided=⚠️`，不做默认决定、不消耗 review 轮次、不解除 requirements approval / M-LOCK 阻塞；server 重启后重新进入 chat 窗口仍可见 Sage 的提问（由 opencode session 恢复承载）。
+- **Runtime Backlog UI**：同一 workspace 最多一个 active 非 hotfix 主 Project（继承 v0.12 FR-1001/1101/1701）。主 Project active 时新 `new_feature` 请求进入 Backlog，不创建第二个主 run。Web 列出所有 Backlog 条目（Park、No-Go、被阻塞请求），提供考虑启动操作——打开预填预览表单，重新运行验证/就绪/active-project 策略，Human 显式确认后原子创建最多一个新 Project/WorkflowRun。Park/No-Go 原始决定/状态/历史不可变。
+- **M-FOUND 分支 reconciliation**：Story Go 后、M-SPEC 前，Runtime 绑定 declared remote 的权威 `main` SHA（本地 main 不匹配为阻塞条件），枚举本地和已刷新 remote 分支 ref，折叠同 ref/SHA 重复，分叉显示不同 SHA。每个分支展示 head、fully-merged 状态、ahead 数、target/provenance。绑定到 active WorkflowRun 的分支为 `protected_active_run`——展示但 M-FOUND 不得 merge/delete，需 Human 确认 retain/protected 理由。非 protected unmerged/ahead 分支需 Human 决策（merge+delete 或保留理由）。所有决策完成且 merge+delete 成功前 M-SPEC 不得启动。BS-37 允许的自动化仅为权威扫描、本地 main reconciliation（Human 确认的 behind fast-forward / ahead 验证非 force publish / diverged merge remote-main 到 local-main 后验证非 force push，无 force/reset/delete/discard）、Human-bound retain 决策、非 protected 选中分支的 merge→validate→push→delete。
 
 **快乐路径（Happy Path）**：
 
 1. 用户安装 v0.14，在项目目录执行 `lk serve`，Web 端打开项目。
 2. 用户在 Web Chat 中提出新功能设想，Runtime 自动创建 `new_feature` run 并 dispatch Scribe semantic task。
 3. Scribe 完成 Story 调研与撰写，输出 canonical `story.md`；Sage 对 Story 不重复发现、不改写 User Stories。Human 确认 Go（agent 给出建议，最终由 Human 决定）。
-4. Runtime 推进到 M-SPEC：Scribe/Sage/Lex 按 definition 完成需求三件套（story.md / spec.md / acceptance.md），Runtime 在 dispatch Lex 前先做结构验证、30-count 检查与锚定 inline discussion 循环。
-5. Runtime 创建 requirements approval gate，绑定 story/spec/acceptance 共同 digest；Human 批准后才允许进入设计。任一绑定文档 digest 改变会使旧批准失效。
-6. Runtime 推进到设计阶段：dispatch Archer/Lex 等生成 test-plan.md / architecture.md / interfaces.md 三件套及其 review 产物；M-TESTPLAN 由 Archer 撰写、S 档 Prism 独立技术评审、Shield 可提供下游可执行性反馈但不批准。
-7. Runtime 创建 M-LOCK gate，绑定 story.md + spec.md + acceptance.md + test-plan.md + architecture.md + interfaces.md 六件套共同 contract digest；Human 批准后才允许进入 M-DEV。六件套任一份变化使 M-LOCK 失效。
-8. Runtime 推进到实现阶段：先按已批准六件套拆分 GitHub Issue 与实现任务，再 dispatch 实现 Agent 在 Runtime 指定的 workspace/工作位置中生成代码和测试；program handler 自动执行 lint/typecheck/unit/integration 测试。
-9. 用户发现设计遗漏，在 M-LOCK 后请求 return-upstream 到设计阶段。Runtime 标记下游 artifact 为 stale/superseded，用户重新经过设计评审和 M-LOCK。
-10. 所有检查通过后，Runtime 进入 release confirmation。Human 确认发布，Runtime 执行 tag/release/history archive。
-11. 用户关闭浏览器。重启 `lk serve` 后，历史 run 完整可读，active run 可继续推进。
+4. **M-FOUND 分支 reconciliation**：Runtime 绑定 declared remote 的权威 `main` SHA，枚举本地和已刷新 remote 分支 ref，折叠同 ref/SHA 重复。Web 展示分支名、head、fully-merged 状态、ahead 数、target/provenance、protected 状态。Human 对 protected active-run 分支确认 retain 理由；对非 protected unmerged/ahead 分支决策（merge+delete 或保留理由）。选中非 protected 分支由 Runtime 执行 merge into main→验证→push→delete。所有决策完成且 merge+delete 成功前，M-SPEC 不得启动。
+5. Runtime 推进到 M-SPEC：Scribe/Sage/Lex 按 definition 完成需求三件套（story.md / spec.md / acceptance.md），Runtime 在 dispatch Lex 前先做结构验证、30-count 检查与锚定 inline discussion 循环。
+6. Runtime 创建 requirements approval gate，绑定 story/spec/acceptance 共同 digest；Human 批准后才允许进入设计。任一绑定文档 digest 改变会使旧批准失效。
+7. Runtime 推进到设计阶段：dispatch Archer/Lex 等生成 test-plan.md / architecture.md / interfaces.md 三件套及其 review 产物；M-TESTPLAN 由 Archer 撰写、S 档 Prism 独立技术评审、Shield 可提供下游可执行性反馈但不批准。
+8. Runtime 创建 M-LOCK gate，绑定 story.md + spec.md + acceptance.md + test-plan.md + architecture.md + interfaces.md 六件套共同 contract digest；Human 批准后才允许进入 M-DEV。六件套任一份变化使 M-LOCK 失效。
+9. Runtime 推进到实现阶段：先按已批准六件套拆分 GitHub Issue 与实现任务，再 dispatch 实现 Agent 在 Runtime 指定的 workspace/工作位置中生成代码和测试；program handler 自动执行 lint/typecheck/unit/integration 测试。
+10. 用户发现设计遗漏，在 M-LOCK 后请求 return-upstream 到设计阶段。Runtime 标记下游 artifact 为 stale/superseded，用户重新经过设计评审和 M-LOCK。
+11. 所有检查通过后，Runtime 进入 release confirmation。Human 确认发布，Runtime 执行 tag/release/history archive。
+12. 用户关闭浏览器。重启 `lk serve` 后，历史 run 完整可读，active run 可继续推进。
 
 ### 2.2 问题陈述与目标 (Why)
 
@@ -284,6 +302,36 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - 来源: Human 确认（STR-1401 2026-07-17 Sage 交互策略澄清，本修订保持不变）+ cutover-checklist §G + research-report §15.12
 - 说明: v0.14 默认 Sage 走 draft-first + 锚定 inline discussion（BS-26）；`question` 仅作为无法形成文档锚点或必须立即取得产品决定时的例外通道；该例外通道一旦开启，waiting_human 必须真正"等 Human"——不允许超时默认、不允许 Round 计数假装关闭、不允许绕过 approval/lock；opencode session 恢复是承载"重新进入 chat 窗口仍能看到 Sage 的提问"的机制保证，不替代 Runtime 自身的 waiting_human 持久化与 gate 阻塞语义
 
+### BS-32 无 GitHub Backlog Project 与 Runtime Backlog 行为
+- EARS: `THE 系统 SHALL NOT 在项目 setup 或任何 workflow 操作中创建、复用或检查 per-repository GitHub backlog Project；THE 系统 SHALL 将 Louke Backlog 维护为 Runtime-native 持久化状态，Park/No-Go 和被阻塞的项目请求使用该 canonical backlog；backlog_project 不作为 v0.14 的活动需求元数据；WHEN 主 Project active 且收到新 new_feature 请求, THE 系统 SHALL 将请求保存/reconcile 到 Backlog 而不创建第二个主 run；Web SHALL 列出所有 Backlog 条目（Park、No-Go、被阻塞请求）并提供 Human 操作入口以考虑启动；该操作 SHALL 打开预填 source story/request 的创建项目预览（重新运行验证/就绪/active-project 策略），Human 必须显式确认；仅确认后原子创建最多一个新 Project/WorkflowRun；IF 主槽位仍被占用, THE 系统 SHALL NOT 创建 run 且条目保留在 Backlog；Park/No-Go 条目原始决定/状态/历史 SHALL 保持不可变/可审计，即使后续 run 已创建`
+- 来源: Human 确认（2026-07-17 裁决：无 GitHub backlog Project；§0.1 第 14/19 条）+ 继承 v0.12 FR-1001/FR-1101/FR-1701
+- 说明: Louke 自己拥有 Backlog，不以 GitHub Project 为 canonical store；物理存储格式/路径由 Architecture 决定，但重启持久化、单一权威 store、无 split-brain、无丢失是产品需求；E2E 必须断言零 backlog Project create/reuse/check 调用，且适用的 per-release GitHub Project 真实操作仍可执行；Backlog 条目启动走预览→确认→原子创建，不直接创建 run；重复/并发 start/confirm 保持幂等
+
+### BS-33 无权限探测 Issue/PR
+- EARS: `WHEN GitHub 远程认证操作（push、Issue/PR API 调用、per-release GitHub Project 操作、release/tag 发布等）因认证或权限失败, THE 系统 SHALL 持久化该失败操作和可操作错误，将 run 置于 waiting_human；Human 授予/变更授权后，Runtime SHALL 以相同 idempotency key 重试同一操作；THE 系统 SHALL NOT 将 gh auth status 视为仓库/资源操作权限的证据、SHALL NOT 将仓库 viewerPermission 等粗糙信号视为未来操作通过的权威凭证、SHALL NOT 跳过/豁免/猜测权限失败或将其转换为 PASS、SHALL NOT 在真实操作成功前推进下游、SHALL NOT 产生一次性探测 Issue/PR 的副作用`
+- 来源: Human 确认（2026-07-17 裁决：无权限探测 Issue/PR；§0.1 第 15 条）+ Sage blocker #4 修正
+- 说明: 权限验证通过真实远程认证业务操作完成（push、Issue/PR API、per-release GitHub Project、release/tag），不得用探测性 Issue/PR 做 side-effect smoke test；本地 commit 不是 GitHub 权限操作，不在本 BS 范围内；失败只能等 Human 授权后重试，不能绕过
+
+### BS-34 Setup 元数据权威推导与冲突仲裁
+- EARS: `WHEN 项目 setup 需要元数据（项目名称、仓库 URL、所有者等）, THE 系统 SHALL 从 Git remote、有效项目元数据、已认证身份和其它权威来源推导候选值并展示每个候选的 provenance；IF 多个权威来源产生冲突值, THE 系统 SHALL 持久化显式 setup waiting_human 状态（含所有候选值及其 provenance），阻止外部修改和 WorkflowRun 创建/下游 setup 推进，等待 Human 选择或提供权威值；WHEN Human 做出选择, THE 系统 SHALL 持久化决定、actor、候选 provenance、setup revision/digest 和时间戳，以相同 setup revision/attempt 幂等恢复；THE 系统 SHALL 在重启后保留未解决的冲突或已解决的决定；THE 系统 SHALL NOT 静默覆盖冲突值、SHALL NOT 在无决定时推进 setup`
+- 来源: Human 确认（2026-07-17 裁决：Setup 元数据权威推导；§0.1 第 16 条）+ Sage blocker #2 补充
+- 说明: 减少不必要的 Human 交互；冲突时显式展示 provenance 并请求裁决，不静默覆盖；冲突未解决时阻止所有下游 setup 操作；规范化的语义等价候选（如等价 repo URL 形式）可自动接受并记录所有 provenance，无需字节相等；冲突/歧义仍 waiting_human；E2E 必须覆盖：(a) 多 remote/fork 冲突场景进入 waiting_human 且无 WorkflowRun 创建；(b) Human 不决定则无法推进；(c) Human 决定后幂等恢复；(d) 重启后冲突/决定状态保留
+
+### BS-35 无 v0.13 → v0.14 Louke 状态迁移（finish-then-reinstall 唯一升级路径）
+- EARS: `THE 系统 SHALL NOT 导入、映射、恢复、修改或附加 authority 到 v0.13 的 active run、stage、gate、task、session、evidence、catalog、audit 状态或 WorkflowDefinition；THE 系统 SHALL NOT 维护双版本状态命名空间、兼容桥、迁移向导或 in-flight 迁移；升级的唯一支持序列为：(1) v0.13 active release/run 在 v0.13 下正常完成；(2) v0.13 进程/安装被停止并移除；(3) 安装 v0.14；(4) v0.14 独立启动并创建全新 authority run——不导入/映射/恢复旧 authority；IF v0.13 release/run 未完成, THE 系统 SHALL NOT 接管该 run——用户用 v0.13 完成或放弃（在 v0.14 外处理）；WHEN 对既有 Git 仓库执行 no-new-debt adoption, THE 系统 SHALL 将其作为全新 v0.14 项目（可检查代码/历史，但不得从 v0.13 Louke 状态迁移或推断 v0.14 权威 run 状态）；v0.14 安装后旧 Louke/workflow 不得并发可用`
+- 来源: Human 确认（2026-07-17 裁决：无 v0.13→v0.14 迁移；§0.1 第 17 条 + §1.3）+ Sage blocker #3 补充
+- 说明: 升级路径是 finish-then-reinstall，不是 in-place migration；adoption 是新项目创建，不是旧状态导入；v0.14 安装后旧版本不得并发使用；E2E 必须覆盖：(a) 未完成的 v0.13 run 不被 v0.14 接管；(b) v0.14 adoption 不导入 v0.13 state；(c) 完成→移除→重装→新建 完整序列
+
+### BS-36 cutover 后 Agent 从 active 表面排除
+- EARS: `WHEN v0.14 release cutover 生效, THE 系统 SHALL 从 active catalog、docs、help、prompts 和路由中排除 Scout、Warden 和 Keeper；THE 系统 MAY 在不可变的历史/审计 artifact 中保留其名称，SHALL NOT 仅因擦除名称而重写历史 artifact`
+- 来源: Human 确认（2026-07-17 裁决：Agent 退役清单与表面清理；§0.1 第 18 条）
+- 说明: 职责清单覆盖三个 Agent（不仅 Scout/Warden）；active 表面必须排除，历史 artifact 可保留名称不做改写
+
+### BS-37 M-FOUND 分支 reconciliation gate
+- EARS: `WHEN new_feature run 在 M-FOUND 阶段 Story Go 后、M-SPEC 前, THE 系统 SHALL 绑定扫描到成功刷新的 declared remote 的权威 main SHA（本地 main 不匹配/分叉为可见阻塞条件，不静默选择本地 main）；THE 系统 SHALL 枚举本地 refs/heads/* 加上成功刷新的 declared-remote 分支 ref，排除 symbolic/非分支 ref 和绑定的权威 main ref；本地 refs/heads/main 和权威 remote main SHALL 均排除在普通非 main 分支 merge/delete 候选之外，本地 main 永不被删除；本地 main reconciliation SHALL 单独展示，绑定 exact local main SHA + 权威 remote main SHA + scan revision，状态为 equal/behind/ahead/diverged；WHEN equal, 分支扫描继续；WHEN behind, Web SHALL 提供 Human 确认的安全 fast-forward 本地 main 到 remote main，dirty/冲突 worktree 或不确定更新以可操作错误阻塞；WHEN ahead, Web SHALL 提供 Human 确认的 publish/push 本地 main（仅通过适用权威检查后，无 force push），auth 失败用 BS-33 waiting_human/retry；WHEN diverged, Web SHALL 可提供 Human 确认的 merge 权威 remote main 到本地 main 然后权威验证和非 force push，merge conflict/check 失败保持 blocked/waiting_human 无 reset/force/delete；THE 系统 SHALL 持久化状态、两个 SHA、merge-base、决策、actor、时间戳、操作/证据/idempotency identities；任何 SHA 变化 SHALL 使决策 stale；仅 equal 状态 SHALL 可产生 M-FOUND PASS；THE 系统 SHALL NOT force-push、reset/discard 独有 commit、或删除任一 main ref；规范发现 identity = repository + full ref name + head SHA；相同 ref/SHA 的重复发现 SHALL 折叠，本地分支与其配置 upstream 同 SHA 时可显示为一个逻辑行并带两个别名/provenance，SHA 不同时显示为独立分叉行；不同分支名即使同 SHA SHALL 为独立行；THE 系统 SHALL 持久化 source refs/aliases、branch SHA、bound main SHA、merge-base SHA；fully_merged=true 当且仅当分支 head 是 bound main head 的祖先，ahead_count = main..branch 的可达 commit 数；declared-remote 枚举/fetch SHALL 权威完成，auth/权限失败进入 BS-33 waiting_human/reconcile/retry，瞬时网络失败持久化为 retryable_external_failure；stale tracking ref 或部分枚举 SHALL NOT 产生 PASS；绑定到 active WorkflowRun 的分支 SHALL 标记为 protected_active_run——展示并参与扫描/staleness 但 M-FOUND SHALL NOT merge 或 delete 它，其 merge/delete 由 owning workflow 的 gate 独占；对 ahead protected 分支 Web SHALL 禁用 merge+delete 复选框并要求 Human 确认非空 retain/protected 理由；对 protected 分支尝试选中 merge/delete SHALL 被无修改拒绝，在有效 protected-retain 决策存在前不通过；fully merged protected 分支 SHALL 始终展示，永不自动删除；非 protected unmerged/ahead 分支 SHALL 要求 Human 决策（选中=merge into main 后 delete，未选中=非空保留理由）；所有 unmerged 分支决策完成且所有选中 merge+delete 成功前 M-FOUND SHALL 保持 waiting_human/non-PASS 且 M-SPEC 不得启动；选中非 protected 分支由 Runtime SHALL 执行 merge into main、验证 ancestry/content/权威检查、按需 push、仅成功后删除；任何分支/main head 变化、新分支、删除分支或目标/证据变化 SHALL 使受影响扫描/决策 stale 并要求重新扫描/决策；已 fully merged 分支 SHALL 记录并展示，不自动删除`
+- 来源: Human 确认（2026-07-17 裁决：M-FOUND 分支 reconciliation；§0.1 第 20 条）+ Sage B-08/B-09/B-10/B-11 补充
+- 说明: 在 M-SPEC 前完成全仓库分支清理，确保 main 为唯一权威基线；本地 main reconciliation 单独处理 equal/behind/ahead/diverged 状态，仅 equal 允许 PASS，永不 force-push/reset/delete main ref；legacy v0.13 元数据仅作只读 provenance，不是 authority；protected active-run 分支由 owning workflow gate 独占，M-FOUND 不 merge/delete；BS-37 允许的自动化仅为权威扫描、本地 main reconciliation、Human-bound retain 决策、非 protected 选中分支的 merge→validate→push→delete；不创建任意分支/worktree、不推断目标、不执行延迟 hotfix 同步、不替代 owning workflow release/hotfix gate；E2E 覆盖 equal/behind/ahead/diverged、dirty worktree、merge conflict、auth retry、重启、stale SHA、永不 delete/force/reset、protected active-run 分支、分支 reconciliation PASS 前无 M-SPEC
+
 ---
 
 ## 3. 竞品与边界 (Scope & Competition)
@@ -311,7 +359,7 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 以下内容明确属于 v0.17 或更晚版本，不在 v0.14 范围内：
 
 - [ ] 完整 CI report interruption matrix（immediate/safe-point/record-only、迟到报告处理等）。v0.14 只保留完成核心 workflow 必需的权威测试执行和证据。
-- [ ] 夜间自动重构、`maintenance/*` 分支、复杂 branch/worktree 生命周期自动化、hotfix 延迟同步自动管理。
+- [ ] 夜间自动重构、`maintenance/*` 分支、复杂/通用 branch/worktree 生命周期自动化、hotfix 延迟同步自动管理（BS-37 M-FOUND reconciliation 的有限自动化除外：仅权威扫描、本地 main reconciliation（Human 确认的 behind fast-forward / ahead 验证非 force publish / diverged merge remote-main 到 local-main 后验证非 force push，无 force/reset/delete/discard）、Human-bound retain 决策、非 protected 选中分支的 merge→validate→push→delete）。
 - [ ] 跨 workflow definition version 的 in-flight migration、step mapping、兼容旧 workflow。
 - [ ] 精细 artifact dependency graph、局部 freshness 传播、自动补偿/reconcile 不可逆副作用。
 - [ ] 项目自定义或任意 shell lifecycle hooks；复杂 hook marketplace/policy。
@@ -329,6 +377,12 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - [ ] cutover 后旧 CLI workflow 命令的解析入口保留、改名为其它子命令、或把旧命令透传到新 Runtime；这些都属于 v0.17 或其它独立 Story，不在 v0.14 范围内。
 - [ ] deprecated no-op 警告文本的多语种翻译 / i18n 目录 / 本地化运行时开关（已废止：deprecated no-op 警告文本本身已不存在，多语种本地化策略由后续 Story 单独定义）。
 - [ ] Sage 例外 `question` 通道的超时默认 / 自动决定 / 跳过 round 计数 / 在 waiting_human 期间绕过 approval/lock 的任何"快速通道"；v0.14 必须真等 Human。
+- [ ] 创建、复用或检查 per-repository GitHub backlog Project；v0.14 的 Backlog 是 Runtime-native 持久化状态。
+- [ ] 使用一次性探测 Issue/PR 验证 GitHub 仓库/资源操作权限；权限验证通过真实业务操作完成，不做 side-effect smoke test。
+- [ ] 从 v0.13 Louke 状态（active run、stage、gate、task、session、evidence、catalog、audit 或 WorkflowDefinition）导入、映射、恢复、修改或附加 authority 到 v0.14 run；支持的升级路径是 finish-then-reinstall，不是 in-place migration。
+- [ ] cutover 后在 active catalog、docs、help、prompts 或路由中保留 Scout、Warden 或 Keeper；历史/审计 artifact 可保留名称但不做改写。
+- [ ] Backlog 条目直接创建 run 而不经过预览/确认；主 Project active 时创建第二个主 run；破坏性删除 Park/No-Go 条目或改写其原始决定/状态/历史。
+- [ ] M-FOUND 在分支 reconciliation 完成前启动 M-SPEC；自动删除 fully merged 分支（除非在显式清理操作下选中）；分支 merge 前删除；未选中分支的保留理由作为 blanket waiver 跨 head 变化有效；对 unknown 目标分支猜测目标。
 
 ### 3.3 约束条件
 
@@ -341,7 +395,7 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
   - 30-count 检查由 Runtime 在 Sage 完成 Spec 初稿或修订并持久化后、dispatch Lex 之前执行；超限返回稳定错误 `SPEC_SCOPE_TOO_LARGE`，进入 `needs_story_split`，Lex、anchor、Issue、approval、lock 等下游副作用一律不得执行。
   - Runtime 拥有 M-SPEC 主循环（revision/digest/diff、结构验证、讨论扫描、锚点、Git/GitHub Issue reconcile、requirements approval/lock、重启恢复）；Sage/Lex 每次只完成一轮语义任务，不调用 workflow/gate 工具。
 - **组织约束**：
-  - installed-wheel E2E 和 Louke dogfood 均通过后方可删除旧执行路径和受控回退开关。
+  - installed-wheel E2E 和 Louke dogfood 均通过后方可删除旧执行路径。
   - Spec/AC/Issue/commit hash/artifact digest 等 Trace/Evidence 资产 identity 不因 workflow 变化而重写。
   - v0.14 开发期 CLI 与 Web Chat 双接口并存；v0.14 release tag 当日由 Runtime 在 release cutover 阶段统一收敛为 Web Chat 唯一入口（CLI 仅保留运维命令）。cutover 生效后，旧 CLI workflow 命令（如 `lk agent ...`）**不作为公开命令存在**：不在 CLI 注册表中注册、不出现在 `--help` / shell completion / 任何命令列表中、不被 CLI dispatcher 路由到 Runtime / 任何 Agent / 任何 workflow；用户尝试调用一个不再注册的旧 workflow 命令只能命中 CLI 自身的普通 unknown/unsupported-command 处置路径（与其它任何未知/不支持命令一致）；不存在专用的 deprecated no-op 退出码、不存在专用 audit 事件、不存在专用迁移警告合同、不存在任何 deprecated no-op 兼容 fallback。v0.13 baseline 的 pre-cutover 开发期间（在 v0.14 release tag 之前），CLI 仍按既有 v0.13 行为提供 workflow 推进命令以便 dogfood 与调试；cutover 由 Runtime 在 release cutover 阶段统一执行，过渡期不出现"新旧入口半切"的中间形态。此约束与 BS-30、§0.1 第 11 条、§1.3 cutover 后段落、§7 Human 确认一致。
   - Sage 在 M-SPEC 阶段例外使用 `question` 且 Human 未回复时，Runtime 必须持久化 `waiting_human` 状态；被阻塞需求保持 `Decided=⚠️`；Runtime 不做默认决定、不消耗 review 轮次、不解除 requirements approval 或 M-LOCK 阻塞；server 重启后重新进入 chat 窗口仍可见 Sage 的提问（由 opencode session 恢复承载）。只有匹配的 Human 回复落入同一 spec revision 后，Runtime 才恢复该 task。此约束与 BS-31、§0.1 第 12 条、cutover-checklist §G、research-report §15.12 一致。
@@ -398,6 +452,41 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - 验证: 在 installed-wheel E2E 中触发 Sage 例外 `question` → 不回复 → 重启 `lk serve` → 重新进入 chat → Sage 的提问仍可见；Runtime 状态显示 `waiting_human`，被阻塞需求保持 `Decided=⚠️`，requirements approval / M-LOCK 仍阻塞
 - 负责人: 测试负责人
 
+### A-10
+- 假设: Louke Runtime-native Backlog 持久化可以满足 Park/No-Go 和被阻塞项目请求的 canonical 存储需求，不需要 GitHub backlog Project 作为补充权威
+- 验证: 在 installed-wheel E2E 中完成 Park/No-Go 分流并断言 Backlog 条目在重启后仍可读、可追溯；确认项目 setup 流程不触发任何 per-repository GitHub backlog Project 的 create/reuse/check/API 操作
+- 负责人: PM
+
+### A-11
+- 假设: 真实 GitHub 远程认证业务操作（push、Issue/PR API 调用、per-release GitHub Project 操作、release/tag 发布等）的权限失败可以可靠地与认证失败区分，并持久化为可操作错误供 Human 授权后重试
+- 验证: 在 installed-wheel E2E 中模拟权限不足场景，断言 Runtime 进入 `waiting_human`、错误可读、不产生探测性 Issue/PR 副作用；Human 授权后以相同 idempotency key 重试成功
+- 负责人: 测试负责人
+
+### A-12
+- 假设: Git remote、项目元数据和已认证身份在大多数 setup 场景下可以提供完整且一致的 setup 元数据，减少 Human 交互
+- 验证: 在干净 checkout、既有 Git 仓库、fork 仓库三种场景下执行 `lk install`，断言 setup 元数据正确推导且 provenance 可见
+- 负责人: 技术负责人
+
+### A-13
+- 假设: finish-then-reinstall 升级路径（停止旧版本 → 卸载 → 安装 v0.14 → 启动新 run）对 v0.13 用户足够，不需要 in-place 状态迁移
+- 验证: 在既有 v0.13 workspace 上执行 upgrade 路径，断言旧 v0.13 状态未被导入/映射/修改；新 v0.14 adoption 未从 v0.13 `current_stage` 推断 run 状态
+- 负责人: PM
+
+### A-14
+- 假设: cutover 后从 active catalog/docs/help/prompts/路由中排除 Scout/Warden/Keeper 不会破坏只读历史 artifact 的完整性或可追溯性
+- 验证: 在 installed-wheel E2E 中 (a) 断言 cutover 后 active 表面无 Scout/Warden/Keeper；(b) 断言历史/审计 artifact 中保留的名称可读且未被改写
+- 负责人: 测试负责人
+
+### A-15
+- 假设: Runtime-native Backlog 的预览→确认→原子创建流程可以防止主 Project active 时意外创建第二个主 run，且 Park/No-Go 条目保留原始决定/历史不影响后续可审计性
+- 验证: E2E 断言主 Project active 时新 `new_feature` 进入 Backlog 而不创建 run；Park/No-Go 条目可预览确认后启动；原始决定在后续 run 创建后仍可读
+- 负责人: PM
+
+### A-16
+- 假设: 分支 reconciliation 在典型 new_feature 场景下（少量 release/fix 分支）可在单次 Human 交互中完成，不会成为 M-FOUND 的主要阻塞点
+- 验证: 在含 2-3 个 release 分支和 1 个 fix 分支的 workspace 上执行 E2E，断言 Human 决策后可完成 reconciliation 并进入 M-SPEC
+- 负责人: PM
+
 ### 4.2 主要风险
 
 ### R-01
@@ -450,6 +539,36 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 - 影响: 中
 - 应对: BS-31 + cutover-checklist §G + Runtime 显式持久化 `waiting_human`、保留 `Decided=⚠️`、不消耗 round、不解除阻塞；opencode session 恢复只承载"重新进入 chat 仍可见 Sage 提问"的可观察性，不替代 Runtime 决定状态；E2E 必须断言 (a) 持久化状态可读、(b) round 计数不变、(c) approval/lock 仍阻塞、(d) 重启 server 后 chat 窗口仍显示 Sage 提问
 
+### R-11
+- 风险: 若 Runtime-native Backlog 持久化在重启后丢失或 split-brain，Park/No-Go 条目可能丢失且无 GitHub Project 作为 fallback
+- 影响: 中
+- 应对: 持久化 store 添加完整性校验和 schema version；Backlog 条目与 run/task 关联可追溯；E2E 断言重启后 Backlog 完整可读
+
+### R-12
+- 风险: GitHub 权限失败后的 `waiting_human` 循环若 Human 未及时响应，run 可能长时间阻塞；若 idempotency key 实现不正确，重试可能产生重复副作用
+- 影响: 中
+- 应对: `waiting_human` 持久化与 BS-31 同机制（不做默认决定、不消耗 round）；idempotency key 绑定 run + task + attempt + operation identity；E2E 断言重试不产生重复 Issue/PR
+
+### R-13
+- 风险: Setup 元数据推导若在 fork 仓库、多 remote 或 submodule 场景下推导错误，可能导致项目 identity 错误且用户未察觉
+- 影响: 低
+- 应对: 展示 provenance 让用户可审查；冲突时显式询问而非静默选择；E2E 覆盖多 remote 场景
+
+### R-14
+- 风险: 若实现中误将 v0.13 `current_stage` 或 evidence 导入 v0.14 run 状态，会破坏"全新 v0.14 项目"的权威性并产生不可追溯的混合 authority
+- 影响: 中
+- 应对: adoption 代码路径显式拒绝 v0.13 Louke 状态文件/目录；E2E 断言 adoption 后 v0.14 run 不包含 v0.13 stage/evidence 推断值
+
+### R-15
+- 风险: Backlog 预览→确认→原子创建流程若实现不当，可能在主 Project 结束时产生竞态创建第二个主 run
+- 影响: 中
+- 应对: 原子 CAS 检查 active Project 槽位；预览确认后、创建前重新验证；E2E 断言并发确认不创建重复 run
+
+### R-16
+- 风险: 分支 reconciliation 若在含大量陈旧分支的仓库中执行，Human 决策负担可能过大，导致 M-FOUND 长时间阻塞
+- 影响: 低
+- 应对: 已 fully merged 分支自动记录不要求决策；未来增强可引入批量选择/筛选；首版接受逐个决策的交互成本
+
 ---
 
 ## 5. 必要性与冲突 (Necessity & Conflict)
@@ -479,7 +598,14 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
   - [x] **cutover 后旧 CLI workflow 命令（如 `lk agent ...`）以"命令缺位"形态接受**：它们**不作为公开命令存在**（不在 CLI 注册表 / `--help` / completion / 任何命令列表中），用户尝试调用时**只走 CLI 自身的普通 unknown/unsupported-command 路径**——既无专用 deprecated no-op 退出码、也无专用 audit 事件（`cli_legacy_deprecated_noop` 已废止）、也无专用迁移警告、也无任何 deprecated no-op 兼容 fallback；已固化为 BS-30、A-07/A-08、R-08/R-09，与 §0.1 第 11 条、§1.3、§2.1、§3.2、§3.3、cutover-checklist §F 一致
   - [x] **先前"deprecated no-op 行为合同与 audit 事件合同"全部废止**：包括但不限于 exit-0 退出码合同、stderr 单一通道警告、stdout 必须空白、`cli_legacy_deprecated_noop` audit 事件、Runtime-native store 中的 `command identity`/`actor`/`side_effect_invoked=false` 专用事件负载、警告文本英文、i18n 推迟到 v0.16 等所有先前声明均不再适用
   - [x] Sage 例外 `question` 通道在 Human 未回复时：Runtime 持久化 `waiting_human`、`Decided=⚠️`、不做默认决定、不消耗 review round、不解除 requirements approval / M-LOCK 阻塞、server 重启并重新进入 chat 窗口仍可见 Sage 的提问（由 opencode session 恢复承载）；已固化为 BS-31、A-09、R-10，与 §0.1 第 12 条、§3.3、cutover-checklist §G、research-report §15.12 一致
-- **Backlog 登记**：Go → 继续 M-FOUND/M-SPEC 流程；Park → 登记 Backlog 标记 `Park`；No-Go → 登记 Backlog 标记 `NO-GO`（story 永久存档，不删除）
+  - [x] **无 GitHub Backlog Project**：v0.14 不创建/不依赖/不检查 per-repository GitHub backlog Project；Louke Backlog 是 Runtime-native 持久化状态；已固化为 BS-32、A-10、R-11，与 §0.1 第 14 条、§3.2 一致
+  - [x] **无权限探测 Issue/PR**：`gh auth status` 仅认证健康，不是权限证据；权限失败 → `waiting_human` → Human 授权 → 同 idempotency key 重试；不产生探测性 Issue/PR 副作用；已固化为 BS-33、A-11、R-12，与 §0.1 第 15 条、§3.2 一致
+  - [x] **Setup 元数据权威推导**：从 Git remote、项目元数据、已认证身份推导并展示 provenance；仅缺失/冲突时询问 Human；已固化为 BS-34、A-12、R-13，与 §0.1 第 16 条一致
+  - [x] **无 v0.13 → v0.14 Louke 状态迁移**：升级路径是 finish-then-reinstall；不导入/映射/恢复 v0.13 state；no-new-debt adoption 是全新 v0.14 项目，不从 v0.13 `current_stage` 推断 run 状态；已固化为 BS-35、A-13、R-14，与 §0.1 第 17 条、§1.3 一致
+  - [x] **Agent 退役清单覆盖 Scout/Warden/Keeper**：cutover 后 active catalog/docs/help/prompts/路由排除三者；历史 artifact 可保留名称；已固化为 BS-36、A-14，与 §0.1 第 18 条一致
+  - [x] **Runtime Backlog UI 与项目启动行为**：继承 v0.12 FR-1001/FR-1101/FR-1701；主 Project active 时新请求进入 Backlog；Backlog 条目通过预览→确认→原子创建启动，不直接创建 run；Park/No-Go 原始决定不可变；已固化为 BS-32（强化）、A-15、R-15，与 §0.1 第 19 条一致
+  - [x] **M-FOUND 分支 reconciliation**：Story Go 后、M-SPEC 前枚举所有非 main 分支 head，Human 决策 merge+delete 或保留理由；所有决策完成且 merge+delete 成功前 M-SPEC 不得启动；已固化为 BS-37、A-16、R-16，与 §0.1 第 20 条一致
+- **Backlog 登记**：Go → 继续 M-FOUND/M-SPEC 流程；Park → 登记 Runtime-native Backlog 标记 `Park`；No-Go → 登记 Runtime-native Backlog 标记 `NO-GO`（story 永久存档，不删除）
 
 ---
 
@@ -487,14 +613,14 @@ v0.14 将 v0.12 的 Runtime 核心类库、v0.13 的 Web/Chat/Runs 观察面和 
 
 - **Story ID**：`STR-1401`
 - **创建时间**：`2026-07-17T00:00:00+08:00`
-- **最近更新**：`2026-07-17T22:30:00+08:00`（Scribe documentation-only revision #3 — Human 2026-07-17 supersede 修订：移除 / 废止先前 cutover 后 deprecated no-op 行为合同与 audit 事件合同的全部内容；BS-30 替换为 stable command absence contract（cutover 后旧 workflow CLI 命令不作为公开命令存在、唯一适用的是 CLI 自身的普通 unknown/unsupported-command 处置路径）；§0.1 第 10/11 条约束、§1.3 cutover 后段落、§2.1 旧 CLI 条款、§3.1 Adopt/Avoid、§3.2 Out-of-Scope（移除旧 CLI / i18n 旧条目）、§3.3 cutover 后旧 CLI 组织约束、A-07/A-08、R-08/R-09 全部同步重写或废止；§0.1 第 13 条 i18n 时序声明显式废止；保留 BS-31 与 §0.1 第 12 条、cutover-checklist §G、research-report §15.12 不变；保留 per-Spec 30 条有效 FR+NFR 硬门禁与 Runtime pre-Lex gate 不变；保留其余 v0.14 Story 决策不变。不影响代码、测试、模板、Agent、Runtime 实现、git 状态、提交或推送；旧 Sage review digest 视为失效，需 Sage 在当前 Story digest 上重新独立完成 peer review）
+- **最近更新**：`2026-07-17T23:45:00+08:00`（Scribe documentation-only revision #6 — Human 2026-07-17 supersede 裁决：新增 §0.1 第 19-20 条（Runtime Backlog UI 继承 v0.12 FR-1001/1101/1701 + M-FOUND 分支 reconciliation）；强化 BS-32 为完整 Backlog 行为；新增 BS-37（分支 reconciliation gate）；Happy Path 插入步骤 4；§2.1 新增 Backlog UI 和分支 reconciliation 能力；§3.2 新增 Out-of-Scope 条目；新增 A-15/A-16/R-15/R-16；BS-34 说明更新 Lex 规范化建议；§7 新增两项 Human 确认；§8/配套文档/footer 更新。不影响代码、测试、模板、Agent、Runtime 实现、git 状态、提交或推送；旧 Sage review digest 视为失效）
 - **关联 Issue（待填充）**：`#待创建`（按 BS-20，Issue 拆分只在 M-LOCK 批准后才允许启动）
 - **关联 Spec ID（待填充）**：`#待创建`（按 BS-23，受单 Spec ≤30 有效 FR+NFR 硬门禁约束）
 - **配套文档**：
-  - `research-report.md`：调研报告（研究输入，非规范性合同；§15.11/§15.12 已确认决策与本 Story §0.1 第 10/12 条、BS-31 不变；§15.17 已替换为"cutover 后旧 workflow CLI 命令缺位合同"，替代先前 deprecated no-op 行为合同与 audit 事件合同）
-  - `cutover-checklist.md`：生产切换架构与交付约束清单（§F 已替换为"cutover 后旧 workflow CLI 命令缺位合同与 unknown-command 处置"，替代先前 deprecated no-op 行为合同与 audit 事件合同；§G / Sage 例外 `question` 通道与 §E / Spec 规模硬门禁条目保持不变）
+  - `research-report.md`：调研报告（研究输入，非规范性合同；§15 新增第 23-24 条确认决策对应 §0.1 第 19-20 条；§15.19 更新 per-release Project 复用 identity；§15.20 更新规范化候选自动接受）
+  - `cutover-checklist.md`：生产切换架构与交付约束清单（§H 强化为 Backlog UI 行为；新增 §M 分支 reconciliation gate；§I 更新 per-release Project 复用 identity；§J 更新规范化候选）
 - **下游合同 bundle**：`story.md` + `spec.md` + `acceptance.md` + `test-plan.md` + `architecture.md` + `interfaces.md` 六件套按 BS-19 共同 digest 由 M-LOCK 锁定。
 
 ---
 
-*—— 本故事由 Scribe（M-STORY）于 2026-07-17 生成；2026-07-17 追加 documentation-only 修订三次：（1）固化 Human Go 决策约束，引入 BS-30 / A-07 / R-08；（2）稳定化 cutover 后 deprecated no-op 行为合同与 audit 事件合同（BS-30 / A-08 / R-09），引入 BS-31（A-09 / R-10）固化 Sage 例外 `question` 通道与 `waiting_human` 持久化；（3）按 Human 2026-07-17 supersede 裁决移除 / 废止所有 deprecated no-op 与 audit 事件合同内容，BS-30 替换为 stable command absence contract（cutover 后旧 workflow CLI 命令不作为公开命令存在、唯一适用的是 CLI 自身的普通 unknown/unsupported-command 处置路径），§0.1 第 13 条 i18n 时序声明显式废止，cutover-checklist §F 与 research-report §15.17 同步替换；保留 BS-31、per-Spec 30 条有效 FR+NFR 硬门禁、Runtime pre-Lex gate 与其余 v0.14 Story 决策。每次修订都使旧 Sage review digest 失效，需 Sage 在当前 Story digest 上重新独立 peer review。经 Sage peer review 且 Human 确认后：Go → 进入后续流程，Park / No-Go → 存档入 Backlog 并标记（story 永久保留，不删除）。*
+*—— 本故事由 Scribe（M-STORY）于 2026-07-17 生成；2026-07-17 追加 documentation-only 修订六次：（1）固化 Human Go 决策约束，引入 BS-30 / A-07 / R-08；（2）稳定化 cutover 后 deprecated no-op 行为合同与 audit 事件合同；（3）按 Human 2026-07-17 supersede 裁决移除/废止所有 deprecated no-op 与 audit 事件合同内容；（4）按 Human 2026-07-17 五项裁决新增 §0.1 第 14-18 条、BS-32 至 BS-36；（5）Sage blocker resolution：移除 deprecated adapter/fallback/受控回退/共存 normative permission，强化 BS-34/BS-35，修正 BS-33；（6）Human 2026-07-17 supersede 裁决：新增 §0.1 第 19-20 条（Runtime Backlog UI 继承 v0.12 + M-FOUND 分支 reconciliation），强化 BS-32，新增 BS-37。每次修订都使旧 Sage review digest 失效，需 Sage 在当前 Story digest 上重新独立 peer review。经 Sage peer review 且 Human 确认后：Go → 进入后续流程，Park / No-Go → 存档入 Runtime-native Backlog 并标记（story 永久保留，不删除）。*
