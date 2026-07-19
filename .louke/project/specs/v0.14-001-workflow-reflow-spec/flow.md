@@ -82,15 +82,15 @@ Sage 创建 spec 文档。人类和Lex 共同评审。
 2. **Runtime** 启动**Sage** 进行 acceptance.md 文档写作。**Sage**应该继承上一轮 M-SPEC的上下文。
 3. **Runtime** 等待**Sage**从会话中返回。在此之前，不给**Human**开放网页编辑权限。
 4. 重复 M-SPEC 中第4到第11步，只不过文档对象是 acceptance.md。
-5. 本步骤结束后，重定向到 project/current 页面，进入 M-LOCK-1阶段。
+5. 本步骤结束后，重定向到 project/current 页面，进入 M-REQ-APPROVAL 阶段。
 
-## M-LOCK-1
+## M-REQ-APPROVAL
 
-在 story, spec, aceptance 都通过 review 之后，进入 M-LOCK-1阶段。
+在 story、spec、acceptance 都通过 review 之后，进入 M-REQ-APPROVAL 阶段。
 
-1. **Runtime** 网页端显示当前的 project 状态，流程指针指向 M-LOCK-1。在这个节点上，显示等待 approve 提示和按钮。
-2. **Human** 点击『approve』按钮，锁定 story, spec, acceptance。
-3. **Runtime** 将上述文档的网页编辑权收回，界面只读显示文档。
+1. **Runtime** 网页端显示当前的 project 状态，流程指针指向 M-REQ-APPROVAL。在这个节点上，显示等待 approve 提示和按钮。
+2. **Human** 点击『approve』按钮，将当前 story、spec、acceptance revisions 批准为本轮需求 baseline。
+3. **Runtime** 将上述 approved revisions 设为默认只读并记录 approval identity；后续如按定义化流程返回 M-STORY/M-SPEC/M-ACC，可形成新 revision，并在进入设计前重新取得 M-REQ-APPROVAL。
 4. **Runtime** 对 spec 进行拆分，按格式要求创建对应的 github issue，并关联 github project.
 
 <!-- 旧版候选（暂保留以便对照）
