@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:louke:schema:machine-contract:e2e-test:1.0.0",
+  "title": "Louke e2e-test machine contract",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "identity", "revision", "schema_ref", "manifest_ref", "scope", "generated_by", "compatible_runtime", "artifact_refs", "payload"],
+  "properties": {
+    "kind": {"const": "e2e-test"}, "identity": {"const": "louke.contract.v0.14-002.e2e-test"}, "revision": {"const": "prism-round-3-remediation-candidate"},
+    "schema_ref": {"$ref": "#/$defs/schemaRef"}, "manifest_ref": {"$ref": "#/$defs/manifestRef"}, "scope": {"$ref": "#/$defs/scope"}, "generated_by": {"$ref": "#/$defs/generator"}, "compatible_runtime": {"const": ">=0.14.0,<0.15.0"}, "artifact_refs": {"$ref": "#/$defs/refs"},
+    "payload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commands", "paths", "discovery", "runner", "setup", "run", "services", "ready", "fixtures", "environment", "timeout_seconds", "suites", "public_surfaces", "journeys", "isolation", "artifacts", "evidence", "teardown", "failure_policy"],
+      "properties": {
+        "commands": {"$ref": "#/$defs/commands"},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "discovery": {"type": "object", "additionalProperties": false, "required": ["profiles", "all_expansion", "runtimes", "zero_collection"], "properties": {"profiles": {"type": "array", "const": ["install", "chromium", "design-contracts", "all"]}, "all_expansion": {"type": "array", "const": ["install", "chromium", "design-contracts"]}, "runtimes": {"type": "array", "const": ["local", "global", "both"]}, "zero_collection": {"const": "nonzero"}}},
+        "runner": {"type": "string", "minLength": 1}, "setup": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "run": {"type": "string", "minLength": 1},
+        "services": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "start", "runtime"], "properties": {"id": {"const": "workbench"}, "start": {"type": "string", "minLength": 1}, "runtime": {"type": "string", "minLength": 1}}}},
+        "ready": {"type": "object", "additionalProperties": false, "required": ["request", "interval_ms", "timeout_seconds", "expected"], "properties": {"request": {"type": "string", "minLength": 1}, "interval_ms": {"type": "integer", "minimum": 50, "maximum": 5000}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 300}, "expected": {"type": "string", "minLength": 1}}},
+        "fixtures": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "environment": {"type": "object", "additionalProperties": false, "required": ["HOME_XDG_workspace", "production_secrets", "providers"], "properties": {"HOME_XDG_workspace": {"type": "string", "minLength": 1}, "production_secrets": {"const": false}, "providers": {"const": "stand-ins"}}},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+        "suites": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/suite"}},
+        "public_surfaces": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "journeys": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/journey"}},
+        "isolation": {"type": "object", "additionalProperties": false, "required": ["ports", "browser_context", "active_pointer", "provider_namespace", "parallel_shared_state"], "properties": {"ports": {"const": "dynamically allocated"}, "browser_context": {"const": "new per case"}, "active_pointer": {"const": "fixture-local"}, "provider_namespace": {"const": "unique"}, "parallel_shared_state": {"const": false}}},
+        "artifacts": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["JUnit", "v014-runner-evidence.json", "Playwright trace on failure", "DOM snapshot", "redacted server log"]}},
+        "evidence": {"type": "object", "additionalProperties": false, "required": ["required_ac_layer_reconciliation", "active_candidate_identity", "secret_scan_before_upload"], "properties": {"required_ac_layer_reconciliation": {"const": true}, "active_candidate_identity": {"const": true}, "secret_scan_before_upload": {"const": true}}},
+        "teardown": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "failure_policy": {"$ref": "#/$defs/failure"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "schemaRef": {"type": "object", "additionalProperties": false, "required": ["identity", "version", "digest"], "properties": {"identity": {"const": "louke.machine-contract.e2e-test"}, "version": {"const": "1.0.0"}, "digest": {"$ref": "#/$defs/digest"}}},
+    "manifestRef": {"type": "object", "additionalProperties": false, "required": ["identity", "revision"], "properties": {"identity": {"const": "louke.design-artifacts.v0.14-002.prism-r3-remediation"}, "revision": {"const": "prism-round-3-remediation-candidate"}}},
+    "artifactIdentity": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "identity", "revision"], "properties": {"kind": {"type": "string"}, "path": {"type": "string", "minLength": 1}, "identity": {"type": "string", "minLength": 1}, "revision": {"type": "string", "minLength": 1}}},
+    "scope": {"type": "object", "additionalProperties": false, "required": ["workspace_id", "spec_id", "base_commit", "project_facts_digest", "project_facts_artifact", "release_identity"], "properties": {"workspace_id": {"type": "string", "minLength": 1}, "spec_id": {"const": "v0.14-002-workflow-reflow-design"}, "base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "project_facts_digest": {"$ref": "#/$defs/digest"}, "project_facts_artifact": {"allOf": [{"$ref": "#/$defs/artifactIdentity"}], "properties": {"kind": {"const": "host-project-facts-snapshot"}}}, "release_identity": {"const": "0.14.0"}}},
+    "generator": {"type": "object", "additionalProperties": false, "required": ["owner", "role", "task_manifest_digest", "task_manifest_artifact"], "properties": {"owner": {"const": "Runtime/program"}, "role": {"const": "Archer"}, "task_manifest_digest": {"$ref": "#/$defs/digest"}, "task_manifest_artifact": {"allOf": [{"$ref": "#/$defs/artifactIdentity"}], "properties": {"kind": {"const": "archer-author-task-manifest"}}}}},
+    "refs": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["path", "digest", "ac_ids", "interface_ids", "architecture_anchors", "contract_kind"], "properties": {"path": {"type": "string"}, "digest": {"$ref": "#/$defs/digest"}, "ac_ids": {"type": "array", "items": {"type": "string"}}, "interface_ids": {"type": "array", "items": {"type": "string"}}, "architecture_anchors": {"type": "array", "items": {"type": "string"}}, "contract_kind": {"const": "e2e-test"}}}},
+    "commands": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "cwd", "command", "implementation_state", "success", "failure"], "properties": {"id": {"type": "string"}, "cwd": {"type": "string"}, "command": {"type": "string", "minLength": 1}, "implementation_state": {"enum": ["existing", "candidate-change-required"]}, "success": {"type": "string", "minLength": 1}, "failure": {"type": "string", "minLength": 1}}}},
+    "suite": {"type": "object", "additionalProperties": false, "required": ["id", "required", "paths", "ac_ids", "interface_ids", "architecture_anchors"], "properties": {"id": {"type": "string"}, "required": {"const": true}, "paths": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "ac_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "interface_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "architecture_anchors": {"type": "array", "minItems": 1, "items": {"type": "string"}}}},
+    "journey": {"type": "object", "additionalProperties": false, "required": ["id", "entry", "actions", "visible_result", "recovery", "ac_ids"], "properties": {"id": {"type": "string", "minLength": 1}, "entry": {"type": "string", "minLength": 1}, "actions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "visible_result": {"type": "string", "minLength": 1}, "recovery": {"type": "string", "minLength": 1}, "ac_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}}},
+    "failure": {"type": "object", "additionalProperties": false, "required": ["fail_closed", "non_success", "current_state"], "properties": {"fail_closed": {"const": true}, "non_success": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["failure", "cancel", "timeout", "missing", "skip", "not-run", "unknown", "zero-collection", "ready-failure", "teardown-failure", "evidence-mismatch"]}}, "current_state": {"const": "candidate-not-installed"}}}
+  }
+}

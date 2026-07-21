@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:louke:schema:machine-contract:integration-test:1.0.0",
+  "title": "Louke integration-test machine contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "identity", "revision", "schema_ref", "manifest_ref", "scope", "generated_by", "compatible_runtime", "artifact_refs", "payload"],
+  "properties": {
+    "kind": {"const": "integration-test"},
+    "identity": {"const": "louke.contract.v0.14-002.integration-test"},
+    "revision": {"const": "prism-round-3-remediation-candidate"},
+    "schema_ref": {"$ref": "#/$defs/schemaRef"},
+    "manifest_ref": {"$ref": "#/$defs/manifestRef"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "generated_by": {"$ref": "#/$defs/generator"},
+    "compatible_runtime": {"const": ">=0.14.0,<0.15.0"},
+    "artifact_refs": {"$ref": "#/$defs/artifactRefs"},
+    "payload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commands", "paths", "discovery", "runner", "setup", "run", "services", "fixtures", "environment", "timeout_seconds", "suites", "skip_policy", "quarantine_policy", "evidence", "teardown", "failure_policy"],
+      "properties": {
+        "commands": {"$ref": "#/$defs/commands"},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "discovery": {"type": "object", "additionalProperties": false, "required": ["framework", "expected_manifest", "preserve_historical", "zero_collection"], "properties": {"framework": {"const": "pytest"}, "expected_manifest": {"type": "string", "minLength": 1}, "preserve_historical": {"const": true}, "zero_collection": {"const": "nonzero"}}},
+        "runner": {"type": "string", "minLength": 1},
+        "setup": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "run": {"type": "string", "minLength": 1},
+        "services": {"type": "array", "items": {"$ref": "#/$defs/service"}},
+        "fixtures": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "environment": {"type": "object", "additionalProperties": false, "required": ["production_secrets", "network_publish", "external_services", "core_modules_mocked"], "properties": {"production_secrets": {"const": false}, "network_publish": {"const": false}, "external_services": {"const": "protocol-faithful stand-ins"}, "core_modules_mocked": {"const": false}}},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+        "suites": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/suite"}},
+        "skip_policy": {"type": "string", "minLength": 1},
+        "quarantine_policy": {"type": "string", "minLength": 1},
+        "evidence": {"type": "object", "additionalProperties": false, "required": ["schema", "formats", "required_ac_layer_reconciliation"], "properties": {"schema": {"type": "string", "minLength": 1}, "formats": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["JUnit", "v014-runner-evidence.json"]}}, "required_ac_layer_reconciliation": {"const": true}}},
+        "teardown": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "failure_policy": {"$ref": "#/$defs/failurePolicy"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "schemaRef": {"type": "object", "additionalProperties": false, "required": ["identity", "version", "digest"], "properties": {"identity": {"const": "louke.machine-contract.integration-test"}, "version": {"const": "1.0.0"}, "digest": {"$ref": "#/$defs/digest"}}},
+    "manifestRef": {"type": "object", "additionalProperties": false, "required": ["identity", "revision"], "properties": {"identity": {"const": "louke.design-artifacts.v0.14-002.prism-r3-remediation"}, "revision": {"const": "prism-round-3-remediation-candidate"}}},
+    "artifactIdentity": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "identity", "revision"], "properties": {"kind": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1}, "identity": {"type": "string", "minLength": 1}, "revision": {"type": "string", "minLength": 1}}},
+    "scope": {"type": "object", "additionalProperties": false, "required": ["workspace_id", "spec_id", "base_commit", "project_facts_digest", "project_facts_artifact", "release_identity"], "properties": {"workspace_id": {"type": "string", "minLength": 1}, "spec_id": {"const": "v0.14-002-workflow-reflow-design"}, "base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "project_facts_digest": {"$ref": "#/$defs/digest"}, "project_facts_artifact": {"allOf": [{"$ref": "#/$defs/artifactIdentity"}], "properties": {"kind": {"const": "host-project-facts-snapshot"}}}, "release_identity": {"const": "0.14.0"}}},
+    "generator": {"type": "object", "additionalProperties": false, "required": ["owner", "role", "task_manifest_digest", "task_manifest_artifact"], "properties": {"owner": {"const": "Runtime/program"}, "role": {"const": "Archer"}, "task_manifest_digest": {"$ref": "#/$defs/digest"}, "task_manifest_artifact": {"allOf": [{"$ref": "#/$defs/artifactIdentity"}], "properties": {"kind": {"const": "archer-author-task-manifest"}}}}},
+    "artifactRefs": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["path", "digest", "ac_ids", "interface_ids", "architecture_anchors", "contract_kind"], "properties": {"path": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}, "ac_ids": {"type": "array", "items": {"type": "string"}}, "interface_ids": {"type": "array", "items": {"type": "string"}}, "architecture_anchors": {"type": "array", "items": {"type": "string"}}, "contract_kind": {"const": "integration-test"}}}},
+    "commands": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "cwd", "command", "implementation_state", "success", "failure"], "properties": {"id": {"type": "string", "minLength": 1}, "cwd": {"type": "string", "minLength": 1}, "command": {"type": "string", "minLength": 1}, "implementation_state": {"enum": ["existing", "candidate-change-required"]}, "success": {"type": "string", "minLength": 1}, "failure": {"type": "string", "minLength": 1}}}},
+    "service": {"type": "object", "additionalProperties": false, "required": ["id", "start", "ready", "teardown"], "properties": {"id": {"type": "string", "minLength": 1}, "start": {"type": "string", "minLength": 1}, "ready": {"type": "string", "minLength": 1}, "teardown": {"type": "string", "minLength": 1}}},
+    "suite": {"type": "object", "additionalProperties": false, "required": ["id", "required", "paths", "ac_ids", "interface_ids", "architecture_anchors"], "properties": {"id": {"type": "string", "minLength": 1}, "required": {"const": true}, "paths": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "ac_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "interface_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "architecture_anchors": {"type": "array", "minItems": 1, "items": {"type": "string"}}}},
+    "failurePolicy": {"type": "object", "additionalProperties": false, "required": ["fail_closed", "non_success", "current_state"], "properties": {"fail_closed": {"const": true}, "non_success": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["failure", "cancel", "timeout", "missing", "skip", "not-run", "unknown", "zero-collection", "evidence-mismatch"]}}, "current_state": {"const": "candidate-not-installed"}}}
+  }
+}

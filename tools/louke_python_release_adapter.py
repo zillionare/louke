@@ -18,6 +18,8 @@ import tarfile
 import tempfile
 import zipfile
 
+from packaging.version import InvalidVersion, Version
+
 
 def _version_from_tag(tag: str) -> str:
     value = str(tag or "")
@@ -26,6 +28,45 @@ def _version_from_tag(tag: str) -> str:
     if not value or "-dirty" in value or "+local" in value:
         raise ValueError(f"invalid release tag: {tag!r}")
     return value
+
+
+def _read_project_version(source: Path) -> str:
+    """Return the ``[project].version`` string from a pyproject source."""
+    text = source.read_text(encoding="utf-8")
+    match = re.search(r"(?ms)^\[project\]\s*(.*?)(?=^\[|\Z)", text)
+    if not match:
+        raise ValueError("[project] section not found in pyproject.toml")
+    version_match = re.search(
+        r"(?m)^version\s*=\s*(['\"])(?P<version>.*?)\1\s*$", match.group(0)
+    )
+    if not version_match:
+        raise ValueError("[project].version selector not found in pyproject.toml")
+    return version_match.group("version")
+
+
+def inspect_source(source: Path, tag: str | None = None) -> dict[str, str]:
+    """Read the canonical version source (``project.version``).
+
+    Emits ``{source, selector, version}``.  A missing selector, a non-PEP-440
+    version, or a tag whose canonical form does not equal the source version is
+    a hard failure (IF-REL-01).
+    """
+    version = _read_project_version(source)
+    try:
+        canonical = str(Version(version))
+    except InvalidVersion as exc:
+        raise ValueError(f"non-PEP-440 version source: {version!r}") from exc
+    if tag is not None:
+        tag_version = str(Version(_version_from_tag(tag)))
+        if tag_version != canonical:
+            raise ValueError(
+                f"tag/source mapping mismatch: {tag_version} != {canonical}"
+            )
+    return {
+        "source": str(source.resolve()),
+        "selector": "project.version",
+        "version": version,
+    }
 
 
 def prepare(tag: str, source: Path) -> dict[str, str]:
@@ -115,13 +156,19 @@ def main(argv: list[str] | None = None) -> int:
     prepare_parser.add_argument("--source", type=Path, default=Path("pyproject.toml"))
     inspect_parser = sub.add_parser("inspect")
     inspect_parser.add_argument("--artifact", type=Path, required=True)
+    inspect_source_parser = sub.add_parser("inspect-source")
+    inspect_source_parser.add_argument(
+        "--source", type=Path, default=Path("pyproject.toml")
+    )
+    inspect_source_parser.add_argument("--tag", default=None)
     args = parser.parse_args(argv)
     try:
-        result = (
-            prepare(args.tag, args.source)
-            if args.command == "prepare"
-            else inspect_artifact(args.artifact)
-        )
+        if args.command == "prepare":
+            result = prepare(args.tag, args.source)
+        elif args.command == "inspect-source":
+            result = inspect_source(args.source, args.tag)
+        else:
+            result = inspect_artifact(args.artifact)
     except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile) as exc:
         print(f"release adapter: {exc}", file=sys.stderr)
         return 1

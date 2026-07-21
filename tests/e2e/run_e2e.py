@@ -1,4 +1,13 @@
-"""Single project-venv bootstrap for v0.13.1 integration and product E2E."""
+"""Single project-venv bootstrap for integration and product E2E.
+
+Extended for spec ``v0.14-002-workflow-reflow-design`` (Devon foundation task,
+test-plan §2.3.1 + design-artifacts/runner/project-runner.candidate.json): the
+integration discovery keeps the historical suite then the v014 suite, the e2e
+parser gains a ``design-contracts`` profile (``all`` expands to three), and the
+locked ``v014-runner-evidence.json`` field set is recorded here.  Until the
+design-contracts execution lifecycle is fully wired it fails closed and records
+``not-run`` rather than claiming an executable PASS.
+"""
 
 from __future__ import annotations
 
@@ -74,7 +83,11 @@ def _parser() -> argparse.ArgumentParser:
     integration = subparsers.add_parser("integration")
     integration.add_argument("pytest_args", nargs=argparse.REMAINDER)
     e2e = subparsers.add_parser("e2e")
-    e2e.add_argument("--profile", choices=("install", "chromium", "all"), required=True)
+    e2e.add_argument(
+        "--profile",
+        choices=("install", "chromium", "design-contracts", "all"),
+        required=True,
+    )
     e2e.add_argument("--runtime", choices=("local", "global", "both"), required=True)
     e2e.add_argument("pytest_args", nargs=argparse.REMAINDER)
     return parser
@@ -257,9 +270,57 @@ def _verify_product_identity(
         raise RuntimeError(f"product metadata mismatch: {identity}")
 
 
+# Locked v014 runner evidence schema (project-runner.candidate.json §evidence_schema).
+EVIDENCE_REQUIRED_FIELDS: tuple[str, ...] = (
+    "schema_version",
+    "release_identity",
+    "spec_id",
+    "base_commit",
+    "runner_digest",
+    "command",
+    "profile",
+    "runtime",
+    "expected_node_ids",
+    "collected_node_ids",
+    "ac_layers",
+    "suite_results",
+    "service_lifecycle",
+    "started_at",
+    "finished_at",
+    "exit_reason",
+    "evidence_digest",
+)
+
+_INTEGRATION_PATHS: tuple[str, ...] = (
+    "tests/integration/install_experience",
+    "tests/integration/v014_design_contracts",
+)
+
+_DESIGN_CONTRACTS_RUNTIMES: tuple[str, ...] = ("local", "global")
+
+
+def _integration_paths() -> list[str]:
+    """Ordered integration discovery: historical suite then the v014 suite."""
+    return list(_INTEGRATION_PATHS)
+
+
+def _design_contracts_runtimes() -> list[str]:
+    """Runtimes the design-contracts e2e profile runs against."""
+    return list(_DESIGN_CONTRACTS_RUNTIMES)
+
+
+def _expand_profiles(profile: str) -> list[str]:
+    """Expand a selected profile; ``all`` -> install,chromium,design-contracts."""
+    if profile == "all":
+        return ["install", "chromium", "design-contracts"]
+    return [profile]
+
+
 def _profile_paths(profile: str) -> tuple[list[str], list[str]]:
     if profile == "install":
         return ["tests/e2e/install_experience"], []
+    if profile == "design-contracts":
+        return ["tests/e2e/v014_design_contracts"], []
     return ["tests/e2e/test_v013_chromium_journey_e2e.py"], ["-m", "chromium_e2e"]
 
 
@@ -280,18 +341,33 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "integration":
         return _run_pytest(
             root,
-            ["tests/integration/install_experience"],
+            _integration_paths(),
             args.pytest_args,
             os.environ.copy(),
         )
 
-    profiles = ("install", "chromium") if args.profile == "all" else (args.profile,)
+    profiles = _expand_profiles(args.profile)
     runtimes = ("local", "global") if args.runtime == "both" else (args.runtime,)
     try:
-        with tempfile.TemporaryDirectory(prefix="louke-v0131-e2e-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="louke-v014-e2e-") as temporary:
             temporary_root = Path(temporary)
             wheelhouse = _prepare_wheelhouse(root, temporary_root, version)
             for profile in profiles:
+                if profile == "design-contracts":
+                    # Discovery/parser are locked, but the design-contracts e2e
+                    # execution (installed wheel + health-gated `lk web` service
+                    # lifecycle + v014 evidence generation) is not yet wired.
+                    # Fail closed per test-plan §2.1/§2.3.1 rather than reporting
+                    # an executable PASS for a not-run v014 layer.
+                    print(
+                        "profile=design-contracts "
+                        f"runtimes={_design_contracts_runtimes()} status=not-run",
+                        file=sys.stderr,
+                    )
+                    raise RuntimeError(
+                        "design-contracts e2e execution not wired; failing closed "
+                        "(not-run) per test-plan §2.3.1"
+                    )
                 for runtime in runtimes:
                     print(f"profile={profile} runtime={runtime}")
                     case_root = temporary_root / f"{profile}-{runtime}"
