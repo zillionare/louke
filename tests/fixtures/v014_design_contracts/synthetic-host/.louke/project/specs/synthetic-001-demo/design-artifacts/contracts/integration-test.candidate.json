@@ -1,0 +1,51 @@
+{
+  "kind": "integration-test",
+  "identity": "synthetic-integration-test-1.0.0",
+  "revision": "rev-001",
+  "schema_ref": {
+    "identity": "louke.machine-contract.integration-test-1.0.0",
+    "version": "1.0.0",
+    "digest": "sha256:placeholder-integration-schema"
+  },
+  "manifest_ref": {
+    "identity": "synthetic-001-demo-manifest",
+    "revision": "rev-001"
+  },
+  "scope": {
+    "workspace_id": "synthetic-host",
+    "spec_id": "synthetic-001-demo",
+    "base_commit": "abc1234",
+    "project_facts_digest": "sha256:placeholder-facts-digest",
+    "project_facts_artifact": {
+      "kind": "host-project-facts-snapshot",
+      "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/inputs/host-project-facts.snapshot.json",
+      "identity": "synthetic-host-facts-1.0.0",
+      "revision": "rev-001"
+    },
+    "release_identity": "synthetic-host-1.0.0"
+  },
+  "generated_by": {
+    "owner": "synthetic-host",
+    "role": "archer",
+    "task_manifest_digest": "sha256:placeholder-task-manifest",
+    "task_manifest_artifact": {
+      "kind": "archer-author-task-manifest",
+      "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/inputs/archer-task-manifest.json",
+      "identity": "synthetic-task-manifest-1.0.0",
+      "revision": "rev-001"
+    }
+  },
+  "compatible_runtime": "python>=3.10",
+  "artifact_refs": [],
+  "payload": {
+    "paths": ["tests/integration/synthetic_001_demo"],
+    "command": "python -m pytest tests/integration/synthetic_001_demo -q",
+    "runtimes": ["host"],
+    "ac_ids": ["AC-FR0100-01", "AC-FR0200-01"],
+    "failure_policy": {
+      "on_missing": "fail",
+      "on_error": "fail",
+      "on_skip": "warn"
+    }
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "manifest_identity": "synthetic-001-demo-manifest",
+  "manifest_revision": "rev-001",
+  "spec_id": "synthetic-001-demo",
+  "status": "candidate-not-installed",
+  "input_artifacts": [
+    {
+      "kind": "host-project-facts-snapshot",
+      "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/inputs/host-project-facts.snapshot.json",
+      "identity": "synthetic-host-facts-1.0.0",
+      "revision": "rev-001",
+      "digest": "sha256:afdbeac785f746a45053e6335f5efd4da79622ca519521bc955ac103f42cbbda"
+    }
+  ],
+  "contract_instances": [
+    {
+      "kind": "integration-test",
+      "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/contracts/integration-test.candidate.json",
+      "identity": "synthetic-integration-test-1.0.0",
+      "revision": "rev-001",
+      "digest": "sha256:d5a91f0c7c592ef563ff1044250d4e93d084d81cb8de0c792f96ba4b0e203ca4"
+    },
+    {
+      "kind": "e2e-test",
+      "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/contracts/e2e-test.candidate.json",
+      "identity": "synthetic-e2e-test-1.0.0",
+      "revision": "rev-001",
+      "digest": "sha256:319e1ce77fbe79bebe71b80749dfc0f0cb9a6e141b5c8672df65e34f2b5a6bd2"
+    }
+  ],
+  "prompt_candidates": {
+    "closed_set": [],
+    "sources": [],
+    "bundle": {},
+    "staging": {},
+    "deployment_readback": {},
+    "reviewer_binding": {}
+  },
+  "registry": {
+    "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/registry/registry.candidate.json",
+    "digest": "sha256:placeholder-registry",
+    "owner": "synthetic-host",
+    "activation_state": "candidate"
+  },
+  "schemas": [
+    {
+      "identity": "louke.machine-contract.integration-test-1.0.0",
+      "kind": "integration-test",
+      "version": "1.0.0",
+      "digest": "sha256:placeholder-integration-schema",
+      "status": "candidate"
+    },
+    {
+      "identity": "louke.machine-contract.e2e-test-1.0.0",
+      "kind": "e2e-test",
+      "version": "1.0.0",
+      "digest": "sha256:placeholder-e2e-schema",
+      "status": "candidate"
+    }
+  ],
+  "agent_io_schemas": [],
+  "design_docs": [
+    {
+      "kind": "acceptance",
+      "path": ".louke/project/specs/synthetic-001-demo/acceptance.md",
+      "digest": "sha256:c8cb7d49f2df71f852679c6d5c58306359ff9c45b319772628a6ff0b7316dc99"
+    },
+    {
+      "kind": "interfaces",
+      "path": ".louke/project/specs/synthetic-001-demo/interfaces.md",
+      "digest": "sha256:d81ba8a777f41d032b2e7af29756dd853a281cf7876362c332205285574f4675"
+    },
+    {
+      "kind": "architecture",
+      "path": ".louke/project/specs/synthetic-001-demo/architecture.md",
+      "digest": "sha256:a231d8eb07b3e9d52258ed40f4c5d365e3d8527e993b1e6e9d3e73dbdda92764"
+    },
+    {
+      "kind": "test-plan",
+      "path": ".louke/project/specs/synthetic-001-demo/test-plan.md",
+      "digest": "sha256:32fdba3bb3d2bd44588893c8bf77c8e699ed0f6785b8cb7c8818c002dfd2613f"
+    }
+  ],
+  "closure_counts": {
+    "acceptance": 3,
+    "interfaces": 3,
+    "architecture": 3,
+    "schemas": 2,
+    "contracts": 2,
+    "agent_io_schemas": 0,
+    "ac_closure": 3
+  },
+  "interface_set": ["IF-DES-01", "IF-DES-02", "IF-REG-01"],
+  "architecture_anchor_set": ["ARC-DESIGN", "ARC-REGISTRY", "ARC-STORE"],
+  "ac_closure": [
+    {
+      "ac": "AC-FR0100-01",
+      "if": ["IF-DES-01", "IF-DES-02"],
+      "arc": ["ARC-DESIGN", "ARC-STORE"],
+      "contracts": ["integration-test", "e2e-test"]
+    },
+    {
+      "ac": "AC-FR0200-01",
+      "if": ["IF-DES-02", "IF-REG-01"],
+      "arc": ["ARC-REGISTRY", "ARC-STORE"],
+      "contracts": ["integration-test"]
+    },
+    {
+      "ac": "AC-NFR0100-01",
+      "if": ["IF-DES-02"],
+      "arc": ["ARC-DESIGN", "ARC-STORE"],
+      "contracts": ["integration-test"]
+    }
+  ],
+  "current_fail_closed": {
+    "state": "SCHEMA_NOT_ACTIVE",
+    "reason": "registry activation_state=candidate; no active schema",
+    "blocking_checks": [
+      "DESIGN.SCHEMA.ACTIVE",
+      "DESIGN.CONTRACT.PARITY"
+    ]
+  }
+}

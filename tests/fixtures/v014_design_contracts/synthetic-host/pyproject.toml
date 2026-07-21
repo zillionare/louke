@@ -1,0 +1,8 @@
+[project]
+name = "synthetic-host"
+version = "1.0.0"
+description = "Synthetic host project for Louke v0.14-002 integration tests"
+requires-python = ">=3.10"
+
+[tool.louke]
+spec_id = "synthetic-001-demo"
