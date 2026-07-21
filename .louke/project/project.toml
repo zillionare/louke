@@ -1,10 +1,10 @@
 [project]
-version = "0.13.1"
+version = "0.14.0"
 repo = "github.com/zillionare/louke"
 project = "louke-0.14.0"
 project_id = "https://github.com/users/quantclaws/projects/20"
-spec_id = "v0.14-001-workflow-reflow-spec"
-release_branch = "releases/0.13.1"
+spec_id = "v0.14-002-workflow-reflow-design"
+release_branch = "releases/0.14.0"
 
 [meta]
 created = "2026-07-16"
@@ -37,7 +37,7 @@ v0_13_1_002 = "shipped (2026-07-16, tag v0.13.1; project-local install experienc
 [integration]
 # Bootstrap explicitly resolves the repository `.venv` on the current OS and
 # rejects fallback to PATH/system Python.
-paths = ["tests/e2e", "tests/integration", "tests/fixtures", "tests/ground_truth"]
+paths = ["tests/e2e", "tests/integration", "tests/fixtures", "tests/ground_truth", "tests/integration/v014_design_contracts"]
 run = "tests/e2e/run-project-venv integration"
 framework = "pytest"
 cwd = "."
@@ -48,4 +48,4 @@ cwd = "."
 run = "tests/e2e/run-project-venv e2e --profile all --runtime both"
 framework = "pytest"
 cwd = "."
-paths = ["tests/e2e", "tests/fixtures", "tests/ground_truth"]
+paths = ["tests/e2e", "tests/fixtures", "tests/ground_truth", "tests/e2e/v014_design_contracts"]
