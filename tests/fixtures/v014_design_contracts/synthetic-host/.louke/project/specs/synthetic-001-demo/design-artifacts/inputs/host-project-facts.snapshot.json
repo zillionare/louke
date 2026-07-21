@@ -1,0 +1,42 @@
+{
+  "artifact_kind": "host-project-facts-snapshot",
+  "identity": "synthetic-host-facts-1.0.0",
+  "revision": "rev-001",
+  "schema_ref": {
+    "identity": "louke.host-project-facts-snapshot-1.0.0",
+    "version": "1.0.0",
+    "digest": "sha256:placeholder-facts-schema"
+  },
+  "manifest_ref": {
+    "identity": "synthetic-001-demo-manifest",
+    "revision": "rev-001"
+  },
+  "scope": {
+    "workspace_id": "synthetic-host",
+    "spec_id": "synthetic-001-demo",
+    "base_commit": "abc1234",
+    "release_identity": "synthetic-host-1.0.0"
+  },
+  "generated_by": {
+    "owner": "synthetic-host",
+    "role": "host-project",
+    "task_manifest_digest": "sha256:placeholder-task-manifest",
+    "task_manifest_artifact": {
+      "kind": "archer-author-task-manifest",
+      "path": ".louke/project/specs/synthetic-001-demo/design-artifacts/inputs/archer-task-manifest.json",
+      "identity": "synthetic-task-manifest-1.0.0",
+      "revision": "rev-001"
+    }
+  },
+  "compatible_runtime": "python>=3.10",
+  "artifact_refs": [],
+  "payload": {
+    "project_type": "python",
+    "project_name": "synthetic-host",
+    "project_version": "1.0.0",
+    "entry_points": ["host_app.greet"],
+    "dependencies": [],
+    "test_framework": "pytest",
+    "ci_platform": "github-actions"
+  }
+}

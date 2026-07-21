@@ -1,0 +1,48 @@
+{
+  "kind": "prompt-matrix",
+  "identity": "fixture.matrix.prompt.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "canonical_sources": ["louke/agents/Archer.md", "louke/agents/Prism.md"],
+  "transformer_identity": "louke.board.cmd_opencode",
+  "transformer_version": "board.py@base-2734177",
+  "model_binding": "codexmanager/gpt-5.6-sol",
+  "cases": [
+    {
+      "id": "canonical-clean",
+      "description": "Both canonical sources present, transforms deterministically",
+      "sources_present": ["louke/agents/Archer.md", "louke/agents/Prism.md"],
+      "expected": "bundle digest stable across repeated transforms"
+    },
+    {
+      "id": "missing-source",
+      "description": "One canonical source missing",
+      "sources_present": ["louke/agents/Archer.md"],
+      "expected": "dispatch blocked; missing path reported"
+    },
+    {
+      "id": "extra-unauthorized-source",
+      "description": "Unauthorized prompt path added",
+      "sources_present": ["louke/agents/Archer.md", "louke/agents/Prism.md", "louke/agents/Extra.md"],
+      "expected": "baseline blocked; unauthorized path reported"
+    },
+    {
+      "id": "manual-edit",
+      "description": "Deployed bytes manually edited",
+      "mutation": "append whitespace to .opencode/agents/archer.md",
+      "expected": "readback digest mismatch; dispatch blocked"
+    },
+    {
+      "id": "old-transformer",
+      "description": "Old transformer version used",
+      "transformer_version": "board.py@old-version",
+      "expected": "digest mismatch; reconcile required"
+    },
+    {
+      "id": "active-candidate-dual-bundle",
+      "description": "Active bundle and candidate bundle coexist",
+      "active_digest": "sha256:active",
+      "candidate_digest": "sha256:candidate",
+      "expected": "current attempt uses active; candidate only affects future revisions"
+    }
+  ]
+}

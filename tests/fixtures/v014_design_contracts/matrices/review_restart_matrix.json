@@ -1,0 +1,53 @@
+{
+  "kind": "review-restart-matrix",
+  "identity": "fixture.matrix.review-restart.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "boundaries": ["author", "check", "review"],
+  "cases": [
+    {
+      "id": "human-absent",
+      "description": "Human completely absent throughout",
+      "expected": "design reaches baseline via Archer + program gates + Prism"
+    },
+    {
+      "id": "direct-diff-clean",
+      "description": "Human direct diff with no issues",
+      "expected": "Archer absorbs without new discussion"
+    },
+    {
+      "id": "direct-diff-with-issue",
+      "description": "Human direct diff with technical issue",
+      "expected": "Archer creates discussion anchored to original text; Human author does not auto-PASS"
+    },
+    {
+      "id": "prism-pass",
+      "description": "Prism returns PASS verdict",
+      "expected": "verdict records reviewer/attempt/input digests/prompt identity/findings"
+    },
+    {
+      "id": "prism-revise",
+      "description": "Prism returns REVISE verdict",
+      "expected": "new Archer revision created; old evidence stale"
+    },
+    {
+      "id": "prism-stale",
+      "description": "Input changed after Prism verdict",
+      "expected": "verdict marked stale; no progression"
+    },
+    {
+      "id": "author-boundary-kill",
+      "description": "Process killed during author phase",
+      "expected": "Runtime recovers same current revision; no duplicate dispatch"
+    },
+    {
+      "id": "check-boundary-kill",
+      "description": "Process killed during program check",
+      "expected": "Runtime recovers pending work; no duplicate check"
+    },
+    {
+      "id": "review-boundary-kill",
+      "description": "Process killed during Prism review",
+      "expected": "Runtime recovers pending review; no duplicate dispatch"
+    }
+  ]
+}

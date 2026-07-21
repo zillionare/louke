@@ -1,0 +1,51 @@
+{
+  "kind": "schema-registry-matrix",
+  "identity": "fixture.matrix.schema-registry.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "active",
+      "activation_state": "active",
+      "expected": "resolve returns exact schema identity/version/digest"
+    },
+    {
+      "id": "candidate",
+      "activation_state": "candidate",
+      "expected": "resolve returns SCHEMA_NOT_ACTIVE; baseline fails closed"
+    },
+    {
+      "id": "retired",
+      "activation_state": "retired",
+      "expected": "resolve rejects; only migration metadata available"
+    },
+    {
+      "id": "unknown",
+      "activation_state": "unknown",
+      "expected": "resolve rejects with stable error"
+    },
+    {
+      "id": "digest-mismatch",
+      "activation_state": "active",
+      "digest": "sha256:mismatch",
+      "expected": "resolve rejects; digest drift blocks baseline"
+    },
+    {
+      "id": "missing-required-field",
+      "activation_state": "active",
+      "mutation": "remove version field",
+      "expected": "meta-validation rejects"
+    },
+    {
+      "id": "wrong-type",
+      "activation_state": "active",
+      "mutation": "version is integer instead of string",
+      "expected": "meta-validation rejects"
+    },
+    {
+      "id": "extra-field",
+      "activation_state": "active",
+      "mutation": "additionalProperties true with unknown field",
+      "expected": "schema rejects if additionalProperties false"
+    }
+  ]
+}
