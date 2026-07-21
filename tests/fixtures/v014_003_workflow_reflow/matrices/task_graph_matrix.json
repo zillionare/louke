@@ -1,0 +1,38 @@
+{
+  "kind": "task-graph-matrix",
+  "identity": "fixture.matrix.task-graph.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "valid-dag",
+      "description": "Valid DAG with all ACs covered, no cycles, no scope conflicts",
+      "tasks": 3,
+      "expected": "status=pass with graph_revision"
+    },
+    {
+      "id": "duplicate-task-id",
+      "description": "Two tasks with same task_id -> TASK_DUPLICATE_ID",
+      "expected": "block: TASK_DUPLICATE_ID"
+    },
+    {
+      "id": "missing-dependency",
+      "description": "depends_on references non-existent task -> TASK_DEPENDENCY_MISSING",
+      "expected": "block: TASK_DEPENDENCY_MISSING"
+    },
+    {
+      "id": "cycle",
+      "description": "T-001 -> T-002 -> T-001 cycle -> TASK_GRAPH_CYCLE",
+      "expected": "block: TASK_GRAPH_CYCLE"
+    },
+    {
+      "id": "scope-conflict",
+      "description": "Two non-ancestor tasks write same path -> TASK_SCOPE_CONFLICT",
+      "expected": "block: TASK_SCOPE_CONFLICT"
+    },
+    {
+      "id": "orphan-ac",
+      "description": "AC in requirements but no task covers it -> TASK_AC_ORPHAN",
+      "expected": "block: TASK_AC_ORPHAN"
+    }
+  ]
+}

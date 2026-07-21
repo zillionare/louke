@@ -179,3 +179,107 @@ required_ac_ids = [
     "AC-NFR0400-01",
     "AC-NFR0500-01",
 ]
+
+# === v0.14-003-workflow-reflow-impl (spec-003) targets ===
+# Shield adds test assets under tests/integration/v014_003_workflow_reflow,
+# tests/e2e/v014_003_workflow_reflow and tests/ground_truth/v014_003_workflow_reflow
+# per test-plan.md §2.1.
+#
+# Integration target: real Devon modules + stand-ins under
+# tests/integration/v014_003_workflow_reflow (host runtime, no Workbench).
+[[target]]
+id = "integration/v014-003-workflow-reflow"
+command = "integration"
+profile = "v014-003"
+paths = ["tests/integration/v014_003_workflow_reflow"]
+runtimes = ["host"]
+required_ac_ids = [
+    "AC-FR0100-01",
+    "AC-FR0200-01",
+    "AC-FR0300-01",
+    "AC-FR0400-01",
+    "AC-FR0500-01",
+    "AC-FR0600-01",
+    "AC-FR0700-01",
+    "AC-FR0800-01",
+    "AC-FR0900-01",
+    "AC-FR1000-01",
+    "AC-FR1100-01",
+    "AC-FR1200-01",
+    "AC-FR1300-01",
+    "AC-FR1400-01",
+    "AC-FR1500-01",
+    "AC-FR1600-01",
+    "AC-FR1700-01",
+    "AC-FR1800-01",
+    "AC-FR1900-01",
+    "AC-FR2000-01",
+    "AC-FR2100-01",
+    "AC-FR2200-01",
+    "AC-FR2300-01",
+    "AC-FR2400-01",
+    "AC-FR2500-01",
+    "AC-FR2600-01",
+    "AC-FR2700-01",
+    "AC-FR2800-01",
+    "AC-FR2900-01",
+    "AC-FR3000-01",
+    "AC-NFR0100-01",
+    "AC-NFR0200-01",
+    "AC-NFR0300-01",
+    "AC-NFR0400-01",
+    "AC-NFR0500-01",
+    "AC-NFR0600-01",
+]
+
+# E2E stand-in target: journey tests under tests/e2e/v014_003_workflow_reflow
+# (local runtime).
+[[target]]
+id = "e2e/v014-003-workflow-reflow/local"
+command = "e2e"
+profile = "v014-003"
+paths = ["tests/e2e/v014_003_workflow_reflow"]
+runtimes = ["local"]
+required_ac_ids = [
+    "AC-FR0100-01",
+    "AC-FR0900-01",
+    "AC-FR1400-01",
+    "AC-FR2100-01",
+    "AC-FR2400-01",
+    "AC-FR2500-01",
+    "AC-FR2600-01",
+    "AC-FR1900-01",
+    "AC-FR2000-01",
+]
+
+# E2E stand-in target: journey tests under tests/e2e/v014_003_workflow_reflow
+# (global runtime).
+[[target]]
+id = "e2e/v014-003-workflow-reflow/global"
+command = "e2e"
+profile = "v014-003"
+paths = ["tests/e2e/v014_003_workflow_reflow"]
+runtimes = ["global"]
+required_ac_ids = [
+    "AC-FR0100-01",
+    "AC-FR0900-01",
+    "AC-FR1400-01",
+    "AC-FR2100-01",
+    "AC-FR2400-01",
+    "AC-FR2500-01",
+    "AC-FR2600-01",
+    "AC-FR1900-01",
+    "AC-FR2000-01",
+]
+
+# Ground-truth target: AC closure + interface closure + no-louke-import
+# under tests/ground_truth/v014_003_workflow_reflow.
+[[target]]
+id = "ground-truth/v014-003-workflow-reflow"
+command = "integration"
+profile = "v014-003"
+paths = ["tests/ground_truth/v014_003_workflow_reflow"]
+runtimes = ["host"]
+required_ac_ids = [
+    "AC-FR0100-01",
+]

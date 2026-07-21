@@ -1,0 +1,34 @@
+{
+  "kind": "rgr-git-matrix",
+  "identity": "fixture.matrix.rgr-git.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "valid-red-checkpoint",
+      "description": "Red PASS -> R commit with parent=B and private ref created",
+      "baseline_oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "red_oid": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "expected": "R.parent=B; branch still B; ref refs/louke/rgr/{run}/{task}/{attempt}/red"
+    },
+    {
+      "id": "same-attempt-same-oid-idempotent",
+      "description": "Same attempt + same OID -> idempotent (no conflict)",
+      "expected": "idempotent success"
+    },
+    {
+      "id": "same-attempt-different-oid-conflict",
+      "description": "Same attempt + different OID -> RGR_RED_REF_CONFLICT",
+      "expected": "block: RGR_RED_REF_CONFLICT"
+    },
+    {
+      "id": "different-attempts-distinct-refs",
+      "description": "Two attempts on same task -> distinct refs (no overwrite)",
+      "expected": "both refs preserved"
+    },
+    {
+      "id": "no-remote-push",
+      "description": "R is not pushed to remote; no ordinary pre-commit/CI runs on R",
+      "expected": "remote_pushes=[]; precommit_invocations=0; ci_invocations=0"
+    }
+  ]
+}

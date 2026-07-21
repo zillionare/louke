@@ -1,0 +1,12 @@
+{
+  "name": "shield-node-host-fixture",
+  "version": "0.14.0",
+  "description": "Fixture Node host project for v0.14-003 Shield integration tests",
+  "scripts": {
+    "test": "jest",
+    "build": "npm pack"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}

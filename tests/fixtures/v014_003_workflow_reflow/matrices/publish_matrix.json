@@ -1,0 +1,43 @@
+{
+  "kind": "publish-matrix",
+  "identity": "fixture.matrix.publish.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "zero-matches-safe-effect",
+      "description": "Query returns 0 matches -> safe to effect (if contract allows)",
+      "cardinality": 0,
+      "expected": "status=EXECUTING"
+    },
+    {
+      "id": "one-match-same-digest-confirmed",
+      "description": "Query returns 1 match with same digest -> CONFIRMED without re-effect",
+      "cardinality": 1,
+      "existing_digest_matches": true,
+      "expected": "status=CONFIRMED (idempotent)"
+    },
+    {
+      "id": "one-match-different-digest-conflict",
+      "description": "1 match with different digest -> PUB_IMMUTABLE_CONFLICT (cannot overwrite)",
+      "cardinality": 1,
+      "existing_digest_matches": false,
+      "expected": "block: PUB_IMMUTABLE_CONFLICT"
+    },
+    {
+      "id": "multiple-matches-needs-attention",
+      "description": "Multiple matches -> PUB_PROVIDER_AMBIGUOUS; needs_attention",
+      "cardinality": 3,
+      "expected": "block: PUB_PROVIDER_AMBIGUOUS; status=NEEDS_ATTENTION"
+    },
+    {
+      "id": "ack-loss-unknown",
+      "description": "Ack loss -> UNKNOWN (cannot infer success or failure)",
+      "expected": "status=UNKNOWN"
+    },
+    {
+      "id": "restart-does-not-repeat-confirmed",
+      "description": "After restart, confirmed operation is NOT re-effected",
+      "expected": "idempotent; same operation_id; status stays CONFIRMED"
+    }
+  ]
+}

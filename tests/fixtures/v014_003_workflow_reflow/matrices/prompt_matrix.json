@@ -1,0 +1,45 @@
+{
+  "kind": "prompt-matrix",
+  "identity": "fixture.matrix.prompt.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "archer-valid",
+      "description": "Archer: task-graph + advisory, all forbidden actions declared",
+      "role": "archer",
+      "expected": "verify_archer_contract passes"
+    },
+    {
+      "id": "archer-missing-task-graph",
+      "description": "Archer missing task-graph responsibility -> ARCHER_RESPONSIBILITY_INCOMPLETE",
+      "expected": "block: ARCHER_RESPONSIBILITY_INCOMPLETE"
+    },
+    {
+      "id": "devon-valid",
+      "description": "Devon: edit-unit-tests + edit-implementation, all forbidden declared",
+      "role": "devon",
+      "expected": "verify_devon_contract passes"
+    },
+    {
+      "id": "devon-hook-bypass",
+      "description": "Devon missing forbidden hook-bypass -> DEVON_SIDE_EFFECT_FORBIDDEN",
+      "expected": "block: DEVON_SIDE_EFFECT_FORBIDDEN"
+    },
+    {
+      "id": "shield-valid",
+      "description": "Shield: write-integration-e2e + return-semantic-handoff, all forbidden",
+      "role": "shield",
+      "expected": "verify_shield_contract passes"
+    },
+    {
+      "id": "shield-program-pass",
+      "description": "Shield missing forbidden program-pass -> SHIELD_SIDE_EFFECT_FORBIDDEN",
+      "expected": "block: SHIELD_SIDE_EFFECT_FORBIDDEN"
+    },
+    {
+      "id": "question-human-forbidden",
+      "description": "Any role asking Human for technical decision -> PROMPT_QUESTION_HUMAN_FORBIDDEN",
+      "expected": "block: PROMPT_QUESTION_HUMAN_FORBIDDEN"
+    }
+  ]
+}

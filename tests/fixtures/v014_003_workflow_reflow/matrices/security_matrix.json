@@ -1,0 +1,39 @@
+{
+  "kind": "security-matrix",
+  "identity": "fixture.matrix.security.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "all-scans-pass-judge-pass",
+      "description": "All 4 required scanners pass + Judge PASS -> security gate PASS",
+      "scanners": ["secret-scan", "dependency-sca", "sast", "project-checks"],
+      "judge_verdict": "PASS",
+      "expected": "status=pass"
+    },
+    {
+      "id": "missing-scanner",
+      "description": "Missing required scanner -> SEC_SCANNER_REQUIRED_MISSING",
+      "expected": "block: SEC_SCANNER_REQUIRED_MISSING"
+    },
+    {
+      "id": "secret-detected",
+      "description": "Secret scan detects canary -> SEC_SECRET_DETECTED",
+      "expected": "block: SEC_SECRET_DETECTED"
+    },
+    {
+      "id": "judge-writes-state",
+      "description": "Judge attempts to write state -> SEC_JUDGE_CAPABILITY_VIOLATION",
+      "expected": "block: SEC_JUDGE_CAPABILITY_VIOLATION"
+    },
+    {
+      "id": "critical-finding-non-waivable",
+      "description": "Critical severity finding cannot be waived -> SEC_WAIVER_FORBIDDEN",
+      "expected": "block: SEC_WAIVER_FORBIDDEN"
+    },
+    {
+      "id": "sensitive-boundary-skip-forbidden",
+      "description": "Skip on auth/credentials boundary -> SEC_SKIP_FORBIDDEN",
+      "expected": "block: SEC_SKIP_FORBIDDEN"
+    }
+  ]
+}

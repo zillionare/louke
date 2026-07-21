@@ -1,0 +1,16 @@
+{
+  "kind": "locked-host-facts",
+  "identity": "host-facts:locked-host:v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "description": "Host with strict pre-commit hooks (exit-on-red=true)",
+  "pre_commit_config": {
+    "exit_on_red": true,
+    "managed_stages": ["pre-commit"],
+    "preserve_existing": true
+  },
+  "expected_behavior": [
+    "AC-FR0100-01: M-IMPL entry preserves existing hooks; managed entry installed",
+    "AC-FR1000-01: Refactor commit runs ordinary pre-commit; --no-verify forbidden",
+    "AC-FR0900-01: Green commit runs ordinary pre-commit"
+  ]
+}

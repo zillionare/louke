@@ -1,0 +1,19 @@
+{
+  "kind": "host-project-facts-snapshot",
+  "identity": "host-facts:python-host:v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "stack_id": "python",
+  "language": "python",
+  "language_version": ">=3.11",
+  "build_system": "setuptools",
+  "test_framework": "pytest",
+  "artifact_kinds": ["wheel", "sdist"],
+  "pre_commit_config_path": ".pre-commit-config.yaml",
+  "ci_workflow_path": ".github/workflows/louke-ci.yml",
+  "existing_assets": {
+    "hooks": [{"id": "user-trailing-whitespace"}],
+    "workflows": [{"name": "user-ci.yml"}],
+    "rules": [{"id": "user-branch-protection"}]
+  },
+  "expected_compatibility": "preserve existing; Runtime additions appended"
+}

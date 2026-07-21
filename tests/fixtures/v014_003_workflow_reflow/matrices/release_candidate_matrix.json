@@ -1,0 +1,48 @@
+{
+  "kind": "release-candidate-matrix",
+  "identity": "fixture.matrix.release-candidate.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "clean-freeze",
+      "description": "Clean workspace + complete lineage + current reviews -> frozen candidate",
+      "workspace_clean": true,
+      "formal_ancestry_clean": true,
+      "no_private_red_in_ancestry": true,
+      "task_lineage_current": true,
+      "test_completion_current": true,
+      "precommit_current": true,
+      "expected": "freeze candidate with write_disabled=true"
+    },
+    {
+      "id": "dirty-workspace",
+      "description": "Dirty workspace -> CAND_WORKSPACE_DIRTY",
+      "workspace_clean": false,
+      "expected": "block: CAND_WORKSPACE_DIRTY"
+    },
+    {
+      "id": "private-red-in-ancestry",
+      "description": "Private R in formal ancestry -> CAND_PRIVATE_RED_IN_ANCESTRY",
+      "workspace_clean": true,
+      "no_private_red_in_ancestry": false,
+      "expected": "block: CAND_PRIVATE_RED_IN_ANCESTRY"
+    },
+    {
+      "id": "stale-task-lineage",
+      "description": "Task lineage not current -> CAND_REVIEW_STALE",
+      "workspace_clean": true,
+      "no_private_red_in_ancestry": true,
+      "task_lineage_current": false,
+      "expected": "block: CAND_REVIEW_STALE"
+    },
+    {
+      "id": "foreign-ancestry",
+      "description": "Foreign commits in ancestry -> CAND_BRANCH_CONFLICT",
+      "workspace_clean": true,
+      "no_private_red_in_ancestry": true,
+      "task_lineage_current": true,
+      "formal_ancestry_clean": false,
+      "expected": "block: CAND_BRANCH_CONFLICT"
+    }
+  ]
+}

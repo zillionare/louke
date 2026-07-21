@@ -1,0 +1,42 @@
+{
+  "kind": "legacy-matrix",
+  "identity": "fixture.matrix.legacy.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "migrate-with-matching-revision",
+      "description": "Legacy run with matching source revision + newer target -> migrated",
+      "expected": "mode=migrated; target_run_id assigned"
+    },
+    {
+      "id": "migrate-source-revision-conflict",
+      "description": "Source revision mismatch -> read_only with diagnostic",
+      "expected": "mode=read_only; diagnostic=source_revision_conflict"
+    },
+    {
+      "id": "migrate-target-older",
+      "description": "Target schema older than source -> read_only",
+      "expected": "mode=read_only; diagnostic=target_schema_older"
+    },
+    {
+      "id": "lineage-unavailable",
+      "description": "Legacy run without Red ref -> migrated with lineage_unavailable diagnostic",
+      "expected": "mode=migrated; diagnostic=lineage_unavailable"
+    },
+    {
+      "id": "legacy-unverified",
+      "description": "Legacy run without program PASS -> migrated with legacy_unverified diagnostic (not fabricated)",
+      "expected": "mode=migrated; diagnostic=legacy_unverified"
+    },
+    {
+      "id": "publish-needs-attention",
+      "description": "Legacy publish fact present -> publish_needs_attention diagnostic",
+      "expected": "mode=migrated; diagnostic=publish_needs_attention"
+    },
+    {
+      "id": "idempotent-retry",
+      "description": "Retry migration -> same decision, no dual state",
+      "expected": "idempotent; same target_run_id; no dual write"
+    }
+  ]
+}

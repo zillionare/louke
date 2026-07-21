@@ -1,0 +1,32 @@
+{
+  "kind": "host-matrix",
+  "identity": "fixture.matrix.host.v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "python-host",
+      "description": "Python host with pyproject.toml -> python adapter (wheel+sdist)",
+      "stack_files": ["pyproject.toml"],
+      "expected_stack_id": "python",
+      "expected_artifact_kinds": ["wheel", "sdist"]
+    },
+    {
+      "id": "node-host",
+      "description": "Node host with package.json -> node adapter (tarball)",
+      "stack_files": ["package.json"],
+      "expected_stack_id": "node",
+      "expected_artifact_kinds": ["tarball"]
+    },
+    {
+      "id": "unsupported-rust-host",
+      "description": "Rust host with Cargo.toml -> HOST_UNSUPPORTED",
+      "stack_files": ["Cargo.toml"],
+      "expected_error": "HOST_UNSUPPORTED"
+    },
+    {
+      "id": "python-host-preserves-hooks",
+      "description": "Python host preserves existing pre-commit hooks + workflows + rules",
+      "expected": "existing assets preserved; Runtime additions appended"
+    }
+  ]
+}

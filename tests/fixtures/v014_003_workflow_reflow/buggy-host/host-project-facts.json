@@ -1,0 +1,23 @@
+{
+  "kind": "buggy-host-facts",
+  "identity": "host-facts:buggy-host:v014-003-shield",
+  "revision": "shield-fixture-v1",
+  "description": "Host with deliberate violations for detection testing",
+  "violations": [
+    {
+      "kind": "stale-digest",
+      "description": "Manifest digest does not match actual file bytes",
+      "expected_detection": "ARCHIVE_DIGEST_MISMATCH or BLD_VERSION_MISMATCH"
+    },
+    {
+      "kind": "forbidden-secret",
+      "description": "Hardcoded secret in fixture (canary)",
+      "expected_detection": "SEC_SECRET_DETECTED"
+    },
+    {
+      "kind": "orphan-file",
+      "description": "Untracked file not in workspace snapshot",
+      "expected_detection": "IMPL_WORKSPACE_DIRTY_UNATTRIBUTED or TASK_EXTERNAL_DIFF_UNKNOWN"
+    }
+  ]
+}
