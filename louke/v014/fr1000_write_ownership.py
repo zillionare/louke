@@ -106,6 +106,8 @@ class WriteLeaseRegistry:
 
     _leases: dict[str, WriteLease] = None  # type: ignore[assignment]
     _dirty: dict[str, bool] = None  # type: ignore[assignment]
+    _current_revisions: dict[str, int] = None  # type: ignore[assignment]
+    _current_tokens: dict[str, str] = None  # type: ignore[assignment]
     _lock: threading.RLock = None  # type: ignore[assignment]
     _next_lease_id: int = 1
 
@@ -114,6 +116,10 @@ class WriteLeaseRegistry:
             self._leases = {}
         if self._dirty is None:
             self._dirty = {}
+        if self._current_revisions is None:
+            self._current_revisions = {}
+        if self._current_tokens is None:
+            self._current_tokens = {}
         if self._lock is None:
             self._lock = threading.RLock()
 
@@ -129,6 +135,8 @@ class WriteLeaseRegistry:
         """Record a pre-built active lease (test helper)."""
         with self._lock:
             self._leases[lease.document] = lease
+            self._current_revisions[lease.document] = lease.base_revision
+            self._current_tokens[lease.document] = lease.version_token
 
     def acquire(
         self,
@@ -191,6 +199,8 @@ class WriteLeaseRegistry:
                 task_id=task_id,
             )
             self._leases[document] = lease
+            self._current_revisions[document] = base_revision
+            self._current_tokens[document] = version_token
             return lease
 
     def release(self, lease_id: str) -> None:
@@ -358,18 +368,18 @@ def apply_concurrent_save(
             or lease.base_revision != expected_revision
             or lease.version_token != version_token
         ):
-            current = registry._leases.get(document)  # noqa: SLF001
-            current_revision = (
-                current.base_revision + 1 if current is not None else expected_revision
-            )
+            # CAS conflict. Surface the *current* revision/token, which may
+            # have been bumped by a winner that already released the lease.
+            current_revision = registry._current_revisions.get(
+                document, expected_revision
+            )  # noqa: SLF001
+            current_token = registry._current_tokens.get(document, version_token)  # noqa: SLF001
             return SaveResult(
                 ok=False,
                 committed_bytes=None,
                 conflict_code=DOCUMENT_WRITE_CONFLICT,
                 current_revision=current_revision,
-                current_version_token=(
-                    current.version_token if current is not None else version_token
-                ),
+                current_version_token=current_token,
             )
         # Winner: commit, bump revision, release lease.
         committed_bytes = body_md.encode("utf-8")
@@ -377,6 +387,8 @@ def apply_concurrent_save(
         new_token = f"tok_{new_revision}"
         # Release the active lease; subsequent saves with the old token lose.
         registry._leases.pop(document, None)  # noqa: SLF001
+        registry._current_revisions[document] = new_revision  # noqa: SLF001
+        registry._current_tokens[document] = new_token  # noqa: SLF001
         return SaveResult(
             ok=True,
             committed_bytes=committed_bytes,
