@@ -1,0 +1,51 @@
+{
+  "kind": "publish-matrix",
+  "identity": "fixture.matrix.publish.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "operations": ["tag", "pypi", "github-release", "smoke"],
+  "cases": [
+    {
+      "id": "all-success",
+      "description": "All operations succeed in order",
+      "expected": "PASS; ledger closes"
+    },
+    {
+      "id": "explicit-failure",
+      "description": "PyPI upload returns explicit failure",
+      "failure_at": "pypi",
+      "expected": "FAIL; no retry without query"
+    },
+    {
+      "id": "ack-loss-then-success",
+      "description": "API returns ack loss then success on query",
+      "failure_at": "pypi",
+      "recovery": "query-before-retry",
+      "expected": "needs_attention then PASS; no duplicate upload"
+    },
+    {
+      "id": "zero-candidates",
+      "description": "Zero candidates found after query",
+      "expected": "needs_attention; no implicit selection"
+    },
+    {
+      "id": "multi-candidates",
+      "description": "Multiple candidates found after query",
+      "expected": "needs_attention; no implicit selection"
+    },
+    {
+      "id": "conflicting-candidates",
+      "description": "Conflicting candidates found",
+      "expected": "needs_attention; no implicit selection"
+    },
+    {
+      "id": "partial-success",
+      "description": "Tag succeeds, PyPI partial, GitHub Release unknown",
+      "expected": "needs_attention; no duplicate tag/upload; no success conclusion"
+    },
+    {
+      "id": "rollback",
+      "description": "Rollback path after partial failure",
+      "expected": "rollback executes; ledger records both operations"
+    }
+  ]
+}

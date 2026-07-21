@@ -1,0 +1,11 @@
+{
+  "name": "acme-widget",
+  "version": "2.3.1",
+  "description": "Shield fixture: minimal Node host for v0.14-002 NFR-0300 heterogeneity tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests/test_basic.js",
+    "build": "node -e \"console.log('build ok')\""
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,45 @@
+{
+  "artifact_kind": "host-project-facts-snapshot",
+  "identity": "fixture.host-project-facts.node.acme-widget",
+  "revision": "node-host-2.3.1-shield-fixture",
+  "workspace_id": "fixture.internal/node-host-shield",
+  "base_commit": "1111111111111111111111111111111111111111",
+  "observation_scope": "Shield-authored minimal Node host fixture for v0.14-002 NFR-0300 heterogeneity tests. Mirrors design-artifacts/validation/release-version-node-host.valid.candidate.json.",
+  "runner_active_status": {
+    "bootstrap_path": null,
+    "implementation_path": null,
+    "integration_paths": [],
+    "e2e_profiles": [],
+    "v014_design_contracts_collected": false,
+    "status": "fixture-only; not a real runner"
+  },
+  "project_active_status": {
+    "source_path": "package.json",
+    "version": "2.3.1",
+    "spec_id": null,
+    "release_branch": null,
+    "current_stage": null,
+    "integration_run": null,
+    "e2e_run": null,
+    "status": "fixture-only"
+  },
+  "inventory": {
+    "languages": ["JavaScript"],
+    "runtimes": ["Node.js >=18"],
+    "dependency_files": ["package.json"],
+    "lockfiles": [],
+    "build_entries": ["npm run build"],
+    "test_entries": ["npm test"],
+    "version_sources": ["package.json:version"],
+    "artifacts": ["tarball"],
+    "install_deploy_run_outlets": ["node -e \"console.log(require('./package.json').version)\""],
+    "ci_workflows": [],
+    "hooks": [],
+    "default_branch": "main",
+    "external_capabilities": []
+  },
+  "observations": [
+    {"kind": "build-config", "path": "package.json", "status": "present", "source": "fixture bytes"},
+    {"kind": "release-adapter", "path": "tools/node_release_adapter.mjs", "status": "present", "source": "fixture bytes"}
+  ]
+}

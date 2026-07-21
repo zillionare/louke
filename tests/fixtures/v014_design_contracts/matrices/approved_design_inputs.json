@@ -1,0 +1,51 @@
+{
+  "kind": "approved-design-inputs-matrix",
+  "identity": "fixture.matrix.approved-design-inputs.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "current",
+      "description": "All inputs current: requirements digests, base commit, facts, actor/attempt/release identities aligned",
+      "requirements_digest": "sha256:abc",
+      "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8",
+      "facts_digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130",
+      "actor": "shield-test",
+      "attempt": 1,
+      "release_identity": "0.14.0",
+      "expected": "enter M-DESIGN and persist revision record"
+    },
+    {
+      "id": "stale-requirements",
+      "description": "Requirements digest is stale relative to approved baseline",
+      "requirements_digest": "sha256:stale",
+      "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8",
+      "facts_digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130",
+      "expected": "block: stale requirements"
+    },
+    {
+      "id": "missing-base-commit",
+      "description": "Base commit missing",
+      "requirements_digest": "sha256:abc",
+      "base_commit": null,
+      "facts_digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130",
+      "expected": "block: missing base commit"
+    },
+    {
+      "id": "facts-conflict",
+      "description": "Facts digest does not match workspace bytes",
+      "requirements_digest": "sha256:abc",
+      "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8",
+      "facts_digest": "sha256:mismatch",
+      "expected": "block: facts conflict"
+    },
+    {
+      "id": "workspace-mismatch",
+      "description": "Workspace ownership mismatch",
+      "requirements_digest": "sha256:abc",
+      "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8",
+      "facts_digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130",
+      "workspace_id": "github.com/other/repo",
+      "expected": "block: workspace ownership mismatch"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "kind": "release-artifact-matrix",
+  "identity": "fixture.matrix.release-artifact.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "canonical-wheel-sdist",
+      "description": "Both wheel and sdist built, digests match, installed version matches source",
+      "artifacts": ["wheel", "sdist"],
+      "expected": "PASS"
+    },
+    {
+      "id": "missing-sdist",
+      "description": "Only wheel built; sdist missing",
+      "artifacts": ["wheel"],
+      "expected": "FAIL: missing sdist"
+    },
+    {
+      "id": "missing-wheel",
+      "description": "Only sdist built; wheel missing",
+      "artifacts": ["sdist"],
+      "expected": "FAIL: missing wheel"
+    },
+    {
+      "id": "version-mismatch",
+      "description": "Installed version differs from source version",
+      "source_version": "0.14.0",
+      "installed_version": "0.13.1",
+      "expected": "FAIL: version mismatch"
+    },
+    {
+      "id": "missing-prompt-in-wheel",
+      "description": "Wheel missing canonical prompt files",
+      "missing_paths": ["louke/agents/Archer.md"],
+      "expected": "FAIL: prompt missing from artifact"
+    },
+    {
+      "id": "missing-schema-in-wheel",
+      "description": "Wheel missing machine-contract schemas",
+      "missing_paths": ["louke/schemas/integration-test-1.0.0.schema.json"],
+      "expected": "FAIL: schema missing from artifact"
+    },
+    {
+      "id": "bad-metadata",
+      "description": "Wheel metadata invalid",
+      "mutation": "metadata version not SemVer",
+      "expected": "FAIL: bad metadata"
+    }
+  ]
+}

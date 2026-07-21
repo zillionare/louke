@@ -1,0 +1,37 @@
+{
+  "kind": "legacy-matrix",
+  "identity": "fixture.matrix.legacy.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "cases": [
+    {
+      "id": "old-m-lock-1",
+      "description": "Legacy M-LOCK-1 stage identifier",
+      "expected": "migrate to canonical stage; or read-only diagnostic"
+    },
+    {
+      "id": "old-second-lock",
+      "description": "Legacy second M-LOCK after design",
+      "expected": "migrate; new run has no second M-LOCK"
+    },
+    {
+      "id": "old-prompt-schema",
+      "description": "Legacy prompt bundle schema",
+      "expected": "explicit migration; new run uses canonical schema"
+    },
+    {
+      "id": "old-contract-schema",
+      "description": "Legacy contract instance schema",
+      "expected": "explicit migration; new run uses canonical schema"
+    },
+    {
+      "id": "unknown-version",
+      "description": "Unknown legacy version",
+      "expected": "fail closed; no implicit migration"
+    },
+    {
+      "id": "migration-interrupted",
+      "description": "Migration interrupted midway",
+      "expected": "retryable; no dual current revision; no dual-write stages"
+    }
+  ]
+}
