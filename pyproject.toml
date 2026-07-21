@@ -58,6 +58,9 @@ louke = [
     "templates/pre-commit/*.yml",
     "templates/pre-commit/*.md",
     ".github/ISSUE_TEMPLATE/*.yml",
+    "schemas/registry.json",
+    "schemas/machine-contracts/*/*.json",
+    "schemas/agent-io/*/*.json",
 ]
 "louke.web" = [
     "assets/*",

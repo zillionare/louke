@@ -1,0 +1,136 @@
+{
+  "registry_identity": "louke.machine-contract-registry",
+  "registry_version": "1.0.0-candidate.v0.14-002.r4",
+  "owner": "Runtime/program",
+  "activation_state": "candidate",
+  "compatible_runtime": ">=0.14.0,<0.15.0",
+  "canonicalization": "SHA-256 of UTF-8 file bytes as recorded by design-artifact-manifest.candidate.json; implementation must migrate to canonical JSON bytes before active publication and record the resulting active digest",
+  "required_machine_kinds": [
+    "integration-test",
+    "e2e-test",
+    "pre-commit",
+    "github-actions-ci",
+    "release-version",
+    "build-artifact",
+    "publish-recovery"
+  ],
+  "schemas": [
+    {
+      "kind": "integration-test",
+      "identity": "louke.machine-contract.integration-test",
+      "version": "1.0.0",
+      "digest": "sha256:db63276e04f52b8f6c22ea10133663a36227c4901050356e1479570b1ef91e98",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.integration-test/1.0.0.json"
+    },
+    {
+      "kind": "e2e-test",
+      "identity": "louke.machine-contract.e2e-test",
+      "version": "1.0.0",
+      "digest": "sha256:a12ebca80cc31997423ba5e602262804bde70456145bcf259f54482f1567b21c",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.e2e-test/1.0.0.json"
+    },
+    {
+      "kind": "pre-commit",
+      "identity": "louke.machine-contract.pre-commit",
+      "version": "1.0.0",
+      "digest": "sha256:e3de3924390a95dc4816d00d22ef4a372801296ad0931b562b948416f911a7c9",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.pre-commit/1.0.0.json"
+    },
+    {
+      "kind": "github-actions-ci",
+      "identity": "louke.machine-contract.github-actions-ci",
+      "version": "1.0.0",
+      "digest": "sha256:6522165ad69c7753be34465a9acac3a5a4dbce446a1dfaffcd8ef4012cf87111",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.github-actions-ci/1.0.0.json"
+    },
+    {
+      "kind": "release-version",
+      "identity": "louke.machine-contract.release-version",
+      "version": "1.0.0",
+      "digest": "sha256:29a179dff9ad7bc5f6929455310371f9e8eeee1443a20be91367aeab2abfd273",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.release-version/1.0.0.json"
+    },
+    {
+      "kind": "build-artifact",
+      "identity": "louke.machine-contract.build-artifact",
+      "version": "1.0.0",
+      "digest": "sha256:1c0f0830775275db5114e8ed3f52cab4eb809b01384cffe3e963ab025057b750",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.build-artifact/1.0.0.json"
+    },
+    {
+      "kind": "publish-recovery",
+      "identity": "louke.machine-contract.publish-recovery",
+      "version": "1.0.0",
+      "digest": "sha256:975ad47aeaf6666bfdd1df3cda9df40fe7fa8d619ec35ae868734fcf45116e49",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "machine-contracts/louke.machine-contract.publish-recovery/1.0.0.json"
+    }
+  ],
+  "agent_io_schemas": [
+    {
+      "kind": "agent-io",
+      "identity": "louke.agent-io.archer-design-task-input",
+      "version": "1.0.0",
+      "digest": "sha256:b597edbbfda64fc1ec1263b68d64bc47dbd9b9443953172adf925ade42f6c06e",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "agent-io/louke.agent-io.archer-design-task-input/1.0.0.json",
+      "direction": "input",
+      "role": "Archer"
+    },
+    {
+      "kind": "agent-io",
+      "identity": "louke.agent-io.archer-design-result",
+      "version": "1.0.0",
+      "digest": "sha256:3b3f9801c6318d7786ffa8b461de5f65e091de345dac32c1bd913b6e4e29196b",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "agent-io/louke.agent-io.archer-design-result/1.0.0.json"
+    },
+    {
+      "kind": "agent-io",
+      "identity": "louke.agent-io.prism-design-review-task-input",
+      "version": "1.0.0",
+      "digest": "sha256:5e50313c409e56b06f58cf9cb254224860246a4c0a101a039d9cbb7580fc28f2",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "agent-io/louke.agent-io.prism-design-review-task-input/1.0.0.json",
+      "direction": "input",
+      "role": "Prism"
+    },
+    {
+      "kind": "agent-io",
+      "identity": "louke.agent-io.prism-design-review",
+      "version": "1.0.0",
+      "digest": "sha256:13bad822fe5f21817038ec5e27b938c8e32e135ab809292be41bd04c1cd066dc",
+      "status": "candidate",
+      "compatibility": ">=0.14.0,<0.15.0",
+      "path": "agent-io/louke.agent-io.prism-design-review/1.0.0.json"
+    }
+  ],
+  "activation_gate": {
+    "atomic": true,
+    "prerequisites": [
+      "Devon packages these exact seven machine-contract schemas and four Agent I/O schemas (two task inputs plus two outputs) under louke/schemas and implements registry discover/resolve/validate",
+      "canonical JSON digests are generated; task inputs validate exact role/stage/write/effect/freshness bindings; all seven instances validate canonical envelope and artifact kind/path/digest provenance",
+      "unit, integration and e2e required suites collect and pass with 34/34 AC traceability",
+      "trusted active Prism reviews this complete candidate revision and Runtime persists a fresh PASS",
+      "wheel and sdist contain the registry/schemas and clean-install readback matches active digests",
+      "Runtime atomically writes one active registry pointer and readback proves it; no candidate schema is resolved before that point"
+    ],
+    "failure_semantics": "Before every prerequisite is current, Runtime resolve returns SCHEMA_NOT_ACTIVE and design baseline/publish fail closed. Partial publication, missing schema, unknown state or digest drift never activates any member."
+  }
+}
