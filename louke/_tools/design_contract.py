@@ -39,6 +39,42 @@ _SECRET_PATTERNS = (
 )
 
 
+def _project_root_from_spec_root(spec_root: Path) -> Path:
+    """Derive the project root from a spec root path.
+
+    A spec root lives at ``<project_root>/.louke/project/specs/<spec_id>``;
+    walking four parents up recovers ``<project_root>``.  Used in
+    self-dogfood mode (no explicit ``project_root``) to resolve
+    ``.louke/...``-prefixed manifest paths.
+    """
+    return Path(spec_root).parents[3]
+
+
+def _resolve_artifact_path(
+    path_str: str, *, spec_root: Path, project_root: Path | None
+) -> Path:
+    """Resolve a manifest artifact path to an absolute filesystem path.
+
+    Manifest paths follow two conventions:
+
+    - project-root-relative: start with ``.louke/`` and resolve against the
+      host project root (``project_root`` when given, or derived from
+      ``spec_root`` in self-dogfood mode).
+    - spec-root-relative: any other prefix (e.g. ``design-artifacts/...``)
+      and resolve against ``spec_root``.
+
+    This lets the same validator read both Louke's own manifest (mixed
+    conventions) and a host project's manifest (project-root-relative
+    everywhere).
+    """
+    if path_str.startswith(".louke/"):
+        root = project_root
+        if root is None:
+            root = _project_root_from_spec_root(spec_root)
+        return root / path_str
+    return Path(spec_root) / path_str
+
+
 def _check(
     check_id: str,
     status: str,
@@ -150,15 +186,41 @@ def _check_arch_carrier(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def _check_contract_parity(manifest: dict[str, Any], spec_root: Path) -> dict[str, Any]:
-    view = {s["identity"]: s for s in reg.discover().schemas}
+def _check_contract_parity(
+    manifest: dict[str, Any],
+    spec_root: Path,
+    *,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
+    registry_view = (
+        reg.discover(cwd=project_root) if project_root is not None else reg.discover()
+    )
+    view = {s["identity"]: s for s in registry_view.schemas}
     refs: list[str] = []
     for entry in manifest.get("contract_instances", []):
         kind = entry["kind"]
         refs.append(kind)
+        contract_path = _resolve_artifact_path(
+            entry["path"], spec_root=spec_root, project_root=project_root
+        )
+        if not contract_path.is_file():
+            return _check(
+                "DESIGN.CONTRACT.PARITY",
+                "fail",
+                artifact_path=entry["path"],
+                contract_refs=refs,
+                remediation=f"{kind} instance file not found at {entry['path']}",
+            )
+        if project_root is not None:
+            # Host mode: the host project has no packaged schema files, so
+            # JSON-schema validation and provenance resolution against a
+            # package-owned registry are not applicable.  File existence and
+            # schema_ref presence (checked by discover) are the host-scope
+            # contract parity checks.
+            continue
         identity = f"louke.machine-contract.{kind}"
         packaged = view.get(identity, {}).get("digest")
-        instance = json.loads((Path(spec_root) / entry["path"]).read_bytes())
+        instance = json.loads(contract_path.read_bytes())
         ref = reg.SchemaRef(identity, "1.0.0", packaged)
         result = reg.validate(ref, json.dumps(instance).encode("utf-8"))
         if not result.valid:
@@ -188,7 +250,30 @@ def _check_contract_parity(manifest: dict[str, Any], spec_root: Path) -> dict[st
     )
 
 
-def _check_schema_active() -> dict[str, Any]:
+def _check_schema_active(
+    manifest: dict[str, Any] | None = None,
+    *,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
+    if project_root is not None and manifest is not None:
+        # Host mode: derive activation state from the manifest's ``registry``
+        # block instead of Louke's package-owned registry.  The host project
+        # may declare ``activation_state=candidate`` without ever installing
+        # a packaged registry; this is the host-scope fail-closed signal.
+        registry_info = manifest.get("registry", {}) or {}
+        activation_state = registry_info.get("activation_state")
+        if activation_state != "active":
+            host_schemas = reg.discover(cwd=project_root).schemas
+            non_active = sorted(s["identity"] for s in host_schemas)
+            return _check(
+                "DESIGN.SCHEMA.ACTIVE",
+                "fail",
+                expected="active",
+                actual=activation_state,
+                contract_refs=non_active,
+                remediation="close the atomic activation gate before baseline; resolve returns SCHEMA_NOT_ACTIVE",
+            )
+        return _check("DESIGN.SCHEMA.ACTIVE", "pass", remediation="registry is active")
     registry = reg.load_registry()
     non_active = [
         s["identity"] for s in reg._all_entries(registry) if s.get("status") != "active"
@@ -256,12 +341,19 @@ def _check_diff_scope(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def _check_secret(manifest: dict[str, Any], spec_root: Path) -> dict[str, Any]:
+def _check_secret(
+    manifest: dict[str, Any],
+    spec_root: Path,
+    *,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
     hits: list[str] = []
     for entry in manifest.get("contract_instances", []) + manifest.get(
         "input_artifacts", []
     ):
-        path = Path(spec_root) / entry["path"]
+        path = _resolve_artifact_path(
+            entry["path"], spec_root=spec_root, project_root=project_root
+        )
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -281,18 +373,69 @@ def _check_secret(manifest: dict[str, Any], spec_root: Path) -> dict[str, Any]:
     )
 
 
-def run(manifest: dict[str, Any], *, spec_root: Path) -> dict[str, Any]:
-    """Run every design-program check and return the IF-DES-02 result envelope."""
+def _check_doc_digest(
+    manifest: dict[str, Any],
+    spec_root: Path,
+    *,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
+    """Verify ``design_docs`` bytes digests match the manifest declarations.
+
+    Fail-closed: a missing file or a digest mismatch fails the baseline.  The
+    check id carries ``DIGEST`` so downstream tooling can localise digest
+    drift to the design-doc layer rather than the contract layer.
+    """
+    mismatches: list[str] = []
+    for entry in manifest.get("design_docs", []):
+        path = _resolve_artifact_path(
+            entry["path"], spec_root=spec_root, project_root=project_root
+        )
+        if not path.is_file():
+            mismatches.append(f"{entry['path']}#missing")
+            continue
+        actual = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != entry.get("digest"):
+            mismatches.append(f"{entry['path']}#digest-mismatch")
+    if mismatches:
+        return _check(
+            "DESIGN.DOC.DIGEST",
+            "fail",
+            artifact_path=mismatches[0].split("#")[0],
+            actual=mismatches,
+            remediation="design doc bytes digest must match manifest declaration before baseline",
+        )
+    return _check(
+        "DESIGN.DOC.DIGEST",
+        "pass",
+        remediation="all design docs match declared bytes digests",
+    )
+
+
+def run(
+    manifest: dict[str, Any],
+    *,
+    spec_root: Path,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
+    """Run every design-program check and return the IF-DES-02 result envelope.
+
+    When ``project_root`` is provided, artifact paths prefixed with
+    ``.louke/`` resolve against the host project root and the schema-active
+    check consults the manifest's ``registry.activation_state`` instead of
+    Louke's package-owned registry.  This is the host-project scope isolation
+    required by IF-DES-02.
+    """
     checks = [
         _check_trace_closure(manifest),
         _check_interface_resolution(manifest),
         _check_arch_carrier(manifest),
-        _check_contract_parity(manifest, spec_root),
-        _check_schema_active(),
+        _check_contract_parity(manifest, spec_root, project_root=project_root),
+        _check_schema_active(manifest, project_root=project_root),
         _check_prompt_parity(manifest),
         _check_discussion_open(manifest),
         _check_diff_scope(manifest),
-        _check_secret(manifest, spec_root),
+        _check_secret(manifest, spec_root, project_root=project_root),
+        _check_doc_digest(manifest, spec_root, project_root=project_root),
     ]
     status = "pass" if all(c["status"] == "pass" for c in checks) else "fail"
     revision_id = manifest.get("manifest_revision", "")
@@ -311,15 +454,24 @@ def run(manifest: dict[str, Any], *, spec_root: Path) -> dict[str, Any]:
 
 
 def validate_manifest(
-    manifest_path: Path, *, spec_root: Path | None = None
+    manifest_path: Path,
+    *,
+    spec_root: Path | None = None,
+    project_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Load ``manifest_path`` and run the design-program gate."""
+    """Load ``manifest_path`` and run the design-program gate.
+
+    When ``project_root`` is given (typically ``Path.cwd()`` from the CLI),
+    host-project scope isolation applies: ``.louke/``-prefixed paths resolve
+    against the host root and the schema-active gate reads the manifest's
+    ``registry.activation_state``.
+    """
     manifest_path = Path(manifest_path)
     manifest = json.loads(manifest_path.read_bytes())
     if spec_root is None:
         # manifest lives at <spec_root>/design-artifacts/<manifest>
         spec_root = manifest_path.parent.parent
-    return run(manifest, spec_root=spec_root)
+    return run(manifest, spec_root=spec_root, project_root=project_root)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -332,7 +484,10 @@ def main(argv: list[str] | None = None) -> int:
     p_val.add_argument("--output", default=None)
     args = parser.parse_args(argv)
 
-    result = validate_manifest(Path(args.manifest))
+    # ``Path.cwd()`` lets the same CLI serve both self-dogfood (cwd = Louke
+    # repo root) and host-project invocations (cwd = host root, set by
+    # ``subprocess.run(cwd=...)``).  Host-scope isolation depends on this.
+    result = validate_manifest(Path(args.manifest), project_root=Path.cwd())
     payload = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:
         try:

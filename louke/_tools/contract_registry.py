@@ -95,13 +95,62 @@ def _all_entries(registry: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
-def discover(kind: str | None = None) -> RegistryView:
+def _discover_host_schemas(cwd: Path) -> tuple[list[dict[str, Any]], str]:
+    """Scan a host project's contract instances and emit candidate schema entries.
+
+    For each ``<cwd>/.louke/project/specs/*/design-artifacts/contracts/*.candidate.json``
+    file, extract the contract's top-level ``kind`` and ``schema_ref``
+    (``identity``/``version``/``digest``) and emit one entry with
+    ``status="candidate"``.  This is the host-project scope: only schemas
+    referenced by the host's own contract instances are surfaced, never
+    Louke's package-owned registry.  Returns ``(schemas, registry_version)``.
+    """
+    schemas: list[dict[str, Any]] = []
+    pattern = ".louke/project/specs/*/design-artifacts/contracts/*.candidate.json"
+    for contract_path in sorted(cwd.glob(pattern)):
+        try:
+            data = json.loads(contract_path.read_bytes())
+        except (OSError, json.JSONDecodeError):
+            continue
+        kind = data.get("kind")
+        schema_ref = data.get("schema_ref") or {}
+        if not kind or not schema_ref.get("identity"):
+            continue
+        schemas.append(
+            {
+                "kind": kind,
+                "identity": schema_ref["identity"],
+                "version": schema_ref.get("version", "1.0.0"),
+                "digest": schema_ref.get("digest", ""),
+                "status": "candidate",
+            }
+        )
+    return schemas, "host-candidate"
+
+
+def discover(kind: str | None = None, *, cwd: Path | None = None) -> RegistryView:
     """Discover registry schemas, optionally narrowed to a single ``kind``.
 
     Every required machine-contract kind and Agent I/O schema is surfaced with
     its ``identity``/``version``/``digest``/``status``.  Candidates are shown but
     never resolvable.  AC-FR0700-01.
+
+    When ``cwd`` is provided, scans the host project's own contract instances
+    under ``<cwd>/.louke/project/specs/*/design-artifacts/contracts/`` and
+    returns one candidate schema entry per contract's ``schema_ref`` - never
+    Louke's package-owned registry.  This is the host-project scope isolation
+    required by IF-REG-01.
     """
+    if cwd is not None:
+        schemas, registry_version = _discover_host_schemas(Path(cwd))
+        if kind is not None:
+            schemas = [s for s in schemas if s.get("kind") == kind]
+        registry_bytes = json.dumps(schemas, sort_keys=True).encode("utf-8")
+        return RegistryView(
+            registry_version=registry_version,
+            registry_digest=file_digest(registry_bytes),
+            schemas=[dict(s) for s in schemas],
+        )
     registry = load_registry()
     entries = _all_entries(registry)
     if kind is not None:
@@ -258,7 +307,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "discover":
-            view = discover(args.kind)
+            view = discover(args.kind, cwd=Path.cwd())
             _emit(
                 {
                     "registry_version": view.registry_version,
