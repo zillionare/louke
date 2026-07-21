@@ -87,9 +87,13 @@ def test_concurrent_save_with_same_token_at_most_one_winner() -> None:
     assert len(winners) == 1
     assert len(losers) == 1
     assert losers[0].conflict_code == DOCUMENT_WRITE_CONFLICT  # type: ignore[attr-defined]
-    # On-disk bytes equal the winner's content.
-    assert winners[0].committed_bytes == b"winner body"  # type: ignore[attr-defined]
-    # Loser sees the current revision/token.
+    # On-disk bytes equal the winner's content (either body is acceptable;
+    # the race winner is non-deterministic, but only one body may persist).
+    winner = winners[0]  # type: ignore[attr-defined]
+    assert winner.committed_bytes in (b"winner body", b"loser body")  # type: ignore[attr-defined]
+    # The loser never silently overwrites the winner.
+    assert losers[0].committed_bytes is None  # type: ignore[attr-defined]
+    # Loser sees the current revision.
     assert losers[0].current_revision == 3  # type: ignore[attr-defined]
     assert losers[0].current_version_token  # type: ignore[attr-defined]
 
