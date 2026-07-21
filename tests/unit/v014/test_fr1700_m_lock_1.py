@@ -173,14 +173,16 @@ def test_valid_human_approval_records_actor_time_challenge_revision_digests() ->
         actor_kind="human",
         actor="human:alice",
     )
-    assert decision.actor == "human:alice"
-    assert decision.challenge_id == "ch_1"
-    assert decision.run_revision == 4
-    assert decision.story_digest == _digest("a")
-    assert decision.spec_digest == _digest("b")
-    assert decision.acceptance_digest == _digest("c")
-    assert decision.joint_digest == gate.joint_digest
-    assert decision.approved_at  # non-empty timestamp
+    assert decision.decision.actor == "human:alice"
+    assert decision.decision.challenge_id == "ch_1"
+    assert decision.decision.run_revision == 4
+    assert decision.decision.story_digest == _digest("a")
+    assert decision.decision.spec_digest == _digest("b")
+    assert decision.decision.acceptance_digest == _digest("c")
+    assert decision.decision.joint_digest == gate.joint_digest
+    assert decision.decision.approved_at  # non-empty timestamp
+    # Gate becomes APPROVED.
+    assert decision.new_gate.status == MLock1GateState.APPROVED
 
 
 # AC-FR1700-03 ---------------------------------------------------------------
@@ -207,7 +209,7 @@ def test_challenge_is_one_time() -> None:
         acceptance_digest=_digest("c"),
         challenge_id="ch_1",
     )
-    approve_m_lock_1(
+    outcome = approve_m_lock_1(
         gate=gate,
         challenge_id="ch_1",
         expected_run_revision=4,
@@ -218,7 +220,7 @@ def test_challenge_is_one_time() -> None:
     # Replay the same challenge on the now-approved gate.
     with pytest.raises(Exception) as exc_info:
         approve_m_lock_1(
-            gate=gate,
+            gate=outcome.new_gate,
             challenge_id="ch_1",
             expected_run_revision=4,
             joint_digest=gate.joint_digest,

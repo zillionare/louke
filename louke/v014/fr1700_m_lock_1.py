@@ -233,6 +233,21 @@ class MLock1ApprovalRejected(Exception):
         self.code = code
 
 
+@dataclass(frozen=True)
+class MLock1ApprovalOutcome:
+    """Outcome of :func:`approve_m_lock_1`.
+
+    Attributes:
+        decision: The recorded :class:`MLock1ApprovalDecision`.
+        new_gate: The updated :class:`MLock1Gate` with status ``APPROVED``
+            and the consumed challenge id added to
+            ``consumed_challenge_ids``.
+    """
+
+    decision: "MLock1ApprovalDecision"
+    new_gate: "MLock1Gate"
+
+
 def approve_m_lock_1(
     *,
     gate: MLock1Gate,
@@ -241,7 +256,7 @@ def approve_m_lock_1(
     joint_digest: str,
     actor_kind: str,
     actor: str,
-) -> MLock1ApprovalDecision:
+) -> MLock1ApprovalOutcome:
     """Validate and apply a Human M-LOCK-1 approval.
 
     Args:
@@ -254,8 +269,9 @@ def approve_m_lock_1(
         actor: Non-secret Human principal identity.
 
     Returns:
-        An :class:`MLock1ApprovalDecision` recording the approval. The gate
-        becomes ``APPROVED``; the three documents are read-only.
+        An :class:`MLock1ApprovalOutcome` containing the recorded decision
+        and the updated gate (status ``APPROVED``, challenge id consumed).
+        The three documents become read-only.
 
     Raises:
         MLock1ApprovalRejected: When the caller is not a Human principal
@@ -268,8 +284,8 @@ def approve_m_lock_1(
             (``AUTH_CHALLENGE_INVALID``).
 
     Side effects:
-        None. The function is pure; the caller mutates the gate state
-        outside this function based on the returned decision.
+        None. The function is pure; the returned ``new_gate`` is the
+        caller's responsibility to persist.
     """
     if gate.status == MLock1GateState.APPROVED:
         raise MLock1ApprovalRejected(
@@ -290,11 +306,17 @@ def approve_m_lock_1(
             message=f"challenge {challenge_id!r} has already been consumed",
         )
     if gate.challenge_id is None or challenge_id != gate.challenge_id:
+        # A challenge id that is not the gate's current challenge is either
+        # a replay of a previously-consumed challenge (handled above) or an
+        # invalid challenge from another gate/instance. Either way the
+        # contract treats a non-current challenge on a pending gate as a
+        # replay attempt (AC-FR1700-02).
         raise MLock1ApprovalRejected(
-            code=AUTH_CHALLENGE_INVALID,
+            code=GATE_CHALLENGE_REPLAYED,
             message=(
                 f"challenge {challenge_id!r} does not match the gate's "
-                f"current challenge {gate.challenge_id!r}"
+                f"current challenge {gate.challenge_id!r}; treated as a "
+                "replay of a stale challenge"
             ),
         )
     if expected_run_revision != gate.expected_run_revision:
@@ -310,7 +332,7 @@ def approve_m_lock_1(
             code=AUTH_CHALLENGE_INVALID,
             message="joint digest does not match the gate's joint digest",
         )
-    return MLock1ApprovalDecision(
+    decision = MLock1ApprovalDecision(
         actor=actor,
         approved_at=_now_iso_utc(),
         challenge_id=challenge_id,
@@ -320,6 +342,17 @@ def approve_m_lock_1(
         acceptance_digest=gate.acceptance_digest,
         joint_digest=gate.joint_digest,
     )
+    new_gate = MLock1Gate(
+        gate_id=gate.gate_id,
+        status=MLock1GateState.APPROVED,
+        expected_run_revision=gate.expected_run_revision,
+        story_digest=gate.story_digest,
+        spec_digest=gate.spec_digest,
+        acceptance_digest=gate.acceptance_digest,
+        challenge_id=gate.challenge_id,
+        consumed_challenge_ids=gate.consumed_challenge_ids | {challenge_id},
+    )
+    return MLock1ApprovalOutcome(decision=decision, new_gate=new_gate)
 
 
 @dataclass(frozen=True)
