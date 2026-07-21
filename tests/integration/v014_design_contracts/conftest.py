@@ -1,0 +1,271 @@
+"""Shared pytest configuration for v0.14-002 design-contracts integration tests.
+
+Mode B (mock-first): ``louke._tools.*`` modules for v0.14-002 are not yet
+implemented by Devon. This conftest injects ``unittest.mock.MagicMock``
+stubs for any ``louke._tools.<module>`` that fails to import, so tests can
+be written against the interface contract defined in
+``.louke/project/specs/v0.14-002-workflow-reflow-design/interfaces.md``.
+
+When Devon ships a real module, the corresponding mock is bypassed
+automatically (the real import wins). Tests that still rely on mock
+behaviour must explicitly request the ``mock_<module>`` fixture.
+
+References:
+- HANDOFF.md §2 (Mode B)
+- test-plan.md §1.5 (Devon/Shield division of labor)
+- interfaces.md (15 IF-XXX contracts)
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+
+# ---------------------------------------------------------------------------
+# Path constants
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TESTS_ROOT = REPO_ROOT / "tests"
+SPEC_ROOT = (
+    REPO_ROOT
+    / ".louke"
+    / "project"
+    / "specs"
+    / "v0.14-002-workflow-reflow-design"
+)
+DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
+FIXTURES_ROOT = TESTS_ROOT / "fixtures" / "v014_design_contracts"
+
+# ---------------------------------------------------------------------------
+# Mock infrastructure (Mode B)
+# ---------------------------------------------------------------------------
+
+# Mapping of (module_path) -> default mock configuration. Each entry describes
+# the v0.14-002 module Devon will implement and the IF-XXX interface it
+# realises. Tests can request ``mock_<short_name>`` to get the MagicMock.
+MOCK_MODULES: dict[str, dict[str, str]] = {
+    "louke._tools.design_contract": {"if": "IF-DES-02", "fr": "FR-0400"},
+    "louke._tools.contract_registry": {"if": "IF-REG-01", "fr": "FR-0700"},
+    "louke._tools.ci_contract": {"if": "IF-CI-01", "fr": "FR-1100"},
+    "louke._tools.precommit_contract": {"if": "IF-PC-01", "fr": "FR-1000"},
+    "louke._tools.release_version": {"if": "IF-REL-01", "fr": "FR-1400"},
+    "louke._tools.build_artifact": {"if": "IF-BLD-01", "fr": "FR-1500"},
+    "louke._tools.publish_recovery": {"if": "IF-PUB-01", "fr": "FR-1600"},
+    "louke._tools.prompt_bundle": {"if": "IF-PRM-01", "fr": "FR-1700"},
+    "louke._tools.design_review": {"if": "IF-REV-01", "fr": "FR-2500"},
+    "louke._tools.host_facts": {"if": "IF-FCT-01", "fr": "FR-0200"},
+    "louke._tools.workbench": {"if": "IF-WEB-01", "fr": "FR-0300"},
+    "louke._tools.audit_export": {"if": "IF-AUD-01", "fr": "NFR-0400"},
+    "louke._tools.design_coordinator": {"if": "IF-DES-01", "fr": "FR-0100"},
+}
+
+
+def _import_or_mock(module_path: str) -> tuple[Any, bool]:
+    """Import ``module_path`` or return a ``MagicMock`` stub.
+
+    Returns ``(module, is_mock)``. When the real module exists, ``is_mock``
+    is ``False`` and tests run against the real implementation.
+    """
+    try:
+        import importlib
+
+        return importlib.import_module(module_path), False
+    except ImportError:
+        return MagicMock(name=module_path), True
+
+
+@pytest.fixture(scope="session")
+def mock_louke_tools() -> dict[str, Any]:
+    """Session-scoped cache of mock/real ``louke._tools.*`` modules.
+
+    Each entry is either the real module (if Devon has implemented it) or
+    a ``MagicMock`` stub configured with sensible defaults derived from
+    the candidate artifacts. Tests that need module-specific behaviour
+    should request the per-module fixture (e.g. ``mock_design_contract``)
+    which overrides defaults on top of this cache.
+    """
+    cache: dict[str, Any] = {}
+    for path in MOCK_MODULES:
+        module, _is_mock = _import_or_mock(path)
+        cache[path] = module
+    return cache
+
+
+def _make_module_fixture(module_path: str):
+    """Factory: build a per-module mock fixture with override helpers."""
+
+    @pytest.fixture
+    def _fixture(monkeypatch, mock_louke_tools):
+        module = mock_louke_tools[module_path]
+        # Ensure sys.modules has the (possibly mocked) module so that
+        # ``from louke._tools.X import Y`` resolves to the mock.
+        monkeypatch.setitem(sys.modules, module_path, module)
+        return module
+
+    _fixture.__name__ = module_path.rsplit(".", 1)[-1]
+    return _fixture
+
+
+# Expose one fixture per mockable module: ``mock_design_contract``,
+# ``mock_contract_registry``, etc.
+for _path in MOCK_MODULES:
+    _short = _path.rsplit(".", 1)[-1]
+    globals()[f"mock_{_short}"] = _make_module_fixture(_path)
+
+
+# ---------------------------------------------------------------------------
+# Candidate-artifact fixtures (real bytes from design-artifacts/)
+# ---------------------------------------------------------------------------
+
+def _load_json(path: Path) -> dict:
+    """Load a JSON file from design-artifacts; raise ``FileNotFoundError``
+    if missing so the test fails loudly instead of silently skipping."""
+    if not path.exists():
+        raise FileNotFoundError(f"Required fixture missing: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session")
+def design_manifest() -> dict:
+    """``design-artifact-manifest.candidate.json`` — the master manifest."""
+    return _load_json(
+        DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json"
+    )
+
+
+@pytest.fixture(scope="session")
+def registry_candidate() -> dict:
+    """``registry/registry.candidate.json`` — 7 machine schemas + 4 agent I/O."""
+    return _load_json(DESIGN_ARTIFACTS / "registry" / "registry.candidate.json")
+
+
+@pytest.fixture(scope="session")
+def integration_test_contract() -> dict:
+    """``contracts/integration-test.candidate.json`` instance."""
+    return _load_json(
+        DESIGN_ARTIFACTS / "contracts" / "integration-test.candidate.json"
+    )
+
+
+@pytest.fixture(scope="session")
+def e2e_test_contract() -> dict:
+    """``contracts/e2e-test.candidate.json`` instance."""
+    return _load_json(
+        DESIGN_ARTIFACTS / "contracts" / "e2e-test.candidate.json"
+    )
+
+
+@pytest.fixture(scope="session")
+def host_facts_snapshot() -> dict:
+    """``inputs/host-project-facts.snapshot.json`` — Louke dogfood facts."""
+    return _load_json(
+        DESIGN_ARTIFACTS / "inputs" / "host-project-facts.snapshot.json"
+    )
+
+
+@pytest.fixture(scope="session")
+def node_host_release_fixture() -> dict:
+    """``validation/release-version-node-host.valid.candidate.json``.
+
+    NFR-0300 heterogeneous positive: same ``release-version@1.0.0`` schema
+    accepts a Node/SemVer/package.json host.
+    """
+    return _load_json(
+        DESIGN_ARTIFACTS
+        / "validation"
+        / "release-version-node-host.valid.candidate.json"
+    )
+
+
+@pytest.fixture(scope="session")
+def negative_schema_fixtures() -> dict:
+    """``validation/negative-schema-fixtures.candidate.json`` — 8 mutations."""
+    return _load_json(
+        DESIGN_ARTIFACTS
+        / "validation"
+        / "negative-schema-fixtures.candidate.json"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helper: xfail-awaiting-Devon marker
+# ---------------------------------------------------------------------------
+
+def pytest_configure(config):
+    """Register v0.14-002 specific markers."""
+    config.addinivalue_line(
+        "markers",
+        "awaiting_devon(fr): test exercises an interface whose real "
+        "implementation is pending; expected to xfail until Devon ships "
+        "the corresponding louke._tools.* module",
+    )
+    config.addinivalue_line(
+        "markers",
+        "v014_002: v0.14-002 workflow-reflow-design integration/e2e test",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-mark every test under tests/integration/v014_design_contracts/."""
+    for item in items:
+        if "tests/integration/v014_design_contracts" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+            item.add_marker(pytest.mark.v014_002)
+
+
+# ---------------------------------------------------------------------------
+# Common test data builders
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def canonical_envelope_keys() -> set[str]:
+    """Required keys of every machine-contract canonical envelope (IF-CON-01)."""
+    return {
+        "kind",
+        "identity",
+        "revision",
+        "schema_ref",
+        "manifest_ref",
+        "scope",
+        "generated_by",
+        "compatible_runtime",
+        "artifact_refs",
+        "payload",
+    }
+
+
+@pytest.fixture
+def required_machine_schema_kinds() -> set[str]:
+    """Seven required machine-contract kinds (FR-0700)."""
+    return {
+        "integration-test",
+        "e2e-test",
+        "pre-commit",
+        "github-actions-ci",
+        "release-version",
+        "build-artifact",
+        "publish-recovery",
+    }
+
+
+@pytest.fixture
+def required_agent_io_schemas() -> list[str]:
+    """Four required Agent I/O schemas (FR-1900)."""
+    return [
+        "louke.agent-io.archer-design-task-input",
+        "louke.agent-io.archer-design-result",
+        "louke.agent-io.prism-design-review-task-input",
+        "louke.agent-io.prism-design-review",
+    ]
+
+
+@pytest.fixture
+def canonical_prompt_sources() -> set[str]:
+    """Closed set of canonical prompt paths (FR-1700)."""
+    return {"louke/agents/Archer.md", "louke/agents/Prism.md"}
