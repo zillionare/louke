@@ -67,9 +67,21 @@ def extract_ac_ids(acceptance_path: Path) -> frozenset[str]:
 
 
 def _iter_test_files(tests_path: Path) -> Iterable[Path]:
-    """Yield test files under ``tests_path`` recursively."""
+    """Yield test files under ``tests_path`` recursively.
+
+    Skips package markers (``__init__.py``), pytest fixtures
+    (``conftest.py``) and runner scripts (``run_e2e.py``,
+    ``run-project-venv``) since these are not automated tests and the
+    spec/test-plan §1.4 #1 only requires *automated tests* to carry an AC
+    reference.
+    """
+    _non_test_names: frozenset[str] = frozenset(
+        {"__init__.py", "conftest.py", "run_e2e.py", "run-project-venv"}
+    )
     for path in sorted(tests_path.rglob("*")):
         if not path.is_file():
+            continue
+        if path.name in _non_test_names:
             continue
         if path.suffix not in _TEST_EXTS:
             continue
