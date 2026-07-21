@@ -1,0 +1,12 @@
+{
+  "artifact_type": "staging-deployed-render",
+  "activation_state": "candidate-not-deployed",
+  "role": "prism",
+  "source": {"path": "louke/agents/Prism.md", "digest": "sha256:1c6d1a951cd8acc59dc950963c399cea0597cfbce8e6801425d0466125283938", "body_digest": "sha256:dab2242128d70dee19ebed4d684b46008f3af0e8793d2ce7076d1bd387830846"},
+  "transformer": {"identity": "louke.board.cmd_opencode", "version": "board.py@2734177ef5398e4c10a1f68039ec469ccc21f2b8", "source": "louke/board.py", "digest": "sha256:eafdba029b8dce98f3e3924d8a6e5f06d1d740896291814dd350ea60a4286b21"},
+  "environment_binding": {"model": "codexmanager/gpt-5.6-sol", "mode": "subagent", "destination": ".opencode/agents/prism.md"},
+  "render_contract": {"frontmatter": "description/mode/resolved model + permission passthrough; source-only name and intelligence_quotation omitted", "body": "source body after deterministic lk-* skill reference rewrite", "rendered_bytes": 11028, "rendered_digest": "sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144"},
+  "staging_readback": {"method": "in-memory execution of the base transformer functions against current candidate source; no write to active deployment", "status": "candidate_staging_in_sync", "actual_rendered_digest": "sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144"},
+  "active_deployment": {"path": ".opencode/agents/prism.md", "digest": "sha256:fba0ff7f2159c48377c0ea94145daf5f6af2d66e716614860ea8e2865478e005", "unchanged": true},
+  "failure_semantics": "This record is design evidence, not an active deployed prompt. Any source/transformer/environment change makes it stale; active remains the reviewer execution bundle until Runtime atomically activates a reviewed candidate."
+}

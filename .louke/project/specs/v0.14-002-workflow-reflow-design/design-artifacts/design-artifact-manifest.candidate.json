@@ -1,0 +1,109 @@
+{
+  "manifest_identity": "louke.design-artifacts.v0.14-002.prism-r3-remediation",
+  "manifest_version": "1.0.0-candidate.r4",
+  "manifest_revision": "prism-round-3-remediation-candidate",
+  "activation_state": "candidate-not-installed",
+  "canonical_release_identity": {"version": "0.14.0", "spec_id": "v0.14-002-workflow-reflow-design", "branch": "releases/0.14.0", "tag": "v0.14.0", "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8"},
+  "digest_semantics": "Every listed digest is SHA-256 of the repository UTF-8 file bytes in this candidate revision. Registry activation must additionally canonicalize JSON and publish/read back active canonical digests; candidate bytes digests never self-authorize activation.",
+  "requirements": {"story": "sha256:06d5573efbf59dd18b480d6539ad16df237fd4460f9f95d1589110cbfeec1993", "spec": "sha256:315c8d20254fceb63971b029d69c81889972eedb581621981a012f17edc8867f", "acceptance": "sha256:39b09cbf36cc0f4f0dcc8f0e8a79949049a2b6baddcecbcf2183ad407e493559", "review_remediation": "sha256:ccc2e2e77160605aa6dbfd8ddaf087e2c881827b8581d6d5a7d402ff6c49efaa"},
+  "input_artifacts": [
+    {"kind":"host-project-facts-snapshot","identity":"louke.host-project-facts.github.com-zillionare-louke","revision":"base-2734177-workspace-2026-07-20-r2","path":"design-artifacts/inputs/host-project-facts.snapshot.json","digest":"sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130"},
+    {"kind":"archer-author-task-manifest","identity":"runtime.v0.14-002.m-design.archer.prism-r3-remediation","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/inputs/archer-author-task-manifest.candidate.json","digest":"sha256:0a9d58474340e9520af49d2bea462c41533c1fabc81afbcf4f5f292caecefbfc"}
+  ],
+  "design_docs": [
+    {"path": ".louke/project/specs/v0.14-002-workflow-reflow-design/test-plan.md", "digest": "sha256:02a928e09f4abc80ae6ec0c60ec39ba33a131cfd5acc47dc3daeeab97cb4d53e"},
+    {"path": ".louke/project/specs/v0.14-002-workflow-reflow-design/architecture.md", "digest": "sha256:32c88eb2062eb0173738086202eddf87122204ee99d32133c1ea30a6c39335cc"},
+    {"path": ".louke/project/specs/v0.14-002-workflow-reflow-design/interfaces.md", "digest": "sha256:ce4e83ae0d0f614a43a1912e317859105f84f08ba53fc3e8b1cc150dd108e37f"}
+  ],
+  "registry": {"path": "design-artifacts/registry/registry.candidate.json", "digest": "sha256:d7b2e2b9427ffa6bcb7dca360274bb37da4df16ccd48376394a7ebd72e4f3477", "owner": "Runtime/program", "activation_state": "candidate", "machine_schema_count": 7, "agent_io_schema_count": 4},
+  "schemas": [
+    {"identity":"louke.machine-contract.integration-test","version":"1.0.0","digest":"sha256:db63276e04f52b8f6c22ea10133663a36227c4901050356e1479570b1ef91e98","path":"design-artifacts/registry/schemas/integration-test-1.0.0.schema.json"},
+    {"identity":"louke.machine-contract.e2e-test","version":"1.0.0","digest":"sha256:a12ebca80cc31997423ba5e602262804bde70456145bcf259f54482f1567b21c","path":"design-artifacts/registry/schemas/e2e-test-1.0.0.schema.json"},
+    {"identity":"louke.machine-contract.pre-commit","version":"1.0.0","digest":"sha256:e3de3924390a95dc4816d00d22ef4a372801296ad0931b562b948416f911a7c9","path":"design-artifacts/registry/schemas/pre-commit-1.0.0.schema.json"},
+    {"identity":"louke.machine-contract.github-actions-ci","version":"1.0.0","digest":"sha256:6522165ad69c7753be34465a9acac3a5a4dbce446a1dfaffcd8ef4012cf87111","path":"design-artifacts/registry/schemas/github-actions-ci-1.0.0.schema.json"},
+    {"identity":"louke.machine-contract.release-version","version":"1.0.0","digest":"sha256:29a179dff9ad7bc5f6929455310371f9e8eeee1443a20be91367aeab2abfd273","path":"design-artifacts/registry/schemas/release-version-1.0.0.schema.json"},
+    {"identity":"louke.machine-contract.build-artifact","version":"1.0.0","digest":"sha256:1c0f0830775275db5114e8ed3f52cab4eb809b01384cffe3e963ab025057b750","path":"design-artifacts/registry/schemas/build-artifact-1.0.0.schema.json"},
+    {"identity":"louke.machine-contract.publish-recovery","version":"1.0.0","digest":"sha256:975ad47aeaf6666bfdd1df3cda9df40fe7fa8d619ec35ae868734fcf45116e49","path":"design-artifacts/registry/schemas/publish-recovery-1.0.0.schema.json"}
+  ],
+  "agent_io_schemas": [
+    {"identity":"louke.agent-io.archer-design-task-input","direction":"input","role":"Archer","version":"1.0.0","digest":"sha256:74686ab3811b713d941d453a39b1f2af84263f76ec2994764d46de645eb75db9","path":"design-artifacts/registry/agent-io/archer-design-task-input-1.0.0.schema.json"},
+    {"identity":"louke.agent-io.archer-design-result","version":"1.0.0","digest":"sha256:3b3f9801c6318d7786ffa8b461de5f65e091de345dac32c1bd913b6e4e29196b","path":"design-artifacts/registry/agent-io/archer-design-result-1.0.0.schema.json"},
+    {"identity":"louke.agent-io.prism-design-review-task-input","direction":"input","role":"Prism","version":"1.0.0","digest":"sha256:6dc1bdaca5b3f4326479537edbd518f545436f193a499087bc20eb74abe50059","path":"design-artifacts/registry/agent-io/prism-design-review-task-input-1.0.0.schema.json"},
+    {"identity":"louke.agent-io.prism-design-review","version":"1.0.0","digest":"sha256:13bad822fe5f21817038ec5e27b938c8e32e135ab809292be41bd04c1cd066dc","path":"design-artifacts/registry/agent-io/prism-design-review-1.0.0.schema.json"}
+  ],
+  "contract_instances": [
+    {"kind":"integration-test","identity":"louke.contract.v0.14-002.integration-test","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/integration-test.candidate.json","digest":"sha256:d28696a02ee0e1848fd0414d3f2e8376e99a51ae0e8e532e689f2cc078c7ba6c","activation_state":"candidate-not-installed"},
+    {"kind":"e2e-test","identity":"louke.contract.v0.14-002.e2e-test","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/e2e-test.candidate.json","digest":"sha256:69ec3f37a4f3d576d82e1f385d4453a08f0233b57dd69b9537e8bbc2d05292fc","activation_state":"candidate-not-installed"},
+    {"kind":"pre-commit","identity":"louke.contract.v0.14-002.pre-commit","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/pre-commit.candidate.json","digest":"sha256:80ac07dd835887d5201b5ff5fd8fcdf2814f5271f27ddcf5d38eda8b6de97345","activation_state":"candidate-not-installed"},
+    {"kind":"github-actions-ci","identity":"louke.contract.v0.14-002.github-actions-ci","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/github-actions-ci.candidate.json","digest":"sha256:430f2fd7278843a06b27fc670debf3c7f29f3919555af62887f10d75fe436e94","activation_state":"candidate-not-installed"},
+    {"kind":"release-version","identity":"louke.contract.v0.14-002.release-version","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/release-version.candidate.json","digest":"sha256:121338ada34820b23855cee881dd4862390cc634e9fe48907f03282455757863","activation_state":"candidate-not-installed"},
+    {"kind":"build-artifact","identity":"louke.contract.v0.14-002.build-artifact","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/build-artifact.candidate.json","digest":"sha256:8ff892a216a7080d712d8237c1b93739aa07a9049a3a2cf295adf9d02e2b0e47","activation_state":"candidate-not-installed"},
+    {"kind":"publish-recovery","identity":"louke.contract.v0.14-002.publish-recovery","revision":"prism-round-3-remediation-candidate","path":"design-artifacts/contracts/publish-recovery.candidate.json","digest":"sha256:ad6635bd0d7bc12bb6b474a6dc24260b34c47202e5d2323739b293f999a80b43","activation_state":"candidate-not-installed"}
+  ],
+  "prompt_candidates": {
+    "closed_set": ["louke/agents/Archer.md","louke/agents/Prism.md"],
+    "sources": [{"path":"louke/agents/Archer.md","digest":"sha256:a2fe1fc160ea9b72af8161dc0e4339fdcf7b1e33e86017deaddca71dfdfa7248"},{"path":"louke/agents/Prism.md","digest":"sha256:1c6d1a951cd8acc59dc950963c399cea0597cfbce8e6801425d0466125283938"}],
+    "bundle": {"identity":"louke.prompt-bundle.v0.14-002.r4","path":"design-artifacts/prompts/prompt-bundle.candidate.json","file_digest":"sha256:510e464b00134284f3e0ce97bb260315eb8d898ff27fd81e192bfbb4be89dfb4","bundle_digest":"sha256:5f914a48029f186192d6cd67d5e80ce14bfb12701484a23683e7d978ab69d403"},
+    "staging": [{"path":"design-artifacts/prompts/staging/archer.render.candidate.json","digest":"sha256:752e249f68b32a505561c38926d3d918bbdaed91b586fa800dbcd34748831c38","rendered_digest":"sha256:6bf121dc4ca5ce3fdddeec88ea9c964bf3844880e09df0d1769f4c8a11de9318"},{"path":"design-artifacts/prompts/staging/prism.render.candidate.json","digest":"sha256:e607353e513e4c2f97a991e97d97147b88b12a661a03113e1050ef174ff257d9","rendered_digest":"sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144"}],
+    "deployment_readback": {"path":"design-artifacts/prompts/deployment-readback.candidate.json","digest":"sha256:ae455b0a3def472196b508d2f7e63eb0a1181f07fce6cc9bc94ab0ba4ddbbe88","qualification":"staging-only, active unchanged"},
+    "reviewer_binding": {"path":"design-artifacts/prompts/reviewer-binding.candidate.json","digest":"sha256:8e50e31e1bb8c6668c55288eb32947673781a92313a92331f66dd08bfc201420","reviewer_execution_digest":"sha256:fba0ff7f2159c48377c0ea94145daf5f6af2d66e716614860ea8e2865478e005","reviewed_candidate_bundle_digest":"sha256:5f914a48029f186192d6cd67d5e80ce14bfb12701484a23683e7d978ab69d403"}
+  },
+  "validation": {
+    "heterogeneous_positive_fixture": {"path":"design-artifacts/validation/release-version-node-host.valid.candidate.json","digest":"sha256:5175946ac209c03921483d87494982c3f2fa4dc39d0e6f8b46cd626f426afd37","schema_identity":"louke.machine-contract.release-version","host_stack":"Node.js/package.json/SemVer"},
+    "negative_fixtures": {"path":"design-artifacts/validation/negative-schema-fixtures.candidate.json","digest":"sha256:86ee2df944e6eb44b471fbdd39f311572cc178cf00306bc04d24c7f5621580b3","case_count":8},
+    "record": {"path":"design-artifacts/validation/schema-validation-record.candidate.json","digest":"sha256:37074d4c247db89d5253b6335aae4a60dfafc34f1c7a3313ddc87213ce111273","qualification":"design-time-candidate-only"}
+  },
+  "runner_project_candidate": {"path":"design-artifacts/runner/project-runner.candidate.json","digest":"sha256:bf7238f64633892dc75d64263fd02b1b01b5a20c628889606ed1524420b6dc12","active_project_toml_digest":"sha256:47d9de0ca736ca45cd9b75872e6f23edfc0086038aa9261e690159f6e62123fd","status":"candidate-not-installed; active historical runner does not collect v014"},
+  "closure_counts": {"acceptance":34,"interfaces":15,"architecture_anchors":16,"machine_schema_kinds":7,"agent_io_schemas":4,"contract_instances":7,"heterogeneous_positive_fixtures":1,"prompt_sources":2,"negative_validation_cases":8,"required_e2e_acceptance":9},
+  "interface_set": ["IF-DES-01","IF-DES-02","IF-CON-01","IF-REG-01","IF-TST-01","IF-PC-01","IF-CI-01","IF-REL-01","IF-BLD-01","IF-PUB-01","IF-PRM-01","IF-REV-01","IF-WEB-01","IF-FCT-01","IF-AUD-01"],
+  "architecture_anchor_set": ["ARC-WEB","ARC-DESIGN","ARC-FACTS","ARC-REGISTRY","ARC-CONTRACTS","ARC-VALIDATE","ARC-PROMPTS","ARC-CI","ARC-PRECOMMIT","ARC-VERSION","ARC-BUILD","ARC-PUBLISH","ARC-REVIEW","ARC-STORE","ARC-MIGRATION","ARC-SECURITY"],
+  "ac_closure": [
+    {"ac":"AC-FR0100-01","if":["IF-DES-01","IF-FCT-01"],"arc":["ARC-DESIGN","ARC-FACTS","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR0200-01","if":["IF-FCT-01","IF-DES-01"],"arc":["ARC-FACTS","ARC-DESIGN","ARC-CONTRACTS"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR0300-01","if":["IF-DES-01","IF-WEB-01","IF-AUD-01"],"arc":["ARC-DESIGN","ARC-WEB","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-FR0400-01","if":["IF-DES-02","IF-TST-01"],"arc":["ARC-VALIDATE","ARC-CONTRACTS","ARC-CI"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR0500-01","if":["IF-DES-02","IF-AUD-01"],"arc":["ARC-VALIDATE","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR0600-01","if":["IF-DES-02","IF-WEB-01","IF-CON-01"],"arc":["ARC-VALIDATE","ARC-WEB","ARC-CONTRACTS"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-FR0700-01","if":["IF-REG-01","IF-CON-01"],"arc":["ARC-REGISTRY","ARC-CONTRACTS","ARC-VALIDATE"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR0800-01","if":["IF-TST-01","IF-DES-02"],"arc":["ARC-CONTRACTS","ARC-CI","ARC-VALIDATE"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR0900-01","if":["IF-TST-01","IF-WEB-01"],"arc":["ARC-CONTRACTS","ARC-WEB","ARC-CI"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-FR1000-01","if":["IF-PC-01","IF-CON-01"],"arc":["ARC-PRECOMMIT","ARC-CONTRACTS","ARC-SECURITY"],"contracts":["integration-test","pre-commit","github-actions-ci"]},
+    {"ac":"AC-FR1100-01","if":["IF-CI-01","IF-FCT-01"],"arc":["ARC-CI","ARC-FACTS","ARC-CONTRACTS"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR1200-01","if":["IF-CI-01"],"arc":["ARC-CI","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR1300-01","if":["IF-CI-01","IF-AUD-01"],"arc":["ARC-CI","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR1400-01","if":["IF-REG-01","IF-REL-01","IF-CON-01"],"arc":["ARC-REGISTRY","ARC-VERSION","ARC-CONTRACTS","ARC-FACTS"],"contracts":["integration-test","github-actions-ci","release-version"]},
+    {"ac":"AC-FR1500-01","if":["IF-BLD-01","IF-REL-01"],"arc":["ARC-BUILD","ARC-VERSION","ARC-PUBLISH"],"contracts":["integration-test","github-actions-ci","build-artifact"]},
+    {"ac":"AC-FR1600-01","if":["IF-PUB-01"],"arc":["ARC-PUBLISH","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci","publish-recovery"]},
+    {"ac":"AC-FR1700-01","if":["IF-PRM-01","IF-REV-01"],"arc":["ARC-PROMPTS","ARC-REVIEW","ARC-STORE"],"contracts":["integration-test","github-actions-ci","build-artifact"]},
+    {"ac":"AC-FR1800-01","if":["IF-PRM-01"],"arc":["ARC-PROMPTS","ARC-REGISTRY","ARC-STORE"],"contracts":["integration-test","github-actions-ci","build-artifact"]},
+    {"ac":"AC-FR1900-01","if":["IF-REG-01","IF-CON-01","IF-PRM-01"],"arc":["ARC-REGISTRY","ARC-CONTRACTS","ARC-PROMPTS"],"contracts":["integration-test","github-actions-ci","build-artifact"]},
+    {"ac":"AC-FR2000-01","if":["IF-PRM-01"],"arc":["ARC-PROMPTS","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci","build-artifact"]},
+    {"ac":"AC-FR2050-01","if":["IF-PRM-01","IF-REV-01"],"arc":["ARC-PROMPTS","ARC-REVIEW","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-FR2100-01","if":["IF-FCT-01","IF-PRM-01","IF-DES-01"],"arc":["ARC-FACTS","ARC-PROMPTS","ARC-DESIGN"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR2200-01","if":["IF-PRM-01","IF-DES-01"],"arc":["ARC-PROMPTS","ARC-DESIGN","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR2300-01","if":["IF-PRM-01","IF-REV-01"],"arc":["ARC-PROMPTS","ARC-REVIEW","ARC-SECURITY"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR2400-01","if":["IF-WEB-01","IF-DES-01","IF-REV-01"],"arc":["ARC-WEB","ARC-DESIGN","ARC-REVIEW","ARC-STORE"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-FR2500-01","if":["IF-REV-01","IF-AUD-01"],"arc":["ARC-REVIEW","ARC-STORE","ARC-DESIGN"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-FR2600-01","if":["IF-DES-02","IF-CON-01","IF-PRM-01"],"arc":["ARC-VALIDATE","ARC-CONTRACTS","ARC-PROMPTS"],"contracts":["integration-test","github-actions-ci"]},
+    {"ac":"AC-FR2700-01","if":["IF-REV-01","IF-DES-01","IF-AUD-01"],"arc":["ARC-REVIEW","ARC-DESIGN","ARC-STORE"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-NFR0100-01","if":["IF-DES-02","IF-PRM-01","IF-REV-01"],"arc":["ARC-VALIDATE","ARC-PROMPTS","ARC-REVIEW"],"contracts":["integration-test","github-actions-ci","release-version"]},
+    {"ac":"AC-NFR0200-01","if":["IF-DES-01","IF-CI-01","IF-AUD-01"],"arc":["ARC-DESIGN","ARC-CI","ARC-STORE","ARC-SECURITY"],"contracts":["integration-test","pre-commit","github-actions-ci","publish-recovery"]},
+    {"ac":"AC-NFR0300-01","if":["IF-FCT-01","IF-CON-01","IF-CI-01","IF-REL-01"],"arc":["ARC-FACTS","ARC-CONTRACTS","ARC-CI","ARC-VERSION"],"contracts":["integration-test","github-actions-ci","release-version"]},
+    {"ac":"AC-NFR0400-01","if":["IF-AUD-01","IF-DES-01","IF-REV-01"],"arc":["ARC-STORE","ARC-DESIGN","ARC-REVIEW","ARC-MIGRATION"],"contracts":["integration-test","e2e-test","github-actions-ci","publish-recovery"]},
+    {"ac":"AC-NFR0500-01","if":["IF-DES-02","IF-WEB-01"],"arc":["ARC-VALIDATE","ARC-WEB","ARC-STORE"],"contracts":["integration-test","e2e-test","github-actions-ci"]},
+    {"ac":"AC-NFR0600-01","if":["IF-AUD-01","IF-REG-01","IF-DES-01"],"arc":["ARC-STORE","ARC-MIGRATION","ARC-REGISTRY","ARC-DESIGN"],"contracts":["integration-test","github-actions-ci"]}
+  ],
+  "activation_prerequisites": [
+    "Devon foundation installs current 0.14.0 project identity and expands the existing runner exactly as project-runner.candidate.json",
+    "Devon implements program-owned registry/validator, canonicalizes and packages all seven machine schemas plus four Agent I/O schemas (Archer and Prism task inputs plus outputs)",
+    "all eleven schemas meta-validate; role-specific task inputs and outputs close; all seven canonical-envelope instances validate exact active schema and artifact kind/path/digest provenance",
+    "the heterogeneous Node.js/package.json/SemVer release fixture validates and all eight negative mutations fail at the declared schema/provenance boundary; any unexpected pass blocks activation",
+    "all seven instances resolve their full bytes digest from the unique external manifest kind/path entry and are installed atomically at canonical project paths",
+    "34/34 AC required layers collect and pass; 15/15 IF and 16/16 ARC closure has no orphan; required zero/skip/not-run/unknown fails",
+    "managed CI/pre-commit/version/build/publish adapters are implemented and read back without overwriting user-owned assets",
+    "wheel and sdist real build, per-artifact extraction, clean-install public outlets, prompts and registry/schema readback all verify 0.14.0",
+    "trusted existing Prism execution bundle independently reviews this complete candidate, and Runtime persists a fresh PASS bound to the reviewed candidate bundle",
+    "Runtime atomically creates the implementation baseline and then activates registry/prompt pointers; any partial, stale, drifted or unknown result leaves prior active state unchanged"
+  ],
+  "current_fail_closed": {"registry":"no active v014 registry; SCHEMA_NOT_ACTIVE","contracts":"candidate paths are not installed canonical instances","prompts":"canonical sources changed but .opencode active deployment unchanged; candidate cannot dispatch","runner":"historical active runner omits v014 suites","project":"project.toml reports 0.13.1/001/releases/0.13.1","ci":"managed louke-ci workflow not implemented","build_publish":"no candidate executable PASS or publish evidence"}
+}

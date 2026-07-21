@@ -1,0 +1,34 @@
+{
+  "registry_identity": "louke.machine-contract-registry",
+  "registry_version": "1.0.0-candidate.v0.14-002.r4",
+  "owner": "Runtime/program",
+  "activation_state": "candidate",
+  "canonicalization": "SHA-256 of UTF-8 file bytes as recorded by design-artifact-manifest.candidate.json; implementation must migrate to canonical JSON bytes before active publication and record the resulting active digest",
+  "schemas": [
+    {"kind": "integration-test", "identity": "louke.machine-contract.integration-test", "version": "1.0.0", "digest": "sha256:db63276e04f52b8f6c22ea10133663a36227c4901050356e1479570b1ef91e98", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/integration-test-1.0.0.schema.json"},
+    {"kind": "e2e-test", "identity": "louke.machine-contract.e2e-test", "version": "1.0.0", "digest": "sha256:a12ebca80cc31997423ba5e602262804bde70456145bcf259f54482f1567b21c", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/e2e-test-1.0.0.schema.json"},
+    {"kind": "pre-commit", "identity": "louke.machine-contract.pre-commit", "version": "1.0.0", "digest": "sha256:e3de3924390a95dc4816d00d22ef4a372801296ad0931b562b948416f911a7c9", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/pre-commit-1.0.0.schema.json"},
+    {"kind": "github-actions-ci", "identity": "louke.machine-contract.github-actions-ci", "version": "1.0.0", "digest": "sha256:6522165ad69c7753be34465a9acac3a5a4dbce446a1dfaffcd8ef4012cf87111", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/github-actions-ci-1.0.0.schema.json"},
+    {"kind": "release-version", "identity": "louke.machine-contract.release-version", "version": "1.0.0", "digest": "sha256:29a179dff9ad7bc5f6929455310371f9e8eeee1443a20be91367aeab2abfd273", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/release-version-1.0.0.schema.json"},
+    {"kind": "build-artifact", "identity": "louke.machine-contract.build-artifact", "version": "1.0.0", "digest": "sha256:1c0f0830775275db5114e8ed3f52cab4eb809b01384cffe3e963ab025057b750", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/build-artifact-1.0.0.schema.json"},
+    {"kind": "publish-recovery", "identity": "louke.machine-contract.publish-recovery", "version": "1.0.0", "digest": "sha256:975ad47aeaf6666bfdd1df3cda9df40fe7fa8d619ec35ae868734fcf45116e49", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/schemas/publish-recovery-1.0.0.schema.json"}
+  ],
+  "agent_io_schemas": [
+    {"identity": "louke.agent-io.archer-design-task-input", "direction": "input", "role": "Archer", "version": "1.0.0", "digest": "sha256:74686ab3811b713d941d453a39b1f2af84263f76ec2994764d46de645eb75db9", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/agent-io/archer-design-task-input-1.0.0.schema.json"},
+    {"identity": "louke.agent-io.archer-design-result", "version": "1.0.0", "digest": "sha256:3b3f9801c6318d7786ffa8b461de5f65e091de345dac32c1bd913b6e4e29196b", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/agent-io/archer-design-result-1.0.0.schema.json"},
+    {"identity": "louke.agent-io.prism-design-review-task-input", "direction": "input", "role": "Prism", "version": "1.0.0", "digest": "sha256:6dc1bdaca5b3f4326479537edbd518f545436f193a499087bc20eb74abe50059", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/agent-io/prism-design-review-task-input-1.0.0.schema.json"},
+    {"identity": "louke.agent-io.prism-design-review", "version": "1.0.0", "digest": "sha256:13bad822fe5f21817038ec5e27b938c8e32e135ab809292be41bd04c1cd066dc", "owner": "Runtime/program", "activation_state": "candidate", "path": "design-artifacts/registry/agent-io/prism-design-review-1.0.0.schema.json"}
+  ],
+  "activation_gate": {
+    "atomic": true,
+    "prerequisites": [
+      "Devon packages these exact seven machine-contract schemas and four Agent I/O schemas (two task inputs plus two outputs) under louke/schemas and implements registry discover/resolve/validate",
+      "canonical JSON digests are generated; task inputs validate exact role/stage/write/effect/freshness bindings; all seven instances validate canonical envelope and artifact kind/path/digest provenance",
+      "unit, integration and e2e required suites collect and pass with 34/34 AC traceability",
+      "trusted active Prism reviews this complete candidate revision and Runtime persists a fresh PASS",
+      "wheel and sdist contain the registry/schemas and clean-install readback matches active digests",
+      "Runtime atomically writes one active registry pointer and readback proves it; no candidate schema is resolved before that point"
+    ],
+    "failure_semantics": "Before every prerequisite is current, Runtime resolve returns SCHEMA_NOT_ACTIVE and design baseline/publish fail closed. Partial publication, missing schema, unknown state or digest drift never activates any member."
+  }
+}

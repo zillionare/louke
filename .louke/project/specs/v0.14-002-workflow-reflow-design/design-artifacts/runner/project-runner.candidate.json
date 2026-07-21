@@ -1,0 +1,55 @@
+{
+  "identity": "louke.project-runner-contract.v0.14-002",
+  "version": "1.0.0-candidate.r4",
+  "activation_state": "candidate-not-installed",
+  "release": {"canonical_version": "0.14.0", "spec_id": "v0.14-002-workflow-reflow-design", "branch": "releases/0.14.0", "tag": "v0.14.0"},
+  "design_binding": {
+    "manifest_ref": {"identity": "louke.design-artifacts.v0.14-002.prism-r3-remediation", "revision": "prism-round-3-remediation-candidate", "digest_resolution": "external manifest bytes; no self-reference"},
+    "project_facts_artifact": {"kind": "host-project-facts-snapshot", "path": "design-artifacts/inputs/host-project-facts.snapshot.json", "digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130"},
+    "author_task_artifact": {"kind": "archer-author-task-manifest", "path": "design-artifacts/inputs/archer-author-task-manifest.candidate.json", "digest": "sha256:0a9d58474340e9520af49d2bea462c41533c1fabc81afbcf4f5f292caecefbfc"},
+    "contract_schema_refs": [
+      {"kind": "integration-test", "identity": "louke.machine-contract.integration-test", "version": "1.0.0", "digest": "sha256:db63276e04f52b8f6c22ea10133663a36227c4901050356e1479570b1ef91e98"},
+      {"kind": "e2e-test", "identity": "louke.machine-contract.e2e-test", "version": "1.0.0", "digest": "sha256:a12ebca80cc31997423ba5e602262804bde70456145bcf259f54482f1567b21c"}
+    ],
+    "candidate_validation": {"path": "design-artifacts/validation/schema-validation-record.candidate.json", "digest": "sha256:37074d4c247db89d5253b6335aae4a60dfafc34f1c7a3313ddc87213ce111273", "qualification": "design-time-only-not-active-evidence"}
+  },
+  "active_readback": {
+    "project_toml_digest": "sha256:47d9de0ca736ca45cd9b75872e6f23edfc0086038aa9261e690159f6e62123fd",
+    "observed": {"version": "0.13.1", "spec_id": "v0.14-001-workflow-reflow-spec", "release_branch": "releases/0.13.1"},
+    "runner_path": "tests/e2e/run_e2e.py",
+    "integration_collected_paths": ["tests/integration/install_experience"],
+    "e2e_profiles": {"install": ["tests/e2e/install_experience"], "chromium": ["tests/e2e/test_v013_chromium_journey_e2e.py"]},
+    "status": "drifted-from-candidate",
+    "failure_semantics": "Current project.toml and runner are historical active assets. They do not prove v014 integration/e2e execution; candidate gates remain fail closed."
+  },
+  "devon_foundation_changes": {
+    "priority": 1,
+    "modify_only": ["tests/e2e/run_e2e.py", ".louke/project/project.toml", "host dependency/constraint configuration required by locked versions"],
+    "public_commands_unchanged": {"integration": "tests/e2e/run-project-venv integration", "e2e": "tests/e2e/run-project-venv e2e --profile all --runtime both"},
+    "integration": {"ordered_paths": ["tests/integration/install_experience", "tests/integration/v014_design_contracts"], "required_new_path": "tests/integration/v014_design_contracts", "services": [], "runtime": "project .venv"},
+    "e2e": {
+      "profile_choices": ["install", "chromium", "design-contracts", "all"],
+      "all_expansion": ["install", "chromium", "design-contracts"],
+      "runtime_choices": ["local", "global", "both"],
+      "design_contracts_path": "tests/e2e/v014_design_contracts",
+      "design_contracts_runtimes": ["local", "global"],
+      "start": "lk web --host 127.0.0.1 --port <allocated-port>",
+      "ready": {"request": "GET http://127.0.0.1:<allocated-port>/health", "interval_ms": 250, "timeout_seconds": 60, "success": "HTTP 200 and response reports expected installed louke version"},
+      "teardown": "save redacted evidence; TERM process group; wait 10 seconds; KILL if needed; remove temporary HOME/XDG/workspace/port state",
+      "timeout_seconds": 2400
+    },
+    "dependencies": {"python": ["3.11", "3.12", "3.13", "3.14"], "pytest": "8.4.1", "pytest_cov": "6.2.1", "playwright": "1.54.0 with bundled Chromium revision", "build": "1.2.2.post1", "jsonschema": "4.25.1"},
+    "project_toml_target": {"project.version": "0.14.0", "project.spec_id": "v0.14-002-workflow-reflow-design", "project.release_branch": "releases/0.14.0", "meta.test_framework": "pytest", "integration.paths_append": ["tests/integration/v014_design_contracts"], "e2e.paths_append": ["tests/e2e/v014_design_contracts"]}
+  },
+  "discovery_and_exit_contract": {
+    "before_run": "build expected suite/node/AC-layer manifest from the locked design artifact manifest and selected profile/runtime",
+    "success": "Every required path exists; expected nodes are collected exactly once per required runtime; every required AC/layer has passed evidence; service ready and teardown succeeded",
+    "nonzero": ["required path missing", "zero collection", "expected node missing", "required AC/layer missing", "duplicate or unknown evidence", "unknown profile/runtime", "required skip", "not-run", "test failure", "timeout", "cancel", "ready failure", "teardown failure", "evidence write or digest failure"],
+    "pytest_extra_args": "May narrow only optional diagnostics; may not remove locked required paths/profiles/runtimes or override zero-collection/required evidence checks"
+  },
+  "evidence_schema": {
+    "schema_version": "1.0.0", "file": "v014-runner-evidence.json", "required_fields": ["schema_version", "release_identity", "spec_id", "base_commit", "runner_digest", "command", "profile", "runtime", "expected_node_ids", "collected_node_ids", "ac_layers", "suite_results", "service_lifecycle", "started_at", "finished_at", "exit_reason", "evidence_digest"], "junit_required": true, "secret_redaction_required": true
+  },
+  "activation_prerequisites": ["Devon foundation change implemented", "unit tests for parser/discovery/evidence/exit semantics pass", "integration collect readback includes historical plus v014 path", "e2e all/both readback includes three profiles across required runtimes", "project.toml target identity readback matches", "fresh trusted Prism implementation review and Louke CI / required success"],
+  "activation_failure": "Until all prerequisites are current, Runtime records required v014 integration/e2e as not-run and refuses implementation completion/publish."
+}

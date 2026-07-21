@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:louke:schema:agent-io:prism-design-review-task-input:1.0.0",
+  "title": "Program-owned Prism M-DESIGN review task input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_kind", "schema_version", "input_schema_ref", "task_identity", "dispatch", "stage", "spec", "design_revision", "reviewed_inputs", "allowed_write_set", "forbidden_effects", "output_contract", "reviewer_binding", "freshness"],
+  "properties": {
+    "artifact_kind": {"const": "prism-review-task-manifest"},
+    "schema_version": {"const": "1.0.0"},
+    "input_schema_ref": {"$ref": "#/$defs/inputSchemaRef"},
+    "task_identity": {"type": "string", "minLength": 1},
+    "dispatch": {"$ref": "#/$defs/dispatch"},
+    "stage": {"const": "M-DESIGN"},
+    "spec": {"$ref": "#/$defs/spec"},
+    "design_revision": {"$ref": "#/$defs/revision"},
+    "reviewed_inputs": {"type": "array", "minItems": 5, "items": {"$ref": "#/$defs/inputArtifact"}},
+    "allowed_write_set": {"type": "array", "maxItems": 0},
+    "forbidden_effects": {"type": "array", "minItems": 6, "uniqueItems": true, "items": {"enum": ["artifact-write", "review-artifact-write", "commit", "push", "runtime-gate-command", "dispatch", "activation", "stage-progression", "runtime-state-write", "external-side-effect", "human-decision-substitution"]}},
+    "output_contract": {"$ref": "#/$defs/outputContract"},
+    "reviewer_binding": {"$ref": "#/$defs/reviewerBinding"},
+    "freshness": {"$ref": "#/$defs/freshness"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "schemaRef": {"type": "object", "additionalProperties": false, "required": ["identity", "version", "digest"], "properties": {"identity": {"type": "string", "minLength": 1}, "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}, "digest": {"$ref": "#/$defs/digest"}}},
+    "inputSchemaRef": {"allOf": [{"$ref": "#/$defs/schemaRef"}], "properties": {"identity": {"const": "louke.agent-io.prism-design-review-task-input"}, "version": {"const": "1.0.0"}}},
+    "dispatch": {"type": "object", "additionalProperties": false, "required": ["authority", "role", "mode", "attempt_id", "execution_transport"], "properties": {"authority": {"const": "Runtime/program"}, "role": {"const": "Prism"}, "mode": {"const": "subagent"}, "attempt_id": {"type": "string", "minLength": 1}, "execution_transport": {"$ref": "#/$defs/executionTransport"}}},
+    "spec": {"type": "object", "additionalProperties": false, "required": ["id", "revision", "story_digest", "spec_digest", "acceptance_digest"], "properties": {"id": {"const": "v0.14-002-workflow-reflow-design"}, "revision": {"type": "string", "minLength": 1}, "story_digest": {"$ref": "#/$defs/digest"}, "spec_digest": {"$ref": "#/$defs/digest"}, "acceptance_digest": {"$ref": "#/$defs/digest"}}},
+    "revision": {"type": "object", "additionalProperties": false, "required": ["identity", "revision"], "properties": {"identity": {"const": "louke.design-artifacts.v0.14-002.prism-r3-remediation"}, "revision": {"const": "prism-round-3-remediation-candidate"}}},
+    "inputArtifact": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "digest", "required"], "properties": {"kind": {"enum": ["story", "spec", "acceptance", "test-plan", "architecture", "interfaces", "design-artifact-manifest", "prompt-bundle", "program-validation-record", "discussion-set"]}, "path": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}, "required": {"const": true}}},
+    "executionTransport": {"type": "object", "additionalProperties": false, "required": ["provider_metadata", "session_metadata"], "properties": {"provider_metadata": {"type": "object", "minProperties": 1, "additionalProperties": true}, "session_metadata": {"type": "object", "minProperties": 1, "additionalProperties": true}}},
+    "outputContract": {"type": "object", "additionalProperties": false, "required": ["schema_ref", "delivery"], "properties": {"schema_ref": {"allOf": [{"$ref": "#/$defs/schemaRef"}], "properties": {"identity": {"const": "louke.agent-io.prism-design-review"}, "version": {"const": "1.0.0"}}}, "delivery": {"const": "return-to-Runtime/program-for-validation-and-persistence"}}},
+    "reviewerBinding": {"type": "object", "additionalProperties": false, "required": ["reviewer_execution", "reviewed_candidate", "self_review_prohibited"], "properties": {"reviewer_execution": {"type": "object", "additionalProperties": false, "required": ["state", "role", "deployment_path", "deployment_digest"], "properties": {"state": {"const": "trusted-active-existing"}, "role": {"const": "prism"}, "deployment_path": {"const": ".opencode/agents/prism.md"}, "deployment_digest": {"$ref": "#/$defs/digest"}}}, "reviewed_candidate": {"type": "object", "additionalProperties": false, "required": ["bundle_identity", "bundle_digest", "design_manifest_identity", "design_manifest_revision", "design_manifest_digest"], "properties": {"bundle_identity": {"type": "string", "minLength": 1}, "bundle_digest": {"$ref": "#/$defs/digest"}, "design_manifest_identity": {"const": "louke.design-artifacts.v0.14-002.prism-r3-remediation"}, "design_manifest_revision": {"const": "prism-round-3-remediation-candidate"}, "design_manifest_digest": {"$ref": "#/$defs/digest"}}}, "self_review_prohibited": {"const": true}}},
+    "freshness": {"type": "object", "additionalProperties": false, "required": ["base_commit", "reviewed_input_set_digest", "invalidated_by", "policy"], "properties": {"base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "reviewed_input_set_digest": {"$ref": "#/$defs/digest"}, "invalidated_by": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["reviewer-execution-digest-change", "reviewed-candidate-bundle-change", "design-manifest-digest-change", "reviewed-input-digest-change", "base-commit-change", "discussion-set-change", "output-schema-change"]}}, "policy": {"const": "any listed identity or digest change rejects or stales the review task/result"}}}
+  }
+}

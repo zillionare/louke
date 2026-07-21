@@ -1,0 +1,15 @@
+{
+  "bundle_identity": "louke.prompt-bundle.v0.14-002.r4",
+  "bundle_digest": "sha256:5f914a48029f186192d6cd67d5e80ce14bfb12701484a23683e7d978ab69d403",
+  "readback_kind": "candidate-staging",
+  "status": "candidate_staging_in_sync",
+  "active_changed": false,
+  "records": [
+    {"role": "archer", "source_expected": "sha256:a2fe1fc160ea9b72af8161dc0e4339fdcf7b1e33e86017deaddca71dfdfa7248", "source_actual": "sha256:a2fe1fc160ea9b72af8161dc0e4339fdcf7b1e33e86017deaddca71dfdfa7248", "render_expected": "sha256:6bf121dc4ca5ce3fdddeec88ea9c964bf3844880e09df0d1769f4c8a11de9318", "render_actual": "sha256:6bf121dc4ca5ce3fdddeec88ea9c964bf3844880e09df0d1769f4c8a11de9318", "active_digest": "sha256:ee9681dca52f7cc17d489c0538d63cbaeb09015b1d24d9ab1ad9a0459d9afa33"},
+    {"role": "prism", "source_expected": "sha256:1c6d1a951cd8acc59dc950963c399cea0597cfbce8e6801425d0466125283938", "source_actual": "sha256:1c6d1a951cd8acc59dc950963c399cea0597cfbce8e6801425d0466125283938", "render_expected": "sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144", "render_actual": "sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144", "active_digest": "sha256:fba0ff7f2159c48377c0ea94145daf5f6af2d66e716614860ea8e2865478e005"}
+  ],
+  "transformer_expected": "sha256:eafdba029b8dce98f3e3924d8a6e5f06d1d740896291814dd350ea60a4286b21",
+  "transformer_actual": "sha256:eafdba029b8dce98f3e3924d8a6e5f06d1d740896291814dd350ea60a4286b21",
+  "qualification": "This is a design-time staging readback computed without writing .opencode/agents. It is not production deployment readback or activation evidence.",
+  "failure_semantics": "Any mismatch, missing/extra role, or upstream input change changes status to drifted/stale and blocks review reuse and activation."
+}

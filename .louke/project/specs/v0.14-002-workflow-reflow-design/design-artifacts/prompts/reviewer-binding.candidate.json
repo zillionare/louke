@@ -1,0 +1,10 @@
+{
+  "review_task": "v0.14-002 Prism round 3 blocker remediation re-review",
+  "review_input_schema_ref": {"identity": "louke.agent-io.prism-design-review-task-input", "version": "1.0.0", "digest": "sha256:6dc1bdaca5b3f4326479537edbd518f545436f193a499087bc20eb74abe50059", "activation_state": "candidate"},
+  "reviewer_execution_bundle": {"state": "trusted-active-existing", "role": "prism", "deployment_path": ".opencode/agents/prism.md", "deployment_digest": "sha256:fba0ff7f2159c48377c0ea94145daf5f6af2d66e716614860ea8e2865478e005"},
+  "reviewed_candidate_bundle": {"state": "candidate-not-deployed", "identity": "louke.prompt-bundle.v0.14-002.r4", "digest": "sha256:5f914a48029f186192d6cd67d5e80ce14bfb12701484a23683e7d978ab69d403", "candidate_prism_render_digest": "sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144"},
+  "self_review_prohibited": true,
+  "binding_check": "reviewer execution digest and candidate Prism render/bundle identities are different; Runtime must bind both into the task and persisted result",
+  "stale_if": ["reviewer active digest changes before dispatch", "candidate bundle digest changes", "any reviewed design/contract/registry/prompt/runner input changes", "base commit or discussion set changes"],
+  "failure_semantics": "Missing, equal, unknown or stale identities reject the review result. Candidate output cannot establish trust or activate itself."
+}

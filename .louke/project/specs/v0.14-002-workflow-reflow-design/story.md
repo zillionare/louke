@@ -1,141 +1,199 @@
-# v0.14-002：让宿主项目设计可直接落地并持续受质量门禁保护
+# STR-1403: 形成可执行、可审查的宿主项目技术设计基线
 
-本文中的“项目”均指安装和使用 Louke 的宿主项目。Louke 自身采用什么语言、构建文件或 CI 配置，不构成宿主项目的默认事实。
+---
 
-本 Spec 包含两个相互配合的 Story：Story 1 确保 release version 真正进入宿主项目构建物；Story 2 确保 Louke 为宿主项目设计、实现并持续维护强制性的 GitHub Actions CI。两者共享宿主项目事实，但不能互相替代：branch 名称不能证明 artifact 版本，存在 workflow 文件也不能证明质量门禁真实生效。
+| Story ID | 创建时间 | 分流建议 |
+| :--- | :--- | :--- |
+| STR-1403 | 2026-07-19T00:00:00+08:00 | Go |
 
-## Story 1：让宿主项目的 Release Version 可验证地进入构建物
+---
 
-### 原始问题
+## 0. 原始输入
 
-Human 在创建 release 时已经提供目标版本，例如 `v1.2.3`，Louke 也会记录该版本并反映在 release branch 中。但 branch 名称只代表工作流身份，不能证明宿主项目最终构建物的版本正确。
+> v0.14 系列的主要任务是把工作流从 Maestro 掌控改为 Runtime 驱动，Agent 只做语义内容输出或 coding；Archer 承担 Test Plan、Architecture、Interfaces，以及宿主项目 CI、pre-commit、release version、build/artifact 和发布恢复等技术设计。Human 只负责 Story 和产品需求，不应被要求替 Agent 作技术决定。设计通过 Prism 独立评审和程序校验后直接进入实现，不再设置第二个 M-LOCK。
+>
+> Louke 将部署到成百上千个不同技术栈的宿主项目中。Agent 指令不得写入只属于 Louke 自身仓库的技术事实。对全新项目没有既有技术事实时，Archer 应自行作出合理技术选择。
+>
+> 从这一版起，Agent 提示词本身应成为规范的一部分，与其它 Spec 工件一同修改、评审、锁定；机器可读 schema 不能只存在于 Agent 提示词中。
 
-不同宿主项目的版本源、构建工具、artifact 类型和安装后版本读取方式不同。如果没有统一的版本身份契约，可能出现：
+## 1. 用户意图
 
-- branch 是 `releases/v1.2.3`，但构建物仍是旧版本；
-- 多个 artifact 版本不一致；
-- CI 构建成功但 publish 了错误版本；
-- 用户安装后无法确认实际安装的版本；
-- 全新项目没有既有版本方案，Agent 又把技术选择推回 Human。
+- **主要用户**：使用 Louke 管理宿主项目开发与发布的维护者，以及维护 Louke 工作流合同的开发者。
+- **当前处境**：需求已经批准，但测试层、架构、接口、CI、版本与构建物等技术决定仍可能散落在自然语言或 Agent 提示词中；若这些决定缺少统一身份、机器合同和独立评审，Runtime 无法可靠地驱动后续实现。
+- **目标结果**：Archer 根据当前需求基线和宿主项目事实自主形成完整设计，Runtime 能校验并持久化全部设计与提示词合同，Prism 独立评审后直接建立实现基线。
+- **成功信号**：进入 `M-IMPL` 时，下游 Agent 和程序无需猜测技术方案、输入输出 schema、测试层、CI、版本或发布合同，且所有输入均绑定同一可追溯 revision/digest。
 
-### Story 目标
+## 2. 核心操作路径
 
-作为使用 Louke 管理宿主项目 release 的维护者，我只需要在创建 release 时提供目标 release version；Louke 应根据宿主项目现状，或为全新项目自行选择合适的技术方案，建立从 release identity 到真实构建物 metadata 和安装后公开版本出口的可验证链路。
+### 2.1 主路径
 
-### Happy Path
+- **起点上下文**：Human 已在 `M-REQ-APPROVAL` 批准当前 Story、Spec 与 Acceptance revision。
+- **入口/触发**：Runtime 校验需求批准和宿主项目事实后进入 `M-DESIGN`，授权 Archer 编辑本轮指定的设计工件。
 
-1. Human 提供目标 release version。
-2. Louke 保存 canonical version，并与 release branch/tag identity 绑定。
-3. Archer 识别已有项目的版本源；若是全新项目，则自行选择版本源、构建方案和 adapter。
-4. Devon 实现 adapter 和 CI 接线，Shield 验证真实构建物。
-5. CI 构建所有必需 artifact，从 artifact metadata 提取版本并与 canonical version 比较。
-6. 所有 artifact 验证通过后才允许 publish；用户安装、部署或运行后可以从公开版本出口确认实际版本。
+1. Archer 读取需求基线、代码库事实、现有工具链和既有技术合同；全新项目缺少既有方案时，Archer自行选择适合目标产品的技术栈与工程方案。
+2. Archer 形成 Test Plan、Architecture、Interfaces，并生成有版本的 integration/e2e、pre-commit、GitHub CI、release-version、build/artifact 和 publish/recovery machine contracts。
+3. 本轮受影响的 Agent 提示词作为规范性工件进入同一设计 revision；其来源、部署结果、schema 引用和 digest 均被登记。
+4. Human 可以在文档界面评论或直接修改授权原文，也可以完全缺席；Archer自行判断技术建议，发现产品缺口时才返回需求边界。
+5. Runtime 执行结构、schema、引用、覆盖、漂移和安全校验；Prism 对当前精确 revision 做独立语义评审。
+6. REVISE 形成新 revision 并重新评审；全部检查通过后，Runtime 将设计工件、machine contracts 和规范性提示词的精确身份合并为 implementation baseline。
+7. 流程直接进入 `M-IMPL`，不要求 Human 批准技术方案；后续有效 design gap 可以按定义化路径返回 `M-DESIGN`。
 
-### 关键边界
+- **继续/返回**：成功后进入 `M-IMPL`；技术缺口留在 `M-DESIGN` 修订，产品范围或 Acceptance 缺口经 Human 决定后返回 `M-SPEC`/`M-ACC`。
 
-- Human 负责提供产品 release version，不负责选择 Maven/Gradle、npm、Cargo 或其它技术方案。
-- Archer 负责技术选择、版本映射、adapter contract、构建与验证设计。
-- branch 名称不是 artifact 版本来源。
-- 不同宿主项目可以有不同版本源和构建方式，但最终必须提供统一的 canonical version 比较结果。
-- 版本不一致、无法提取、artifact 缺失或构建结果不确定时，CI 必须阻止 publish。
-- 这条 Story 不规定某一种语言、构建工具或配置文件。
+### 2.2 行为种子
 
-### 建议的 Behavior Seeds
+### BS-01 设计阶段入口与上下文
 
-- 已有项目能够绑定真实版本源和现有 release workflow。
-- 全新项目能够由 Archer 自行选择版本方案和构建工具。
-- 带 `v` 前缀的 tag 与宿主项目不带前缀的版本可以按明确规则比较。
-- 多个 artifact 中任一版本不匹配时，发布被阻止。
-- 安装后的版本来自真实 artifact metadata，而不是 branch 名称或源码中的声明。
-- CI 中断、构建失败或结果不确定时，不得标记为 artifact verified。
+- EARS: `WHEN 当前需求 baseline 已获批准且全部输入 current, THE 系统 SHALL 建立绑定精确需求与宿主项目事实的 M-DESIGN revision。`
+- 来源: 主路径
+- 说明: 防止 Archer 针对过期需求或错误代码基线进行设计。
 
-## Story 2：Louke 为宿主项目托管强制性的 GitHub Actions CI
+### BS-02 自主技术决策
 
-### 原始问题
+- EARS: `WHERE 宿主项目已有有效技术事实, THE 系统 SHALL 要求设计兼容并复用这些事实；WHERE 全新项目不存在既有方案, THE 系统 SHALL 由 Archer 自主选择技术方案。`
+- 来源: 原始输入 / 产品约束
+- 说明: 既不把某个工具仓库的做法泛化给所有项目，也不把技术责任推给 Human。
 
-CI 是宿主项目开发质量的一部分，但最终用户不应为了使用 Louke 而自行研究测试分层、编写 GitHub Actions YAML、维护 required checks，或在每次架构变化后手工同步 workflow。
+### BS-03 三类设计文档
 
-Louke 早期可以只支持 GitHub 和 GitHub Actions。现有 Louke 能在 test-plan 中描述命令，也曾提出安装固定 workflow 模板，但尚未形成适用于不同宿主技术栈的完整闭环：
+- EARS: `WHEN Archer 完成设计, THE 系统 SHALL 产出彼此一致且可追溯到 FR/AC 的 Test Plan、Architecture 与 Interfaces。`
+- 来源: flow.md M-DESIGN
+- 说明: 为实现、测试和评审提供完整语义输入。
 
-- 初始化代码当前不会安装 CI workflow；
-- 固定语言模板不能正确服务 Java、Node、Go、Rust、Python 或混合项目；
-- 现有 AC 扫描只能确认 AC 被某个测试引用，不能确认它由必需的 integration/e2e 层覆盖；
-- workflow 存在不等于默认分支已把它配置成 required check；
-- 宿主项目命令、测试层、artifact 或外部依赖变化后，CI 可能与锁定设计漂移；
-- 直接覆盖既有 `.github/workflows/` 会破坏用户资产，完全放任既有 workflow 又不能保证 Louke 的质量合同。
+### BS-04 测试层闭包
 
-### Story 目标
+- EARS: `WHEN Test Plan 分配验收条件, THE 系统 SHALL 为每个 AC 明确 observable interface、required test layer、执行入口与 CI gate。`
+- 来源: CI 与测试讨论
+- 说明: 避免仅复述功能或只写 unit test 而遗漏真实用户旅程。
 
-作为使用 Louke 开发宿主项目的维护者，我希望 Louke 根据已批准需求、宿主项目事实和 Archer 的技术设计，自动完成 GitHub Actions CI 的设计、实现、验证、强制启用和后续更新，使每次 pull request 和受保护分支变更都必须通过与当前设计一致的质量门禁，而不需要我自行开发 CI。
+### BS-05 有版本的 Machine Contracts
 
-### Happy Path
+- EARS: `WHEN 设计包含程序需要执行的命令、路径、schema 或失败语义, THE 系统 SHALL 将其写入可校验且有版本的 machine contract。`
+- 来源: flow.md / schema 讨论
+- 说明: 下游程序和 Agent 不应从自然语言猜测接口。
 
-1. Louke 确认宿主项目的 GitHub repository、默认分支、当前技术栈、构建入口、测试入口、artifact 和既有 workflows。
-2. Archer 为每个 AC 定义可观察接口、必需测试层和 CI gate/job，并完成 runner、工具链、job DAG、权限、secret、外部依赖、artifact/evidence 和失败语义设计。
-3. 该设计以正式 artifact 和程序支持的 machine-readable CI contract 固化；下游不需要从自然语言猜测 schema 或命令。
-4. Devon 按锁定设计创建或更新 Louke 托管的 `.github/workflows/louke-ci.yml` 和必要的宿主项目命令入口；无关既有 workflow 保持不变。
-5. Shield 实现 test-plan 指定的 integration/e2e 资产；同一 AC 要求多个测试层时，各层分别提供证据。
-6. Louke 对 workflow、CI contract、测试资产和宿主命令做本地确定性校验，提交后触发真实 GitHub Actions run。
-7. Louke 确认稳定聚合 check `Louke CI / required` 已由 GitHub Actions 产生并成功，再通过 GitHub repository ruleset 或 branch protection 将其设置为目标分支 required check，并回读确认。
-8. 后续设计若改变构建、测试层、artifact、运行环境或 gate，Louke 更新托管 workflow 并再次验证；未同步的漂移会阻止完成，而不是被静默接受。
+### BS-06 托管 GitHub CI
 
-### 产品边界
+- EARS: `WHEN 宿主项目进入 Louke 管理, THE 系统 SHALL 设计与真实技术栈匹配的 GitHub Actions CI、稳定 required check 和冲突安全的维护方案。`
+- 来源: 已确认产品决定
+- 说明: 用户不需要自行开发或维护基础 CI。
 
-- 当前强制支持的 provider 是 GitHub Actions；不要求在本 Story 中支持 GitLab CI、Jenkins 或其它 CI。
-- GitHub CI 对每个 Louke 宿主项目都是必需能力，不能整体标记为 `N/A`。单个质量层只有在产品和技术上确实不适用时才可记录 `N/A` 及技术理由；“目前还没写”不是理由。
-- Louke 管理固定路径 `.github/workflows/louke-ci.yml`。其它 workflow 默认属于宿主项目既有资产；Louke 不删除、不覆盖，除非锁定设计明确要求复用并能安全合并。
-- Archer 决定技术方案；Devon 实现 workflow；Shield 实现 integration/e2e 测试。Human 不负责选择 runner、测试框架、job DAG、缓存或 GitHub Actions 写法。
-- Agent 指令只规定各自的专业责任；workflow 生成、验证、GitHub API 写入、证据持久化和失败恢复必须由程序提供，不依赖 Agent 自述成功。
-- CI 与 release/publish 分离：pull request CI 不发布生产 artifact；release/publish 必须依赖同一 commit 的 required CI 和 Story 1 的 artifact identity gate。
+### BS-07 Pre-commit 合同
 
-### 程序能力 Story Seeds
+- EARS: `WHEN 宿主项目需要正式 commit gate, THE 系统 SHALL 设计保留既有 hooks 的快速 pre-commit 合同，并将全量权威检查留给 Runtime 与 CI。`
+- 来源: RGR/pre-commit 讨论
+- 说明: pre-commit 不承担 Red 证明，也不能成为唯一质量权威。
 
-后续 Spec/Acceptance 应把下列种子细化为正式 FR/NFR 和 AC：
+### BS-08 Release Version 与构建物身份
 
-1. **Machine-readable CI contract**
-   - 为 `.louke/project/project.toml` 或独立受控 artifact 定义有版本的 CI schema；schema 至少表达 provider、managed workflow path、目标分支、触发器、runner/矩阵、setup、jobs/依赖、宿主命令、required check、权限、secret、service、cache、artifact/evidence 和 failure policy。
-   - task manifest 必须把同一 schema 和授权字段交给 Archer、Devon、验证程序；不得只把格式写在某个 Agent prompt 中。
-   - schema 升级需要迁移和向后兼容诊断；未知字段或未知版本不得被静默忽略。
+- EARS: `WHEN release 具有 canonical version, THE 系统 SHALL 设计该身份进入版本源、全部构建物及安装/运行后公开版本出口的可验证链路。`
+- 来源: release version 讨论
+- 说明: branch/tag 名称不能替代真实 artifact version。
 
-2. **需求级测试层合同**
-   - test-plan/template 提供规范化的 `AC → observable interface → required layer(s) → CI gate/job → rationale` 分配。
-   - 跨 2 个以上模块的接口自动要求 integration；面向用户的主成功旅程自动要求 e2e；一个 AC 可以要求多个层。
-   - 校验器读取 Acceptance、interfaces、覆盖分配和测试元数据，拒绝未覆盖 AC、错误测试层、漏掉 integration/e2e、未注册测试路径和必需层被 skip/deferred 却无正式依据。
-   - 结构闭包由程序验证；Archer/Prism 仍负责判断分层语义是否正确。
+### BS-09 发布与恢复合同
 
-3. **冲突安全的托管 workflow 生命周期**
-   - 新项目创建托管 workflow；已有项目先盘点并保留其它 workflows。
-   - Louke 为托管文件记录生成来源、contract revision/digest 和最后同步版本；相同输入生成稳定结果。
-   - 文件未被外部修改时可幂等更新；检测到 Human/其它工具直接修改时不得静默覆盖，必须保留 diff，交由实现 Agent 依据锁定设计完成语义合并，再建立新基线。
-   - workflow 缺失、YAML 非法、命令不存在、contract 漂移或 required 聚合不完整时，校验失败。
+- EARS: `WHEN 设计发布过程, THE 系统 SHALL 明确幂等外部操作、发布后验证、回滚或 forward-fix 以及不确定结果的恢复行为。`
+- 来源: flow.md M-PUBLISH
+- 说明: Runtime 必须能够从中断和 partial success 中恢复。
 
-4. **稳定 required check 与失败传播**
-   - 托管 workflow 在 push、pull request 和手动诊断场景运行，并按项目策略覆盖默认分支和 release branches；使用 merge queue 时支持对应触发器。
-   - 提供名称稳定且不与其它 workflow 重复的聚合 check `Louke CI / required`。
-   - 聚合 check 只有在全部必需 job 成功时才成功；失败、取消、超时、缺失、结果不确定或被非法 skip 都必须失败。
-   - format/lint/static、unit、integration、e2e、AC traceability、build 和 artifact verification 按 CI contract 纳入；各 job 可按风险并行，但 required 聚合保持确定性。
+### BS-10 提示词成为规范性工件
 
-5. **GitHub 强制启用与回读**
-   - 在 workflow 首次产生目标 check 后，Louke 创建或更新自己拥有的 repository ruleset；能力不支持时使用兼容的 branch protection required status check 机制。
-   - 只增加或更新 Louke 拥有的规则，不删除用户已有 ruleset、required check 或 review policy。
-   - GitHub 权限、套餐能力、check 尚未出现、API partial success、网络中断或回读不一致时，不得报告“CI 已强制启用”；提供可重试且幂等的恢复路径。
+- EARS: `WHEN 某一 Spec 改变 Agent 的语义职责, THE 系统 SHALL 将受影响的 canonical prompt source 列入该 Spec 的规范性工件集并与其它设计工件共同 revision、review 和 baseline。`
+- 来源: 原始输入
+- 说明: Agent 行为不能继续作为未声明的隐式规范。
 
-6. **安全与可复现性**
-   - 默认使用最小 GitHub token 权限；pull request/fork 代码不得在生产 secret 或高权限 token 上下文执行。
-   - 默认 CI 使用可控替身处理第三方服务；真实外部 smoke 单独标识环境和 evidence，不进入无凭据的默认 PR gate。
-   - action、runtime、工具链和依赖遵循宿主项目设计的固定/锁定策略；缓存不能成为跳过安装、验证或 artifact identity 的证据。
+### BS-11 提示词与 Schema 分离
 
-7. **可观察证据与恢复**
-   - 本地校验和 GitHub run 都产生可关联 repository、commit、workflow revision、CI contract digest、required check、job 结果和 artifact identity 的证据。
-   - 重试不重复创建 ruleset 或破坏既有 workflow；中断恢复从最后可确认事实继续。
-   - workflow 或 branch rule 被外部删除/修改后，Louke 能检测 drift 并恢复到当前锁定合同；无法自动安全恢复时明确阻断，不伪报 PASS。
+- EARS: `WHEN Agent 输入或输出需要结构化数据, THE 系统 SHALL 由程序拥有并版本化 schema，提示词只引用该 schema 和语义责任。`
+- 来源: schema 来源讨论
+- 说明: Devon 等 Agent 必须从 task manifest 得到可执行合同，而不是从另一 Agent 的文字猜测格式。
 
-### 建议的验收场景
+### BS-12 提示词部署一致性
 
-- 全新 Java、Node 或其它宿主项目由 Archer 自主选择技术栈后，Louke 能生成并启用与该项目匹配的 CI，而不出现其它语言的虚假路径。
-- 已有项目带有多个自定义 workflow 时，Louke 新增或更新托管 workflow，不改变无关文件和既有 required checks。
-- integration AC 只有 unit test 引用，或 e2e AC 只有 API/integration 测试时，层级闭包失败。
-- 必需 job 失败、取消、超时或未运行时，`Louke CI / required` 失败，PR 不能合并。
-- GitHub API 在 ruleset 写入后返回 partial success 或回读不一致时，操作可安全重试且不会报告完成。
-- Human 直接编辑托管 workflow 后，Louke 保存并呈现 diff，不静默覆盖；实现 Agent 合并后建立新的 contract digest。
-- release workflow 尝试发布一个 required CI 未通过或 artifact version 不匹配的 commit 时，publish 被阻止。
+- EARS: `WHEN canonical prompt source 被部署为运行时 Agent 配置, THE 系统 SHALL 生成可回读的 prompt bundle manifest 并检测来源、转换结果和部署副本的漂移。`
+- 来源: 当前 prompt packaging 事实
+- 说明: 确保实际运行的提示词就是当前设计基线中的版本。
+
+### BS-13 Human 可选 Review 与直接修改
+
+- EARS: `WHEN Human 在 M-DESIGN 评论或直接修改原文, THE 系统 SHALL 保留 diff 并由 Archer 按技术判断处理；WHEN Human 缺席, THE 系统 SHALL 继续技术评审。`
+- 来源: Human diff / 技术责任讨论
+- 说明: Human 可以干预，但不是技术批准门禁。
+
+### BS-14 独立 Prism Review
+
+- EARS: `WHEN 当前设计 revision 完成程序校验, THE 系统 SHALL 由未参与作者结果伪造的 Prism 独立评审全部设计、合同和规范性提示词。`
+- 来源: flow.md
+- 说明: 保证设计语义一致、可实现且没有职责空洞。
+
+### BS-15 无第二次技术锁
+
+- EARS: `WHEN 当前设计 revision 的程序校验与 Prism review 均通过, THE 系统 SHALL 直接建立 implementation baseline 并进入 M-IMPL。`
+- 来源: 已确认流程决定
+- 说明: Human 只批准产品需求，不承担技术方案签字。
+
+## 3. 范围、约束与例外
+
+### 3.1 必须保持的产品约束
+
+- Runtime 是 dispatch、持久化、Git、GitHub、阶段推进和副作用的唯一 authority；Agent 只编辑获授权工件并返回语义结果。
+- Archer 不主动向 Human 请求架构、测试、接口、CI、构建工具或其它技术决定；产品需求缺口必须通过 Runtime 返回需求阶段。
+- 设计必须以宿主项目事实为依据，不得把 Louke 自身仓库的语言、构建配置或目录当作所有宿主项目默认。
+- GitHub Actions 是当前强制支持的 CI provider；其它 CI provider 不在本批次内。
+- 每份 Spec 最多 30 条有效 FR；本 Story 的提示词治理与 M-DESIGN 同属 002，不再拆分额外 batch。
+
+### 3.2 非常规要求
+
+- Agent 提示词从本版本起属于正式规范性工件，而非仅作为实现细节或部署副本存在。
+- M-DESIGN 没有 Human 技术批准 gate；Human 的沉默不等于认可，但也不阻塞 Archer/Prism 完成技术职责。
+
+### 3.3 Out-of-Scope
+
+- 不实现 GitHub Actions、pre-commit adapter、version adapter、Runtime 状态机或 Agent prompt 修改；本批次文档只定义其合同。
+- 不支持 GitLab CI、Jenkins 或其它 CI provider。
+- 不允许普通宿主项目 release 修改 Louke 安装包内的 canonical Agent prompts；宿主项目只消费被当前运行绑定的 prompt bundle。
+- 不规定所有宿主项目必须使用某一种语言、构建工具、测试框架、artifact 类型或版本文件。
+
+## 4. 重要推导与证据
+
+### D-01 Prompt source 与部署副本必须区分
+
+- **结论**：canonical source、转换规则和部署副本应有独立 identity，并由同一 bundle manifest 关联。
+- **依据**：当前实现从 `louke/agents/*.md` 生成 `.opencode/agents/*.md`，部署过程会重写 frontmatter/model/skill 引用。
+- **影响**：只锁定源文件或只检查部署文件都不足以证明实际 Agent 合同一致。
+
+### D-02 Prompt 不能拥有唯一的机器接口定义
+
+- **结论**：Agent 的结构化输入输出 schema 必须由 Runtime 可发现的版本化 registry 提供。
+- **依据**：下游 Agent 不会可靠地读取另一 Agent 的提示词；仅在 prompt 中给出 YAML 示例无法形成程序校验合同。
+- **影响**：prompt 只保留职责、语义规则和 schema reference，Runtime manifest 携带精确 schema identity。
+
+### D-03 规范性提示词的适用范围必须显式
+
+- **结论**：每个 Spec 声明其影响的 prompt source；未列入的 prompt 不因该 Spec 自动变化。
+- **依据**：Louke 的 Agent 提示词会部署到大量宿主项目，混入仅属于单个宿主项目的技术事实会造成错误泛化。
+- **影响**：002 主要影响 Archer 与 Prism；003 再规范实现、测试、安全和收尾角色。
+
+### D-04 Human 直接修改与技术批准不同
+
+- **结论**：Runtime 应把直接 diff 提供给当前 Agent；Agent 可接受无问题的修改，发现问题时通过 inline discussion 讨论。
+- **依据**：每轮均有 Runtime commit/baseline，可精确识别 Human 修改；Human 仍可能不用 inline discussion。
+- **影响**：不需要新增技术 gate，也不能把 Human 修改自动当作批准。
+
+## 5. 开放产品决定
+
+无。当前未决项均属于 Archer 应自主完成的技术设计，或已由既有产品决定确定。
+
+## 6. 必要性、风险与分流建议
+
+- **既有能力**：当前已有 Agent prompt source/deployment、部分 Runtime manifest/schema、GitHub 集成和设计文档模板，可作为迁移基础。
+- **冲突**：现有 prompts 中仍可能包含 Maestro 驱动、Agent 自行推进/commit、或 schema 只写在提示词中的旧合同，需要按本 Spec 后续迁移。
+- **重要风险**：若只实现 Runtime graph 而不锁定 prompt bundle，实际运行 Agent 可能继续服从旧职责；若 machine contract 仍是自由文本，程序无法验证设计是否真正落地。
+- **分流建议**：Go — 这是 003 实现流程能够安全启动的必要前置设计。
+
+## 7. 可追溯信息
+
+- **Story ID**：`STR-1403`
+- **创建时间**：`2026-07-19T00:00:00+08:00`
+- **关联 Spec/Issue**：`v0.14-002-workflow-reflow-design`；Issue 待 `M-REQ-APPROVAL` 后建立
+- **Sage peer review**：`Pending`

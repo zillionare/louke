@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:louke:schema:agent-io:prism-design-review:1.0.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["verdict", "bound_input_digest", "reviewer_execution_bundle", "reviewed_candidate_bundle", "findings", "questions", "advisory"],
+  "properties": {
+    "verdict": {"enum": ["PASS", "REVISE"]}, "bound_input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "reviewer_execution_bundle": {"type": "object", "additionalProperties": false, "required": ["identity", "digest"], "properties": {"identity": {"type": "string"}, "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}},
+    "reviewed_candidate_bundle": {"type": "object", "additionalProperties": false, "required": ["identity", "digest"], "properties": {"identity": {"type": "string"}, "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}},
+    "findings": {"type": "array", "maxItems": 3, "items": {"type": "object", "additionalProperties": false, "required": ["id", "severity", "artifact", "anchor", "fr_ids", "ac_ids", "interface_ids", "architecture_anchors", "contract_refs", "message"], "properties": {"id": {"type": "string"}, "severity": {"enum": ["blocker", "major", "minor"]}, "artifact": {"type": "string"}, "anchor": {"type": "string"}, "fr_ids": {"type": "array", "items": {"type": "string"}}, "ac_ids": {"type": "array", "items": {"type": "string"}}, "interface_ids": {"type": "array", "items": {"type": "string"}}, "architecture_anchors": {"type": "array", "items": {"type": "string"}}, "contract_refs": {"type": "array", "items": {"type": "string"}}, "message": {"type": "string"}}}},
+    "questions": {"type": "array", "items": {"type": "string"}}, "advisory": {"type": "array", "items": {"type": "string"}}
+  }
+}

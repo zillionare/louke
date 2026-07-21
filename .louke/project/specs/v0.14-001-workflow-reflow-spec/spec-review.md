@@ -1,159 +1,93 @@
-# v0.14-001-workflow-reflow-spec — Lex Peer Review (2026-07-18)
+# v0.14-001-workflow-reflow-spec — Lex Semantic Review Round 3
 
-> 来源：Lex（独立语义 review）。产物用于驱动 Sage 下一轮修订。
-> 文件路径：`.louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md`
-> 范围：spec.md / acceptance.md / story.md / flow.md L1-L95。`flow.md` L96 之后不在本 Spec 内。
+- **reviewer**: Lex
+- **round**: 3
+- **reviewed_story_digest**: `sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634`
+- **reviewed_spec_digest**: `sha256:32b2f4c51209b0c8e4167439533370877ad38040fb44ae696d20d01280c81069`
+- **reviewed_acceptance_digest**: `sha256:159e82bce6d43580200ab9f968ee5e645b528374ba896fbec8f5191b66799f9f`
+- **reviewed_spec_revision**: 8
+- **reviewed_acceptance_revision**: 9
+- **verdict**: `PASS`
+- **reviewed_at**: `2026-07-20`
+- **supersedes**: stale v6 review, Lex round-1 review, and Lex round-2 review
+- **scope**: `story.md`, `story-review.md`, `flow.md` L1-L95, `spec.md` v8, `acceptance.md` v9
 
----
+## Verdict
 
-## 1. Verdict
+**PASS**
 
-**PASS-WITH-COMMENTS**
+当前 Spec/Acceptance 忠实覆盖 Story 的产品不变量，并形成从 `lk serve`、Workspace Setup、`/projects/new`、M-STORY、M-SPEC、M-ACC、M-LOCK-1 到 GitHub Issues/Project 结果的连续产品旅程。
 
-合同在 story.md / flow.md / spec.md / acceptance.md 之间双向可追；每条 FR 都有可断言 AC；Out-of-Scope 与 `flow.md` L96+ 严格分离。唯一 blocker 是 M-START 中"上一开发分支未合 main"在 FR-0400 + AC-1 写得过粗，需要 1 句话补正。其余 6 项均为建议项。
+前两轮提出的所有 blocker 均已闭合。当前 revision 未引入新的范围漂移、对象身份冲突、权限越界、恢复矛盾或不可断言的关键用户结果，可以移交后续确定性格式门禁及 Human review。
 
----
+## Prior Blocker Closure
 
-## 2. Coverage 三列表
+### 1. 启动硬前置失败与 Web readiness 边界
 
-### 2.1 `flow.md L1-L95` → 本 Spec FR/NFR 编号
+**状态：已闭合。**
 
-- L5-L13（启动与启动诊断）→ FR-0100, NFR-0100
-- L15-L23（Workspace Setup）→ FR-0200, NFR-0200
-- L25-L29（创建 release 表单）→ FR-0300, NFR-0100
-- L29-L31（分支合回 main / foundation）→ FR-0400, NFR-0100, NFR-0200, FR-2000
-- L30-L32（初始 story.md 与跳转）→ FR-0500, FR-2000
-- L34-L43（M-STORY 启动与 Human 裁决）→ FR-0600, FR-0700
-- L42（Park/No-Go 退出）→ FR-0800, FR-2000
-- L43-L46（Go 后访谈与 Scribe 继续）→ FR-0900, FR-1900
-- L47-L57（文档写权与多轮 review）→ FR-1000, FR-1100, FR-1200, FR-1900, FR-2000, NFR-0100, NFR-0200
-- L59-L66（M-SPEC 起草）→ FR-1300, FR-1900
-- L66-L74（M-SPEC Human/Lex review 与格式验收）→ FR-1400, FR-1900, FR-2000
-- L75（M-SPEC/M-ACC 返回上游）→ FR-1500
-- L77-L85（M-ACC 起草与 review）→ FR-1600, FR-1900
-- L87-L93（M-LOCK-1 批准）→ FR-1700, NFR-0100, NFR-0200
-- L94（Issue 创建 + Project 关联）→ FR-1800, NFR-0100, NFR-0200
-- L13, L23, L45-L55, L69-L72, L84-L94（横切：中断恢复）→ FR-2100, NFR-0100, NFR-0200
-- L5-L95（横切：installed-wheel golden path）→ NFR-0300
+FR-0100、AC-FR0100-01 与 AC-FR0100-03 已明确区分：
 
-> MISSING：无。L96 之后不在本 Spec 范围。
+- Web 服务本体无法建立的硬前置失败：进程非零退出、stderr 提供修复方向、Web 不可访问。
+- Web 可建立但配置、provider/auth、模型、OpenCode 或 workspace readiness 不完整：Web 保持可访问、显示 `BLOCKED`、release 动作不可提交。
 
-### 2.2 `story.md BS-01 .. BS-15` → 本 Spec FR/NFR 编号
+同一失败项不得同时归入两类，入口、失败结果及修复后重试路径一致。
 
-- BS-01 → FR-0100, FR-0200, NFR-0300
-- BS-02 → FR-0200, NFR-0200
-- BS-03 → FR-0300, NFR-0100
-- BS-04 → FR-0400, FR-0500, FR-2000
-- BS-05 → FR-0700, FR-1900
-- BS-06 → FR-0800, FR-0900, FR-2000
-- BS-07 → FR-0600, FR-1000, NFR-0100
-- BS-08 → FR-1100, FR-1200
-- BS-09 → FR-1000, FR-1200, FR-1400, FR-1600, FR-1900, FR-2000
-- BS-10 → FR-1300, FR-1400, FR-1900
-- BS-11 → FR-1100, FR-1400, FR-1600
-- BS-12 → FR-1500
-- BS-13 → FR-1600, FR-1900
-- BS-14 → FR-1700, FR-1800, NFR-0100, NFR-0200
-- BS-15 → FR-0200, FR-0400, FR-0600, FR-0800, FR-1800, FR-1900, FR-2000, FR-2100, NFR-0100, NFR-0200
+### 2. Workspace Setup 与 release Foundation 的资源归属
 
-> 双向闭合：每个 BS 都至少被一个 FR/NFR 引用；每个 FR/NFR 的 Source 行都包含至少一个 BS（NFR-0300 引用 BS-01..15 全体，符合横切条款）。
+**状态：已闭合。**
 
-### 2.3 反向：本 Spec FR/NFR → flow.md 至少一次被引用
+Step 2、FR-0200 与 AC-FR0200-01..05 将 Setup 限定为 workspace/repository identity、provider namespace、认证、模型、OpenCode readiness 及 namespace/create capability 等 workspace 级事实。
 
-- FR-0100 → flow.md L5-L13
-- FR-0200 → flow.md L15-L23
-- FR-0300 → flow.md L25-L29
-- FR-0400 → flow.md L29-L31
-- FR-0500 → flow.md L30-L32
-- FR-0600 → flow.md L34-L95（横切）
-- FR-0700 → flow.md L34-L43
-- FR-0800 → flow.md L42
-- FR-0900 → flow.md L43-L46
-- FR-1000 → flow.md L47-L57
-- FR-1100 → flow.md L47-L52
-- FR-1200 → flow.md L47-L57
-- FR-1300 → flow.md L59-L66
-- FR-1400 → flow.md L66-L74
-- FR-1500 → flow.md L75, L79-L85
-- FR-1600 → flow.md L77-L85
-- FR-1700 → flow.md L87-L93
-- FR-1800 → flow.md L94
-- FR-1900 → flow.md L38-L57, L63-L72, L81-L84
-- FR-2000 → flow.md L31, L45-L55, L69-L72
-- FR-2100 → flow.md L13, L23, L45-L55, L69-L72, L84-L94
-- NFR-0100 → flow.md L28, L47-L57, L69-L72, L91-L94
-- NFR-0200 → flow.md L18-L23, L45-L55, L69-L72, L91-L94
-- NFR-0300 → flow.md L5-L95
+Setup 不得创建、复用或预占具体 release 的 Project、WorkflowRun、release GitHub Project、release branch 或 Spec 目录。上述 release 级资源仅可在 release 请求确认、单活跃主 release 检查及 `main` 前置检查通过后，由 FR-0400 Foundation 创建或 reconcile。
 
-> 反向闭合：每个 FR/NFR 都在 flow.md 至少被引用一次。
+### 3. 所有 `main` 检查失败的零 release 副作用及错误资源恢复
 
----
+**状态：已闭合。**
 
-## 3. Blockers
+- AC-FR0400-04 以"本次 release 尚无任何 release 级资源"为初态，覆盖本地 `main` 不一致以及上一开发分支相对权威 `main` 为 ahead、behind、diverged 或无法判定的情况。
+- 该 AC 明确断言 Project、WorkflowRun、release GitHub Project、release branch、Spec 目录及 M-STORY task 均不增加，Human 修复并重新检查前不能绕过阻塞。
+- AC-FR0400-05 独立覆盖恢复时发现错误 branch 起点或 stable identity 冲突的场景。
+- 冲突资源保持 `conflict` 或 `needs_attention`，不得被当作 Foundation 完成，不得创建其它候选资源、静默改写既有资源或进入 M-STORY；页面向 Human 展示实际/预期 identity 与 remediation。
 
-### B-01
+AC-FR0400-01、AC-FR0400-04 与 AC-FR0400-05 共同证明 FR-0400 的正常前置失败、零副作用及异常恢复不变量。
 
-- **where**: spec.md FR-0400 body + acceptance.md FR-0400 AC-1
-- **why**: FR-0400 要求"刷新 declared remote 并证明上一主开发分支已合入权威 `main`"，但 acceptance.md FR-0400 AC-1 只在"刷新失败或未合入"路径上断言阻止；没有规定"刷新成功但证明失败（例如 divergent、需要 fast-forward、需要 human decision）"以及"已合入但 release branch 起点 SHA 与预期 main 不一致"等场景的精确行为。Devon 看到 FR-0400 body 仍会问"main 同步需要 human 时，run 怎么恢复"。
-- **evidence**: spec.md FR-0400 line 24-26；acceptance.md FR-0400 AC-1 line 70-74
-- **fix_direction**: 在 FR-0400 body 增加"main 不等于 declared remote 权威 main 时必须记录 divergent/behind/ahead 状态并要求 Human 确认 fast-forward/push 后再继续"；相应把 acceptance.md FR-0400 增加 AC-4 覆盖 divergent 场景（与 BS-37 行为语义对齐，但只覆盖本 Spec 的 main 一处同步）。
+## Coverage Summary
 
----
+- **Story behavior seeds**: 15/15 已覆盖。
+- **Functional requirements**: 21。
+- **Non-functional requirements**: 3。
+- **Current valid requirement units**: 24。
+- **Acceptance sections**: 24/24，每个有效 FR/NFR 均有对应 section。
+- **Acceptance criteria**: 82 个，未发现重复语义身份。
+- **User Journey**: 8/8 steps。
+- **Story review**: Sage PASS，绑定当前 Story digest。
 
-## 4. Comments（非 blocker）
+关键路径完整覆盖：
 
-### C-01
+`现有 workspace → lk serve → 启动诊断/Setup → /projects/new → main/Foundation → Story → Spec → Acceptance → M-LOCK-1 → Issues/Project → 后续流程入口`
 
-- **where**: spec.md FR-0700 body
-- **why**: "派发一个 Scribe semantic task" 的输入 contract 没有声明最小输入（已有 release manifest / story template 路径 / 上游 Story digest / 上一轮 feedback list）。Devon 实现 dispatch 时仍可能漏掉已确认字段。
-- **fix_direction**: 把"task input manifest 含：run_id / step_id / attempt_id / spec_id / template_path / spec digest / 上轮 feedback digests"作为强制子句加入 FR-0700。
+每个步骤均说明入口或触发、关键动作、用户可见结果以及继续、返回或恢复位置。
 
-### C-02
+## Scope and Product Invariants
 
-- **where**: acceptance.md FR-0900 AC-1
-- **why**: "回复先出现在 run/task event 中再出现在 session S transcript 中" 难以断言"先后顺序"，因为两边都是事件流而系统时钟/单调时钟口径未声明。
-- **fix_direction**: 用单调时间戳或固定 `correlation_id` 把两者绑定；AC 改为"reply 的 event.seq 小于 session transcript 中同 reply message 的 msg.seq"或等价可断言口径。
+- 未引入 `flow.md` L96 之后的 Test Plan、Architecture、Interfaces、实现、测试、发布、归档或通用 lifecycle 能力。
+- CLI 仅用于安装、升级和 `lk serve`，不用于推进 M-STORY、M-SPEC、M-ACC 或 M-LOCK-1。
+- 未引入多人审批、移动端、完整离线模式或旧 active run 迁移。
+- Human 独占 Go/Park/No-Go、return-upstream 与 M-LOCK-1 的决定权。
+- Runtime 是流程步骤、写权、revision、review、gate 与外部副作用的唯一推进 authority。
+- Scribe、Sage 与 Lex 不能自行批准门禁或改变流程位置。
+- Story、Spec、Acceptance 的 review 均绑定当前 revision/digest；上游变化使下游 PASS 与批准 evidence 失效。
+- 单写者、CAS、脏编辑保护及受控 Git commit 防止静默覆盖和无关 workspace 修改。
+- setup、Foundation、Agent session、Git 与 GitHub 操作均具有中断恢复、精确 identity reconcile 和幂等边界。
+- credentials、tokens、cookies 与 provider secrets 不得进入文档、manifest、event、log、错误详情、commit message 或 Agent input。
 
-### C-03
+## Blockers
 
-- **where**: spec.md FR-1000 body
-- **why**: "若能从受控文档基线精确隔离违规 patch，Runtime 可只移除该 patch" 这条规则依赖"受控文档基线 = 上一已提交 revision bytes" 的精确副本；storage schema 需要声明是否在每次 write 时存一份完整历史，否则 revert 算法无法实现。Archer 在 Architecture 阶段决定 lease 隔离算法是正确的，但 FR-1000 body 应预留一个隐式约束供 Archer 满足。
-- **fix_direction**: 在 FR-1000 body 增加一条要求"Runtime 必须为每个受控文档保留 N 个最近 committed revision bytes（含本轮可用的最新一次）供 patch 隔离使用"，无需指定 N。
+无。
 
-### C-04
+## Non-blocking Notes
 
-- **where**: spec.md FR-1200 + acceptance.md FR-1200 AC-3
-- **why**: "Human 与 Sage verdict 均为 PASS 且均绑定当前 digest 时，本轮才通过" 的语义在 M-SPEC 与 M-ACC 复用，但 spec.md FR-1400/FR-1600 重新声明了一遍。重复定义容易漂移。
-- **fix_direction**: 把"review 通过条件"抽象为一条独立的合同声明（可放在 spec.md 顶部"## Review contract"或 NFR-0100 中），让 FR-1200 / FR-1400 / FR-1600 引用，避免漂移。
-
-### C-05
-
-- **where**: spec.md FR-1500 body
-- **why**: "在 M-ACC 中 Human 可明确返回 M-SPEC，或在指出 Story 问题时返回 M-STORY" 暴露了"指出 Story 问题"的判定由 Human 自决；但当 Lex 在 M-ACC review 中发现 Story 级问题时，FR-1500 没说 Lex 也可以请求返回，仅说"Agent 只能提出建议"。
-- **fix_direction**: 在 FR-1500 body 增加"Lex 在 M-ACC review 阶段发现 Story 级问题时可写一条 canonical inline discussion 标注 `RETURN_TO_M-STORY` 候选；Runtime 不自动返回，须由 Human 在 UI 显式确认。" 这与 backlog 的 `return-upstream` 完整契约不同，但与本 Spec 的 Human-主导边界一致。
-
-### C-06
-
-- **where**: spec.md FR-1800 body
-- **why**: 现有契约写"title 必须以 `[FR-0100]` 开头"，但 backlog 中 PR / cross-link 工具也可能生成形如 `[FR-0100][AC-1]` 的 title；reconcile identity 应避免被前缀误匹配。
-- **fix_direction**: FR-1800 body 增加"reconcile 必须从 title 中解析单一 `[ID]` token，ID 必须精确等于 requirement ID（不允许重复 token、附加后缀或复合 ID）"。
-
-### C-07
-
-- **where**: spec.md FR-2000 body
-- **why**: "提交内容只能包含当前阶段预期的受控文档" 已声明文件白名单；但未声明 commit message 是否包含 actor/run/attempt 信息。
-- **fix_direction**: FR-2000 增加一条 "commit message 必须含 `[run=<run_id>] [round=<n>] [actor=<principal>] [task=<task_id>]` 字节串"，便于人工审计。
-
-### C-08
-
-- **where**: spec.md FR-2100 + NFR-0100
-- **why**: "对 repository/branch/Project/Issue 及其它外部操作，恢复必须按稳定 identity 查询实际状态"——但"稳定 identity"在不同资源类型下口径不同，未给出最小查询契约。
-- **fix_direction**: 在 NFR-0100 增加 "recovery identity 必须由 (resource_kind, owner, name, version, head_sha) 五元组构成；reconcile 必须使用最严格可比五元组"，与 FR-0400 / FR-1800 reconcile identity 引用一致。
-
----
-
-## 5. 越界检查
-
-- **flow.md L96+ 越界**：无。本 Spec 所有 FR 的 Source 都引用 `flow.md` L5-L95 或具体到 L95 之内。
-- **backlog 中"全生命周期"合同越界**：未引入 FR-0910（CLI 缺位）、FR-0110（program result 边界）、FR-0720（通用 return-upstream）等 backlog 合同到本 Spec。FR-1500 的 return-upstream 是"启动到 M-LOCK-1"专用最小版本，未越界扩展为通用合同。
-- **v0.13 迁移 / CLI 推进 / 多用户审批**：未越界。Out-of-Scope 明确排除。
+1. AC-FR0400-02 中的 `release Project` 结合其与本地 Project、WorkflowRun 并列的上下文，可理解为 release GitHub Project；后续文档可统一术语，但不影响当前产品语义或可断言性。
+2. 具体状态存储、事务边界、资源查询算法、UI 组件与内部 API payload 均仍保留给 Architecture/Interfaces 设计，本合同没有不必要地锁定实现方案。
+3. 后续若 FR/NFR 的 Valid 状态发生变化，Issue 目标数量应继续按锁定 Spec revision 的实际有效单元数计算，而不是永久固定为 24。

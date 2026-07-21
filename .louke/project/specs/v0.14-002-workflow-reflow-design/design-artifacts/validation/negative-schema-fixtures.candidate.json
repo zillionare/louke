@@ -1,0 +1,67 @@
+{
+  "artifact_kind": "negative-schema-fixture-set",
+  "identity": "louke.design-validation.v0.14-002.prism-r3-negative",
+  "revision": "1.0.0-candidate",
+  "application": "Apply each JSON Pointer mutation to a fresh copy of target_path, then run the named candidate schema plus the provenance resolver where specified. The unmodified target remains the positive control.",
+  "cases": [
+    {
+      "id": "NEG-MISSING-TASK-INPUT-REF",
+      "target_path": "design-artifacts/inputs/archer-author-task-manifest.candidate.json",
+      "schema_identity": "louke.agent-io.archer-design-task-input",
+      "mutations": [{"operation": "remove", "pointer": "/input_schema_ref"}],
+      "required_failure": {"gate": "json-schema", "keyword": "required", "pointer": "/", "reason": "Agent input schema ref is mandatory"}
+    },
+    {
+      "id": "NEG-PROVENANCE-KIND-SWAP",
+      "target_path": "design-artifacts/contracts/integration-test.candidate.json",
+      "schema_identity": "louke.machine-contract.integration-test",
+      "mutations": [
+        {"operation": "replace", "pointer": "/scope/project_facts_artifact/kind", "value": "archer-author-task-manifest"},
+        {"operation": "replace", "pointer": "/generated_by/task_manifest_artifact/kind", "value": "host-project-facts-snapshot"}
+      ],
+      "required_failure": {"gate": "json-schema+artifact-resolver", "keyword": "const", "pointer": "/scope/project_facts_artifact/kind", "reason": "facts and task digests cannot resolve through the wrong artifact kind/path"}
+    },
+    {
+      "id": "NEG-EMPTY-CI-JOB",
+      "target_path": "design-artifacts/contracts/github-actions-ci.candidate.json",
+      "schema_identity": "louke.machine-contract.github-actions-ci",
+      "mutations": [{"operation": "replace", "pointer": "/payload/jobs/0", "value": {}}],
+      "required_failure": {"gate": "json-schema", "keyword": "required", "pointer": "/payload/jobs/0", "reason": "An empty job has no executable or failure semantics"}
+    },
+    {
+      "id": "NEG-UNKNOWN-NESTED-FIELD",
+      "target_path": "design-artifacts/contracts/github-actions-ci.candidate.json",
+      "schema_identity": "louke.machine-contract.github-actions-ci",
+      "mutations": [{"operation": "add", "pointer": "/payload/permissions/typo_write", "value": true}],
+      "required_failure": {"gate": "json-schema", "keyword": "additionalProperties", "pointer": "/payload/permissions", "reason": "Unknown permission fields cannot weaken the declared boundary"}
+    },
+    {
+      "id": "NEG-DIGEST-SCOPE-CONFLICT",
+      "target_path": "design-artifacts/contracts/integration-test.candidate.json",
+      "schema_identity": "louke.machine-contract.integration-test",
+      "mutations": [{"operation": "add", "pointer": "/digest_scope", "value": "self-including-instance-digest"}],
+      "required_failure": {"gate": "json-schema+artifact-resolver", "keyword": "additionalProperties", "pointer": "/", "reason": "Only external manifest bytes digests are canonical; an instance cannot introduce a conflicting self digest scope"}
+    },
+    {
+      "id": "NEG-RELEASE-MISSING-BRANCH-MAPPING",
+      "target_path": "design-artifacts/validation/release-version-node-host.valid.candidate.json",
+      "schema_identity": "louke.machine-contract.release-version",
+      "mutations": [{"operation": "remove", "pointer": "/payload/branch_mapping"}],
+      "required_failure": {"gate": "json-schema", "keyword": "required", "pointer": "/payload", "reason": "A release instance must provide its project-specific branch mapping"}
+    },
+    {
+      "id": "NEG-RELEASE-TAG-MAPPING-TYPE",
+      "target_path": "design-artifacts/validation/release-version-node-host.valid.candidate.json",
+      "schema_identity": "louke.machine-contract.release-version",
+      "mutations": [{"operation": "replace", "pointer": "/payload/tag_mapping", "value": {"tag": "widget-v2.3.1"}}],
+      "required_failure": {"gate": "json-schema", "keyword": "type", "pointer": "/payload/tag_mapping", "reason": "Tag mapping must be a concrete string, not an ambiguous mapping object"}
+    },
+    {
+      "id": "NEG-RELEASE-VERSION-SOURCE-EXTRA",
+      "target_path": "design-artifacts/validation/release-version-node-host.valid.candidate.json",
+      "schema_identity": "louke.machine-contract.release-version",
+      "mutations": [{"operation": "add", "pointer": "/payload/version_source/python_selector", "value": "project.version"}],
+      "required_failure": {"gate": "json-schema", "keyword": "additionalProperties", "pointer": "/payload/version_source", "reason": "A malformed or cross-stack version-source field cannot be ignored"}
+    }
+  ]
+}

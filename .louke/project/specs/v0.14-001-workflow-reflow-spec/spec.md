@@ -1,17 +1,17 @@
 ---
-status: Draft v7 (Sage authored after Scribe/Sage prompt update; pending human review before Sage revises acceptance.md)
+status: Draft v8 (Sage revision after Lex REJECT round 1; pending review)
 spec_id: v0.14-001-workflow-reflow-spec
 bound_story: STR-1402
 bound_story_digest: sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634
 spec_digest: __SPEC_DIGEST__
 acceptance_digest: __ACCEPTANCE_DIGEST__
 doc_index_digest_sha256: __DOC_INDEX_DIGEST__
-revision: 7
+revision: 8
 lex_review_artifact: .louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md
 scope: flow.md L1-L95 (install -> M-LOCK-1 + GitHub Issues)
 prompt_basis: .opencode/agents/scribe.md + .opencode/agents/sage.md (rewritten 2026-07-18)
 journey_first: true
-author: Sage (subagent), pending Aaron review
+author: Sage (subagent), revised after Lex REJECT round 1
 author_identity_note: written by Sage subagent under model openai/gpt-5.6-sol at 2026-07-18; NOT written by Maestro
 digest_scheme: each digest is sha256 over the file with the digest field literally replaced by its placeholder text (canonical placeholder-bearing body). Substitution back from this digest does not reproduce the file hash; this is expected for self-referential digests. See the acceptance.md or downstream tool for the verification rule.
 ---
@@ -24,32 +24,32 @@ digest_scheme: each digest is sha256 over the file with the digest field literal
 
 ### Step 1 — 启动并进入 Web Workbench
 - **入口 / 触发**：Human 在目标 workspace 安装或升级 Louke 后执行 `lk serve`。
-- **Mounted surface**：启动诊断页显示 Louke、依赖、配置、模型、OpenCode 与 workspace 身份，检查通过后进入 Web Workbench（`flow.md` L5-L13；`story.md:40-51`）。
+- **Mounted surface**：Web 服务能够建立时，启动诊断页显示 Louke 工作流 readiness、配置、认证、模型、OpenCode 与 workspace 身份，检查通过后进入 Web Workbench；Web 服务本体无法建立时，`lk serve` 在终端报告硬前置失败（`flow.md` L5-L13；`story.md:40-51`）。
 - **关键动作**：Human 只处理诊断中可定位的缺失依赖、登录、授权或模型配置；Runtime 判断应进入 Setup 还是直接进入 release 请求入口。
-- **可见结果**：检查通过时 Workbench 可访问；失败时诊断保留原因和可执行修复方向，且不会把启动误报为成功。
+- **可见结果**：Web 可运行但工作流 readiness 不完整时，Workbench 显示 `BLOCKED` 诊断且 release 动作不可提交；Python/runtime/package/端口或服务本体无法加载等导致 Web 服务无法建立时，进程以非零状态退出并在 stderr 给出可定位原因和修复方向。每个失败只按其实际阻断边界归入其中一类，不会同时产生 Web `BLOCKED` 与硬前置退出结论。
 - **继续 / 返回**：setup 有效则继续 Step 3；首次、缺失、冲突或失效则继续 Step 2；修复失败项后可从同一 workspace 重试。
 - **服务 FR/NFR**：FR-0100、FR-0600、FR-2100、NFR-0300。
 
 ### Step 2 — 完成或复用 Workspace Setup
 - **入口 / 触发**：启动检查发现 workspace 首次使用，或 setup 信息缺失、冲突、失效。
-- **Mounted surface**：Workspace Setup preview 展示候选值、来源、冲突与需要授权的操作；完成后展示有效 foundation manifest 所代表的 workspace/resource 身份（`flow.md` L15-L23；`story.md:46-52`）。
+- **Mounted surface**：Workspace Setup preview 展示 workspace/repository identity、owner、provider namespace、认证、模型、OpenCode、backlog/release-project namespace 或创建能力等 workspace 级候选值、来源、冲突与需要授权的操作；完成后展示 setup manifest 所代表的 workspace 级身份与 readiness（`flow.md` L15-L23；`story.md:46-52`）。
 - **关键动作**：Human 只补充缺失值、裁决冲突值并确认需要授权的操作；确认前不发生对应外部修改。
-- **可见结果**：必要资源真实存在且身份一致后 Setup 完成；不确定、冲突或部分失败保持待处理并显示具体资源状态。
-- **继续 / 返回**：完成后进入 Step 3；取消或失败时留在 Setup，修复后按已保存 preview 和外部事实继续，不重复创建资源。
+- **可见结果**：workspace 级配置与可读检查一致后 Setup 完成；不确定、冲突或部分失败保持待处理并显示具体状态。Setup 不创建或复用本次 release 的 Project、WorkflowRun、branch 或 Spec 目录。
+- **继续 / 返回**：完成后进入 Step 3；取消或失败时留在 Setup，修复后按已保存 preview 和外部事实继续，不重复修改 workspace 级配置。
 - **服务 FR/NFR**：FR-0200、FR-2100、NFR-0100、NFR-0200、NFR-0300。
 
 ### Step 3 — 创建 release 请求
 - **入口 / 触发**：Human 从 Workbench 的新建项目页面 `/projects/new` 发起新 release。
 - **Mounted surface**：新建 release 页面展示一句话设想、版本信息及确认前 preview；若已有活跃主 release，则显示阻塞原因与已保存的 Backlog 结果（`flow.md` L25-L29；`story.md:46-52`）。
-- **关键动作**：Human 填写并确认 release 请求；Runtime 在产生 release 副作用前检查该 workspace 是否已有冲突的活跃主 release。
+- **关键动作**：Human 填写并确认 release 请求；确认前 release 级副作用为零，Runtime 在确认后、产生 release 副作用前检查该 workspace 是否已有冲突的活跃主 release。
 - **可见结果**：无冲突的请求进入前置检查；有冲突的请求只形成一个可查询 Backlog 条目并结束本次创建会话。
 - **继续 / 返回**：可开始时继续 Step 4；被阻塞时返回 Projects/Backlog 查看原因，且不会进入 M-STORY 或产生第二个主 release。
 - **服务 FR/NFR**：FR-0300、FR-0600、FR-2100、NFR-0100、NFR-0300。
 
 ### Step 4 — 验证 `main` 并完成 Foundation
 - **入口 / 触发**：release 请求通过单活跃主 release 检查。
-- **Mounted surface**：当前 release 的创建进度显示权威 `main`、上一主开发分支合入关系、必要资源与失败修复方向；结果归入同一 Project/run 上下文（`flow.md` L29-L31；`story.md:64-66`）。
-- **关键动作**：Runtime 证明上一主开发的预期修改已进入权威 `main`，随后创建或复用 release Project、run、release branch 与 Spec 目录。
+- **Mounted surface**：release 请求上下文先显示权威 `main`、上一主开发分支合入关系与失败修复方向；前置检查通过后，Foundation 资源及后续结果归入新建或已精确匹配的同一 Project/WorkflowRun 上下文（`flow.md` L29-L31；`story.md:64-66`）。
+- **关键动作**：Runtime 在尚未创建本次 release 级资源时证明上一主开发的预期修改已进入权威 `main`，随后才创建或复用 release Project、WorkflowRun、release GitHub Project、release branch 与 Spec 目录。
 - **可见结果**：所有资源身份一致且 release branch 从本次验证的 `main` 起点建立后 Foundation 完成；无法证明、分叉或部分成功时保持阻塞，不伪报完成。
 - **继续 / 返回**：成功后继续 Step 5；Human 修复分支或权限问题后重新检查，恢复时先核对已发生的外部副作用。
 - **服务 FR/NFR**：FR-0400、FR-0600、FR-2000、FR-2100、NFR-0100、NFR-0200、NFR-0300。
@@ -97,9 +97,9 @@ digest_scheme: each digest is sha256 over the file with the digest field literal
 
 - **Source**: BS-01; `story.md:40-51`; `flow.md L5-L13`
 
-Human 在目标 workspace 执行 `lk serve` 时，系统必须在开放工作流动作前检查 Louke、必要依赖、配置、模型、OpenCode 可用性和 workspace 身份，并在启动诊断页逐项展示非秘密状态与可执行修复方向。
+Human 在目标 workspace 执行 `lk serve` 时，系统必须先区分 Web 服务建立边界与 Louke 工作流 readiness 边界。Python/runtime/package/端口或服务本体无法加载等使 Web 服务进程无法建立的硬前置失败，必须使进程非零退出，并在 stderr 提供非秘密的失败项与可执行修复方向；此类失败不呈现 Web 已启动或工作流可继续状态。
 
-检查通过且 setup 有效时，系统进入 Web Workbench 的 release 请求入口；首次、缺失、冲突或失效 setup 进入 Workspace Setup。启动失败不得显示可继续状态，重复启动不得重复初始化 workspace 或外部资源。
+Web 服务能够建立后，系统必须在开放工作流动作前检查 Louke 工作流配置、provider/auth、模型、OpenCode 可用性和 workspace 身份，并在启动诊断页逐项展示非秘密状态。任一项缺失、冲突或失效时，Web 保持可访问但 readiness 为 `BLOCKED`，展示 remediation，且 release 动作不可提交；全部通过且 setup 有效时进入 release 请求入口，否则进入相应诊断或 Workspace Setup。一个失败项必须按其是否阻止 Web 服务建立归入且只归入上述一类。重复启动不得重复初始化 workspace 或外部资源。
 
 - **Journey**: Step 1.
 
@@ -112,11 +112,13 @@ Human 在目标 workspace 执行 `lk serve` 时，系统必须在开放工作流
 
 - **Source**: BS-01, BS-02, BS-15; `story.md:46-52`; `flow.md L15-L23`
 
-系统必须从可用项目事实与认证身份推导项目名称、repository、owner、release version 等必要候选值，并在 Workspace Setup preview 中展示候选值及来源。Human 确认前，不得执行该 preview 所列的外部创建或修改。
+系统必须从可用项目事实与认证身份推导 workspace/repository identity、owner、provider namespace、认证、模型、OpenCode、Backlog/release-project namespace或创建能力等 workspace级候选值，并在 Workspace Setup preview中展示候选值及来源。Setup只处理 workspace级配置与可读检查；Human确认前，不得执行该preview所列的workspace级外部创建或修改。
 
 缺失、冲突、歧义或授权要求必须保持为等待 Human 的可恢复状态；系统不得静默选择冲突身份。Human 的决定必须绑定当前 setup revision并可追溯到 actor、候选来源和选择结果。
 
-确认后，系统创建或复用必要资源并形成 foundation manifest，记录 workspace、repository、release、branch、Project 的稳定身份和实际状态。只有资源真实存在且身份一致时 Setup 才完成；重试或重启先 reconcile，匹配不唯一或证据不足时继续等待处理而不重复创建。
+确认后，系统只创建、更新或复用获授权的 workspace级配置，并形成 setup manifest，记录 workspace、repository、owner/provider namespace、认证与模型/OpenCode readiness、Backlog/release-project namespace或创建能力的非秘密身份和实际状态。只有这些workspace级事实可读且身份一致时Setup才完成；重试或重启先reconcile，匹配不唯一或证据不足时继续等待处理而不重复修改。
+
+Setup及其重试不得创建或复用任何具体release的Project、WorkflowRun、release GitHub Project、release branch或Spec目录，也不得预占其稳定身份；这些release级资源只属于FR-0400 Foundation，并且只能在release请求确认、单活跃主release检查及`main`前置检查通过后创建或reconcile。
 
 - **Journey**: Step 2.
 
@@ -144,9 +146,9 @@ Human 在目标 workspace 执行 `lk serve` 时，系统必须在开放工作流
 
 - **Source**: BS-04, BS-15; `story.md:64-66`; `flow.md L29-L31`
 
-对可开始的 release，系统必须在创建 release branch 前刷新 declared remote，并证明上一主开发分支的预期修改已经合入该 remote 的权威 `main`。本地与权威 `main` 不一致，或上一分支相对权威 `main` 为未合入、ahead、behind、diverged、无法判定时，页面必须展示相关引用、版本身份、关系和修复方向；Human 修复并重新检查通过前不得绕过阻塞。
+对已确认且通过单活跃主release检查的请求，系统必须在创建或reconcile任何本次release级Project、WorkflowRun、release GitHub Project、release branch或Spec目录前刷新declared remote，并证明上一主开发分支的预期修改已经合入该remote的权威`main`。本地与权威`main`不一致，或上一分支相对权威`main`为未合入、ahead、behind、diverged、无法判定时，页面必须展示相关引用、版本身份、关系和修复方向；Human修复并重新检查通过前不得绕过阻塞，且上述release级资源仍不得创建。
 
-检查通过后，系统创建或复用本 release 的 Project、run、release GitHub Project、Spec 目录和基于本次权威 `main` 版本的 release branch。分支起点与已证明的 `main` 不一致、任一操作部分成功、权限失败或结果不确定时，Foundation 不得显示完成或进入 M-STORY；恢复必须先核对已发生副作用。
+检查通过后，系统才创建或reconcile本release的Project、WorkflowRun、release GitHub Project、Spec目录和基于本次权威`main`版本的release branch，并把稳定身份与实际状态写入Foundation evidence/manifest。分支起点与已证明的`main`不一致、任一操作部分成功、权限失败或结果不确定时，Foundation不得显示完成或进入M-STORY；恢复必须先核对已发生副作用。
 
 - **Journey**: Step 4.
 
@@ -343,7 +345,7 @@ Sage返回后，系统提交 Acceptance revision并复用 M-SPEC 的单写者、
 
 - **Source**: BS-14; `story.md:159-162`; `flow.md L87-L93`
 
-仅当当前 `story.md`、`spec.md`、`acceptance.md` 的必需 review、discussion与格式结果全部通过时，Project current页才显示可用的 M-LOCK-1批准动作，并展示其绑定的三份文档版本身份。批准前不得创建本次实现 Issues。
+`flow.md`中的旧过程名`M-REQ-APPROVAL`与本合同的canonical名称`M-LOCK-1`指向同一个节点，不构成两个阶段或两次批准。仅当当前`story.md`、`spec.md`、`acceptance.md`的必需review、discussion与格式结果全部通过时，Project current页才显示可用的M-LOCK-1批准动作，并展示其绑定的三份文档版本身份。批准前不得创建本次实现Issues。
 
 只有已认证 Human可批准匹配当前 run和三件套版本的 gate；Agent、旧挑战或 stale版本不得生效。有效批准必须使三份文档在产品中强制只读，并持久记录 actor、时间、批准挑战、revision与digests；后续写入不得改变文件内容。
 
@@ -358,7 +360,7 @@ Sage返回后，系统提交 Acceptance revision并复用 M-SPEC 的单写者、
 
 - **Source**: BS-14, BS-15; `story.md:159-167`; `flow.md L94-L95`
 
-M-LOCK-1批准后，系统必须为锁定 Spec中每个 Valid不为 `❌` 的 FR/NFR创建或复用一个 GitHub Issue；Issue title以精确的单一 `[{ID}]` requirement token开头，body包含 requirement ID、锁定 Spec section链接和对应 Acceptance section链接，并关联 foundation manifest指定的 release GitHub Project。
+M-LOCK-1批准后，系统必须为锁定Spec中每个当前有效（Valid不为`❌`）的FR/NFR创建或复用一个GitHub Issue；目标数量始终按该锁定revision的当前有效单元数计算。本合同当前21个FR与3个NFR全部为Valid=`✅`，因此当前场景目标为24个Issue。Issue title以精确的单一`[{ID}]` requirement token开头，body包含requirement ID、锁定Spec section链接和对应Acceptance section链接，并关联Foundation manifest指定的release GitHub Project。
 
 reconcile必须同时核对 repository、spec、requirement、锁定三件套身份、Issue内容和Project关联，不得仅凭相似标题复用。重复、并发、重启或远端成功但本地确认丢失时，不得产生第二个匹配 Issue或Project item；匹配冲突或证据不足时须显示冲突并停止新增候选。
 

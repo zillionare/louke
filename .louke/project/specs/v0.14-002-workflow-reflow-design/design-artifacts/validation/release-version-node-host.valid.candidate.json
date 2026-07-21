@@ -1,0 +1,29 @@
+{
+  "kind": "release-version",
+  "identity": "fixture.contract.acme-widget.release-version",
+  "revision": "node-host-2.3.1",
+  "schema_ref": {"identity": "louke.machine-contract.release-version", "version": "1.0.0", "digest": "sha256:29a179dff9ad7bc5f6929455310371f9e8eeee1443a20be91367aeab2abfd273"},
+  "manifest_ref": {"identity": "fixture.design-artifacts.acme-widget", "revision": "node-host-2.3.1"},
+  "scope": {"workspace_id": "example.invalid/acme/widget", "spec_id": "fixture-node-release", "base_commit": "1111111111111111111111111111111111111111", "project_facts_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "project_facts_artifact": {"kind": "host-project-facts-snapshot", "path": "fixtures/node-host/host-project-facts.json", "identity": "fixture.host-facts.acme-widget", "revision": "node-host-2.3.1"}, "release_identity": "2.3.1"},
+  "generated_by": {"owner": "Runtime/program", "role": "Archer", "task_manifest_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "task_manifest_artifact": {"kind": "archer-author-task-manifest", "path": "fixtures/node-host/archer-task.json", "identity": "fixture.runtime-task.acme-widget", "revision": "node-host-2.3.1"}},
+  "compatible_runtime": ">=0.14.0,<0.16.0",
+  "artifact_refs": [{"path": "fixtures/node-host/release-design.md", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "ac_ids": ["AC-FR1400-01"], "interface_ids": ["IF-REL-01"], "architecture_anchors": ["ARC-VERSION", "ARC-FACTS"], "contract_kind": "release-version"}],
+  "payload": {
+    "commands": [
+      {"id": "inspect-package-version", "cwd": ".", "command": "node tools/node_release_adapter.mjs inspect-source", "implementation_state": "existing", "success": "JSON reports package.json version 2.3.1", "failure": "missing package version, invalid SemVer or nonzero"},
+      {"id": "prepare-package-version", "cwd": "isolated build workspace", "command": "node tools/node_release_adapter.mjs prepare --tag widget-v2.3.1", "implementation_state": "existing", "success": "package.json is prepared as 2.3.1 with digest evidence", "failure": "invalid mapping, source write error or workspace mutation returns nonzero"}
+    ],
+    "canonical_input": "2.3.1",
+    "normalization": "strip exact widget-v prefix and require canonical SemVer equality",
+    "branch_mapping": "release/2.3.1",
+    "tag_mapping": "widget-v2.3.1",
+    "version_source": {"path": "package.json", "selector": "version"},
+    "adapter": "tools/node_release_adapter.mjs",
+    "read_command": "node tools/node_release_adapter.mjs inspect-source",
+    "prepare_command": "node tools/node_release_adapter.mjs prepare --tag widget-v2.3.1",
+    "write_policy": "validate in pull requests; prepare only in an isolated release workspace",
+    "compare": "exact normalized SemVer equality across source, npm pack artifact and installed CLI outlet",
+    "evidence": ["version-scheme-selected", "version-source-prepared"],
+    "failure_policy": {"fail_closed": true, "non_success": ["missing", "invalid", "mismatch", "write-error", "unknown", "drift"], "current_state": "fixture-schema-positive"}
+  }
+}

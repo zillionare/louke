@@ -1,0 +1,54 @@
+{
+  "artifact_kind": "host-project-facts-snapshot",
+  "identity": "louke.host-project-facts.github.com-zillionare-louke",
+  "revision": "base-2734177-workspace-2026-07-20-r2",
+  "workspace_id": "github.com/zillionare/louke",
+  "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8",
+  "observation_scope": "Repository files at base commit plus the current authorized workspace bytes; this snapshot is a design input and is not project.toml bytes or an activated Runtime fact record.",
+  "runner_active_status": {
+    "bootstrap_path": "tests/e2e/run-project-venv",
+    "implementation_path": "tests/e2e/run_e2e.py",
+    "integration_paths": ["tests/integration/install_experience"],
+    "e2e_profiles": ["install", "chromium", "all"],
+    "v014_design_contracts_collected": false,
+    "status": "historical-active-v0.13.1; v014 candidate not installed"
+  },
+  "project_active_status": {
+    "source_path": ".louke/project/project.toml",
+    "version": "0.13.1",
+    "spec_id": "v0.14-001-workflow-reflow-spec",
+    "release_branch": "releases/0.13.1",
+    "current_stage": "M-MILESTONE",
+    "integration_run": "tests/e2e/run-project-venv integration",
+    "e2e_run": "tests/e2e/run-project-venv e2e --profile all --runtime both",
+    "status": "drifted-from-v0.14-002-candidate"
+  },
+  "inventory": {
+    "languages": ["Python"],
+    "runtimes": ["Python >=3.11; classifiers 3.11, 3.12, 3.13, 3.14"],
+    "dependency_files": ["pyproject.toml"],
+    "lockfiles": [],
+    "build_entries": ["python -m build"],
+    "test_entries": ["python -m pytest", "tests/e2e/run-project-venv integration", "tests/e2e/run-project-venv e2e --profile all --runtime both"],
+    "version_sources": ["pyproject.toml:[project].version"],
+    "artifacts": ["wheel", "sdist"],
+    "install_deploy_run_outlets": ["lk --version", "importlib.metadata.version('louke')", "lk web", "deployment=N/A local package"],
+    "ci_workflows": [".github/workflows/ci.yml", ".github/workflows/release.yml"],
+    "hooks": [".pre-commit-config.yaml"],
+    "default_branch": "main",
+    "external_capabilities": ["GitHub Actions", "GitHub Release", "PyPI"]
+  },
+  "observations": [
+    {"kind": "project-config", "path": ".louke/project/project.toml", "status": "present", "digest": "sha256:47d9de0ca736ca45cd9b75872e6f23edfc0086038aa9261e690159f6e62123fd", "source": "workspace bytes"},
+    {"kind": "build-config", "path": "pyproject.toml", "status": "present", "digest": "sha256:0862949b4e33f3bb9cadfa7f43f5c948d86e36941c067a2d5bfbcbee847fc8f0", "source": "workspace bytes"},
+    {"kind": "dependency-lock", "path": "project root", "status": "absent", "source": "repository path inventory"},
+    {"kind": "runner-bootstrap", "path": "tests/e2e/run-project-venv", "status": "present", "digest": "sha256:cd369e45dd7e47d694176b057d3ed21505a92a7795d85e99a4e4e4245da3efe9", "source": "workspace bytes"},
+    {"kind": "runner-implementation", "path": "tests/e2e/run_e2e.py", "status": "present", "digest": "sha256:04ce287404b5ee2f4c86b44fed16362a4dac45301464aa71e391625b80dbf142", "source": "workspace bytes"},
+    {"kind": "ci-workflow", "path": ".github/workflows/ci.yml", "status": "present", "digest": "sha256:257c8ca9e349de39461f56e35815b8f72cd9160cd0ba4dadcd8afd5a0c1f9991", "source": "workspace bytes"},
+    {"kind": "release-workflow", "path": ".github/workflows/release.yml", "status": "present", "digest": "sha256:ff7a05110d383ef9f3f81f09220d27bcc56780803ef216a14dd1029182f50b94", "source": "workspace bytes"},
+    {"kind": "pre-commit-config", "path": ".pre-commit-config.yaml", "status": "present", "digest": "sha256:d78ad19d06155167a7efc82dd9bf5c8ecf6ebaaa39aace927b322ccadfe19c89", "source": "workspace bytes"},
+    {"kind": "release-adapter", "path": "tools/louke_python_release_adapter.py", "status": "present", "digest": "sha256:3ec6e6804c736c20982cc76b33b3a257459438eb9ee740e969aa3580703ce93a", "source": "workspace bytes; prepare and inspect exist, inspect-source absent"},
+    {"kind": "managed-ci", "path": ".github/workflows/louke-ci.yml", "status": "absent", "source": "repository path inventory"},
+    {"kind": "deployment-outlet", "path": "N/A", "status": "unsupported", "source": "Louke is installed and run as a local Python package"}
+  ]
+}

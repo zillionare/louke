@@ -1,0 +1,12 @@
+{
+  "artifact_type": "staging-deployed-render",
+  "activation_state": "candidate-not-deployed",
+  "role": "archer",
+  "source": {"path": "louke/agents/Archer.md", "digest": "sha256:a2fe1fc160ea9b72af8161dc0e4339fdcf7b1e33e86017deaddca71dfdfa7248", "body_digest": "sha256:923f7ee90d9a2bca901b144521ee8c06ea3aa80abe89f43fc3e629072ebdba2f"},
+  "transformer": {"identity": "louke.board.cmd_opencode", "version": "board.py@2734177ef5398e4c10a1f68039ec469ccc21f2b8", "source": "louke/board.py", "digest": "sha256:eafdba029b8dce98f3e3924d8a6e5f06d1d740896291814dd350ea60a4286b21"},
+  "environment_binding": {"model": "codexmanager/gpt-5.6-sol", "mode": "subagent", "destination": ".opencode/agents/archer.md"},
+  "render_contract": {"frontmatter": "description/mode/resolved model + permission passthrough; source-only name and intelligence_quotation omitted", "body": "source body after deterministic lk-* skill reference rewrite", "rendered_bytes": 34627, "rendered_digest": "sha256:6bf121dc4ca5ce3fdddeec88ea9c964bf3844880e09df0d1769f4c8a11de9318"},
+  "staging_readback": {"method": "in-memory execution of the base transformer functions against current candidate source; no write to active deployment", "status": "candidate_staging_in_sync", "actual_rendered_digest": "sha256:6bf121dc4ca5ce3fdddeec88ea9c964bf3844880e09df0d1769f4c8a11de9318"},
+  "active_deployment": {"path": ".opencode/agents/archer.md", "digest": "sha256:ee9681dca52f7cc17d489c0538d63cbaeb09015b1d24d9ab1ad9a0459d9afa33", "unchanged": true},
+  "failure_semantics": "This record is design evidence, not an active deployed prompt. Any source/transformer/environment change makes it stale; active remains trusted until Runtime performs an atomic deployment readback after implementation."
+}

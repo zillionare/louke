@@ -1,0 +1,50 @@
+{
+  "artifact_kind": "program-validation-record",
+  "identity": "louke.design-validation.v0.14-002.prism-r3-remediation",
+  "revision": "prism-round-3-remediation-candidate",
+  "status": "design-time-candidate-validation-passed-not-runtime-activated",
+  "validator": {
+    "json_schema_draft": "2020-12",
+    "implementation": "jsonschema",
+    "version": "4.25.1",
+    "invocation": "uv run --isolated --with jsonschema==4.25.1",
+    "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8"
+  },
+  "positive_controls": {
+    "schema_meta_validation": {"expected": 11, "validated": 11, "errors": 0, "status": "passed"},
+    "agent_task_inputs": [
+      {"identity": "louke.agent-io.archer-design-task-input", "document_path": "design-artifacts/inputs/archer-author-task-manifest.candidate.json", "document_digest": "sha256:0a9d58474340e9520af49d2bea462c41533c1fabc81afbcf4f5f292caecefbfc", "errors": 0, "status": "passed"},
+      {"identity": "louke.agent-io.prism-design-review-task-input", "document_path": null, "document_digest": null, "control": "in-memory schema-conformant dispatch shape; real task is Runtime-generated after final manifest digest exists", "errors": 0, "status": "passed"}
+    ],
+    "contract_instances": {"expected": 7, "validated": 7, "errors": 0, "status": "passed"},
+    "heterogeneous_release_fixture": {"identity": "fixture.contract.acme-widget.release-version", "document_path": "design-artifacts/validation/release-version-node-host.valid.candidate.json", "document_digest": "sha256:5175946ac209c03921483d87494982c3f2fa4dc39d0e6f8b46cd626f426afd37", "host_stack": "Node.js/package.json/SemVer", "errors": 0, "status": "passed"},
+    "artifact_provenance": {
+      "facts": {"kind": "host-project-facts-snapshot", "path": "design-artifacts/inputs/host-project-facts.snapshot.json", "digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130", "resolved": true},
+      "author_task": {"kind": "archer-author-task-manifest", "path": "design-artifacts/inputs/archer-author-task-manifest.candidate.json", "digest": "sha256:0a9d58474340e9520af49d2bea462c41533c1fabc81afbcf4f5f292caecefbfc", "resolved": true},
+      "status": "passed"
+    }
+  },
+  "negative_controls": {
+    "fixture_path": "design-artifacts/validation/negative-schema-fixtures.candidate.json",
+    "fixture_digest": "sha256:86ee2df944e6eb44b471fbdd39f311572cc178cf00306bc04d24c7f5621580b3",
+    "expected": 8,
+    "failed_as_required": 8,
+    "unexpected_passes": 0,
+    "cases": [
+      {"id": "NEG-MISSING-TASK-INPUT-REF", "gate": "json-schema", "observed_keyword": "required", "observed_pointer": "/", "status": "failed-as-required"},
+      {"id": "NEG-PROVENANCE-KIND-SWAP", "gate": "json-schema+artifact-resolver", "observed_keyword": "const", "observed_pointer": "/scope/project_facts_artifact/kind", "status": "failed-as-required"},
+      {"id": "NEG-EMPTY-CI-JOB", "gate": "json-schema", "observed_keyword": "required", "observed_pointer": "/payload/jobs/0", "status": "failed-as-required"},
+      {"id": "NEG-UNKNOWN-NESTED-FIELD", "gate": "json-schema", "observed_keyword": "additionalProperties", "observed_pointer": "/payload/permissions", "status": "failed-as-required"},
+      {"id": "NEG-DIGEST-SCOPE-CONFLICT", "gate": "json-schema+artifact-resolver", "observed_keyword": "additionalProperties", "observed_pointer": "/", "status": "failed-as-required"},
+      {"id": "NEG-RELEASE-MISSING-BRANCH-MAPPING", "gate": "json-schema", "observed_keyword": "required", "observed_pointer": "/payload", "status": "failed-as-required"},
+      {"id": "NEG-RELEASE-TAG-MAPPING-TYPE", "gate": "json-schema", "observed_keyword": "type", "observed_pointer": "/payload/tag_mapping", "status": "failed-as-required"},
+      {"id": "NEG-RELEASE-VERSION-SOURCE-EXTRA", "gate": "json-schema", "observed_keyword": "additionalProperties", "observed_pointer": "/payload/version_source", "status": "failed-as-required"}
+    ],
+    "status": "passed"
+  },
+  "limitations": [
+    "This record proves only the checked candidate bytes and declared mutations.",
+    "It is not active registry validation, trusted Prism review, Runtime activation, test evidence, build verification, or publish permission.",
+    "Any referenced bytes change invalidates this record and requires regeneration."
+  ]
+}

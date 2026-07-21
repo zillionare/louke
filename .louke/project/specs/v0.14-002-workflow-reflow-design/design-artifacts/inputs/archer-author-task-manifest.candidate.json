@@ -1,0 +1,71 @@
+{
+  "artifact_kind": "archer-author-task-manifest",
+  "schema_version": "1.0.0",
+  "input_schema_ref": {
+    "identity": "louke.agent-io.archer-design-task-input",
+    "version": "1.0.0",
+    "digest": "sha256:74686ab3811b713d941d453a39b1f2af84263f76ec2994764d46de645eb75db9"
+  },
+  "task_identity": "runtime.v0.14-002.m-design.archer.prism-r3-remediation",
+  "dispatch": {
+    "authority": "Runtime/program",
+    "role": "Archer",
+    "mode": "subagent",
+    "attempt_id": "v0.14-002-prism-r3-remediation-author",
+    "execution_transport": {
+      "provider_metadata": {"provider_ref": "opaque-subagent-provider"},
+      "session_metadata": {"session_ref": "opaque-provider-session"}
+    }
+  },
+  "stage": "M-DESIGN",
+  "spec": {
+    "id": "v0.14-002-workflow-reflow-design",
+    "revision": "story-spec-acceptance-digest-baseline",
+    "story_digest": "sha256:06d5573efbf59dd18b480d6539ad16df237fd4460f9f95d1589110cbfeec1993",
+    "spec_digest": "sha256:315c8d20254fceb63971b029d69c81889972eedb581621981a012f17edc8867f",
+    "acceptance_digest": "sha256:39b09cbf36cc0f4f0dcc8f0e8a79949049a2b6baddcecbcf2183ad407e493559"
+  },
+  "design_revision": {
+    "identity": "louke.design-artifacts.v0.14-002.prism-r3-remediation",
+    "revision": "prism-round-3-remediation-candidate"
+  },
+  "inputs": [
+    {"kind": "story", "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/story.md", "digest": "sha256:06d5573efbf59dd18b480d6539ad16df237fd4460f9f95d1589110cbfeec1993", "required": true},
+    {"kind": "spec", "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/spec.md", "digest": "sha256:315c8d20254fceb63971b029d69c81889972eedb581621981a012f17edc8867f", "required": true},
+    {"kind": "acceptance", "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/acceptance.md", "digest": "sha256:39b09cbf36cc0f4f0dcc8f0e8a79949049a2b6baddcecbcf2183ad407e493559", "required": true},
+    {"kind": "design-review", "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/design-review.md", "digest": "sha256:ccc2e2e77160605aa6dbfd8ddaf087e2c881827b8581d6d5a7d402ff6c49efaa", "required": true},
+    {"kind": "host-project-facts-snapshot", "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/design-artifacts/inputs/host-project-facts.snapshot.json", "digest": "sha256:4b1a523c1cf946b480162e5321d3c92aeebdea75f57d5768948aee6f76672130", "required": true},
+    {"kind": "prior-design-artifact-manifest", "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/design-artifacts/design-artifact-manifest.candidate.json", "digest": "sha256:b8be10984b68873295931c513641889863b2e16209ec2de78025e15c04b24f3f", "required": true}
+  ],
+  "allowed_write_set": [
+    ".louke/project/specs/v0.14-002-workflow-reflow-design/test-plan.md",
+    ".louke/project/specs/v0.14-002-workflow-reflow-design/architecture.md",
+    ".louke/project/specs/v0.14-002-workflow-reflow-design/interfaces.md",
+    ".louke/project/specs/v0.14-002-workflow-reflow-design/design-artifacts/**"
+  ],
+  "forbidden_effects": [
+    "business-code-write", "test-code-write", "active-opencode-write", "project-toml-write",
+    "review-artifact-write", "commit", "push", "dispatch", "activation", "stage-progression",
+    "runtime-state-write", "external-side-effect"
+  ],
+  "output_contract": {
+    "schema_ref": {
+      "identity": "louke.agent-io.archer-design-result",
+      "version": "1.0.0",
+      "digest": "sha256:3b3f9801c6318d7786ffa8b461de5f65e091de345dac32c1bd913b6e4e29196b"
+    },
+    "delivery": "return-to-Runtime/program-for-validation-and-persistence",
+    "artifact_manifest_path": ".louke/project/specs/v0.14-002-workflow-reflow-design/design-artifacts/design-artifact-manifest.candidate.json"
+  },
+  "freshness": {
+    "base_commit": "2734177ef5398e4c10a1f68039ec469ccc21f2b8",
+    "input_set_digest": "sha256:9e1b689419c344cfc695d108f9ed6f9f765036cdbf4e0e190cd17279df3e39de",
+    "invalidated_by": [
+      "requirements-digest-change", "design-review-digest-change", "project-facts-digest-change",
+      "base-commit-change", "allowed-write-set-change", "output-schema-change",
+      "prompt-bundle-change", "discussion-set-change"
+    ],
+    "policy": "input_set_digest is SHA-256 of canonical sorted-key compact JSON over design_revision, ordered inputs, allowed_write_set, forbidden_effects, output_contract and base_commit; any listed identity or digest change rejects this task and requires a new Runtime dispatch"
+  },
+  "binding_state": "candidate-dispatch-readback-not-runtime-activated"
+}
