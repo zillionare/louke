@@ -1,0 +1,31 @@
+{
+  "kind": "ci-hook-matrix",
+  "identity": "fixture.matrix.ci-hook.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "existing_hooks": [
+    {"id": "keeper", "repo": "local", "expected_behavior": "preserve"},
+    {"id": "ruff", "repo": "local", "expected_behavior": "preserve"},
+    {"id": "mypy", "repo": "local", "expected_behavior": "preserve"}
+  ],
+  "managed_hook": {
+    "id": "louke-quality-gate",
+    "expected_behavior": "merge into existing config; do not delete user hooks"
+  },
+  "negative_cases": [
+    {
+      "id": "agent-installs-hook",
+      "description": "Contract requires Archer/Devon to install hook",
+      "expected": "schema review fails; agents do not install hooks"
+    },
+    {
+      "id": "red-as-hook-target",
+      "description": "Red test failure used as hook target",
+      "expected": "schema review fails; Red is not a hook target"
+    },
+    {
+      "id": "precommit-as-final-gate",
+      "description": "Pre-commit treated as final full gate",
+      "expected": "schema review fails; pre-commit is fast checks only"
+    }
+  ]
+}

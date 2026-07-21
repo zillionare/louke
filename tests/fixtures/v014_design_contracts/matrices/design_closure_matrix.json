@@ -1,0 +1,29 @@
+{
+  "kind": "design-closure-matrix",
+  "identity": "fixture.matrix.design-closure.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "expected_ac_count": 34,
+  "expected_interface_count": 15,
+  "expected_architecture_anchor_count": 16,
+  "expected_machine_schema_kinds": 7,
+  "expected_agent_io_schemas": 4,
+  "expected_contract_instances": 7,
+  "interface_set": [
+    "IF-DES-01","IF-DES-02","IF-CON-01","IF-REG-01","IF-TST-01","IF-PC-01",
+    "IF-CI-01","IF-REL-01","IF-BLD-01","IF-PUB-01","IF-PRM-01","IF-REV-01",
+    "IF-WEB-01","IF-FCT-01","IF-AUD-01"
+  ],
+  "architecture_anchor_set": [
+    "ARC-WEB","ARC-DESIGN","ARC-FACTS","ARC-REGISTRY","ARC-CONTRACTS",
+    "ARC-VALIDATE","ARC-PROMPTS","ARC-CI","ARC-PRECOMMIT","ARC-VERSION",
+    "ARC-BUILD","ARC-PUBLISH","ARC-REVIEW","ARC-STORE","ARC-MIGRATION",
+    "ARC-SECURITY"
+  ],
+  "negative_cases": [
+    {"id": "orphan-interface", "mutation": "add IF-XXX-99 not referenced by any AC"},
+    {"id": "orphan-anchor", "mutation": "add ARC-XXX-99 not referenced by any module"},
+    {"id": "missing-required-layer", "mutation": "remove integration layer from AC-FR0700-01"},
+    {"id": "command-path-conflict", "mutation": "contract command differs from test-plan runner"},
+    {"id": "status-semantics-conflict", "mutation": "failure_policy non_success missing 'timeout'"}
+  ]
+}

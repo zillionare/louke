@@ -1,0 +1,45 @@
+{
+  "artifact_kind": "host-project-facts-snapshot",
+  "identity": "fixture.host-project-facts.python.v014-002-shield",
+  "revision": "python-host-0.14.0-shield-fixture",
+  "workspace_id": "fixture.internal/python-host-shield",
+  "base_commit": "0000000000000000000000000000000000000000",
+  "observation_scope": "Shield-authored minimal Python host fixture for v0.14-002 integration tests. Synthetic; does not represent any real workspace.",
+  "runner_active_status": {
+    "bootstrap_path": null,
+    "implementation_path": null,
+    "integration_paths": [],
+    "e2e_profiles": [],
+    "v014_design_contracts_collected": false,
+    "status": "fixture-only; not a real runner"
+  },
+  "project_active_status": {
+    "source_path": "pyproject.toml",
+    "version": "0.1.0",
+    "spec_id": null,
+    "release_branch": null,
+    "current_stage": null,
+    "integration_run": null,
+    "e2e_run": null,
+    "status": "fixture-only"
+  },
+  "inventory": {
+    "languages": ["Python"],
+    "runtimes": ["Python >=3.11"],
+    "dependency_files": ["pyproject.toml"],
+    "lockfiles": [],
+    "build_entries": ["python -m build"],
+    "test_entries": ["python -m pytest"],
+    "version_sources": ["pyproject.toml:[project].version"],
+    "artifacts": ["wheel", "sdist"],
+    "install_deploy_run_outlets": ["python -c 'import importlib.metadata; print(importlib.metadata.version(\"demo_pkg\"))'"],
+    "ci_workflows": [],
+    "hooks": [],
+    "default_branch": "main",
+    "external_capabilities": []
+  },
+  "observations": [
+    {"kind": "build-config", "path": "pyproject.toml", "status": "present", "source": "fixture bytes"},
+    {"kind": "dependency-lock", "path": "project root", "status": "absent", "source": "fixture inventory"}
+  ]
+}

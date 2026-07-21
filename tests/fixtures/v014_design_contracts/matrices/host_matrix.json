@@ -1,0 +1,42 @@
+{
+  "kind": "host-matrix",
+  "identity": "fixture.matrix.host.v014-002-shield",
+  "revision": "shield-fixture-v1",
+  "hosts": [
+    {
+      "id": "python-existing",
+      "stack": "Python",
+      "facts_path": "tests/fixtures/v014_design_contracts/python-host/host-project-facts.json",
+      "expected_languages": ["Python"],
+      "expected_artifacts": ["wheel", "sdist"],
+      "expected_version_source": "pyproject.toml:[project].version",
+      "must_not_reference": ["package.json", "pom.xml", "Cargo.toml"]
+    },
+    {
+      "id": "node-existing",
+      "stack": "Node",
+      "facts_path": "tests/fixtures/v014_design_contracts/node-host/host-project-facts.json",
+      "expected_languages": ["JavaScript"],
+      "expected_artifacts": ["tarball"],
+      "expected_version_source": "package.json:version",
+      "must_not_reference": ["pyproject.toml", "pom.xml", "Cargo.toml"]
+    },
+    {
+      "id": "blank-project",
+      "stack": "unknown",
+      "facts_path": null,
+      "expected_languages": [],
+      "expected_artifacts": [],
+      "expected_version_source": null,
+      "expected_behavior": "Archer must produce complete technical choice without Human input; no Louke default leakage"
+    },
+    {
+      "id": "unsupported-capability",
+      "stack": "Go",
+      "facts_path": null,
+      "expected_languages": ["Go"],
+      "unsupported_capability": "release-version",
+      "expected_behavior": "diagnostic with contract kind and facts identity; no hardcoded language default"
+    }
+  ]
+}
