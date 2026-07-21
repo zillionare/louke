@@ -1,0 +1,87 @@
+# tests/runner-manifest.toml
+# v0.14-001-workflow-reflow-spec runner discovery manifest (schema v1).
+# Consumed by tests/e2e/run_e2e.py and tests/e2e/run-project-venv to drive
+# integration, e2e (stand-in) and real-smoke collection gates.
+#
+# Each [[target]] declares:
+#   id            - stable target identifier (e.g. "integration/v014")
+#   command       - runner command kind: "integration" | "e2e" | "real-smoke"
+#   profile       - profile name (e.g. "all", "v014")
+#   paths         - pytest paths to collect for this target
+#   runtimes      - "host" | "local" | "global" (or a combination)
+#   required_ac_ids - AC IDs that MUST be collected and executed by this
+#                     target; missing/skip/xfail/not-run fails the gate.
+#
+# Shield adds the actual test assets under tests/integration/v014_workflow_reflow
+# and tests/e2e/v014_workflow_reflow; Devon only owns this manifest and the
+# runner discovery logic.
+
+schema_version = 1
+
+# Integration target: HTTP + SQLite + Git + stand-ins under
+# tests/integration/v014_workflow_reflow.
+[[target]]
+id = "integration/v014"
+command = "integration"
+profile = "v014"
+paths = ["tests/integration/v014_workflow_reflow"]
+runtimes = ["host"]
+required_ac_ids = []
+
+# E2E stand-in target: installed wheel + live server + Chromium under
+# tests/e2e/v014_workflow_reflow (local runtime).
+[[target]]
+id = "e2e/v014/local"
+command = "e2e"
+profile = "v014"
+paths = ["tests/e2e/v014_workflow_reflow"]
+runtimes = ["local"]
+required_ac_ids = []
+
+# E2E stand-in target: installed wheel + live server + Chromium under
+# tests/e2e/v014_workflow_reflow (global runtime).
+[[target]]
+id = "e2e/v014/global"
+command = "e2e"
+profile = "v014"
+paths = ["tests/e2e/v014_workflow_reflow"]
+runtimes = ["global"]
+required_ac_ids = []
+
+# Profile aggregation: `--profile all` expands to every non-real-smoke
+# target. Shield's e2e runner reads this manifest to determine which
+# targets to collect and execute.
+[[target]]
+id = "e2e/v013/local"
+command = "e2e"
+profile = "all"
+paths = ["tests/e2e"]
+runtimes = ["local"]
+required_ac_ids = []
+
+[[target]]
+id = "e2e/v013/global"
+command = "e2e"
+profile = "all"
+paths = ["tests/e2e"]
+runtimes = ["global"]
+required_ac_ids = []
+
+# Real-smoke target: installed wheel + real OpenCode + disposable GitHub
+# repo/Project under tests/e2e/v014_workflow_reflow/real. Only runs in the
+# protected release/manual environment; never on PR.
+[[target]]
+id = "real-smoke/v014"
+command = "real-smoke"
+profile = "v014"
+paths = ["tests/e2e/v014_workflow_reflow/real"]
+runtimes = ["local"]
+required_ac_ids = [
+    "AC-FR1700-03",
+    "AC-FR1800-02",
+    "AC-FR1900-01",
+    "AC-NFR0200-01",
+    "AC-NFR0200-02",
+    "AC-NFR0300-01",
+    "AC-NFR0300-03",
+]

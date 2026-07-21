@@ -1,0 +1,436 @@
+name: Louke CI
+
+# Louke v0.14 aggregated CI workflow.
+#
+# This workflow is the canonical CI for v0.14-001-workflow-reflow-spec per
+# architecture §9 and IF-CI-01. It aggregates:
+#   - quality (pre-commit + mypy)
+#   - build-artifacts (python -m build)
+#   - artifact-verify (release adapter prepare/inspect/install outlets)
+#   - unit matrix (Python 3.11..3.14, coverage >=95%)
+#   - integration (tests/e2e/run-project-venv integration, manifest-driven)
+#   - e2e-standin (tests/e2e/run-project-venv e2e --profile all --runtime both)
+#   - ac-trace (tools/check_ac_traceability.py, 82/82 closure)
+#   - install-matrix (Linux/macOS/Windows first-install)
+#   - Louke CI / required (fail-closed aggregation of all mandatory jobs)
+#   - real-smoke (tag/manual only; needs required+build+verify)
+#   - publish (tag/manual only; needs required+real-smoke+build+verify)
+#
+# The legacy ci.yml and release.yml continue to exist on the remote until
+# the maintainer confirms the migration and pushes the deletion in the same
+# change set (architecture §9.3 requires same-PR deletion).
+#
+# All non-publish jobs use `permissions: contents: read`. real-smoke runs
+# only in a protected `release-smoke` environment with a sandbox-only
+# GitHub PAT. publish uses `contents: write` and `PYPI_API_TOKEN` and is
+# the only job that consumes publish secrets.
+
+on:
+  push:
+    branches: [main, "releases/**"]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, "releases/**"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Run real-smoke + publish as if a tag push"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install pre-commit
+        run: python -m pip install --quiet pre-commit
+      - name: Run pre-commit on all files
+        run: pre-commit run --all-files
+      - name: Install mypy
+        run: python -m pip install --quiet mypy
+      - name: Run mypy on louke
+        run: python -m mypy louke
+
+  build-artifacts:
+    name: build-artifacts
+    needs: quality
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --quiet build
+      - name: Sync .github resources into package
+        run: |
+          rm -rf louke/.github
+          mkdir -p louke/.github
+          cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
+          cp -r .github/workflows louke/.github/workflows
+      - name: Build wheel + sdist
+        run: python -m build
+      - name: Upload wheel + sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+          retention-days: 7
+
+  artifact-verify:
+    name: artifact-verify
+    needs: build-artifacts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+      - name: Inspect each artifact with the release adapter
+        run: |
+          set -euo pipefail
+          for artifact in dist/louke-*.whl dist/louke-*.tar.gz; do
+            [ -f "$artifact" ] || { echo "::error::missing artifact $artifact"; exit 1; }
+            metadata=$(python tools/louke_python_release_adapter.py inspect --artifact "$artifact")
+            echo "$metadata"
+          done
+      - name: Clean-venv install + lk --version
+        run: |
+          python -m venv /tmp/lk-venv
+          /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
+          /tmp/lk-venv/bin/lk --version
+          /tmp/lk-venv/bin/python -c "import importlib.metadata as m; assert m.version('louke')"
+      - name: Upload artifact identity JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: louke-artifact-identity
+          path: dist/
+
+  unit:
+    name: unit (python ${{ matrix.python-version }})
+    needs: build-artifacts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+      - name: Install wheel + test deps into clean venv
+        run: |
+          python -m venv /tmp/lk-venv
+          /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
+          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov build
+      - name: Run unit tests with coverage
+        run: |
+          /tmp/lk-venv/bin/python -m pytest -q tests/unit \
+            --cov=louke --cov-report=xml --cov-report=term-missing \
+            --cov-fail-under=95
+      - name: Upload coverage XML (3.12 only)
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: louke-coverage-xml
+          path: coverage.xml
+
+  integration:
+    name: integration
+    needs: build-artifacts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+      - name: Create project runner venv
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet dist/louke-*.whl pytest pytest-cov build
+      - name: Run integration via project runner
+        run: |
+          tests/e2e/run-project-venv integration
+
+  e2e-standin:
+    name: e2e-standin
+    needs: build-artifacts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+      - name: Create project runner venv with Playwright
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet dist/louke-*.whl pytest pytest-cov build playwright
+          .venv/bin/playwright install --with-deps chromium
+      - name: Run e2e stand-in via project runner
+        run: |
+          tests/e2e/run-project-venv e2e --profile all --runtime both
+
+  ac-trace:
+    name: ac-trace
+    needs: build-artifacts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run AC traceability closure scan
+        run: |
+          python tools/check_ac_traceability.py \
+            --acceptance .louke/project/specs/v0.14-001-workflow-reflow-spec/acceptance.md \
+            --tests tests
+
+  install-matrix:
+    name: first install (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: quality
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, python-version: "3.11" }
+          - { os: ubuntu-22.04, python-version: "3.12" }
+          - { os: ubuntu-22.04, python-version: "3.13" }
+          - { os: macos-13, python-version: "3.11" }
+          - { os: macos-13, python-version: "3.12" }
+          - { os: macos-13, python-version: "3.13" }
+          - { os: macos-14, python-version: "3.11" }
+          - { os: macos-14, python-version: "3.12" }
+          - { os: macos-14, python-version: "3.13" }
+          - { os: windows-2022, python-version: "3.11" }
+          - { os: windows-2022, python-version: "3.12" }
+          - { os: windows-2022, python-version: "3.13" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unix first install
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash install.sh --version 0.14.0
+          export PATH="$HOME/.local/bin:$PATH"
+          test -x .venv/bin/python
+          .venv/bin/python -c "import louke"
+          test -x "$HOME/.louke/venv/bin/python"
+          "$HOME/.louke/venv/bin/python" -c "import louke"
+          test "$(command -v lk)" = "$HOME/.local/bin/lk"
+          lk --version | grep -E '\(local\)$'
+      - name: Windows first install
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\install.ps1 -Version 0.14.0
+          if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw 'local venv missing' }
+          & .\.venv\Scripts\python.exe -c "import louke"
+          if (-not (Test-Path "$env:USERPROFILE\.louke\venv\Scripts\python.exe")) { throw 'global venv missing' }
+          & "$env:USERPROFILE\.louke\venv\Scripts\python.exe" -c "import louke"
+          & "$env:USERPROFILE\.louke\bin\lk.cmd" --version
+
+  required:
+    name: required
+    needs:
+      - quality
+      - build-artifacts
+      - artifact-verify
+      - unit
+      - integration
+      - e2e-standin
+      - ac-trace
+      - install-matrix
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - name: Aggregate mandatory job conclusions (fail-closed)
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          BUILD: ${{ needs.build-artifacts.result }}
+          VERIFY: ${{ needs.artifact-verify.result }}
+          UNIT: ${{ needs.unit.result }}
+          INTEGRATION: ${{ needs.integration.result }}
+          E2E: ${{ needs.e2e-standin.result }}
+          TRACE: ${{ needs.ac-trace.result }}
+          INSTALL: ${{ needs.install-matrix.result }}
+        run: |
+          set -euo pipefail
+          fail=0
+          for conclusion in "$QUALITY" "$BUILD" "$VERIFY" "$UNIT" "$INTEGRATION" "$E2E" "$TRACE" "$INSTALL"; do
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::mandatory job conclusion '$conclusion' is not 'success'"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  real-smoke:
+    name: real-smoke
+    needs:
+      - required
+      - build-artifacts
+      - artifact-verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.release == true)
+    environment: release-smoke
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download build artifacts (same github.sha)
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+      - name: Verify wheel digest matches this run's github.sha
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The wheel must have been built from this run's commit. The
+          # build-artifacts job ran on the same checkout, so the wheel's
+          # metadata corresponds to $SOURCE_SHA.
+          echo "source_sha=$SOURCE_SHA"
+          ls -la dist/
+      - name: Run real smoke (clean wheel + disposable repo + real OpenCode/GitHub)
+        env:
+          LOUKE_REAL_OPENCODE_URL: ${{ secrets.LOUKE_REAL_OPENCODE_URL }}
+          LOUKE_REAL_OPENCODE_TOKEN: ${{ secrets.LOUKE_REAL_OPENCODE_TOKEN }}
+          LOUKE_GITHUB_SANDBOX_OWNER: ${{ secrets.LOUKE_GITHUB_SANDBOX_OWNER }}
+          LOUKE_REAL_GITHUB_TOKEN: ${{ secrets.LOUKE_REAL_GITHUB_TOKEN }}
+        run: |
+          tests/e2e/run-project-venv real-smoke --profile v014 --runtime local
+      - name: Upload real-smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: louke-real-smoke-report
+          path: real-smoke.json
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: publish
+    needs:
+      - required
+      - real-smoke
+      - build-artifacts
+      - artifact-verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.release == true)
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download verified build artifacts (same github.sha)
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
+      - name: Verify tag is on main branch
+        run: |
+          git fetch --no-tags origin main
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "OK: $GITHUB_REF_NAME (commit $GITHUB_SHA) is reachable from origin/main"
+          else
+            echo "::error::tag $GITHUB_REF_NAME (commit $GITHUB_SHA) is not on main"
+            exit 1
+          fi
+      - name: Prepare package version with the release adapter
+        run: |
+          python -m pip install --quiet .
+          python tools/louke_python_release_adapter.py prepare --tag "$GITHUB_REF_NAME"
+      - name: Verify every artifact against the git tag
+        run: |
+          set -euo pipefail
+          for artifact in dist/louke-*.whl dist/louke-*.tar.gz; do
+            [ -f "$artifact" ] || { echo "::error::missing artifact $artifact"; exit 1; }
+            metadata=$(python tools/louke_python_release_adapter.py inspect --artifact "$artifact")
+            artifact_version=$(python -c 'import json,pathlib,sys; d=json.loads(sys.argv[2]); expected=str(pathlib.Path(sys.argv[1]).resolve()); actual=d.get("artifact"); version=d.get("version"); assert actual == expected, f"artifact path mismatch: {actual!r} != {expected!r}"; assert isinstance(version,str) and version.strip(), "artifact version missing"; print(version)' "$artifact" "$metadata")
+            python -m louke release verify --tag "$GITHUB_REF_NAME" --artifact-version "$artifact_version"
+          done
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --quiet --upgrade pip twine
+          python -m twine upload --skip-existing dist/louke-*.whl dist/louke-*.tar.gz
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: louke ${{ github.ref_name }}
+          fail_on_unmatched_files: false
+          files: |
+            dist/louke-*.whl
+            dist/louke-*.tar.gz
