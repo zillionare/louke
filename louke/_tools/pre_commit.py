@@ -1,11 +1,20 @@
-"""Git pre-commit quality gates backed by Keeper's scanners."""
+"""Git pre-commit quality gates backed by Keeper's scanners.
+
+This module also implements IF-PC-01 pre-commit contract install/readback
+verification (FR-1000): preserves existing hooks, declares install/readback/
+version/quick checks/may_modify/failure semantics, forbids Archer/Devon from
+executing install, and forbids ``authoritative_full_gate=true`` (pre-commit
+must not be used as the Red proof or the final full-quality gate).
+"""
 
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from .check_acs import parse_acceptance, scan_refs
 from .check_assertions import scan_file
@@ -20,6 +29,27 @@ PREFIXES = (
     "e2e:",
 )
 TEST_SUFFIXES = {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".sh", ".bats"}
+
+PRECOMMIT_ERROR_CODES = (
+    "PRECOMMIT_INSTALL_AUTHORITY_DENIED",
+    "PRECOMMIT_FULL_GATE_FORBIDDEN",
+    "PRECOMMIT_DRIFT",
+    "PRECOMMIT_MISSING",
+    "PRECOMMIT_CONFLICT",
+)
+
+_ALLOWED_INSTALLERS = ("Runtime", "Runtime/program")
+
+
+class PreCommitContractError(Exception):
+    """A fail-closed pre-commit contract rejection carrying a stable code."""
+
+    __test__ = False
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+        self.message = message
 
 
 def validate_subject(subject: str) -> list[str]:
@@ -113,6 +143,125 @@ def _project_value(key: str) -> str:
     except (OSError, tomllib.TOMLDecodeError):
         return ""
     return str(data.get("project", {}).get(key, ""))
+
+
+# --- IF-PC-01 pre-commit contract install/readback (FR-1000) -----------------
+
+
+def load_contract(contract_path: Path) -> dict[str, Any]:
+    """Load a pre-commit contract instance from ``contract_path``."""
+    return json.loads(Path(contract_path).read_bytes())
+
+
+def verify_preserve_existing_hooks(contract: dict[str, Any]) -> None:
+    """Verify the contract preserves existing hooks (AC-FR1000-01).
+
+    Raises :class:`PreCommitContractError` if no ``preserve-existing`` hook is
+    declared or if its ``may_modify`` flag is not ``True`` (preserved hooks may
+    be modified only by Runtime during a managed upgrade).
+    """
+    payload = contract.get("payload", {})
+    hooks = payload.get("hooks", [])
+    preserved = next((h for h in hooks if h.get("id") == "preserve-existing"), None)
+    if preserved is None:
+        raise PreCommitContractError(
+            "PRECOMMIT_DRIFT",
+            "contract does not declare a preserve-existing hook",
+        )
+    if preserved.get("may_modify") is not True:
+        raise PreCommitContractError(
+            "PRECOMMIT_CONFLICT",
+            "preserve-existing hook must allow may_modify=true for managed upgrade",
+        )
+
+
+def verify_no_full_gate_claim(contract: dict[str, Any]) -> None:
+    """Verify the contract does not claim authoritative full-quality gate.
+
+    Pre-commit is a fast local gate only; the Red proof and the final full
+    quality gate are not pre-commit's responsibility (AC-FR1000-01).
+    """
+    payload = contract.get("payload", {})
+    if payload.get("authoritative_full_gate") is True:
+        raise PreCommitContractError(
+            "PRECOMMIT_FULL_GATE_FORBIDDEN",
+            "pre-commit contract must not claim authoritative_full_gate=true",
+        )
+
+
+def verify_install_authority(contract: dict[str, Any], *, installer: str) -> None:
+    """Verify the install authority is Runtime, not Archer/Devon.
+
+    Args:
+        contract: The pre-commit contract instance.
+        installer: The actor attempting the install (e.g. ``Runtime``,
+            ``Archer``, ``Devon``).
+
+    Raises:
+        PreCommitContractError: With ``PRECOMMIT_INSTALL_AUTHORITY_DENIED``
+            if the installer is not Runtime.
+    """
+    if installer not in _ALLOWED_INSTALLERS:
+        raise PreCommitContractError(
+            "PRECOMMIT_INSTALL_AUTHORITY_DENIED",
+            f"installer {installer!r} is not authorised; only Runtime may install",
+        )
+
+
+def parse_existing_hook_snapshot(contract: dict[str, Any]) -> dict[str, Any]:
+    """Return the existing-hook snapshot declared in the contract."""
+    payload = contract.get("payload", {})
+    snapshot = payload.get("existing_hook_snapshot", {})
+    if not snapshot:
+        raise PreCommitContractError(
+            "PRECOMMIT_MISSING",
+            "contract has no existing_hook_snapshot",
+        )
+    return dict(snapshot)
+
+
+def aggregate_readback(
+    contract: dict[str, Any],
+    *,
+    config_path: Path,
+    installed_stages: list[str],
+) -> dict[str, Any]:
+    """Aggregate the pre-commit readback status (AC-FR1000-01).
+
+    Args:
+        contract: The pre-commit contract instance.
+        config_path: Path to the managed config file (``.pre-commit-config.yaml``).
+        installed_stages: List of installed hook stages (e.g. ``["pre-commit"]``).
+
+    Returns:
+        A dict with ``status`` in ``in_sync|drifted|missing|conflict`` and
+        ``contract_revision`` / ``installed_stages`` fields.
+    """
+    payload = contract.get("payload", {})
+    expected_stages = list(payload.get("stages", []))
+    config_path = Path(config_path)
+    if not config_path.is_file():
+        return {
+            "status": "missing",
+            "contract_revision": contract.get("revision"),
+            "expected_stages": expected_stages,
+            "installed_stages": list(installed_stages),
+        }
+    missing_stages = [s for s in expected_stages if s not in installed_stages]
+    if missing_stages:
+        return {
+            "status": "drifted",
+            "contract_revision": contract.get("revision"),
+            "expected_stages": expected_stages,
+            "installed_stages": list(installed_stages),
+            "missing_stages": missing_stages,
+        }
+    return {
+        "status": "in_sync",
+        "contract_revision": contract.get("revision"),
+        "expected_stages": expected_stages,
+        "installed_stages": list(installed_stages),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
