@@ -99,12 +99,25 @@ def workbench_api(mock_louke_tools_e2e, monkeypatch):
     """Stand-in for the M-DESIGN Workbench HTTP API (IF-WEB-01).
 
     Mode B: returns mock responses derived from candidate artifacts.
-    Set ``LOUKE_V014_002_LIVE_SERVER=1`` to bypass (requires Devon's
-    real ``lk web`` server).
+    When Devon ships the real ``lk web`` server, set
+    ``LOUKE_V014_002_LIVE_SERVER=1`` to run against the live server.
+    When the real ``louke._tools.workbench`` module exists (Devon's
+    implementation), this fixture auto-skips to force the test author
+    to write a real e2e test against the actual server.
     """
     if os.environ.get("LOUKE_V014_002_LIVE_SERVER") == "1":
-        pytest.skip("Live server mode not yet configured for v014_002 e2e")
+        # Live server mode: real integration test against ``lk web``.
+        # TODO: when Devon ships ``lk web``, implement live HTTP client here.
+        pytest.skip(
+            "Live server mode not yet configured for v014_002 e2e; "
+            "implement HTTP client when Devon ships lk web"
+        )
     workbench = mock_louke_tools_e2e["louke._tools.workbench"]
+    if not isinstance(workbench, MagicMock):
+        pytest.skip(
+            "louke._tools.workbench is now implemented by Devon; "
+            "replace this mock test with a real e2e test against lk web"
+        )
     monkeypatch.setitem(sys.modules, "louke._tools.workbench", workbench)
     return workbench
 

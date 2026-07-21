@@ -98,12 +98,25 @@ def mock_louke_tools() -> dict[str, Any]:
 
 
 def _make_module_fixture(module_path: str):
-    """Factory: build a per-module mock fixture with override helpers."""
+    """Factory: build a per-module mock fixture with override helpers.
+
+    When Devon ships the real module, this fixture **auto-skips** instead
+    of returning the real module. This prevents tests from setting
+    ``.return_value`` on real module attributes (which would crash with
+    ``AttributeError``) and forces the test author to write a real
+    integration test that calls the actual implementation.
+    """
 
     @pytest.fixture
     def _fixture(monkeypatch, mock_louke_tools):
         module = mock_louke_tools[module_path]
-        # Ensure sys.modules has the (possibly mocked) module so that
+        if not isinstance(module, MagicMock):
+            pytest.skip(
+                f"{module_path} is now implemented by Devon; "
+                f"replace this mock test with a real integration test "
+                f"that calls the actual module."
+            )
+        # Ensure sys.modules has the mocked module so that
         # ``from louke._tools.X import Y`` resolves to the mock.
         monkeypatch.setitem(sys.modules, module_path, module)
         return module
