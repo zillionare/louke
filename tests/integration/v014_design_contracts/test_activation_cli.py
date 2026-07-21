@@ -13,11 +13,34 @@ How it works:
 This file does NOT use MagicMock. It is the real integration test that
 replaces the 125 ``awaiting_devon`` mock tests when Devon ships code.
 
+Virtual environment policy:
+- All subprocess calls use the ``venv_python`` fixture (provided by
+  conftest.py) instead of ``sys.executable``. This skips the test if
+  pytest is not running inside a venv, preventing accidental pollution
+  of system Python. See conftest.py::venv_python for details.
+
 Interfaces covered (per interfaces.md):
 - IF-DES-02: ``python -m louke._tools.design_contract validate``
 - IF-REG-01: ``python -m louke._tools.contract_registry discover``
 - IF-CI-01: ``python -m louke._tools.ci_contract render`` / ``readback``
 - IF-WEB-01: ``lk web`` + ``GET /health`` (HTTP, not CLI)
+
+CLI command alignment with v0.14 ground truth (spec/acc/test-plan/interfaces):
+- ``python -m louke._tools.design_contract validate`` — defined in
+  v0.14-002 interfaces.md §IF-DES-02 line 27 as "project-local program
+  entry（本 Spec 由 Devon 实现）"; also in v0.14-002 test-plan.md §2.3
+- ``python -m louke._tools.contract_registry discover`` — defined in
+  v0.14-002 interfaces.md §IF-REG-01 line 58
+- ``python -m louke._tools.ci_contract render/readback`` — defined in
+  v0.14-002 interfaces.md §IF-CI-01 lines 108-109
+- ``lk web`` — defined in v0.14-002 interfaces.md §IF-TST-01 line 81:
+  "design-contracts runner以installed wheel启动lk web --host 127.0.0.1
+  --port <allocated>"
+- ``lk --version`` — confirmed in v0.14-003 test-plan.md §2.3 lines 126,
+  180, 254 (clean venv outlet verification)
+- 002 CLI commands are NOT deprecated in 003: v0.14-003 interfaces.md
+  line 20 "002 machine-contract 的 payload 不在本文复制；§17 仅作精确
+  引用和消费边界" and line 454 "inherited 002 contracts 7/7...未重定义payload"
 """
 
 # AC-FR0400-01, AC-FR0600-01, AC-FR0700-01, AC-FR0900-01, AC-FR1100-01
@@ -27,7 +50,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -74,7 +96,7 @@ pytestmark = pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_design_contract_validate_real_cli():
+def test_design_contract_validate_real_cli(venv_python):
     """IF-DES-02: ``python -m louke._tools.design_contract validate``.
 
     When Devon ships the real module, this test calls the actual CLI
@@ -83,7 +105,7 @@ def test_design_contract_validate_real_cli():
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.design_contract",
+            venv_python, "-m", "louke._tools.design_contract",
             "validate",
             "--manifest", str(MANIFEST_PATH),
             "--format", "json",
@@ -116,7 +138,7 @@ def test_design_contract_validate_real_cli():
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_design_contract_validate_has_stable_check_ids():
+def test_design_contract_validate_has_stable_check_ids(venv_python):
     """IF-DES-02: validator output must include stable check IDs.
 
     Per interfaces.md: at least DESIGN.TRACE.CLOSURE,
@@ -124,7 +146,7 @@ def test_design_contract_validate_has_stable_check_ids():
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.design_contract",
+            venv_python, "-m", "louke._tools.design_contract",
             "validate",
             "--manifest", str(MANIFEST_PATH),
             "--format", "json",
@@ -158,7 +180,7 @@ def test_design_contract_validate_has_stable_check_ids():
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
 )
-def test_contract_registry_discover_real_cli():
+def test_contract_registry_discover_real_cli(venv_python):
     """IF-REG-01: ``python -m louke._tools.contract_registry discover``.
 
     When Devon ships the real module, this test calls discover and
@@ -167,7 +189,7 @@ def test_contract_registry_discover_real_cli():
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.contract_registry",
+            venv_python, "-m", "louke._tools.contract_registry",
             "discover",
             "--format", "json",
         ],
@@ -201,11 +223,11 @@ def test_contract_registry_discover_real_cli():
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
 )
-def test_contract_registry_discover_returns_7_machine_schemas():
+def test_contract_registry_discover_returns_7_machine_schemas(venv_python):
     """IF-REG-01: discover must list 7 machine-contract schemas."""
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.contract_registry",
+            venv_python, "-m", "louke._tools.contract_registry",
             "discover",
             "--format", "json",
         ],
@@ -236,7 +258,7 @@ def test_contract_registry_discover_returns_7_machine_schemas():
     not _module_available("louke._tools.ci_contract"),
     reason="awaiting Devon: louke._tools.ci_contract",
 )
-def test_ci_contract_render_real_cli(tmp_path):
+def test_ci_contract_render_real_cli(venv_python, tmp_path):
     """IF-CI-01: ``python -m louke._tools.ci_contract render``.
 
     Render the candidate CI contract to a temporary workflow file and
@@ -249,7 +271,7 @@ def test_ci_contract_render_real_cli(tmp_path):
     output_path = tmp_path / "louke-ci.yml"
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.ci_contract",
+            venv_python, "-m", "louke._tools.ci_contract",
             "render",
             "--contract", str(ci_contract_path),
             "--output", str(output_path),
@@ -275,7 +297,7 @@ def test_ci_contract_render_real_cli(tmp_path):
     not _module_available("louke._tools.ci_contract"),
     reason="awaiting Devon: louke._tools.ci_contract",
 )
-def test_ci_contract_readback_real_cli(tmp_path):
+def test_ci_contract_readback_real_cli(venv_python, tmp_path):
     """IF-CI-01: ``python -m louke._tools.ci_contract readback``.
 
     After render, readback must return ``{status, contract_digest,
@@ -290,7 +312,7 @@ def test_ci_contract_readback_real_cli(tmp_path):
     # First render
     subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.ci_contract",
+            venv_python, "-m", "louke._tools.ci_contract",
             "render",
             "--contract", str(ci_contract_path),
             "--output", str(output_path),
@@ -303,7 +325,7 @@ def test_ci_contract_readback_real_cli(tmp_path):
     # Then readback
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.ci_contract",
+            venv_python, "-m", "louke._tools.ci_contract",
             "readback",
             "--contract", str(ci_contract_path),
             "--workflow", str(output_path),
@@ -334,7 +356,7 @@ def test_ci_contract_readback_real_cli(tmp_path):
     not _module_available("louke._tools.workbench"),
     reason="awaiting Devon: louke._tools.workbench",
 )
-def test_workbench_health_endpoint_real():
+def test_workbench_health_endpoint_real(venv_python):
     """IF-WEB-01: ``lk web`` server must respond to ``GET /health``.
 
     Per interfaces.md: ``GET /health`` returns HTTP 200 with expected
@@ -351,7 +373,7 @@ def test_workbench_health_endpoint_real():
 
     proc = subprocess.Popen(
         [
-            sys.executable, "-m", "louke",
+            venv_python, "-m", "louke",
             "web", "--host", "127.0.0.1", "--port", str(port),
         ],
         stdout=subprocess.PIPE,

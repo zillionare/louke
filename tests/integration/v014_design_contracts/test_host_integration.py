@@ -13,6 +13,20 @@ This validates that Louke's tools work correctly when invoked in a host
 project context — reading the host project's own spec documents, not
 Louke's own ``.louke/`` directory.
 
+Virtual environment policy:
+- All subprocess calls use the ``venv_python`` fixture (provided by
+  conftest.py) instead of ``sys.executable``. This skips the test if
+  pytest is not running inside a venv, preventing accidental pollution
+  of system Python. See conftest.py::venv_python for details.
+
+CLI command alignment with v0.14 ground truth (spec/acc/test-plan/interfaces):
+- ``python -m louke._tools.design_contract validate`` — defined in
+  v0.14-002 interfaces.md §IF-DES-02 line 27
+- ``python -m louke._tools.contract_registry discover`` — defined in
+  v0.14-002 interfaces.md §IF-REG-01 line 58
+- 002 CLI commands are NOT deprecated in 003: v0.14-003 interfaces.md
+  §17 "inherited 002 contracts 7/7...未重定义payload"
+
 When Devon's implementation does not exist, all tests skip (dormant).
 When Devon ships ``louke._tools.*``, these tests activate and call the
 real CLI via ``subprocess.run(cwd=synthetic_host_dir)``.
@@ -26,7 +40,6 @@ import importlib.util
 import json
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -100,7 +113,7 @@ def synthetic_manifest_path(synthetic_host_dir):
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_runs_in_synthetic_project(synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_runs_in_synthetic_project(venv_python, synthetic_host_dir, synthetic_manifest_path):
     """IF-DES-02: ``design_contract validate`` must run in the host project.
 
     The CLI must read the host project's own ``.louke/`` directory —
@@ -108,7 +121,7 @@ def test_host_validate_runs_in_synthetic_project(synthetic_host_dir, synthetic_m
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.design_contract",
+            venv_python, "-m", "louke._tools.design_contract",
             "validate",
             "--manifest", str(synthetic_manifest_path),
             "--format", "json",
@@ -137,7 +150,7 @@ def test_host_validate_runs_in_synthetic_project(synthetic_host_dir, synthetic_m
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_detects_tampered_digest(synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_detects_tampered_digest(venv_python, synthetic_host_dir, synthetic_manifest_path):
     """IF-DES-02: validator must detect when a file's digest doesn't match.
 
     Tamper with acceptance.md, then run validate. The validator must
@@ -157,7 +170,7 @@ def test_host_validate_detects_tampered_digest(synthetic_host_dir, synthetic_man
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.design_contract",
+            venv_python, "-m", "louke._tools.design_contract",
             "validate",
             "--manifest", str(synthetic_manifest_path),
             "--format", "json",
@@ -182,7 +195,7 @@ def test_host_validate_detects_tampered_digest(synthetic_host_dir, synthetic_man
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_reports_candidate_state(synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_reports_candidate_state(venv_python, synthetic_host_dir, synthetic_manifest_path):
     """IF-DES-02: validator must report SCHEMA_NOT_ACTIVE for candidate registry.
 
     The synthetic host's registry has ``activation_state=candidate``.
@@ -190,7 +203,7 @@ def test_host_validate_reports_candidate_state(synthetic_host_dir, synthetic_man
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.design_contract",
+            venv_python, "-m", "louke._tools.design_contract",
             "validate",
             "--manifest", str(synthetic_manifest_path),
             "--format", "json",
@@ -216,7 +229,7 @@ def test_host_validate_reports_candidate_state(synthetic_host_dir, synthetic_man
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_checks_ac_closure(synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_checks_ac_closure(venv_python, synthetic_host_dir, synthetic_manifest_path):
     """IF-DES-02: validator must verify AC closure in the host project.
 
     The synthetic host has 3 ACs (AC-FR0100-01, AC-FR0200-01, AC-NFR0100-01).
@@ -224,7 +237,7 @@ def test_host_validate_checks_ac_closure(synthetic_host_dir, synthetic_manifest_
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.design_contract",
+            venv_python, "-m", "louke._tools.design_contract",
             "validate",
             "--manifest", str(synthetic_manifest_path),
             "--format", "json",
@@ -249,7 +262,7 @@ def test_host_validate_checks_ac_closure(synthetic_host_dir, synthetic_manifest_
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
 )
-def test_host_registry_discover_in_synthetic_project(synthetic_host_dir):
+def test_host_registry_discover_in_synthetic_project(venv_python, synthetic_host_dir):
     """IF-REG-01: ``contract_registry discover`` must run in host project.
 
     The registry must discover the host project's own schemas (2 in
@@ -257,7 +270,7 @@ def test_host_registry_discover_in_synthetic_project(synthetic_host_dir):
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.contract_registry",
+            venv_python, "-m", "louke._tools.contract_registry",
             "discover",
             "--format", "json",
         ],
@@ -291,7 +304,7 @@ def test_host_registry_discover_in_synthetic_project(synthetic_host_dir):
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
 )
-def test_host_registry_reports_candidate_status(synthetic_host_dir):
+def test_host_registry_reports_candidate_status(venv_python, synthetic_host_dir):
     """IF-REG-01: registry must report ``status=candidate`` for synthetic host.
 
     The synthetic host's registry has ``activation_state=candidate``.
@@ -299,7 +312,7 @@ def test_host_registry_reports_candidate_status(synthetic_host_dir):
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.contract_registry",
+            venv_python, "-m", "louke._tools.contract_registry",
             "discover",
             "--format", "json",
         ],
@@ -320,7 +333,7 @@ def test_host_registry_reports_candidate_status(synthetic_host_dir):
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
 )
-def test_host_registry_does_not_leak_louke_own_schemas(synthetic_host_dir):
+def test_host_registry_does_not_leak_louke_own_schemas(venv_python, synthetic_host_dir):
     """IF-REG-01: host project registry must NOT contain Louke's own schemas.
 
     This is the key isolation test: the synthetic host has 2 schemas
@@ -330,7 +343,7 @@ def test_host_registry_does_not_leak_louke_own_schemas(synthetic_host_dir):
     """
     result = subprocess.run(
         [
-            sys.executable, "-m", "louke._tools.contract_registry",
+            venv_python, "-m", "louke._tools.contract_registry",
             "discover",
             "--format", "json",
         ],

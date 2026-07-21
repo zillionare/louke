@@ -10,15 +10,30 @@ When Devon ships a real module, the corresponding mock is bypassed
 automatically (the real import wins). Tests that still rely on mock
 behaviour must explicitly request the ``mock_<module>`` fixture.
 
-References:
-- HANDOFF.md §2 (Mode B)
-- test-plan.md §1.5 (Devon/Shield division of labor)
-- interfaces.md (15 IF-XXX contracts)
+Virtual environment policy:
+- Tests that spawn subprocesses (``test_activation_cli.py``,
+  ``test_host_integration.py``) MUST use the ``venv_python`` fixture
+  instead of ``sys.executable`` directly. This prevents accidentally
+  running Louke's CLI with system Python, which could pollute the
+  system environment. See v0.14-002 test-plan.md §2.3:
+  "依赖由project `.venv`安装锁定的`pytest==8.4.1`..." and
+  v0.14-003 test-plan.md §2.3: "clean build tree + 每件 artifact 独立
+  clean venv".
+- The ``venv_python`` fixture skips tests when pytest is not running
+  inside a venv (``sys.prefix == sys.base_prefix``), with a clear message
+  directing the user to create a venv first.
+
+References (ground truth: spec/acc/test-plan/interfaces only):
+- v0.14-002 interfaces.md (15 IF-XXX contracts, CLI command definitions)
+- v0.14-002 test-plan.md §2.3 (test runner, .venv requirement)
+- v0.14-003 interfaces.md §17 (002 contracts inherited, not redefined)
+- v0.14-003 test-plan.md §2.3 (clean venv, lk --version)
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -41,6 +56,89 @@ SPEC_ROOT = (
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 FIXTURES_ROOT = TESTS_ROOT / "fixtures" / "v014_design_contracts"
+
+
+# ---------------------------------------------------------------------------
+# Virtual environment guard
+# ---------------------------------------------------------------------------
+# Tests that spawn subprocesses (activation tests, host-project integration
+# tests) MUST use ``venv_python`` instead of ``sys.executable``. Running
+# Louke's CLI with system Python risks polluting the system environment
+# (e.g., importing a globally-installed louke instead of the dev version).
+# v0.14-003 architecture.md §IF-BLD-02 explicitly requires clean venv for
+# artifact verification; we apply the same discipline to integration tests.
+
+def in_venv() -> bool:
+    """Return True if the current Python is running inside a managed environment.
+
+    Accepts:
+    - ``venv`` (PEP 405: ``sys.prefix != sys.base_prefix``)
+    - Legacy ``virtualenv`` (sets ``sys.real_prefix``)
+    - Conda environments (``CONDA_PREFIX`` is set and executable is inside it)
+    - Louke global runtime (``~/.louke/venv``)
+    - Explicit ``VIRTUAL_ENV`` env var (for CI)
+
+    Rejects: bare system Python (``/usr/bin/python``, Homebrew, etc.)
+    """
+    # Legacy virtualenv
+    if hasattr(sys, "real_prefix"):
+        return True
+    # PEP 405 venv
+    if sys.prefix != sys.base_prefix:
+        return True
+    # Conda environment (base or named env — both are managed, not system)
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        executable = Path(sys.executable).resolve()
+        try:
+            executable.relative_to(Path(conda_prefix).resolve())
+            return True
+        except ValueError:
+            pass
+    # Louke global runtime (~/.louke/venv) — managed, not system
+    executable = Path(sys.executable).resolve()
+    if ".louke" in executable.parts and "venv" in executable.parts:
+        return True
+    # Explicit override via env var (for CI that exports VIRTUAL_ENV)
+    if os.environ.get("VIRTUAL_ENV"):
+        return True
+    return False
+
+
+@pytest.fixture(scope="session")
+def venv_python() -> str:
+    """Return the venv Python executable path for subprocess calls.
+
+    Skips the test if pytest is not running inside a venv. This prevents
+    integration tests from accidentally invoking Louke's CLI with system
+    Python, which could:
+    1. Use a globally-installed louke instead of the dev version
+    2. Modify system Python's environment (pip install, etc.)
+    3. Produce misleading test results against the wrong louke version
+
+    Usage in tests::
+
+        def test_something(venv_python):
+            result = subprocess.run(
+                [venv_python, "-m", "louke._tools.design_contract", ...],
+                ...
+            )
+
+    To create a venv for development::
+
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -e '.[dev]'
+        python -m pytest tests/integration/v014_design_contracts
+    """
+    if not in_venv():
+        pytest.skip(
+            "Integration test requires a virtual environment to avoid "
+            "polluting system Python. Create one with: "
+            "python -m venv .venv && source .venv/bin/activate && "
+            "pip install -e '.[dev]', then re-run pytest."
+        )
+    return sys.executable
 
 # ---------------------------------------------------------------------------
 # Mock infrastructure (Mode B)
