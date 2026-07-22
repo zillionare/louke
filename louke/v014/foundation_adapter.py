@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,7 @@ class ShellFoundationAdapter:
                 remote_main={},
                 previous_branch={},
                 remediation=f"origin/main refresh failed: {fetch_error}",
+                checked_at=_now(),
             )
         remote_ref = "refs/remotes/origin/main"
         remote_sha, remote_error = self._output("git", "rev-parse", remote_ref)
@@ -42,6 +44,7 @@ class ShellFoundationAdapter:
                     "cannot resolve authoritative main or current branch: "
                     f"{remote_error or local_error or branch_error}"
                 ),
+                checked_at=_now(),
             )
         previous_ref = f"refs/heads/{branch}"
         previous_sha, _ = self._output("git", "rev-parse", previous_ref)
@@ -64,6 +67,7 @@ class ShellFoundationAdapter:
             },
             local_main={"full_ref": "refs/heads/main", "sha": local_sha},
             remediation=remediation,
+            checked_at=_now(),
         )
 
     def provision(
@@ -96,6 +100,13 @@ class ShellFoundationAdapter:
         resources["worktree"] = worktree
         if worktree_error:
             return self._uncertain(resources, worktree_error)
+        resources["release_branch"].update(
+            {
+                "checked_out": True,
+                "head_symbolic_ref": worktree["head_symbolic_ref"],
+                "head_sha": worktree["head_sha"],
+            }
+        )
         spec, spec_error = self._ensure_spec_directory(Path(worktree["path"]))
         resources["spec_directory"] = spec
         if spec_error:
@@ -253,3 +264,8 @@ def _read_project_toml(root: Path) -> dict[str, Any]:
     from louke._common import _toml_load
 
     return _toml_load(root / ".louke/project/project.toml")
+
+
+def _now() -> str:
+    """Return an ISO-8601 UTC observation timestamp."""
+    return datetime.now(timezone.utc).isoformat()
