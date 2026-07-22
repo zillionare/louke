@@ -228,6 +228,11 @@ def get_or_create_store(app: "Starlette") -> WorkflowRunStore:
         store = getattr(app.state, _COMPAT_STORE_ATTR, None)
     if store is None:
         store = build_run_store()
+    _cache_store_aliases(app, store)
+    return store
+
+
+def _cache_store_aliases(app: "Starlette", store: WorkflowRunStore) -> None:
+    """Cache one store under the canonical and legacy app-state attributes."""
     setattr(app.state, _STORE_ATTR, store)
     setattr(app.state, _COMPAT_STORE_ATTR, store)
-    return store
