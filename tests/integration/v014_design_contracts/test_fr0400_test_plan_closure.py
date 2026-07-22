@@ -18,11 +18,7 @@ import pytest
 TESTS_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 CLOSURE_MATRIX = (
     TESTS_ROOT
@@ -38,6 +34,7 @@ def test_test_plan_lists_34_ac_ids():
     from tests.ground_truth.v014_design_contracts.independent_validator import (
         parse_acceptance_ac_ids,
     )
+
     ac_ids = parse_acceptance_ac_ids(SPEC_ROOT / "acceptance.md")
     assert len(ac_ids) == 34
 
@@ -67,10 +64,8 @@ def test_design_closure_matrix_negative_cases_cover_orphan_and_conflict():
 def test_manifest_ac_closure_covers_all_34(design_manifest):
     """design-artifact-manifest.ac_closure must list 34 entries."""
     closure = design_manifest.get("ac_closure")
-    assert closure is not None, "manifest missing ac_closure"
-    assert len(closure) == 34, (
-        f"expected 34 AC closure entries, got {len(closure)}"
-    )
+    assert closure is not None, "manifest missing ac_closure"  # AC-FR0400-01
+    assert len(closure) == 34, f"expected 34 AC closure entries, got {len(closure)}"
 
 
 def test_manifest_ac_closure_every_entry_has_required_fields(design_manifest):
@@ -88,6 +83,7 @@ def test_manifest_ac_closure_interfaces_subset_of_required(design_manifest):
     from tests.ground_truth.v014_design_contracts.independent_validator import (
         REQUIRED_INTERFACES,
     )
+
     closure = design_manifest["ac_closure"]
     for entry in closure:
         for if_id in entry["if"]:
@@ -101,6 +97,7 @@ def test_manifest_ac_closure_anchors_subset_of_required(design_manifest):
     from tests.ground_truth.v014_design_contracts.independent_validator import (
         REQUIRED_ARCHITECTURE_ANCHORS,
     )
+
     closure = design_manifest["ac_closure"]
     for entry in closure:
         for arc in entry["arc"]:
@@ -126,7 +123,12 @@ def test_validator_detects_missing_required_layer(mock_design_contract):
     mock_design_contract.validate_manifest.return_value = {
         "ok": False,
         "checks": [
-            {"id": "missing-layer", "status": "fail", "ac": "AC-FR0700-01", "layer": "integration"}
+            {
+                "id": "missing-layer",
+                "status": "fail",
+                "ac": "AC-FR0700-01",
+                "layer": "integration",
+            }
         ],
     }
     result = mock_design_contract.validate_manifest({})

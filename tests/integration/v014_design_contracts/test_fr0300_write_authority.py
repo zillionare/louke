@@ -27,9 +27,7 @@ def test_manifest_design_docs_list_three_documents(design_manifest):
         ".louke/project/specs/v0.14-002-workflow-reflow-design/architecture.md",
         ".louke/project/specs/v0.14-002-workflow-reflow-design/interfaces.md",
     }
-    assert paths == expected, (
-        f"design_docs paths mismatch: {paths} vs {expected}"
-    )
+    assert paths == expected, f"design_docs paths mismatch: {paths} vs {expected}"
 
 
 def test_manifest_contract_instances_list_seven_kinds(design_manifest):
@@ -37,8 +35,12 @@ def test_manifest_contract_instances_list_seven_kinds(design_manifest):
     instances = design_manifest["contract_instances"]
     kinds = {i["kind"] for i in instances}
     expected_kinds = {
-        "integration-test", "e2e-test", "pre-commit",
-        "github-actions-ci", "release-version", "build-artifact",
+        "integration-test",
+        "e2e-test",
+        "pre-commit",
+        "github-actions-ci",
+        "release-version",
+        "build-artifact",
         "publish-recovery",
     }
     assert kinds == expected_kinds
@@ -72,9 +74,7 @@ def test_git_side_effect_rejected(mock_design_coordinator):
         "ok": False,
         "error": "GIT_SIDE_EFFECT_FORBIDDEN",
     }
-    result = mock_design_coordinator.validate_patch(
-        path=".git/HEAD", diff="..."
-    )
+    result = mock_design_coordinator.validate_patch(path=".git/HEAD", diff="...")
     assert not result["ok"]
 
 
@@ -101,7 +101,5 @@ def test_baseline_unchanged_after_rejection(mock_design_coordinator):
         "error": "OUT_OF_SCOPE",
         "baseline_unchanged": True,
     }
-    result = mock_design_coordinator.validate_patch(
-        path="unauthorized.py", diff="..."
-    )
+    result = mock_design_coordinator.validate_patch(path="unauthorized.py", diff="...")
     assert result["baseline_unchanged"] is True

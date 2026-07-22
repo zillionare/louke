@@ -29,7 +29,7 @@ def test_release_artifact_matrix_has_canonical_case():
     canonical = next(
         (c for c in matrix["cases"] if c["id"] == "canonical-wheel-sdist"), None
     )
-    assert canonical is not None
+    assert canonical is not None  # AC-FR1500-01
     assert canonical["expected"] == "PASS"
 
 

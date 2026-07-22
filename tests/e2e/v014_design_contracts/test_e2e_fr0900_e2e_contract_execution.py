@@ -21,13 +21,13 @@ def test_e2e_contract_paths_exist_on_disk(e2e_test_contract):
     paths = e2e_test_contract.get("payload", {}).get("paths", [])
     assert paths, "e2e contract must declare paths"
     for rel_path in paths:
-        # Normalize and check existence.
-        normalized = rel_path.replace("/", "").replace("\\", "")
         # Paths are relative to repo root; the tests root is one level down.
         # Just check that the path string references v014_design_contracts somewhere.
-        assert "v014_design_contracts" in rel_path or "install" in rel_path or "chromium" in rel_path, (
-            f"e2e contract path '{rel_path}' does not reference a known test directory"
-        )
+        assert (
+            "v014_design_contracts" in rel_path
+            or "install" in rel_path
+            or "chromium" in rel_path
+        ), f"e2e contract path '{rel_path}' does not reference a known test directory"
 
 
 def test_e2e_test_directory_exists():
@@ -67,7 +67,9 @@ def test_e2e_suite_required_true(e2e_test_contract):
     required_suite = next(
         (s for s in suites if s.get("id") == "v014-design-contracts-e2e"), None
     )
-    assert required_suite is not None, "v014-design-contracts-e2e suite not declared"
+    assert required_suite is not None, (
+        "v014-design-contracts-e2e suite not declared"
+    )  # AC-FR0900-01
     assert required_suite.get("required") is True
 
 
@@ -101,7 +103,7 @@ def test_e2e_command_declared(e2e_test_contract):
     commands = e2e_test_contract.get("payload", {}).get("commands", [])
     assert commands, "e2e contract must declare commands"
     e2e_cmd = next((c for c in commands if c.get("id") == "e2e-public"), None)
-    assert e2e_cmd is not None
+    assert e2e_cmd is not None  # AC-FR0900-01
     assert "run-project-venv" in e2e_cmd.get("command", "")
     assert "--profile all" in e2e_cmd.get("command", "")
     assert "--runtime both" in e2e_cmd.get("command", "")
@@ -111,7 +113,7 @@ def test_e2e_command_implementation_state(e2e_test_contract):
     """e2e-public command must be in candidate-change-required state."""
     commands = e2e_test_contract.get("payload", {}).get("commands", [])
     e2e_cmd = next((c for c in commands if c.get("id") == "e2e-public"), None)
-    assert e2e_cmd is not None
+    assert e2e_cmd is not None  # AC-FR0900-01
     assert e2e_cmd.get("implementation_state") == "candidate-change-required"
 
 

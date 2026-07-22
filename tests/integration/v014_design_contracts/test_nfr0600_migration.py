@@ -27,47 +27,57 @@ def test_legacy_matrix_has_old_m_lock_1_case():
     """legacy_matrix must include old-m-lock-1 case."""
     matrix = json.loads((FIXTURES / "legacy_matrix.json").read_text())
     case = next((c for c in matrix["cases"] if c["id"] == "old-m-lock-1"), None)
-    assert case is not None
-    assert "migrate" in case["expected"].lower() or "diagnostic" in case["expected"].lower()
+    assert case is not None  # AC-NFR0600-01
+    assert (
+        "migrate" in case["expected"].lower()
+        or "diagnostic" in case["expected"].lower()
+    )
 
 
 def test_legacy_matrix_has_old_second_lock_case():
     """legacy_matrix must include old-second-lock case."""
     matrix = json.loads((FIXTURES / "legacy_matrix.json").read_text())
     case = next((c for c in matrix["cases"] if c["id"] == "old-second-lock"), None)
-    assert case is not None
-    assert "no second M-LOCK" in case["expected"] or "migrate" in case["expected"].lower()
+    assert case is not None  # AC-NFR0600-01
+    assert (
+        "no second M-LOCK" in case["expected"] or "migrate" in case["expected"].lower()
+    )
 
 
 def test_legacy_matrix_has_old_prompt_schema_case():
     """legacy_matrix must include old-prompt-schema case."""
     matrix = json.loads((FIXTURES / "legacy_matrix.json").read_text())
     case = next((c for c in matrix["cases"] if c["id"] == "old-prompt-schema"), None)
-    assert case is not None
+    assert case is not None  # AC-NFR0600-01
 
 
 def test_legacy_matrix_has_old_contract_schema_case():
     """legacy_matrix must include old-contract-schema case."""
     matrix = json.loads((FIXTURES / "legacy_matrix.json").read_text())
     case = next((c for c in matrix["cases"] if c["id"] == "old-contract-schema"), None)
-    assert case is not None
+    assert case is not None  # AC-NFR0600-01
 
 
 def test_legacy_matrix_has_unknown_version_case():
     """legacy_matrix must include unknown-version case (fail closed)."""
     matrix = json.loads((FIXTURES / "legacy_matrix.json").read_text())
     case = next((c for c in matrix["cases"] if c["id"] == "unknown-version"), None)
-    assert case is not None
+    assert case is not None  # AC-NFR0600-01
     assert "fail closed" in case["expected"].lower()
 
 
 def test_legacy_matrix_has_migration_interrupted_case():
     """legacy_matrix must include migration-interrupted case (retryable)."""
     matrix = json.loads((FIXTURES / "legacy_matrix.json").read_text())
-    case = next((c for c in matrix["cases"] if c["id"] == "migration-interrupted"), None)
-    assert case is not None
+    case = next(
+        (c for c in matrix["cases"] if c["id"] == "migration-interrupted"), None
+    )
+    assert case is not None  # AC-NFR0600-01
     assert "retryable" in case["expected"].lower()
-    assert "no dual" in case["expected"].lower() or "dual-write" in case["expected"].lower()
+    assert (
+        "no dual" in case["expected"].lower()
+        or "dual-write" in case["expected"].lower()
+    )
 
 
 @pytest.mark.awaiting_devon("NFR-0600")

@@ -23,9 +23,7 @@ def test_design_manifest_has_canonical_release_identity(design_manifest):
     assert identity["base_commit"].startswith("2734177")
 
 
-def test_design_manifest_activation_state_is_candidate_not_installed(
-    design_manifest
-):
+def test_design_manifest_activation_state_is_candidate_not_installed(design_manifest):
     """Candidate manifest must be candidate-not-installed (not active)."""
     assert design_manifest["activation_state"] == "candidate-not-installed"
 
@@ -38,9 +36,7 @@ def test_design_manifest_lists_required_artifacts(design_manifest):
         assert req[key].startswith("sha256:")
 
 
-def test_design_manifest_input_artifacts_include_facts_and_task(
-    design_manifest
-):
+def test_design_manifest_input_artifacts_include_facts_and_task(design_manifest):
     """input_artifacts must include host-project-facts-snapshot and
     archer-author-task-manifest."""
     kinds = {a["kind"] for a in design_manifest["input_artifacts"]}

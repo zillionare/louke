@@ -40,9 +40,7 @@ def test_review_restart_matrix_has_three_kill_boundaries():
 def test_review_restart_matrix_kill_cases_recover():
     """Every kill boundary case must expect recovery."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    kill_cases = [
-        c for c in matrix["cases"] if c["id"].endswith("-kill")
-    ]
+    kill_cases = [c for c in matrix["cases"] if c["id"].endswith("-kill")]
     for case in kill_cases:
         assert "recover" in case["expected"].lower(), (
             f"case {case['id']} must expect recovery"
@@ -52,9 +50,7 @@ def test_review_restart_matrix_kill_cases_recover():
 def test_review_restart_matrix_kill_cases_no_duplicate_dispatch():
     """Kill boundary cases must not duplicate dispatch."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    kill_cases = [
-        c for c in matrix["cases"] if c["id"].endswith("-kill")
-    ]
+    kill_cases = [c for c in matrix["cases"] if c["id"].endswith("-kill")]
     for case in kill_cases:
         assert "no duplicate" in case["expected"].lower(), (
             f"case {case['id']} must require no duplicate dispatch"

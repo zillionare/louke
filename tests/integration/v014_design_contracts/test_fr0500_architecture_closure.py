@@ -18,11 +18,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 
 
@@ -36,6 +32,7 @@ def test_architecture_lists_all_16_anchors():
         parse_architecture_anchors,
         REQUIRED_ARCHITECTURE_ANCHORS,
     )
+
     anchors = set(parse_architecture_anchors(SPEC_ROOT / "architecture.md"))
     missing = REQUIRED_ARCHITECTURE_ANCHORS - anchors
     assert not missing, f"architecture.md missing anchors: {missing}"
@@ -46,9 +43,22 @@ def test_architecture_module_table_has_16_modules():
     text = (SPEC_ROOT / "architecture.md").read_text(encoding="utf-8")
     # Module IDs from architecture.md §2
     expected_modules = {
-        "WEB", "DESIGN", "FACTS", "REGISTRY", "CONTRACTS", "VALIDATOR",
-        "PROMPTS", "CI", "PRECOMMIT", "VERSION", "BUILD", "PUBLISH",
-        "SESSION", "REVIEW", "STORE", "MIGRATION",
+        "WEB",
+        "DESIGN",
+        "FACTS",
+        "REGISTRY",
+        "CONTRACTS",
+        "VALIDATOR",
+        "PROMPTS",
+        "CI",
+        "PRECOMMIT",
+        "VERSION",
+        "BUILD",
+        "PUBLISH",
+        "SESSION",
+        "REVIEW",
+        "STORE",
+        "MIGRATION",
     }
     for module in expected_modules:
         assert f"`{module}`" in text, f"architecture.md missing module: {module}"

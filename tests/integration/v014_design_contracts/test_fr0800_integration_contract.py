@@ -35,10 +35,7 @@ def test_integration_contract_schema_ref_resolves(integration_test_contract):
 def test_integration_contract_manifest_ref_resolves(integration_test_contract):
     """manifest_ref must point to the design-artifact manifest."""
     ref = integration_test_contract["manifest_ref"]
-    assert (
-        ref["identity"]
-        == "louke.design-artifacts.v0.14-002.prism-r3-remediation"
-    )
+    assert ref["identity"] == "louke.design-artifacts.v0.14-002.prism-r3-remediation"
     assert ref["revision"] == "prism-round-3-remediation-candidate"
 
 
@@ -63,14 +60,10 @@ def test_integration_contract_payload_has_suites(integration_test_contract):
     assert required_suite["required"] is True
     assert "v014-design-contracts-integration" in required_suite["id"]
     ac_ids = required_suite["ac_ids"]
-    assert len(ac_ids) == 34, (
-        f"required suite must cover 34 ACs, got {len(ac_ids)}"
-    )
+    assert len(ac_ids) == 34, f"required suite must cover 34 ACs, got {len(ac_ids)}"
 
 
-def test_integration_contract_failure_policy_fail_closed(
-    integration_test_contract
-):
+def test_integration_contract_failure_policy_fail_closed(integration_test_contract):
     """failure_policy.fail_closed must be True; non_success includes skip."""
     policy = integration_test_contract["payload"]["failure_policy"]
     assert policy["fail_closed"] is True
@@ -81,9 +74,7 @@ def test_integration_contract_failure_policy_fail_closed(
         )
 
 
-def test_integration_contract_zero_collection_is_nonzero(
-    integration_test_contract
-):
+def test_integration_contract_zero_collection_is_nonzero(integration_test_contract):
     """discovery.zero_collection must be 'nonzero'."""
     discovery = integration_test_contract["payload"]["discovery"]
     assert discovery["zero_collection"] == "nonzero"

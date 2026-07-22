@@ -52,12 +52,18 @@ def test_ci_hook_matrix_managed_hook_merges():
     lower = behavior.lower()
     delete_idx = lower.find("delete")
     while delete_idx != -1:
-        prefix = lower[max(0, delete_idx - 20):delete_idx]
+        prefix = lower[max(0, delete_idx - 20) : delete_idx]
         assert any(
             neg in prefix
             for neg in (
-                "do not", "don't", "not ", "no ", "never ",
-                "without ", "forbidden", "must not",
+                "do not",
+                "don't",
+                "not ",
+                "no ",
+                "never ",
+                "without ",
+                "forbidden",
+                "must not",
             )
         ), f"managed hook instructs deletion without negation; behavior='{behavior}'"
         delete_idx = lower.find("delete", delete_idx + 1)
@@ -70,7 +76,7 @@ def test_ci_hook_matrix_rejects_agent_install():
         (c for c in matrix["negative_cases"] if c["id"] == "agent-installs-hook"),
         None,
     )
-    assert neg is not None
+    assert neg is not None  # AC-FR1000-01
     assert "fails" in neg["expected"].lower()
 
 
@@ -81,7 +87,7 @@ def test_ci_hook_matrix_rejects_red_as_hook_target():
         (c for c in matrix["negative_cases"] if c["id"] == "red-as-hook-target"),
         None,
     )
-    assert neg is not None
+    assert neg is not None  # AC-FR1000-01
     assert "fails" in neg["expected"].lower()
 
 
@@ -92,7 +98,7 @@ def test_ci_hook_matrix_rejects_precommit_as_final_gate():
         (c for c in matrix["negative_cases"] if c["id"] == "precommit-as-final-gate"),
         None,
     )
-    assert neg is not None
+    assert neg is not None  # AC-FR1000-01
     assert "fails" in neg["expected"].lower()
 
 

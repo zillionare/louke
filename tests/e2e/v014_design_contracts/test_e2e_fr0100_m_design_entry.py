@@ -60,7 +60,7 @@ def test_m_design_entry_binds_workspace(e2e_test_contract):
 @pytest.mark.awaiting_devon("FR-0100")
 def test_m_design_entry_visible_through_workbench(workbench_api):
     """M-DESIGN entry must be visible through the Workbench public surface."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0100-01
 
 
 def test_m_design_entry_generated_by_archer(e2e_test_contract):

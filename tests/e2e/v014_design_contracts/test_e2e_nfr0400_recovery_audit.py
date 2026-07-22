@@ -26,7 +26,11 @@ def test_acid_nfr0400_in_journey(e2e_test_contract):
     """AC-NFR0400-01 must be covered by candidate-bootstrap-restart journey."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
     assert journey is not None
@@ -37,10 +41,14 @@ def test_recovery_audit_actions_declared(e2e_test_contract):
     """Journey actions must include 'simulate restart before activation'."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-NFR0400-01
     actions = journey.get("actions", [])
     actions_text = " ".join(actions).lower()
     assert "restart" in actions_text, (
@@ -52,10 +60,14 @@ def test_recovery_audit_visible_result(e2e_test_contract):
     """Visible result: audit recovers identity."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-NFR0400-01
     visible_result = journey.get("visible_result", "").lower()
     assert "audit" in visible_result or "identity" in visible_result, (
         "visible_result must declare audit recovers identity"
@@ -66,10 +78,14 @@ def test_recovery_audit_recovery_keeps_old_active(e2e_test_contract):
     """Recovery: drift or kill keeps old active and marks candidate/review stale."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-NFR0400-01
     recovery = journey.get("recovery", "").lower()
     assert "drift" in recovery or "kill" in recovery
     assert "old active" in recovery or "active" in recovery
@@ -117,13 +133,13 @@ def test_recovery_audit_timeout_declared(e2e_test_contract):
 @pytest.mark.awaiting_devon("NFR-0400")
 def test_recovery_audit_query_before_retry(workbench_api):
     """Recovery: query exact identity before deciding to retry."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-NFR0400-01
 
 
 @pytest.mark.awaiting_devon("NFR-0400")
 def test_recovery_audit_no_blind_retry(workbench_api):
     """Recovery: no blind retry on timeout (must query first)."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-NFR0400-01
 
 
 def test_recovery_audit_architecture_anchors(e2e_test_contract):
@@ -132,7 +148,7 @@ def test_recovery_audit_architecture_anchors(e2e_test_contract):
     required_suite = next(
         (s for s in payload.get("suites", []) if s.get("required")), None
     )
-    assert required_suite is not None
+    assert required_suite is not None  # AC-NFR0400-01
     anchors = set(required_suite.get("architecture_anchors", []))
     # ARC-STORE and ARC-SECURITY are expected for recovery audit.
     assert "ARC-STORE" in anchors
@@ -145,7 +161,7 @@ def test_recovery_audit_interface_ids(e2e_test_contract):
     required_suite = next(
         (s for s in payload.get("suites", []) if s.get("required")), None
     )
-    assert required_suite is not None
+    assert required_suite is not None  # AC-NFR0400-01
     interface_ids = set(required_suite.get("interface_ids", []))
     assert "IF-AUD-01" in interface_ids, (
         "required suite missing IF-AUD-01 interface for recovery audit"

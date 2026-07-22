@@ -31,7 +31,14 @@ def test_required_interface_ids_present(e2e_test_contract):
         if suite.get("required"):
             required_interfaces.update(suite.get("interface_ids", []))
     # IF-DES-01, IF-TST-01, IF-PRM-01, IF-REV-01, IF-WEB-01, IF-AUD-01 are required.
-    expected = {"IF-DES-01", "IF-TST-01", "IF-PRM-01", "IF-REV-01", "IF-WEB-01", "IF-AUD-01"}
+    expected = {
+        "IF-DES-01",
+        "IF-TST-01",
+        "IF-PRM-01",
+        "IF-REV-01",
+        "IF-WEB-01",
+        "IF-AUD-01",
+    }
     missing = expected - required_interfaces
     assert not missing, f"required e2e suite missing interface IDs: {missing}"
 
@@ -51,7 +58,11 @@ def test_interfaces_referenced_by_journey(e2e_test_contract):
     # The first journey covers AC-FR0600-01.
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "design-author-review-continue"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "design-author-review-continue"
+        ),
         None,
     )
     assert journey is not None
@@ -61,14 +72,16 @@ def test_interfaces_referenced_by_journey(e2e_test_contract):
 @pytest.mark.awaiting_devon("FR-0600")
 def test_interfaces_closure_visible_through_workbench(workbench_api):
     """Interfaces closure must be visible through the Workbench public surface."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0600-01
 
 
 def test_interfaces_artifact_ref_carries_architecture_anchors(e2e_test_contract):
     """interfaces.md artifact_ref must carry architecture anchors."""
     refs = e2e_test_contract.get("artifact_refs", [])
-    interfaces_ref = next((r for r in refs if "interfaces.md" in r.get("path", "")), None)
-    assert interfaces_ref is not None
+    interfaces_ref = next(
+        (r for r in refs if "interfaces.md" in r.get("path", "")), None
+    )
+    assert interfaces_ref is not None  # AC-FR0600-01
     anchors = interfaces_ref.get("architecture_anchors", [])
     # ARC-WEB, ARC-DESIGN, ARC-CONTRACTS are expected for interfaces.
     for expected_anchor in ("ARC-WEB", "ARC-DESIGN", "ARC-CONTRACTS"):
@@ -80,8 +93,10 @@ def test_interfaces_artifact_ref_carries_architecture_anchors(e2e_test_contract)
 def test_interfaces_artifact_ref_carries_digest(e2e_test_contract):
     """interfaces.md artifact_ref must carry a sha256 digest."""
     refs = e2e_test_contract.get("artifact_refs", [])
-    interfaces_ref = next((r for r in refs if "interfaces.md" in r.get("path", "")), None)
-    assert interfaces_ref is not None
+    interfaces_ref = next(
+        (r for r in refs if "interfaces.md" in r.get("path", "")), None
+    )
+    assert interfaces_ref is not None  # AC-FR0600-01
     digest = interfaces_ref.get("digest", "")
     assert digest.startswith("sha256:")
     hex_part = digest.removeprefix("sha256:")

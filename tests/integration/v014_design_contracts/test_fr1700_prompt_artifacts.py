@@ -79,9 +79,10 @@ def test_manifest_reviewer_binding_has_both_digests(design_manifest):
     binding = design_manifest["prompt_candidates"]["reviewer_binding"]
     assert "reviewer_execution_digest" in binding
     assert "reviewed_candidate_bundle_digest" in binding
-    assert binding["reviewer_execution_digest"] != binding["reviewed_candidate_bundle_digest"], (
-        "reviewer execution and reviewed candidate must be different bundles"
-    )
+    assert (
+        binding["reviewer_execution_digest"]
+        != binding["reviewed_candidate_bundle_digest"]
+    ), "reviewer execution and reviewed candidate must be different bundles"
 
 
 @pytest.mark.awaiting_devon("FR-1700")

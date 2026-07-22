@@ -50,9 +50,7 @@ def test_archer_md_does_not_question_human_technical_scheme():
         "prompt human to select",
     ]
     for pattern in forbidden_patterns:
-        assert pattern not in text, (
-            f"Archer must not instruct: '{pattern}'"
-        )
+        assert pattern not in text, f"Archer must not instruct: '{pattern}'"
 
 
 def test_archer_md_does_not_commit_or_push():
@@ -66,9 +64,7 @@ def test_archer_md_does_not_commit_or_push():
         "you should commit",
     ]
     for pattern in forbidden:
-        assert pattern not in text, (
-            f"Archer must not instruct: '{pattern}'"
-        )
+        assert pattern not in text, f"Archer must not instruct: '{pattern}'"
 
 
 def test_archer_md_does_not_dispatch():
@@ -114,7 +110,12 @@ def test_archer_lint_confirms_three_design_docs_responsibility(mock_prompt_bundl
     """Archer lint must confirm responsibility for three design docs."""
     mock_prompt_bundle.lint.return_value = {
         "ok": True,
-        "responsibilities": ["three-design-docs", "machine-contracts", "direct-diff", "gap-advisory"],
+        "responsibilities": [
+            "three-design-docs",
+            "machine-contracts",
+            "direct-diff",
+            "gap-advisory",
+        ],
     }
     result = mock_prompt_bundle.lint(role="Archer")
     assert "three-design-docs" in result["responsibilities"]

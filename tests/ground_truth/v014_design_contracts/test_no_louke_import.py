@@ -14,7 +14,6 @@ import ast
 import sys
 from pathlib import Path
 
-import pytest
 
 GT_ROOT = Path(__file__).resolve().parent
 
@@ -67,9 +66,22 @@ def test_ground_truth_imports_only_stdlib():
     the module that produces ground-truth values.
     """
     allowed_prefixes = (
-        "os", "sys", "json", "hashlib", "pathlib", "re", "ast",
-        "typing", "abc", "collections", "io", "subprocess",
-        "functools", "itertools", "dataclasses", "importlib",
+        "os",
+        "sys",
+        "json",
+        "hashlib",
+        "pathlib",
+        "re",
+        "ast",
+        "typing",
+        "abc",
+        "collections",
+        "io",
+        "subprocess",
+        "functools",
+        "itertools",
+        "dataclasses",
+        "importlib",
         "__future__",
     )
     violations: list[str] = []
@@ -86,9 +98,7 @@ def test_ground_truth_imports_only_stdlib():
                 for alias in node.names:
                     root = alias.name.split(".")[0]
                     if root not in allowed_prefixes:
-                        violations.append(
-                            f"{path}: imports {alias.name} (not stdlib)"
-                        )
+                        violations.append(f"{path}: imports {alias.name} (not stdlib)")
             elif isinstance(node, ast.ImportFrom):
                 if node.module is None:
                     continue
@@ -100,8 +110,7 @@ def test_ground_truth_imports_only_stdlib():
                         f"{path}: from {node.module} import ... (not stdlib)"
                     )
     assert not violations, (
-        "Ground-truth stdlib-only rule violated:\n  - "
-        + "\n  - ".join(violations)
+        "Ground-truth stdlib-only rule violated:\n  - " + "\n  - ".join(violations)
     )
 
 

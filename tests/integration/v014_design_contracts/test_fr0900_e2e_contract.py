@@ -13,8 +13,6 @@ test_fr0900_e2e_contract_e2e.py).
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_e2e_contract_has_canonical_envelope(
     e2e_test_contract, canonical_envelope_keys

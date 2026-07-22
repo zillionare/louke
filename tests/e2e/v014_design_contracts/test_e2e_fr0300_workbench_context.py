@@ -23,9 +23,9 @@ def test_workbench_public_surface_declared(e2e_test_contract):
 def test_design_endpoint_declared(e2e_test_contract):
     """public_surfaces must include GET /api/v14/runs/{run_id}/design."""
     surfaces = e2e_test_contract.get("payload", {}).get("public_surfaces", [])
-    assert any(
-        "/api/v14/runs/" in s and s.endswith("/design") for s in surfaces
-    ), "GET /api/v14/runs/{run_id}/design endpoint not declared"
+    assert any("/api/v14/runs/" in s and s.endswith("/design") for s in surfaces), (
+        "GET /api/v14/runs/{run_id}/design endpoint not declared"
+    )
 
 
 def test_audit_endpoint_declared(e2e_test_contract):
@@ -40,7 +40,7 @@ def test_workbench_service_uses_installed_wheel_runtime(e2e_test_contract):
     """Workbench service must run on installed wheel product venv."""
     services = e2e_test_contract.get("payload", {}).get("services", [])
     workbench = next((s for s in services if s.get("id") == "workbench"), None)
-    assert workbench is not None
+    assert workbench is not None  # AC-FR0300-01
     assert workbench.get("runtime") == "installed wheel product venv"
     assert "lk web" in workbench.get("start", "")
 
@@ -59,13 +59,13 @@ def test_workbench_ready_check(e2e_test_contract):
 @pytest.mark.awaiting_devon("FR-0300")
 def test_workbench_exposes_revision_facts_docs(workbench_api):
     """Workbench exposes revision, facts, docs through IF-WEB-01."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0300-01
 
 
 @pytest.mark.awaiting_devon("FR-0300")
 def test_workbench_exposes_contracts_prompts_checks(workbench_api):
     """Workbench exposes contracts, prompts, checks through IF-WEB-01."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0300-01
 
 
 @pytest.mark.awaiting_devon("FR-0300")

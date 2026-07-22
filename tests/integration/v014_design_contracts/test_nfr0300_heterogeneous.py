@@ -14,11 +14,7 @@ from pathlib import Path
 
 import pytest
 
-FIXTURES = (
-    Path(__file__).resolve().parents[2]
-    / "fixtures"
-    / "v014_design_contracts"
-)
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "v014_design_contracts"
 
 
 def test_python_host_fixture_exists():
@@ -55,6 +51,7 @@ def test_node_host_fixture_version_is_semver(node_host_release_fixture):
     """Node fixture release identity must be canonical SemVer."""
     version = node_host_release_fixture["scope"]["release_identity"]
     import re
+
     assert re.match(r"^\d+\.\d+\.\d+$", version), (
         f"release identity must be SemVer: {version}"
     )
@@ -73,9 +70,7 @@ def test_python_and_node_fixtures_do_not_cross_reference():
     python_tokens = ["pyproject", "setuptools", "wheel", "sdist"]
     node_tokens = ["package.json", "npm", "node", "tarball"]
     for token in node_tokens:
-        assert token not in py_blob, (
-            f"Python fixture references Node concept '{token}'"
-        )
+        assert token not in py_blob, f"Python fixture references Node concept '{token}'"
     for token in python_tokens:
         assert token not in node_blob, (
             f"Node fixture references Python concept '{token}'"
@@ -88,18 +83,27 @@ def test_host_matrix_includes_unsupported_capability():
     unsupported = next(
         (h for h in matrix["hosts"] if h["id"] == "unsupported-capability"), None
     )
-    assert unsupported is not None
+    assert unsupported is not None  # AC-NFR0300-01
     assert unsupported["expected_behavior"].startswith("diagnostic")
-    assert "hardcoded" in unsupported["expected_behavior"] or "default" in unsupported["expected_behavior"]
+    assert (
+        "hardcoded" in unsupported["expected_behavior"]
+        or "default" in unsupported["expected_behavior"]
+    )
 
 
 def test_host_matrix_blank_project_requires_no_human():
     """blank-project case must require Archer autonomy."""
     matrix = json.loads((FIXTURES / "matrices" / "host_matrix.json").read_text())
     blank = next((h for h in matrix["hosts"] if h["id"] == "blank-project"), None)
-    assert blank is not None
-    assert "Human" in blank["expected_behavior"] or "human" in blank["expected_behavior"].lower()
-    assert "default" in blank["expected_behavior"].lower() or "Louke" in blank["expected_behavior"]
+    assert blank is not None  # AC-NFR0300-01
+    assert (
+        "Human" in blank["expected_behavior"]
+        or "human" in blank["expected_behavior"].lower()
+    )
+    assert (
+        "default" in blank["expected_behavior"].lower()
+        or "Louke" in blank["expected_behavior"]
+    )
 
 
 def test_node_host_adapter_inspect_source_returns_version(tmp_path):
@@ -109,9 +113,7 @@ def test_node_host_adapter_inspect_source_returns_version(tmp_path):
 
     node_host = FIXTURES / "node-host"
     # Copy package.json and adapter into tmp_path (adapter expects cwd layout)
-    (tmp_path / "package.json").write_text(
-        (node_host / "package.json").read_text()
-    )
+    (tmp_path / "package.json").write_text((node_host / "package.json").read_text())
     (tmp_path / "tools").mkdir()
     shutil.copy(
         node_host / "tools" / "node_release_adapter.mjs",
@@ -126,11 +128,13 @@ def test_node_host_adapter_inspect_source_returns_version(tmp_path):
             timeout=10,
         )
         if result.returncode != 0:
+            # AC-NFR0300-01
             pytest.skip(f"node not available or adapter failed: {result.stderr}")
         payload = json.loads(result.stdout)
         assert payload["ok"] is True
         assert payload["version"] == "2.3.1"
     except (FileNotFoundError, subprocess.TimeoutExpired):
+        # AC-FR0200-01
         pytest.skip("node runtime not available in this environment")
 
 

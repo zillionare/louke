@@ -75,7 +75,9 @@ def test_node_host_fixture_branch_and_tag_mappings(node_host_release_fixture):
 def test_node_host_adapter_commands_exist(node_host_release_fixture):
     """Node fixture payload must declare read and prepare commands."""
     payload = node_host_release_fixture["payload"]
-    assert "node tools/node_release_adapter.mjs inspect-source" in payload["read_command"]
+    assert (
+        "node tools/node_release_adapter.mjs inspect-source" in payload["read_command"]
+    )
     assert "node tools/node_release_adapter.mjs prepare" in payload["prepare_command"]
 
 

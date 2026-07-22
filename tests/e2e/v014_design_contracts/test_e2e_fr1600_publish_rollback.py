@@ -18,11 +18,7 @@ pytestmark = pytest.mark.v014_002_e2e
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TESTS_ROOT = REPO_ROOT / "tests"
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 
@@ -31,6 +27,7 @@ DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 def publish_contract():
     path = DESIGN_ARTIFACTS / "contracts" / "publish-recovery.candidate.json"
     if not path.exists():
+        # AC-FR1600-01
         pytest.skip(f"publish-recovery contract candidate not yet present at {path}")
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -72,9 +69,9 @@ def test_publish_contract_query_before_retry(publish_contract):
     payload = publish_contract.get("payload", {})
     payload_text = json.dumps(payload).lower()
     # Look for query/reconcile/identity semantics.
-    assert any(kw in payload_text for kw in ("query", "reconcile", "identity", "expected_fact")), (
-        "publish-recovery must declare query-before-retry semantics"
-    )
+    assert any(
+        kw in payload_text for kw in ("query", "reconcile", "identity", "expected_fact")
+    ), "publish-recovery must declare query-before-retry semantics"
 
 
 def test_publish_contract_no_blind_retry(publish_contract):
@@ -96,7 +93,7 @@ def test_publish_contract_no_blind_retry(publish_contract):
     if "skip-existing" in payload_text:
         # Must be preceded by a negation keyword.
         idx = payload_text.find("skip-existing")
-        prefix = payload_text[max(0, idx - 20):idx]
+        prefix = payload_text[max(0, idx - 20) : idx]
         negation_keywords = ("no ", "not ", "forbidden", "must not", "without")
         assert any(neg in prefix for neg in negation_keywords), (
             "publish-recovery mentions 'skip-existing' without negation context; "
@@ -108,9 +105,10 @@ def test_publish_contract_partial_success(publish_contract):
     """publish-recovery must declare partial-success handling."""
     payload = publish_contract.get("payload", {})
     payload_text = json.dumps(payload).lower()
-    assert any(kw in payload_text for kw in ("partial", "forward_fix", "forward-fix", "rollback")), (
-        "publish-recovery must declare partial-success or rollback semantics"
-    )
+    assert any(
+        kw in payload_text
+        for kw in ("partial", "forward_fix", "forward-fix", "rollback")
+    ), "publish-recovery must declare partial-success or rollback semantics"
 
 
 def test_publish_contract_immutable_tag(publish_contract):
@@ -118,9 +116,10 @@ def test_publish_contract_immutable_tag(publish_contract):
     payload = publish_contract.get("payload", {})
     payload_text = json.dumps(payload).lower()
     # Look for "immutable", "no_rollback", "no-rollback", "tag" + "not rollback".
-    assert any(kw in payload_text for kw in ("immutable", "no_rollback", "no-rollback", "irreversible")), (
-        "publish-recovery must declare immutable tag/version no-rollback semantics"
-    )
+    assert any(
+        kw in payload_text
+        for kw in ("immutable", "no_rollback", "no-rollback", "irreversible")
+    ), "publish-recovery must declare immutable tag/version no-rollback semantics"
 
 
 def test_publish_contract_credentials_reference_only(publish_contract):
@@ -128,9 +127,9 @@ def test_publish_contract_credentials_reference_only(publish_contract):
     payload = publish_contract.get("payload", {})
     payload_text = json.dumps(payload).lower()
     # Look for credential reference semantics.
-    assert any(kw in payload_text for kw in ("reference", "credential", "secret", "token")), (
-        "publish-recovery must declare credential reference semantics"
-    )
+    assert any(
+        kw in payload_text for kw in ("reference", "credential", "secret", "token")
+    ), "publish-recovery must declare credential reference semantics"
     # Must NOT persist actual secret values.
     forbidden_secret_patterns = ("password=", "token=", "api_key=", "secret=")
     for pattern in forbidden_secret_patterns:
@@ -145,7 +144,7 @@ def test_publish_contract_credentials_reference_only(publish_contract):
 @pytest.mark.awaiting_devon("FR-1600")
 def test_publish_rollback_visible_through_workbench(workbench_api):
     """Publish rollback ledger must be visible through Workbench audit surface."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR1600-01
 
 
 def test_publish_contract_failure_policy(publish_contract):

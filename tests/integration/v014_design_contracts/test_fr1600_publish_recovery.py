@@ -34,20 +34,16 @@ def test_publish_matrix_lists_all_operations():
 def test_publish_matrix_has_partial_success_case():
     """publish_matrix must include partial-success scenario."""
     matrix = json.loads((FIXTURES / "publish_matrix.json").read_text())
-    partial = next(
-        (c for c in matrix["cases"] if c["id"] == "partial-success"), None
-    )
-    assert partial is not None
+    partial = next((c for c in matrix["cases"] if c["id"] == "partial-success"), None)
+    assert partial is not None  # AC-FR1600-01
     assert "needs_attention" in partial["expected"]
 
 
 def test_publish_matrix_has_rollback_case():
     """publish_matrix must include rollback scenario."""
     matrix = json.loads((FIXTURES / "publish_matrix.json").read_text())
-    rollback = next(
-        (c for c in matrix["cases"] if c["id"] == "rollback"), None
-    )
-    assert rollback is not None
+    rollback = next((c for c in matrix["cases"] if c["id"] == "rollback"), None)
+    assert rollback is not None  # AC-FR1600-01
 
 
 def test_publish_matrix_no_duplicate_on_partial_success():

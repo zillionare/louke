@@ -61,9 +61,7 @@ def parse_test_plan_layers(test_plan_md: Path) -> dict[str, set[str]]:
     text = test_plan_md.read_text(encoding="utf-8")
     rows: dict[str, set[str]] = {}
     # Match table rows like: | `AC-FR0100-01` | ... | U+C+I / ... | ... |
-    row_pattern = re.compile(
-        r"\|\s*`(AC-(?:FR|NFR)\d{4}-\d{2})`\s*\|[^|]*\|([^|]+)\|"
-    )
+    row_pattern = re.compile(r"\|\s*`(AC-(?:FR|NFR)\d{4}-\d{2})`\s*\|[^|]*\|([^|]+)\|")
     for match in row_pattern.finditer(text):
         ac_id = match.group(1)
         layers_cell = match.group(2)
@@ -157,15 +155,39 @@ REQUIRED_AGENT_IO_SCHEMAS = {
 }
 
 REQUIRED_INTERFACES = {
-    "IF-DES-01", "IF-DES-02", "IF-CON-01", "IF-REG-01", "IF-TST-01",
-    "IF-PC-01", "IF-CI-01", "IF-REL-01", "IF-BLD-01", "IF-PUB-01",
-    "IF-PRM-01", "IF-REV-01", "IF-WEB-01", "IF-FCT-01", "IF-AUD-01",
+    "IF-DES-01",
+    "IF-DES-02",
+    "IF-CON-01",
+    "IF-REG-01",
+    "IF-TST-01",
+    "IF-PC-01",
+    "IF-CI-01",
+    "IF-REL-01",
+    "IF-BLD-01",
+    "IF-PUB-01",
+    "IF-PRM-01",
+    "IF-REV-01",
+    "IF-WEB-01",
+    "IF-FCT-01",
+    "IF-AUD-01",
 }
 
 REQUIRED_ARCHITECTURE_ANCHORS = {
-    "ARC-WEB", "ARC-DESIGN", "ARC-FACTS", "ARC-REGISTRY", "ARC-CONTRACTS",
-    "ARC-VALIDATE", "ARC-PROMPTS", "ARC-CI", "ARC-PRECOMMIT", "ARC-VERSION",
-    "ARC-BUILD", "ARC-PUBLISH", "ARC-REVIEW", "ARC-STORE", "ARC-MIGRATION",
+    "ARC-WEB",
+    "ARC-DESIGN",
+    "ARC-FACTS",
+    "ARC-REGISTRY",
+    "ARC-CONTRACTS",
+    "ARC-VALIDATE",
+    "ARC-PROMPTS",
+    "ARC-CI",
+    "ARC-PRECOMMIT",
+    "ARC-VERSION",
+    "ARC-BUILD",
+    "ARC-PUBLISH",
+    "ARC-REVIEW",
+    "ARC-STORE",
+    "ARC-MIGRATION",
     "ARC-SECURITY",
 }
 
@@ -175,7 +197,14 @@ CANONICAL_PROMPT_SOURCES = {
 }
 
 CANONICAL_ENVELOPE_KEYS = {
-    "kind", "identity", "revision", "schema_ref", "manifest_ref",
-    "scope", "generated_by", "compatible_runtime", "artifact_refs",
+    "kind",
+    "identity",
+    "revision",
+    "schema_ref",
+    "manifest_ref",
+    "scope",
+    "generated_by",
+    "compatible_runtime",
+    "artifact_refs",
     "payload",
 }

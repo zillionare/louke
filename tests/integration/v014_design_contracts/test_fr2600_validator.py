@@ -29,9 +29,7 @@ FIXTURES = (
 def test_negative_schema_fixtures_has_8_cases(negative_schema_fixtures):
     """negative-schema-fixtures must contain exactly 8 mutation cases."""
     cases = negative_schema_fixtures.get("cases", [])
-    assert len(cases) == 8, (
-        f"expected 8 negative cases, got {len(cases)}"
-    )
+    assert len(cases) == 8, f"expected 8 negative cases, got {len(cases)}"
 
 
 def test_negative_schema_fixtures_each_has_expected_error(negative_schema_fixtures):
@@ -44,7 +42,7 @@ def test_negative_schema_fixtures_each_has_expected_error(negative_schema_fixtur
     for case in negative_schema_fixtures["cases"]:
         assert "id" in case, f"case missing id: {case}"
         rf = case.get("required_failure") or case.get("expected")
-        assert rf is not None, (
+        assert rf is not None, (  # AC-FR2600-01
             f"case {case.get('id')} missing required_failure/expected error"
         )
         if isinstance(rf, dict):
@@ -52,9 +50,7 @@ def test_negative_schema_fixtures_each_has_expected_error(negative_schema_fixtur
             assert "reason" in rf, (
                 f"case {case.get('id')} required_failure missing reason"
             )
-            assert "gate" in rf, (
-                f"case {case.get('id')} required_failure missing gate"
-            )
+            assert "gate" in rf, f"case {case.get('id')} required_failure missing gate"
 
 
 def test_design_closure_matrix_negative_cases():
@@ -68,9 +64,7 @@ def test_design_closure_matrix_negative_cases():
         "command-path-conflict",
         "status-semantics-conflict",
     }
-    assert required.issubset(neg_ids), (
-        f"missing negative cases: {required - neg_ids}"
-    )
+    assert required.issubset(neg_ids), f"missing negative cases: {required - neg_ids}"
 
 
 @pytest.mark.awaiting_devon("FR-2600")
@@ -101,7 +95,9 @@ def test_validator_detects_out_of_scope_diff(mock_design_contract):
     """Validator must detect out-of-scope diff."""
     mock_design_contract.validate_manifest.return_value = {
         "ok": False,
-        "checks": [{"id": "scope-violation", "status": "fail", "path": "unauthorized.py"}],
+        "checks": [
+            {"id": "scope-violation", "status": "fail", "path": "unauthorized.py"}
+        ],
     }
     result = mock_design_contract.validate_manifest({})
     assert not result["ok"]
@@ -123,15 +119,17 @@ def test_validator_locates_fr_ac_if_arc_contract(mock_design_contract):
     """Validator failure must locate FR/AC/IF/ARC/contract."""
     mock_design_contract.validate_manifest.return_value = {
         "ok": False,
-        "checks": [{
-            "id": "located-failure",
-            "status": "fail",
-            "fr": "FR-0700",
-            "ac": "AC-FR0700-01",
-            "interface": "IF-REG-01",
-            "arc": "ARC-REGISTRY",
-            "contract": "integration-test",
-        }],
+        "checks": [
+            {
+                "id": "located-failure",
+                "status": "fail",
+                "fr": "FR-0700",
+                "ac": "AC-FR0700-01",
+                "interface": "IF-REG-01",
+                "arc": "ARC-REGISTRY",
+                "contract": "integration-test",
+            }
+        ],
     }
     result = mock_design_contract.validate_manifest({})
     check = result["checks"][0]

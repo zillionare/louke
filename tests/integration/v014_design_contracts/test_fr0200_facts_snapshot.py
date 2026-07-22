@@ -15,11 +15,7 @@ from pathlib import Path
 
 import pytest
 
-FIXTURES = (
-    Path(__file__).resolve().parents[2]
-    / "fixtures"
-    / "v014_design_contracts"
-)
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "v014_design_contracts"
 
 
 def test_host_facts_snapshot_lists_real_languages(host_facts_snapshot):
@@ -65,16 +61,22 @@ def test_host_facts_snapshot_observations_use_real_paths(host_facts_snapshot):
 def test_host_facts_snapshot_does_not_fabricate_lockfiles(host_facts_snapshot):
     """Louke dogfood has no lockfile; facts must report absent, not invent one."""
     obs = next(
-        (o for o in host_facts_snapshot["observations"] if o["kind"] == "dependency-lock"),
+        (
+            o
+            for o in host_facts_snapshot["observations"]
+            if o["kind"] == "dependency-lock"
+        ),
         None,
     )
-    assert obs is not None, "dependency-lock observation missing"
+    assert obs is not None, "dependency-lock observation missing"  # AC-FR0200-01
     assert obs["status"] == "absent"
 
 
 def test_python_host_fixture_facts_do_not_reference_node():
     """Python host fixture must not reference Node concepts (NFR-0300)."""
-    facts = json.loads((FIXTURES / "python-host" / "host-project-facts.json").read_text())
+    facts = json.loads(
+        (FIXTURES / "python-host" / "host-project-facts.json").read_text()
+    )
     blob = json.dumps(facts)
     forbidden = ["package.json", "npm", "node", "tarball"]
     for token in forbidden:
@@ -98,7 +100,12 @@ def test_host_matrix_covers_python_node_blank_unsupported():
     """host_matrix fixture must cover Python, Node, blank and unsupported."""
     matrix = json.loads((FIXTURES / "matrices" / "host_matrix.json").read_text())
     ids = [h["id"] for h in matrix["hosts"]]
-    for required in ("python-existing", "node-existing", "blank-project", "unsupported-capability"):
+    for required in (
+        "python-existing",
+        "node-existing",
+        "blank-project",
+        "unsupported-capability",
+    ):
         assert required in ids, f"host_matrix missing case: {required}"
 
 
@@ -108,4 +115,6 @@ def test_blank_project_archer_chooses_without_human(mock_host_facts):
     complete technical scheme. Awaits Devon's FACTS module implementation."""
     mock_host_facts.inventory.return_value = {"languages": [], "artifacts": []}
     result = mock_host_facts.inventory()
-    assert result is not None  # placeholder; real impl must produce full scheme
+    assert (
+        result is not None
+    )  # placeholder; real impl must produce full scheme  # AC-FR0200-01

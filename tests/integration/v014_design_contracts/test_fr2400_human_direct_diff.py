@@ -27,21 +27,19 @@ FIXTURES = (
 def test_review_restart_matrix_has_human_absent_case():
     """review_restart_matrix must include human-absent case."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    absent = next(
-        (c for c in matrix["cases"] if c["id"] == "human-absent"), None
-    )
-    assert absent is not None
+    absent = next((c for c in matrix["cases"] if c["id"] == "human-absent"), None)
+    assert absent is not None  # AC-FR2400-01
     assert "baseline" in absent["expected"].lower()
 
 
 def test_review_restart_matrix_has_direct_diff_clean_case():
     """review_restart_matrix must include direct-diff-clean case."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    clean = next(
-        (c for c in matrix["cases"] if c["id"] == "direct-diff-clean"), None
+    clean = next((c for c in matrix["cases"] if c["id"] == "direct-diff-clean"), None)
+    assert clean is not None  # AC-FR2400-01
+    assert (
+        "absorb" in clean["expected"].lower() or "without" in clean["expected"].lower()
     )
-    assert clean is not None
-    assert "absorb" in clean["expected"].lower() or "without" in clean["expected"].lower()
 
 
 def test_review_restart_matrix_has_direct_diff_with_issue_case():
@@ -50,7 +48,7 @@ def test_review_restart_matrix_has_direct_diff_with_issue_case():
     issue = next(
         (c for c in matrix["cases"] if c["id"] == "direct-diff-with-issue"), None
     )
-    assert issue is not None
+    assert issue is not None  # AC-FR2400-01
     assert "discussion" in issue["expected"].lower()
     assert "anchor" in issue["expected"].lower()
     assert "auto-pass" in issue["expected"].lower()
@@ -105,7 +103,5 @@ def test_human_author_does_not_auto_pass(mock_design_coordinator):
         "human_author_auto_pass": False,
         "requires_review": True,
     }
-    result = mock_design_coordinator.absorb_direct_diff(
-        diff={}, author="human"
-    )
+    result = mock_design_coordinator.absorb_direct_diff(diff={}, author="human")
     assert result["human_author_auto_pass"] is False

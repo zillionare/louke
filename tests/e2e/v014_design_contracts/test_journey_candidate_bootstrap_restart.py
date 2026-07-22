@@ -39,13 +39,13 @@ def test_journey_current_attempt_stays_active(workbench_api, e2e_test_contract):
 @pytest.mark.awaiting_devon("FR-2050")
 def test_journey_review_with_prior_trusted_prism(workbench_api):
     """Step: review with prior trusted Prism (not the candidate self-reviewing)."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR2050-01
 
 
 @pytest.mark.awaiting_devon("FR-2050")
 def test_journey_simulate_restart_before_activation(workbench_api):
     """Step: simulate restart before activation (candidate remains non-active)."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR2050-01
 
 
 def test_journey_visible_result_atomic_future_activation(e2e_test_contract):
@@ -55,7 +55,12 @@ def test_journey_visible_result_atomic_future_activation(e2e_test_contract):
     assert failure_policy.get("fail_closed") is True
     # Non-success modes that block activation.
     non_success = failure_policy.get("non_success", [])
-    for required_mode in ("unknown", "zero-collection", "ready-failure", "teardown-failure"):
+    for required_mode in (
+        "unknown",
+        "zero-collection",
+        "ready-failure",
+        "teardown-failure",
+    ):
         assert required_mode in non_success, (
             f"failure_policy.non_success missing '{required_mode}' "
             "(needed for atomic activation gate)"
@@ -89,10 +94,16 @@ def test_journey_acids_subset_of_required_suite(e2e_test_contract):
             required_acids.update(suite.get("ac_ids", []))
     # Find the candidate-bootstrap-restart journey.
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None, "candidate-bootstrap-restart journey not declared"
+    assert journey is not None, (
+        "candidate-bootstrap-restart journey not declared"
+    )  # AC-FR2050-01
     journey_acids = set(journey.get("ac_ids", []))
     assert journey_acids.issubset(required_acids), (
         f"journey AC IDs not in required suite: {journey_acids - required_acids}"
@@ -107,7 +118,9 @@ def test_journey_services_declared(e2e_test_contract):
     services = e2e_test_contract.get("payload", {}).get("services", [])
     assert services, "e2e contract must declare at least one service"
     workbench_service = next((s for s in services if s.get("id") == "workbench"), None)
-    assert workbench_service is not None, "workbench service not declared"
+    assert workbench_service is not None, (
+        "workbench service not declared"
+    )  # AC-FR2050-01
     assert "lk web" in workbench_service.get("start", "")
     assert workbench_service.get("runtime") == "installed wheel product venv"
 

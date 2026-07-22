@@ -15,18 +15,12 @@ from pathlib import Path
 
 import pytest
 
-FIXTURES = (
-    Path(__file__).resolve().parents[2]
-    / "fixtures"
-    / "v014_design_contracts"
-)
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "v014_design_contracts"
 
 
 def test_node_host_fixture_does_not_modify_prompts():
     """Node host fixture must not reference any prompt path as writable."""
-    facts = json.loads(
-        (FIXTURES / "node-host" / "host-project-facts.json").read_text()
-    )
+    facts = json.loads((FIXTURES / "node-host" / "host-project-facts.json").read_text())
     blob = json.dumps(facts).lower()
     assert "louke/agents/" not in blob, (
         "Node host fixture must not reference louke prompt paths"
@@ -65,9 +59,7 @@ def test_unlisted_prompt_patch_rejected(mock_prompt_bundle):
         "error": "UNAUTHORIZED_PROMPT_PATH",
         "path": "louke/agents/Extra.md",
     }
-    result = mock_prompt_bundle.validate_patch(
-        path="louke/agents/Extra.md", diff="..."
-    )
+    result = mock_prompt_bundle.validate_patch(path="louke/agents/Extra.md", diff="...")
     assert not result["ok"]
 
 

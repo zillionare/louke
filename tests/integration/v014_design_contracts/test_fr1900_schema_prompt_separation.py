@@ -22,7 +22,9 @@ def test_registry_separates_machine_schemas_from_agent_io(registry_candidate):
     assert "schemas" in registry_candidate
     assert "agent_io_schemas" in registry_candidate
     machine_identities = {s["identity"] for s in registry_candidate["schemas"]}
-    agent_io_identities = {s["identity"] for s in registry_candidate["agent_io_schemas"]}
+    agent_io_identities = {
+        s["identity"] for s in registry_candidate["agent_io_schemas"]
+    }
     # No overlap: machine contracts are louke.machine-contract.*,
     # agent I/O are louke.agent-io.*
     assert machine_identities.isdisjoint(agent_io_identities)
@@ -44,7 +46,9 @@ def test_registry_agent_io_schemas_all_owned_by_runtime(registry_candidate):
 
 def test_registry_all_schemas_have_activation_state(registry_candidate):
     """Every schema must declare activation_state."""
-    for schema in registry_candidate["schemas"] + registry_candidate["agent_io_schemas"]:
+    for schema in (
+        registry_candidate["schemas"] + registry_candidate["agent_io_schemas"]
+    ):
         assert "activation_state" in schema
         assert schema["activation_state"] == "candidate", (
             f"schema {schema['identity']} must be candidate, got {schema['activation_state']}"
@@ -64,7 +68,10 @@ def test_contract_instances_reference_schema_not_embed(design_manifest):
 def test_manifest_validation_record_is_design_time_only(design_manifest):
     """validation.record must qualify as design-time-candidate-only."""
     record = design_manifest["validation"]["record"]
-    assert "design-time" in record["qualification"] or "candidate" in record["qualification"]
+    assert (
+        "design-time" in record["qualification"]
+        or "candidate" in record["qualification"]
+    )
 
 
 def test_manifest_negative_fixtures_count_is_8(design_manifest):

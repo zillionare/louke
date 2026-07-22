@@ -56,11 +56,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 MANIFEST_PATH = DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json"
@@ -81,6 +77,7 @@ _V014_TOOLS = [
     "louke._tools.workbench",
 ]
 
+# AC-FR1100-01
 pytestmark = pytest.mark.skipif(
     not any(_module_available(m) for m in _V014_TOOLS),
     reason="No v0.14-002 louke._tools.* modules implemented yet; "
@@ -92,6 +89,8 @@ pytestmark = pytest.mark.skipif(
 # IF-DES-02: design_contract validate
 # ---------------------------------------------------------------------------
 
+
+# AC-FR0400-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
@@ -105,10 +104,14 @@ def test_design_contract_validate_real_cli(venv_python):
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.design_contract",
+            venv_python,
+            "-m",
+            "louke._tools.design_contract",
             "validate",
-            "--manifest", str(MANIFEST_PATH),
-            "--format", "json",
+            "--manifest",
+            str(MANIFEST_PATH),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -117,8 +120,7 @@ def test_design_contract_validate_real_cli(venv_python):
     # The validator may return pass or fail depending on candidate state,
     # but it must produce valid JSON on stdout with the contract shape.
     assert result.returncode in (0, 1), (
-        f"unexpected exit code {result.returncode}; "
-        f"stderr: {result.stderr[:500]}"
+        f"unexpected exit code {result.returncode}; stderr: {result.stderr[:500]}"
     )
     data = json.loads(result.stdout)
     assert "status" in data, f"output missing 'status': {list(data.keys())}"
@@ -134,6 +136,7 @@ def test_design_contract_validate_real_cli(venv_python):
         assert "status" in check, f"check missing status: {check}"
 
 
+# AC-FR0400-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
@@ -146,10 +149,14 @@ def test_design_contract_validate_has_stable_check_ids(venv_python):
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.design_contract",
+            venv_python,
+            "-m",
+            "louke._tools.design_contract",
             "validate",
-            "--manifest", str(MANIFEST_PATH),
-            "--format", "json",
+            "--manifest",
+            str(MANIFEST_PATH),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -167,15 +174,15 @@ def test_design_contract_validate_has_stable_check_ids(venv_python):
         "DESIGN.SECRET",
     }
     missing = required_ids - check_ids
-    assert not missing, (
-        f"validator missing stable check IDs: {missing}"
-    )
+    assert not missing, f"validator missing stable check IDs: {missing}"
 
 
 # ---------------------------------------------------------------------------
 # IF-REG-01: contract_registry discover
 # ---------------------------------------------------------------------------
 
+
+# AC-FR0700-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
@@ -189,17 +196,19 @@ def test_contract_registry_discover_real_cli(venv_python):
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.contract_registry",
+            venv_python,
+            "-m",
+            "louke._tools.contract_registry",
             "discover",
-            "--format", "json",
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
         timeout=30,
     )
     assert result.returncode in (0, 1), (
-        f"unexpected exit code {result.returncode}; "
-        f"stderr: {result.stderr[:500]}"
+        f"unexpected exit code {result.returncode}; stderr: {result.stderr[:500]}"
     )
     data = json.loads(result.stdout)
     assert "registry_version" in data, (
@@ -219,6 +228,7 @@ def test_contract_registry_discover_real_cli(venv_python):
         )
 
 
+# AC-FR0700-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
@@ -227,9 +237,12 @@ def test_contract_registry_discover_returns_7_machine_schemas(venv_python):
     """IF-REG-01: discover must list 7 machine-contract schemas."""
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.contract_registry",
+            venv_python,
+            "-m",
+            "louke._tools.contract_registry",
             "discover",
-            "--format", "json",
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -254,6 +267,8 @@ def test_contract_registry_discover_returns_7_machine_schemas(venv_python):
 # IF-CI-01: ci_contract render + readback
 # ---------------------------------------------------------------------------
 
+
+# AC-FR1100-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.ci_contract"),
     reason="awaiting Devon: louke._tools.ci_contract",
@@ -264,25 +279,31 @@ def test_ci_contract_render_real_cli(venv_python, tmp_path):
     Render the candidate CI contract to a temporary workflow file and
     assert the output is valid YAML with expected structure.
     """
-    ci_contract_path = DESIGN_ARTIFACTS / "contracts" / "github-actions-ci.candidate.json"
+    ci_contract_path = (
+        DESIGN_ARTIFACTS / "contracts" / "github-actions-ci.candidate.json"
+    )
     if not ci_contract_path.exists():
+        # AC-FR1100-01
         pytest.skip(f"CI contract fixture missing: {ci_contract_path}")
 
     output_path = tmp_path / "louke-ci.yml"
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.ci_contract",
+            venv_python,
+            "-m",
+            "louke._tools.ci_contract",
             "render",
-            "--contract", str(ci_contract_path),
-            "--output", str(output_path),
+            "--contract",
+            str(ci_contract_path),
+            "--output",
+            str(output_path),
         ],
         capture_output=True,
         text=True,
         timeout=30,
     )
     assert result.returncode == 0, (
-        f"render failed (exit {result.returncode}); "
-        f"stderr: {result.stderr[:500]}"
+        f"render failed (exit {result.returncode}); stderr: {result.stderr[:500]}"
     )
     assert output_path.exists(), "render did not create output file"
 
@@ -293,6 +314,7 @@ def test_ci_contract_render_real_cli(venv_python, tmp_path):
     assert "jobs:" in yaml_text, "workflow missing jobs"
 
 
+# AC-FR1100-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.ci_contract"),
     reason="awaiting Devon: louke._tools.ci_contract",
@@ -304,18 +326,25 @@ def test_ci_contract_readback_real_cli(venv_python, tmp_path):
     workflow_digest, checks, commands}`` with status in
     in_sync|missing|invalid|drifted|conflict.
     """
-    ci_contract_path = DESIGN_ARTIFACTS / "contracts" / "github-actions-ci.candidate.json"
+    ci_contract_path = (
+        DESIGN_ARTIFACTS / "contracts" / "github-actions-ci.candidate.json"
+    )
     if not ci_contract_path.exists():
+        # AC-FR1100-01
         pytest.skip(f"CI contract fixture missing: {ci_contract_path}")
 
     output_path = tmp_path / "louke-ci.yml"
     # First render
     subprocess.run(
         [
-            venv_python, "-m", "louke._tools.ci_contract",
+            venv_python,
+            "-m",
+            "louke._tools.ci_contract",
             "render",
-            "--contract", str(ci_contract_path),
-            "--output", str(output_path),
+            "--contract",
+            str(ci_contract_path),
+            "--output",
+            str(output_path),
         ],
         capture_output=True,
         text=True,
@@ -325,25 +354,29 @@ def test_ci_contract_readback_real_cli(venv_python, tmp_path):
     # Then readback
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.ci_contract",
+            venv_python,
+            "-m",
+            "louke._tools.ci_contract",
             "readback",
-            "--contract", str(ci_contract_path),
-            "--workflow", str(output_path),
-            "--format", "json",
+            "--contract",
+            str(ci_contract_path),
+            "--workflow",
+            str(output_path),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
         timeout=30,
     )
     assert result.returncode == 0, (
-        f"readback failed (exit {result.returncode}); "
-        f"stderr: {result.stderr[:500]}"
+        f"readback failed (exit {result.returncode}); stderr: {result.stderr[:500]}"
     )
     data = json.loads(result.stdout)
     assert "status" in data, f"readback missing status: {list(data.keys())}"
-    assert data["status"] in (
-        "in_sync", "missing", "invalid", "drifted", "conflict"
-    ), f"invalid readback status: {data['status']}"
+    assert data["status"] in ("in_sync", "missing", "invalid", "drifted", "conflict"), (
+        f"invalid readback status: {data['status']}"
+    )
     assert "contract_digest" in data, "readback missing contract_digest"
     assert "workflow_digest" in data, "readback missing workflow_digest"
 
@@ -352,6 +385,8 @@ def test_ci_contract_readback_real_cli(venv_python, tmp_path):
 # IF-WEB-01: lk web + GET /health (HTTP, not CLI)
 # ---------------------------------------------------------------------------
 
+
+# AC-FR0300-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.workbench"),
     reason="awaiting Devon: louke._tools.workbench",
@@ -373,8 +408,14 @@ def test_workbench_health_endpoint_real(venv_python):
 
     proc = subprocess.Popen(
         [
-            venv_python, "-m", "louke",
-            "web", "--host", "127.0.0.1", "--port", str(port),
+            venv_python,
+            "-m",
+            "louke",
+            "web",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -388,21 +429,16 @@ def test_workbench_health_endpoint_real(venv_python):
                 resp = urllib.request.urlopen(
                     f"http://127.0.0.1:{port}/health", timeout=2
                 )
-                assert resp.status == 200, (
-                    f"/health returned {resp.status}"
-                )
+                assert resp.status == 200, f"/health returned {resp.status}"
                 body = json.loads(resp.read().decode("utf-8"))
-                assert "version" in body, (
-                    f"/health missing version: {body}"
-                )
+                assert "version" in body, f"/health missing version: {body}"
                 return  # success
             except Exception as exc:
                 last_error = exc
                 time.sleep(0.5)
 
         pytest.fail(
-            f"lk web did not respond to /health within 10s; "
-            f"last error: {last_error}"
+            f"lk web did not respond to /health within 10s; last error: {last_error}"
         )
     finally:
         proc.terminate()

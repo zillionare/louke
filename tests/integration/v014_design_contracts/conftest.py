@@ -48,11 +48,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TESTS_ROOT = REPO_ROOT / "tests"
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 FIXTURES_ROOT = TESTS_ROOT / "fixtures" / "v014_design_contracts"
@@ -67,6 +63,7 @@ FIXTURES_ROOT = TESTS_ROOT / "fixtures" / "v014_design_contracts"
 # (e.g., importing a globally-installed louke instead of the dev version).
 # v0.14-003 architecture.md §IF-BLD-02 explicitly requires clean venv for
 # artifact verification; we apply the same discipline to integration tests.
+
 
 def in_venv() -> bool:
     """Return True if the current Python is running inside a managed environment.
@@ -90,11 +87,8 @@ def in_venv() -> bool:
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
         executable = Path(sys.executable).resolve()
-        try:
-            executable.relative_to(Path(conda_prefix).resolve())
+        if executable.is_relative_to(Path(conda_prefix).resolve()):
             return True
-        except ValueError:
-            pass
     # Louke global runtime (~/.louke/venv) — managed, not system
     executable = Path(sys.executable).resolve()
     if ".louke" in executable.parts and "venv" in executable.parts:
@@ -132,6 +126,7 @@ def venv_python() -> str:
         python -m pytest tests/integration/v014_design_contracts
     """
     if not in_venv():
+        # AC-FR0100-01: venv required for integration CLI subprocess tests
         pytest.skip(
             "Integration test requires a virtual environment to avoid "
             "polluting system Python. Create one with: "
@@ -139,6 +134,7 @@ def venv_python() -> str:
             "pip install -e '.[dev]', then re-run pytest."
         )
     return sys.executable
+
 
 # ---------------------------------------------------------------------------
 # Mock infrastructure (Mode B)
@@ -209,6 +205,7 @@ def _make_module_fixture(module_path: str):
     def _fixture(monkeypatch, mock_louke_tools):
         module = mock_louke_tools[module_path]
         if not isinstance(module, MagicMock):
+            # AC-FR0400-01: real module shipped, mock test must be replaced
             pytest.skip(
                 f"{module_path} is now implemented by Devon; "
                 f"replace this mock test with a real integration test "
@@ -234,6 +231,7 @@ for _path in MOCK_MODULES:
 # Candidate-artifact fixtures (real bytes from design-artifacts/)
 # ---------------------------------------------------------------------------
 
+
 def _load_json(path: Path) -> dict:
     """Load a JSON file from design-artifacts; raise ``FileNotFoundError``
     if missing so the test fails loudly instead of silently skipping."""
@@ -245,9 +243,7 @@ def _load_json(path: Path) -> dict:
 @pytest.fixture(scope="session")
 def design_manifest() -> dict:
     """``design-artifact-manifest.candidate.json`` — the master manifest."""
-    return _load_json(
-        DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json"
-    )
+    return _load_json(DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json")
 
 
 @pytest.fixture(scope="session")
@@ -267,17 +263,13 @@ def integration_test_contract() -> dict:
 @pytest.fixture(scope="session")
 def e2e_test_contract() -> dict:
     """``contracts/e2e-test.candidate.json`` instance."""
-    return _load_json(
-        DESIGN_ARTIFACTS / "contracts" / "e2e-test.candidate.json"
-    )
+    return _load_json(DESIGN_ARTIFACTS / "contracts" / "e2e-test.candidate.json")
 
 
 @pytest.fixture(scope="session")
 def host_facts_snapshot() -> dict:
     """``inputs/host-project-facts.snapshot.json`` — Louke dogfood facts."""
-    return _load_json(
-        DESIGN_ARTIFACTS / "inputs" / "host-project-facts.snapshot.json"
-    )
+    return _load_json(DESIGN_ARTIFACTS / "inputs" / "host-project-facts.snapshot.json")
 
 
 @pytest.fixture(scope="session")
@@ -298,15 +290,14 @@ def node_host_release_fixture() -> dict:
 def negative_schema_fixtures() -> dict:
     """``validation/negative-schema-fixtures.candidate.json`` — 8 mutations."""
     return _load_json(
-        DESIGN_ARTIFACTS
-        / "validation"
-        / "negative-schema-fixtures.candidate.json"
+        DESIGN_ARTIFACTS / "validation" / "negative-schema-fixtures.candidate.json"
     )
 
 
 # ---------------------------------------------------------------------------
 # Helper: xfail-awaiting-Devon marker
 # ---------------------------------------------------------------------------
+
 
 def pytest_configure(config):
     """Register v0.14-002 specific markers."""
@@ -333,6 +324,7 @@ def pytest_collection_modifyitems(config, items):
 # ---------------------------------------------------------------------------
 # Common test data builders
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def canonical_envelope_keys() -> set[str]:

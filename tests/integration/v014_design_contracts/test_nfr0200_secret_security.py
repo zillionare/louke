@@ -60,11 +60,10 @@ def test_secret_canaries_block_baseline():
 def test_archer_md_does_not_reference_git_write_tools():
     """Archer.md must not reference git commit/push/write tools."""
     text = (
-        Path(__file__).resolve().parents[3]
-        / "louke"
-        / "agents"
-        / "Archer.md"
-    ).read_text(encoding="utf-8").lower()
+        (Path(__file__).resolve().parents[3] / "louke" / "agents" / "Archer.md")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     forbidden = ["git push", "git commit", "subprocess.run(['git'", "os.system('git"]
     for pattern in forbidden:
         assert pattern not in text, f"Archer must not use: {pattern}"
@@ -73,11 +72,10 @@ def test_archer_md_does_not_reference_git_write_tools():
 def test_prism_md_does_not_reference_git_write_tools():
     """Prism.md must not reference git commit/push/write tools."""
     text = (
-        Path(__file__).resolve().parents[3]
-        / "louke"
-        / "agents"
-        / "Prism.md"
-    ).read_text(encoding="utf-8").lower()
+        (Path(__file__).resolve().parents[3] / "louke" / "agents" / "Prism.md")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     forbidden = ["git push", "git commit", "subprocess.run(['git'", "os.system('git"]
     for pattern in forbidden:
         assert pattern not in text

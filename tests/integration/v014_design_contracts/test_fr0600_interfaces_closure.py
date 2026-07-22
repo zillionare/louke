@@ -17,11 +17,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 
 
@@ -35,6 +31,7 @@ def test_interfaces_md_lists_all_15_interfaces():
         parse_interfaces_ids,
         REQUIRED_INTERFACES,
     )
+
     ids = set(parse_interfaces_ids(SPEC_ROOT / "interfaces.md"))
     missing = REQUIRED_INTERFACES - ids
     assert not missing, f"interfaces.md missing: {missing}"
@@ -46,6 +43,7 @@ def test_interfaces_md_no_unknown_interfaces():
         parse_interfaces_ids,
         REQUIRED_INTERFACES,
     )
+
     ids = set(parse_interfaces_ids(SPEC_ROOT / "interfaces.md"))
     extra = ids - REQUIRED_INTERFACES
     assert not extra, f"interfaces.md has unknown interfaces: {extra}"
@@ -56,6 +54,7 @@ def test_manifest_interface_set_matches_required(design_manifest):
     from tests.ground_truth.v014_design_contracts.independent_validator import (
         REQUIRED_INTERFACES,
     )
+
     actual = set(design_manifest["interface_set"])
     assert actual == REQUIRED_INTERFACES
 
@@ -65,6 +64,7 @@ def test_manifest_architecture_anchor_set_matches_required(design_manifest):
     from tests.ground_truth.v014_design_contracts.independent_validator import (
         REQUIRED_ARCHITECTURE_ANCHORS,
     )
+
     actual = set(design_manifest["architecture_anchor_set"])
     assert actual == REQUIRED_ARCHITECTURE_ANCHORS
 

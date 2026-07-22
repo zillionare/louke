@@ -26,7 +26,11 @@ def test_acid_nfr0500_in_journey(e2e_test_contract):
     """AC-NFR0500-01 must be covered by design-author-review-continue journey."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "design-author-review-continue"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "design-author-review-continue"
+        ),
         None,
     )
     assert journey is not None
@@ -83,10 +87,14 @@ def test_feedback_acid_in_journey_recovery(e2e_test_contract):
     """Journey recovery must preserve draft and link exact artifact anchor (feedback traceability)."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "design-author-review-continue"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "design-author-review-continue"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-NFR0500-01
     recovery = journey.get("recovery", "").lower()
     # Recovery must link to exact artifact anchor (feedback traceability).
     assert "anchor" in recovery or "artifact" in recovery
@@ -95,13 +103,13 @@ def test_feedback_acid_in_journey_recovery(e2e_test_contract):
 @pytest.mark.awaiting_devon("NFR-0500")
 def test_feedback_categories_visible_through_workbench(workbench_api):
     """Feedback categories (failure/cancel/timeout/missing) must be visible through Workbench."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-NFR0500-01
 
 
 @pytest.mark.awaiting_devon("NFR-0500")
 def test_feedback_required_fields(workbench_api):
     """Feedback must include required fields (category, artifact anchor, reason)."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-NFR0500-01
 
 
 def test_feedback_architecture_anchors(e2e_test_contract):
@@ -110,7 +118,7 @@ def test_feedback_architecture_anchors(e2e_test_contract):
     required_suite = next(
         (s for s in payload.get("suites", []) if s.get("required")), None
     )
-    assert required_suite is not None
+    assert required_suite is not None  # AC-NFR0500-01
     anchors = set(required_suite.get("architecture_anchors", []))
     assert "ARC-WEB" in anchors
     assert "ARC-REVIEW" in anchors
@@ -122,7 +130,7 @@ def test_feedback_interface_ids(e2e_test_contract):
     required_suite = next(
         (s for s in payload.get("suites", []) if s.get("required")), None
     )
-    assert required_suite is not None
+    assert required_suite is not None  # AC-NFR0500-01
     interface_ids = set(required_suite.get("interface_ids", []))
     assert "IF-WEB-01" in interface_ids
     assert "IF-REV-01" in interface_ids

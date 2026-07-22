@@ -16,8 +16,6 @@ and these tests will skip pending live-server wiring.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 
 import pytest
 
@@ -101,7 +99,7 @@ def test_journey_exercise_comment_direct_diff_reconnect(workbench_api):
     """
     # In Mode B, workbench_api is a MagicMock; verify it is non-None and
     # the expected entry points are referenceable (will be no-ops on the mock).
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0300-01
     # The journey must be able to invoke comment/direct-diff endpoints.
     # Real assertion deferred to Devon's implementation.
     assert hasattr(workbench_api, "__call__") or hasattr(workbench_api, "request")
@@ -110,18 +108,16 @@ def test_journey_exercise_comment_direct_diff_reconnect(workbench_api):
 @pytest.mark.awaiting_devon("FR-2500")
 def test_journey_observe_independent_prism_result(workbench_api):
     """Step: observe independent Prism result (not author-written)."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0300-01
 
 
 @pytest.mark.awaiting_devon("FR-2700")
 def test_journey_continue_after_baseline_no_second_human_lock(workbench_api):
     """Visible result: ready_for_implementation with no second Human lock."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR0300-01
 
 
-def test_journey_recovery_stale_preserves_draft(
-    workbench_api, e2e_test_contract
-):
+def test_journey_recovery_stale_preserves_draft(workbench_api, e2e_test_contract):
     """Recovery: stale/conflict preserves draft and current revision; failure links exact artifact anchor."""
     failure_policy = e2e_test_contract.get("payload", {}).get("failure_policy", {})
     assert failure_policy.get("fail_closed") is True
@@ -157,10 +153,15 @@ def test_journey_teardown_evidence_requirements(e2e_test_contract):
     payload = e2e_test_contract.get("payload", {})
     teardown = payload.get("teardown", [])
     teardown_text = " ".join(teardown)
-    assert "redacted evidence" in teardown_text.lower() or "save redacted" in teardown_text.lower()
+    assert (
+        "redacted evidence" in teardown_text.lower()
+        or "save redacted" in teardown_text.lower()
+    )
     assert "TERM" in teardown_text
     assert "KILL" in teardown_text
-    assert "remove" in teardown_text.lower() and "temporary state" in teardown_text.lower()
+    assert (
+        "remove" in teardown_text.lower() and "temporary state" in teardown_text.lower()
+    )
     # Evidence requirements.
     evidence = payload.get("evidence", {})
     assert evidence.get("required_ac_layer_reconciliation") is True
@@ -183,9 +184,9 @@ def test_journey_public_surfaces_declared(e2e_test_contract):
     assert any("M-DESIGN context" in s for s in public_surfaces), (
         "public_surfaces missing Workbench M-DESIGN context"
     )
-    assert any("/api/v14/runs/" in s and s.endswith("/design") for s in public_surfaces), (
-        "public_surfaces missing GET /api/v14/runs/{run_id}/design"
-    )
-    assert any("/api/v14/runs/" in s and s.endswith("/design/audit") for s in public_surfaces), (
-        "public_surfaces missing GET /api/v14/runs/{run_id}/design/audit"
-    )
+    assert any(
+        "/api/v14/runs/" in s and s.endswith("/design") for s in public_surfaces
+    ), "public_surfaces missing GET /api/v14/runs/{run_id}/design"
+    assert any(
+        "/api/v14/runs/" in s and s.endswith("/design/audit") for s in public_surfaces
+    ), "public_surfaces missing GET /api/v14/runs/{run_id}/design/audit"

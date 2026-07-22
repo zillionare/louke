@@ -72,10 +72,20 @@ def test_bundle_manifest_contains_required_fields(mock_prompt_bundle):
     }
     result = mock_prompt_bundle.read_manifest()
     required = (
-        "schema_version", "bundle_version", "source_path", "source_digest",
-        "deployed_path", "deployed_digest", "role", "frontmatter",
-        "permission", "model_abstraction", "protocol", "spec",
-        "schema_refs", "transformer_version",
+        "schema_version",
+        "bundle_version",
+        "source_path",
+        "source_digest",
+        "deployed_path",
+        "deployed_digest",
+        "role",
+        "frontmatter",
+        "permission",
+        "model_abstraction",
+        "protocol",
+        "spec",
+        "schema_refs",
+        "transformer_version",
     )
     for key in required:
         assert key in result, f"bundle manifest missing {key}"

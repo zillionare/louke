@@ -26,30 +26,26 @@ FIXTURES = (
 def test_review_restart_matrix_has_prism_pass_case():
     """review_restart_matrix must include prism-pass case."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    pass_case = next(
-        (c for c in matrix["cases"] if c["id"] == "prism-pass"), None
-    )
-    assert pass_case is not None
+    pass_case = next((c for c in matrix["cases"] if c["id"] == "prism-pass"), None)
+    assert pass_case is not None  # AC-FR2500-01
     assert "verdict" in pass_case["expected"].lower()
 
 
 def test_review_restart_matrix_has_prism_revise_case():
     """review_restart_matrix must include prism-revise case."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    revise = next(
-        (c for c in matrix["cases"] if c["id"] == "prism-revise"), None
+    revise = next((c for c in matrix["cases"] if c["id"] == "prism-revise"), None)
+    assert revise is not None  # AC-FR2500-01
+    assert (
+        "new" in revise["expected"].lower() and "revision" in revise["expected"].lower()
     )
-    assert revise is not None
-    assert "new" in revise["expected"].lower() and "revision" in revise["expected"].lower()
 
 
 def test_review_restart_matrix_has_prism_stale_case():
     """review_restart_matrix must include prism-stale case."""
     matrix = json.loads((FIXTURES / "review_restart_matrix.json").read_text())
-    stale = next(
-        (c for c in matrix["cases"] if c["id"] == "prism-stale"), None
-    )
-    assert stale is not None
+    stale = next((c for c in matrix["cases"] if c["id"] == "prism-stale"), None)
+    assert stale is not None  # AC-FR2500-01
     assert "stale" in stale["expected"].lower()
 
 

@@ -18,11 +18,7 @@ pytestmark = pytest.mark.v014_002_e2e
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TESTS_ROOT = REPO_ROOT / "tests"
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 
@@ -31,6 +27,7 @@ DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 def ci_contract():
     path = DESIGN_ARTIFACTS / "contracts" / "github-actions-ci.candidate.json"
     if not path.exists():
+        # AC-FR1100-01
         pytest.skip(f"CI contract candidate not yet present at {path}")
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -63,7 +60,13 @@ def test_ci_contract_payload_has_workflow(ci_contract):
     # The CI contract must declare either workflows, jobs, or rulesets.
     has_workflow = any(
         key in payload
-        for key in ("workflows", "jobs", "rulesets", "workflow_targets", "managed_workflows")
+        for key in (
+            "workflows",
+            "jobs",
+            "rulesets",
+            "workflow_targets",
+            "managed_workflows",
+        )
     )
     assert has_workflow, "CI contract payload must declare workflow targets"
 
@@ -73,7 +76,13 @@ def test_ci_contract_preserves_user_workflows(ci_contract):
     payload = ci_contract.get("payload", {})
     payload_text = json.dumps(payload)
     # Look for preservation semantics: "preserve", "user", "existing", "non-managed".
-    preservation_keywords = ("preserve", "user", "existing", "non-managed", "owner_marker")
+    preservation_keywords = (
+        "preserve",
+        "user",
+        "existing",
+        "non-managed",
+        "owner_marker",
+    )
     assert any(kw in payload_text.lower() for kw in preservation_keywords), (
         "CI contract must declare user workflow preservation semantics"
     )
@@ -100,7 +109,7 @@ def test_ci_contract_required_aggregate(ci_contract):
 @pytest.mark.awaiting_devon("FR-1100")
 def test_ci_dry_run_visible_through_workbench(workbench_api):
     """CI dry-run readback must be visible through Workbench."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR1100-01
 
 
 def test_ci_contract_failure_policy(ci_contract):

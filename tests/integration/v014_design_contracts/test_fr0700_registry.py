@@ -31,8 +31,7 @@ def test_registry_lists_four_agent_io_schemas(
     actual_ids = {s["identity"] for s in registry_candidate["agent_io_schemas"]}
     expected = set(required_agent_io_schemas)
     assert actual_ids == expected, (
-        f"missing: {expected - actual_ids}; "
-        f"extra: {actual_ids - expected}"
+        f"missing: {expected - actual_ids}; extra: {actual_ids - expected}"
     )
 
 
@@ -67,14 +66,14 @@ def test_registry_atomic_activation_gate(registry_candidate):
     assert isinstance(prereqs, list) and len(prereqs) >= 3, (
         "activation prerequisites must be a non-empty list"
     )
-    assert "fail_closed" in gate["failure_semantics"] or "fail closed" in gate[
-        "failure_semantics"
-    ].lower(), "failure semantics must mention fail closed"
+    assert (
+        "fail_closed" in gate["failure_semantics"]
+        or "fail closed" in gate["failure_semantics"].lower()
+    ), "failure semantics must mention fail closed"
 
 
 def test_every_schema_path_exists_under_design_artifacts(registry_candidate):
     """Schema paths declared in registry must exist on disk."""
-    from pathlib import Path
     from tests.integration.v014_design_contracts.conftest import DESIGN_ARTIFACTS
 
     for schema in registry_candidate["schemas"]:

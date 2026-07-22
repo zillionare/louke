@@ -32,7 +32,10 @@ def test_other_workflows_unchanged(mock_ci_contract):
     mock_ci_contract.generate.return_value = {
         "ok": True,
         "managed_files": [".github/workflows/louke-ci.yml"],
-        "unchanged_files": [".github/workflows/ci.yml", ".github/workflows/release.yml"],
+        "unchanged_files": [
+            ".github/workflows/ci.yml",
+            ".github/workflows/release.yml",
+        ],
     }
     result = mock_ci_contract.generate(contract={})
     assert len(result["unchanged_files"]) >= 2

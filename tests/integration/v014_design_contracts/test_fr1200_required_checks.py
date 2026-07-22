@@ -38,9 +38,7 @@ def test_aggregate_fails_on_job_failure(mock_ci_contract):
             "trigger": status,
         }
         result = mock_ci_contract.aggregate_status(job_status=status)
-        assert result["status"] == "failure", (
-            f"aggregate should fail on job {status}"
-        )
+        assert result["status"] == "failure", f"aggregate should fail on job {status}"
 
 
 @pytest.mark.awaiting_devon("FR-1200")
@@ -62,9 +60,7 @@ def test_aggregate_succeeds_only_when_all_required_pass(mock_ci_contract):
         "name": AGGREGATE_NAME,
         "status": "success",
     }
-    result = mock_ci_contract.aggregate_status(
-        job_status="success", required=True
-    )
+    result = mock_ci_contract.aggregate_status(job_status="success", required=True)
     assert result["status"] == "success"
 
 

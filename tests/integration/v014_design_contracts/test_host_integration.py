@@ -47,17 +47,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURES_ROOT = REPO_ROOT / "tests" / "fixtures" / "v014_design_contracts"
 SYNTHETIC_HOST = FIXTURES_ROOT / "synthetic-host"
-SYNTHETIC_SPEC = (
-    SYNTHETIC_HOST
-    / ".louke"
-    / "project"
-    / "specs"
-    / "synthetic-001-demo"
-)
+SYNTHETIC_SPEC = SYNTHETIC_HOST / ".louke" / "project" / "specs" / "synthetic-001-demo"
 SYNTHETIC_MANIFEST = (
-    SYNTHETIC_SPEC
-    / "design-artifacts"
-    / "design-artifact-manifest.candidate.json"
+    SYNTHETIC_SPEC / "design-artifacts" / "design-artifact-manifest.candidate.json"
 )
 
 
@@ -72,6 +64,7 @@ _V014_TOOLS = [
     "louke._tools.contract_registry",
 ]
 
+# AC-FR0400-01
 pytestmark = pytest.mark.skipif(
     not any(_module_available(m) for m in _V014_TOOLS),
     reason="No v0.14-002 louke._tools.* modules implemented yet; "
@@ -109,11 +102,15 @@ def synthetic_manifest_path(synthetic_host_dir):
 # IF-DES-02: design_contract validate (in host project context)
 # ---------------------------------------------------------------------------
 
+
+# AC-FR0400-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_runs_in_synthetic_project(venv_python, synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_runs_in_synthetic_project(
+    venv_python, synthetic_host_dir, synthetic_manifest_path
+):
     """IF-DES-02: ``design_contract validate`` must run in the host project.
 
     The CLI must read the host project's own ``.louke/`` directory —
@@ -121,10 +118,14 @@ def test_host_validate_runs_in_synthetic_project(venv_python, synthetic_host_dir
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.design_contract",
+            venv_python,
+            "-m",
+            "louke._tools.design_contract",
             "validate",
-            "--manifest", str(synthetic_manifest_path),
-            "--format", "json",
+            "--manifest",
+            str(synthetic_manifest_path),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -134,23 +135,23 @@ def test_host_validate_runs_in_synthetic_project(venv_python, synthetic_host_dir
     # The validator may pass or fail (candidate state → SCHEMA_NOT_ACTIVE),
     # but it must produce valid JSON with the contract-defined shape.
     assert result.returncode in (0, 1), (
-        f"unexpected exit code {result.returncode}; "
-        f"stderr: {result.stderr[:500]}"
+        f"unexpected exit code {result.returncode}; stderr: {result.stderr[:500]}"
     )
     data = json.loads(result.stdout)
-    assert "status" in data, (
-        f"output missing 'status': {list(data.keys())}"
-    )
+    assert "status" in data, f"output missing 'status': {list(data.keys())}"
     assert data["status"] in ("pass", "fail"), (
         f"status must be pass|fail, got: {data['status']}"
     )
 
 
+# AC-FR0400-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_detects_tampered_digest(venv_python, synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_detects_tampered_digest(
+    venv_python, synthetic_host_dir, synthetic_manifest_path
+):
     """IF-DES-02: validator must detect when a file's digest doesn't match.
 
     Tamper with acceptance.md, then run validate. The validator must
@@ -170,10 +171,14 @@ def test_host_validate_detects_tampered_digest(venv_python, synthetic_host_dir, 
 
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.design_contract",
+            venv_python,
+            "-m",
+            "louke._tools.design_contract",
             "validate",
-            "--manifest", str(synthetic_manifest_path),
-            "--format", "json",
+            "--manifest",
+            str(synthetic_manifest_path),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -191,11 +196,14 @@ def test_host_validate_detects_tampered_digest(venv_python, synthetic_host_dir, 
     )
 
 
+# AC-FR0400-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_reports_candidate_state(venv_python, synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_reports_candidate_state(
+    venv_python, synthetic_host_dir, synthetic_manifest_path
+):
     """IF-DES-02: validator must report SCHEMA_NOT_ACTIVE for candidate registry.
 
     The synthetic host's registry has ``activation_state=candidate``.
@@ -203,10 +211,14 @@ def test_host_validate_reports_candidate_state(venv_python, synthetic_host_dir, 
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.design_contract",
+            venv_python,
+            "-m",
+            "louke._tools.design_contract",
             "validate",
-            "--manifest", str(synthetic_manifest_path),
-            "--format", "json",
+            "--manifest",
+            str(synthetic_manifest_path),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -225,11 +237,14 @@ def test_host_validate_reports_candidate_state(venv_python, synthetic_host_dir, 
     )
 
 
+# AC-FR0400-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.design_contract"),
     reason="awaiting Devon: louke._tools.design_contract",
 )
-def test_host_validate_checks_ac_closure(venv_python, synthetic_host_dir, synthetic_manifest_path):
+def test_host_validate_checks_ac_closure(
+    venv_python, synthetic_host_dir, synthetic_manifest_path
+):
     """IF-DES-02: validator must verify AC closure in the host project.
 
     The synthetic host has 3 ACs (AC-FR0100-01, AC-FR0200-01, AC-NFR0100-01).
@@ -237,10 +252,14 @@ def test_host_validate_checks_ac_closure(venv_python, synthetic_host_dir, synthe
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.design_contract",
+            venv_python,
+            "-m",
+            "louke._tools.design_contract",
             "validate",
-            "--manifest", str(synthetic_manifest_path),
-            "--format", "json",
+            "--manifest",
+            str(synthetic_manifest_path),
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -258,6 +277,8 @@ def test_host_validate_checks_ac_closure(venv_python, synthetic_host_dir, synthe
 # IF-REG-01: contract_registry discover (in host project context)
 # ---------------------------------------------------------------------------
 
+
+# AC-FR0700-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
@@ -270,9 +291,12 @@ def test_host_registry_discover_in_synthetic_project(venv_python, synthetic_host
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.contract_registry",
+            venv_python,
+            "-m",
+            "louke._tools.contract_registry",
             "discover",
-            "--format", "json",
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -280,8 +304,7 @@ def test_host_registry_discover_in_synthetic_project(venv_python, synthetic_host
         cwd=str(synthetic_host_dir),
     )
     assert result.returncode in (0, 1), (
-        f"unexpected exit code {result.returncode}; "
-        f"stderr: {result.stderr[:500]}"
+        f"unexpected exit code {result.returncode}; stderr: {result.stderr[:500]}"
     )
     data = json.loads(result.stdout)
     assert "registry_version" in data, (
@@ -295,11 +318,10 @@ def test_host_registry_discover_in_synthetic_project(venv_python, synthetic_host
     assert "integration-test" in actual_kinds, (
         f"missing integration-test schema: {actual_kinds}"
     )
-    assert "e2e-test" in actual_kinds, (
-        f"missing e2e-test schema: {actual_kinds}"
-    )
+    assert "e2e-test" in actual_kinds, f"missing e2e-test schema: {actual_kinds}"
 
 
+# AC-FR0700-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
@@ -312,9 +334,12 @@ def test_host_registry_reports_candidate_status(venv_python, synthetic_host_dir)
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.contract_registry",
+            venv_python,
+            "-m",
+            "louke._tools.contract_registry",
             "discover",
-            "--format", "json",
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,
@@ -329,6 +354,7 @@ def test_host_registry_reports_candidate_status(venv_python, synthetic_host_dir)
         )
 
 
+# AC-FR0700-01
 @pytest.mark.skipif(
     not _module_available("louke._tools.contract_registry"),
     reason="awaiting Devon: louke._tools.contract_registry",
@@ -343,9 +369,12 @@ def test_host_registry_does_not_leak_louke_own_schemas(venv_python, synthetic_ho
     """
     result = subprocess.run(
         [
-            venv_python, "-m", "louke._tools.contract_registry",
+            venv_python,
+            "-m",
+            "louke._tools.contract_registry",
             "discover",
-            "--format", "json",
+            "--format",
+            "json",
         ],
         capture_output=True,
         text=True,

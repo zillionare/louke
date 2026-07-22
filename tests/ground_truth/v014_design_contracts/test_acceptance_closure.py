@@ -7,17 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from .independent_validator import parse_acceptance_ac_ids
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 ACCEPTANCE_MD = SPEC_ROOT / "acceptance.md"
 
@@ -37,6 +32,7 @@ def test_acceptance_ac_ids_are_unique():
 def test_acceptance_ac_ids_match_pattern():
     """Every AC ID must match ``AC-(FR|NFR)XXXX-YY``."""
     import re
+
     ac_ids = parse_acceptance_ac_ids(ACCEPTANCE_MD)
     pattern = re.compile(r"^AC-(?:FR|NFR)\d{4}-\d{2}$")
     for ac_id in ac_ids:

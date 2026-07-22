@@ -25,11 +25,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TESTS_ROOT = REPO_ROOT / "tests"
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 
@@ -107,13 +103,15 @@ def workbench_api(mock_louke_tools_e2e, monkeypatch):
     """
     if os.environ.get("LOUKE_V014_002_LIVE_SERVER") == "1":
         # Live server mode: real integration test against ``lk web``.
-        # TODO: when Devon ships ``lk web``, implement live HTTP client here.
+        # TODO: when Devon ships ``lk web``, implement live HTTP client here. (#250)
+        # AC-FR0300-01
         pytest.skip(
             "Live server mode not yet configured for v014_002 e2e; "
             "implement HTTP client when Devon ships lk web"
         )
     workbench = mock_louke_tools_e2e["louke._tools.workbench"]
     if not isinstance(workbench, MagicMock):
+        # AC-FR0300-01
         pytest.skip(
             "louke._tools.workbench is now implemented by Devon; "
             "replace this mock test with a real e2e test against lk web"
@@ -124,9 +122,7 @@ def workbench_api(mock_louke_tools_e2e, monkeypatch):
 
 @pytest.fixture(scope="session")
 def design_manifest():
-    return _load_json(
-        DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json"
-    )
+    return _load_json(DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json")
 
 
 @pytest.fixture(scope="session")
@@ -138,13 +134,9 @@ def integration_test_contract():
 
 @pytest.fixture(scope="session")
 def e2e_test_contract():
-    return _load_json(
-        DESIGN_ARTIFACTS / "contracts" / "e2e-test.candidate.json"
-    )
+    return _load_json(DESIGN_ARTIFACTS / "contracts" / "e2e-test.candidate.json")
 
 
 @pytest.fixture(scope="session")
 def host_facts_snapshot():
-    return _load_json(
-        DESIGN_ARTIFACTS / "inputs" / "host-project-facts.snapshot.json"
-    )
+    return _load_json(DESIGN_ARTIFACTS / "inputs" / "host-project-facts.snapshot.json")

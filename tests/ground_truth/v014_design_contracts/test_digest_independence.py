@@ -16,11 +16,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_ROOT = (
-    REPO_ROOT
-    / ".louke"
-    / "project"
-    / "specs"
-    / "v0.14-002-workflow-reflow-design"
+    REPO_ROOT / ".louke" / "project" / "specs" / "v0.14-002-workflow-reflow-design"
 )
 DESIGN_ARTIFACTS = SPEC_ROOT / "design-artifacts"
 MANIFEST_PATH = DESIGN_ARTIFACTS / "design-artifact-manifest.candidate.json"
@@ -67,6 +63,7 @@ def _walk_artifact_refs(manifest: dict):
         yield bundle["path"], bundle["file_digest"]
 
 
+# AC-FR0700-01
 @pytest.mark.xfail(
     reason=(
         "Candidate-state finding (2026-07-21): manifest declares stale "
@@ -89,16 +86,14 @@ def test_manifest_digests_match_file_bytes():
             mismatches.append(f"{rel_path}: file not found")
             continue
         import hashlib
+
         actual = "sha256:" + hashlib.sha256(file_path.read_bytes()).hexdigest()
         checked += 1
         if actual != expected_digest:
-            mismatches.append(
-                f"{rel_path}: expected {expected_digest}, got {actual}"
-            )
+            mismatches.append(f"{rel_path}: expected {expected_digest}, got {actual}")
     assert checked > 0, "no artifact refs walked; manifest structure changed?"
     assert not mismatches, (
-        f"{len(mismatches)} digest mismatch(es):\n  - "
-        + "\n  - ".join(mismatches[:10])
+        f"{len(mismatches)} digest mismatch(es):\n  - " + "\n  - ".join(mismatches[:10])
     )
 
 
@@ -120,6 +115,4 @@ def test_manifest_has_seven_contract_instances():
     """Manifest must enumerate exactly 7 contract instances."""
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     instances = manifest.get("contract_instances", [])
-    assert len(instances) == 7, (
-        f"expected 7 contract instances, got {len(instances)}"
-    )
+    assert len(instances) == 7, f"expected 7 contract instances, got {len(instances)}"

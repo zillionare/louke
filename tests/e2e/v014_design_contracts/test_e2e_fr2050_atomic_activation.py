@@ -26,7 +26,11 @@ def test_acid_fr2050_in_journey(e2e_test_contract):
     """AC-FR2050-01 must be covered by candidate-bootstrap-restart journey."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
     assert journey is not None
@@ -59,30 +63,36 @@ def test_atomic_activation_no_self_certify(e2e_test_contract):
     """
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-FR2050-01
     actions = journey.get("actions", [])
     actions_text = " ".join(actions).lower()
     # Must reference "prior trusted prism" or similar.
-    assert any(kw in actions_text for kw in ("prior", "trusted", "prism", "reviewer")), (
-        "candidate-bootstrap-restart journey must declare prior trusted Prism reviewer"
-    )
+    assert any(
+        kw in actions_text for kw in ("prior", "trusted", "prism", "reviewer")
+    ), "candidate-bootstrap-restart journey must declare prior trusted Prism reviewer"
 
 
 def test_atomic_activation_visible_result(e2e_test_contract):
     """Visible result: one atomic future activation after all prerequisites."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-FR2050-01
     visible_result = journey.get("visible_result", "").lower()
-    assert "atomic" in visible_result, (
-        "visible_result must declare atomic activation"
-    )
+    assert "atomic" in visible_result, "visible_result must declare atomic activation"
     assert "non-active" in visible_result or "candidate" in visible_result, (
         "visible_result must declare candidate stays non-active until prerequisites"
     )
@@ -92,10 +102,14 @@ def test_atomic_activation_recovery(e2e_test_contract):
     """Recovery: drift or kill keeps old active and marks candidate/review stale."""
     payload = e2e_test_contract.get("payload", {})
     journey = next(
-        (j for j in payload.get("journeys", []) if j.get("id") == "candidate-bootstrap-restart"),
+        (
+            j
+            for j in payload.get("journeys", [])
+            if j.get("id") == "candidate-bootstrap-restart"
+        ),
         None,
     )
-    assert journey is not None
+    assert journey is not None  # AC-FR2050-01
     recovery = journey.get("recovery", "").lower()
     assert "drift" in recovery or "kill" in recovery
     assert "old active" in recovery or "active" in recovery
@@ -105,13 +119,13 @@ def test_atomic_activation_recovery(e2e_test_contract):
 @pytest.mark.awaiting_devon("FR-2050")
 def test_atomic_activation_cas_exchange(workbench_api):
     """Atomic activation must use CAS exchange for the active pointer."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR2050-01
 
 
 @pytest.mark.awaiting_devon("FR-2050")
 def test_atomic_activation_prerequisites_gate(workbench_api):
     """All prerequisites (schema/lint/IF-DES-02/trusted Prism/staging readback/artifact readback/baseline) must be current before activation."""
-    assert workbench_api is not None
+    assert workbench_api is not None  # AC-FR2050-01
 
 
 def test_atomic_activation_architecture_anchors(e2e_test_contract):
@@ -120,7 +134,7 @@ def test_atomic_activation_architecture_anchors(e2e_test_contract):
     required_suite = next(
         (s for s in payload.get("suites", []) if s.get("required")), None
     )
-    assert required_suite is not None
+    assert required_suite is not None  # AC-FR2050-01
     anchors = set(required_suite.get("architecture_anchors", []))
     # ARC-PROMPTS, ARC-STORE, ARC-SECURITY are expected for atomic activation.
     for expected in ("ARC-PROMPTS", "ARC-STORE", "ARC-SECURITY"):

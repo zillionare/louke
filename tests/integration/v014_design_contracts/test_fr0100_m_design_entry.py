@@ -30,7 +30,7 @@ def test_approved_design_inputs_matrix_has_current_case():
     """approved_design_inputs matrix must include the 'current' positive case."""
     matrix = json.loads((FIXTURES / "approved_design_inputs.json").read_text())
     current = next((c for c in matrix["cases"] if c["id"] == "current"), None)
-    assert current is not None
+    assert current is not None  # AC-FR0100-01
     assert "enter M-DESIGN" in current["expected"]
 
 
@@ -38,7 +38,7 @@ def test_approved_design_inputs_matrix_has_stale_case():
     """matrix must include stale-requirements case."""
     matrix = json.loads((FIXTURES / "approved_design_inputs.json").read_text())
     stale = next((c for c in matrix["cases"] if c["id"] == "stale-requirements"), None)
-    assert stale is not None
+    assert stale is not None  # AC-FR0100-01
     assert "block" in stale["expected"].lower()
 
 
@@ -48,17 +48,15 @@ def test_approved_design_inputs_matrix_has_missing_base_commit_case():
     missing = next(
         (c for c in matrix["cases"] if c["id"] == "missing-base-commit"), None
     )
-    assert missing is not None
+    assert missing is not None  # AC-FR0100-01
     assert "block" in missing["expected"].lower()
 
 
 def test_approved_design_inputs_matrix_has_facts_conflict_case():
     """matrix must include facts-conflict case."""
     matrix = json.loads((FIXTURES / "approved_design_inputs.json").read_text())
-    conflict = next(
-        (c for c in matrix["cases"] if c["id"] == "facts-conflict"), None
-    )
-    assert conflict is not None
+    conflict = next((c for c in matrix["cases"] if c["id"] == "facts-conflict"), None)
+    assert conflict is not None  # AC-FR0100-01
     assert "block" in conflict["expected"].lower()
 
 
@@ -68,7 +66,7 @@ def test_approved_design_inputs_matrix_has_workspace_mismatch_case():
     mismatch = next(
         (c for c in matrix["cases"] if c["id"] == "workspace-mismatch"), None
     )
-    assert mismatch is not None
+    assert mismatch is not None  # AC-FR0100-01
     assert "block" in mismatch["expected"].lower()
 
 
@@ -96,7 +94,14 @@ def test_entering_m_design_persists_full_identity_record(
     result = mock_design_coordinator.enter_m_design()
     assert result["ok"]
     record = result["record"]
-    for key in ("run_id", "release_identity", "revision", "attempt", "actor", "input_identities"):
+    for key in (
+        "run_id",
+        "release_identity",
+        "revision",
+        "attempt",
+        "actor",
+        "input_identities",
+    ):
         assert key in record
 
 
