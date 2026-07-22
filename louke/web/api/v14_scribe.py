@@ -38,6 +38,7 @@ async def story_page(request: Request) -> HTMLResponse | JSONResponse:
     task = _task_for_artifact(request, run.run_id)
     body = escape(artifact.body_md)
     task_text = escape(str(task.get("task_id"))) if task else "not created"
+    gate = _scribe(request).story_gate(run.run_id)
     csrf = escape(
         csrf_token_for_session(
             request.app.state.store, request.cookies.get(SESSION_COOKIE, "")
@@ -53,6 +54,7 @@ async def story_page(request: Request) -> HTMLResponse | JSONResponse:
         f"<pre data-task='{task_text}'>{body}</pre>"
         f"{_chat_markup(run_id, task_id, csrf)}"
         f"{_chat_script(run_id, task_id, csrf)}"
+        f"{_decision_markup(run_id, request.path_params['project_id'], run.revision, artifact.revision, gate, csrf)}"
         "</main></body></html>"
     )
 
@@ -70,6 +72,7 @@ async def current_project(request: Request) -> JSONResponse:
         return _error("NOT_FOUND", "persisted project run does not exist", 404)
     artifact = request.app.state.v14_story_entry.artifact(run.run_id)
     task = _task_for_artifact(request, run.run_id)
+    gate = _scribe(request).story_gate(run.run_id)
     return JSONResponse(
         {
             "project": {"project_id": binding["project_id"]},
@@ -81,10 +84,60 @@ async def current_project(request: Request) -> JSONResponse:
             },
             "artifact": _artifact_model(artifact) if artifact else None,
             "task": _task_summary(task),
-            "allowed_actions": [],
+            "human_wait": gate["human_wait"],
+            "story_gate": gate,
+            "allowed_actions": (["story_decision"] if gate["pending_action"] else []),
             "continue_url": f"/projects/{request.path_params['project_id']}/requirements/story",
         }
     )
+
+
+async def run_action(request: Request) -> JSONResponse:
+    """Apply one authenticated Runtime-owned Human phase action."""
+    user_or_response = _require_human(request, csrf_required=True)
+    if isinstance(user_or_response, JSONResponse):
+        return user_or_response
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("JSON object payload is required")
+        if payload.get("action") != "story_decision":
+            raise ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT", "only story_decision is available at M-STORY"
+            )
+        action_payload = payload.get("payload")
+        if not isinstance(action_payload, dict):
+            raise ValueError("payload object is required")
+        if "actor_kind" in action_payload or "actor" in action_payload:
+            raise ScribeTaskError(
+                "HUMAN_AUTHORITY_REQUIRED",
+                "actor identity is derived from the authenticated Human session",
+            )
+        binding = request.app.state.v14_release_entry.project_for_run(
+            request.path_params["run_id"]
+        )
+        requested_project = action_payload.get("project_id")
+        if binding is None or (
+            requested_project is not None and requested_project != binding["project_id"]
+        ):
+            return _error("NOT_FOUND", "run is not bound to this project", 404)
+        result = _scribe(request).decide_story(
+            run_id=request.path_params["run_id"],
+            value=_required_string(action_payload, "candidate"),
+            reason=_required_string(action_payload, "reason"),
+            expected_run_revision=_required_int(payload, "expected_run_revision"),
+            expected_artifact_revision=_required_int(
+                payload, "expected_artifact_revision"
+            ),
+            idempotency_key=_required_string(payload, "idempotency_key"),
+            actor=f"human:{user_or_response.username}",
+            actor_kind="human",
+        )
+    except ScribeTaskError as exc:
+        return _error(exc.code, exc.message, _status_for_error(exc.code))
+    except ValueError as exc:
+        return _error("VALIDATION_FAILED", str(exc), 400)
+    return JSONResponse(result)
 
 
 async def story_artifact(request: Request) -> JSONResponse:
@@ -234,6 +287,21 @@ def _task_summary(task: dict[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
+def _status_for_error(code: str) -> int:
+    """Map controlled phase-action errors to their stable HTTP status."""
+    if code in {"HUMAN_AUTHORITY_REQUIRED"}:
+        return 403
+    if code in {"NOT_FOUND"}:
+        return 404
+    if code in {
+        "VALIDATION_FAILED",
+        "RESULT_ROLE_CONFLICT",
+        "RESULT_WRITE_SCOPE_DENIED",
+    }:
+        return 400
+    return 409
+
+
 def _require_human(request: Request, *, csrf_required: bool):
     """Require a server-authenticated Human session and optional CSRF proof."""
     session = request.cookies.get(SESSION_COOKIE)
@@ -347,3 +415,50 @@ retry.addEventListener("click", async () => {{ retry.disabled = true; await fetc
 reconcile.addEventListener("click", async () => {{ reconcile.disabled = true; await fetch(`/api/v14/runs/${{scribeRun}}/tasks/${{scribeTask}}/reconcile`, {{method: "POST", headers: {{"X-Louke-CSRF": scribeCsrf}}}}); reconcile.disabled = false; await refreshChat(); }});
 refreshChat();
 </script>"""
+
+
+def _decision_markup(
+    run_id: str,
+    project_id: str,
+    run_revision: int,
+    artifact_revision: int,
+    gate: dict[str, Any],
+    csrf: str,
+) -> str:
+    """Render Human-only Story decision controls outside the Chat surface."""
+    recommendation = escape(str(gate.get("recommendation") or "pending"))
+    reason = escape(
+        str(gate.get("reason") or "Awaiting a valid Scribe recommendation.")
+    )
+    if not gate.get("human_wait"):
+        return (
+            "<section id='story-decision-gate'><h2>Story decision</h2>"
+            f"<p data-recommendation='{recommendation}'>{reason}</p></section>"
+        )
+    return f"""<section id='story-decision-gate' data-run-id='{escape(run_id)}' data-project-id='{escape(project_id)}'>
+<h2>Human story decision</h2><p id='scribe-recommendation'>Recommendation: {recommendation}</p>
+<p id='scribe-reason'>{reason}</p><label>Reason<textarea id='story-decision-reason' required></textarea></label>
+<div id='story-decision-actions'><button data-decision='Go' type='button'>Go</button>
+<button data-decision='Park' type='button'>Park</button><button data-decision='No-Go' type='button'>No-Go</button></div>
+<p id='story-decision-status'>Human action required</p>
+<script>
+const decisionCsrf = {csrf!r};
+const decisionGate = document.getElementById('story-decision-gate');
+const decisionStatus = document.getElementById('story-decision-status');
+for (const button of decisionGate.querySelectorAll('[data-decision]')) {{
+  button.addEventListener('click', async () => {{
+    for (const candidate of decisionGate.querySelectorAll('[data-decision]')) candidate.disabled = true;
+    const idempotencyKey = crypto.randomUUID();
+    try {{
+      const response = await fetch('/api/v14/runs/{escape(run_id)}/actions', {{
+        method: 'POST', headers: {{'Content-Type': 'application/json', 'Origin': window.location.origin, 'X-Louke-CSRF': decisionCsrf}},
+        body: JSON.stringify({{action: 'story_decision', expected_run_revision: {run_revision}, expected_artifact_revision: {artifact_revision}, idempotency_key: idempotencyKey,
+          payload: {{candidate: button.dataset.decision, reason: document.getElementById('story-decision-reason').value, project_id: '{escape(project_id)}'}}}})
+      }});
+      decisionStatus.textContent = response.ok ? 'Decision recorded' : 'Decision rejected; refresh current state';
+    }} finally {{
+      for (const candidate of decisionGate.querySelectorAll('[data-decision]')) candidate.disabled = false;
+    }}
+  }});
+}}
+</script></section>"""

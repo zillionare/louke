@@ -13,6 +13,14 @@ from typing import Any, Callable
 from louke.opencode.adapter import OpenCodeAdapter
 from louke.runtime.store import WorkflowRunStore
 from louke.v014.fr0400_task_manifest import build_manifest
+from louke.v014.fr0600_workflow_authority import (
+    ActionForbidden,
+    Phase,
+    PhaseAction,
+    RunState,
+    WorkflowAuthority,
+    WorkflowStateConflict,
+)
 from louke.v014.fr0700_scribe_dispatch import dispatch_scribe_investigation
 
 
@@ -74,6 +82,34 @@ class ScribeStore:
                 status TEXT NOT NULL,
                 provider_message_id TEXT,
                 created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS v14_scribe_results (
+                task_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL UNIQUE,
+                attempt_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                manifest_digest TEXT NOT NULL,
+                artifact_revision INTEGER NOT NULL,
+                artifact_digest TEXT NOT NULL,
+                write_scope_json TEXT NOT NULL,
+                recommendation TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                result_status TEXT NOT NULL,
+                received_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS v14_story_decisions (
+                run_id TEXT PRIMARY KEY,
+                story_revision INTEGER NOT NULL,
+                story_digest TEXT NOT NULL,
+                value TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                actor_kind TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                decided_at TEXT NOT NULL,
+                backlog_json TEXT,
+                cleanup_json TEXT
             );
             """
         )
@@ -303,6 +339,88 @@ class ScribeStore:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def get_result(self, task_id: str) -> dict[str, Any] | None:
+        """Return the persisted result for one Scribe task, if present."""
+        row = self._conn.execute(
+            "SELECT * FROM v14_scribe_results WHERE task_id = ?", (task_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["write_scope"] = json.loads(result.pop("write_scope_json"))
+        return result
+
+    def save_result(self, result: dict[str, Any]) -> dict[str, Any]:
+        """Persist one accepted Scribe result and return its read model."""
+        with self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO v14_scribe_results
+                (task_id, run_id, attempt_id, session_id, role, manifest_digest,
+                 artifact_revision, artifact_digest, write_scope_json,
+                 recommendation, reason, result_status, received_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?)
+                """,
+                (
+                    result["task_id"],
+                    result["run_id"],
+                    result["attempt_id"],
+                    result["session_id"],
+                    result["role"],
+                    result["manifest_digest"],
+                    result["artifact_revision"],
+                    result["artifact_digest"],
+                    json.dumps(result["write_scope"], sort_keys=True),
+                    result["recommendation"],
+                    result["reason"],
+                    result["received_at"],
+                ),
+            )
+        return self.get_result(str(result["task_id"])) or {}
+
+    def get_decision(self, run_id: str) -> dict[str, Any] | None:
+        """Return the persisted Human story decision for a run, if present."""
+        row = self._conn.execute(
+            "SELECT * FROM v14_story_decisions WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        decision = dict(row)
+        for field in ("backlog_json", "cleanup_json"):
+            key = field.removesuffix("_json")
+            decision[key] = json.loads(decision.pop(field)) if decision[field] else None
+        return decision
+
+    def save_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
+        """Persist one Human story decision and its optional exit evidence."""
+        with self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO v14_story_decisions
+                (run_id, story_revision, story_digest, value, reason, actor,
+                 actor_kind, idempotency_key, decided_at, backlog_json, cleanup_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    decision["run_id"],
+                    decision["story_revision"],
+                    decision["story_digest"],
+                    decision["value"],
+                    decision["reason"],
+                    decision["actor"],
+                    decision["actor_kind"],
+                    decision["idempotency_key"],
+                    decision["decided_at"],
+                    json.dumps(decision["backlog"], sort_keys=True)
+                    if decision.get("backlog") is not None
+                    else None,
+                    json.dumps(decision["cleanup"], sort_keys=True)
+                    if decision.get("cleanup") is not None
+                    else None,
+                ),
+            )
+        return self.get_decision(str(decision["run_id"])) or {}
+
 
 class ScribeEntryService:
     """Coordinate manifest-bound Scribe work through real OpenCode transport."""
@@ -381,6 +499,236 @@ class ScribeEntryService:
     def task_for_run(self, run_id: str) -> dict[str, Any] | None:
         """Return the persisted task bound to a run without creating one."""
         return self._store.get_task_for_run(run_id)
+
+    def submit_result(
+        self,
+        *,
+        run_id: str,
+        task_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Validate and persist one manifest-bound Scribe recommendation.
+
+        Args:
+            run_id: Runtime run bound to the task.
+            task_id: Persisted Scribe task identity.
+            payload: Agent result containing role, attempt/session identity,
+                manifest/artifact digests, write scope, recommendation and reason.
+
+        Returns:
+            The accepted recommendation read model. An identical retry returns
+            the original persisted result.
+
+        Raises:
+            ScribeTaskError: If any task, attempt, session, digest, scope or
+                recommendation field is stale, malformed or unauthorized.
+
+        Side effects:
+            Only an accepted result and its attempt evidence are persisted;
+            rejected results update the attempt diagnostic and never advance the
+            Runtime phase or create an M-SPEC task.
+        """
+        task = self._require_task(run_id, task_id)
+        existing = self._store.get_result(task_id)
+        if existing is not None:
+            return _public_result(existing)
+        try:
+            result = self._validate_result(task, payload)
+        except ScribeTaskError as exc:
+            self._reject_result(task, exc)
+            raise
+        self._store.save_result(result)
+        self._store.update_attempt(task["active_attempt_id"], result_status="accepted")
+        run = self._run_store.get_run(run_id)
+        if run.current_step != Phase.M_STORY.value:
+            error = ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT",
+                f"Scribe result requires M-STORY, got {run.current_step}",
+            )
+            self._reject_result(task, error)
+            raise error
+        if run.status != "waiting_for_human":
+            self._run_store.update_run(
+                run.with_status("waiting_for_human"), run.revision
+            )
+        return _public_result(self._store.get_result(task_id) or result)
+
+    def decide_story(
+        self,
+        *,
+        run_id: str,
+        value: str,
+        reason: str,
+        expected_run_revision: int,
+        expected_artifact_revision: int,
+        idempotency_key: str,
+        actor: str,
+        actor_kind: str,
+    ) -> dict[str, Any]:
+        """Apply the authenticated Human story decision through Runtime authority.
+
+        Args:
+            run_id: Runtime run whose current Story is being decided.
+            value: One of ``Go``, ``Park`` or ``No-Go``.
+            reason: Human explanation for the selected candidate.
+            expected_run_revision: Run revision observed by the Human.
+            expected_artifact_revision: Story revision observed by the Human.
+            idempotency_key: Stable identity for replay-safe submission.
+            actor: Server-derived Human principal identity.
+            actor_kind: Server-derived principal kind; only ``human`` is valid.
+
+        Returns:
+            Persisted decision, updated Runtime status and optional Backlog/
+            cleanup evidence. Replaying the same key returns the same decision.
+
+        Raises:
+            ScribeTaskError: If the gate is unavailable, stale, unauthorized,
+                outside the candidate set, or the request conflicts.
+
+        Side effects:
+            Go advances only the Runtime revision while remaining at M-STORY;
+            Park/No-Go persist one Backlog identity and enter a terminal
+            Runtime state. No M-SPEC task is created.
+        """
+        if not idempotency_key.strip():
+            raise ScribeTaskError("VALIDATION_FAILED", "idempotency_key is required")
+        existing = self._store.get_decision(run_id)
+        if existing is not None:
+            if existing["idempotency_key"] != idempotency_key:
+                raise ScribeTaskError(
+                    "REQUEST_CONFLICT", "story decision already has another identity"
+                )
+            return self._decision_response(existing)
+        if actor_kind != "human":
+            raise ScribeTaskError(
+                "HUMAN_AUTHORITY_REQUIRED",
+                "Agent/anonymous actors cannot decide Go/Park/No-Go",
+            )
+        if value not in {"Go", "Park", "No-Go"}:
+            raise ScribeTaskError(
+                "VALIDATION_FAILED", "story decision must be Go, Park or No-Go"
+            )
+        if not reason.strip():
+            raise ScribeTaskError("VALIDATION_FAILED", "decision reason is required")
+        run = self._run_store.get_run(run_id)
+        if run.current_step != Phase.M_STORY.value:
+            raise ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT",
+                f"story decision requires M-STORY, got {run.current_step}",
+            )
+        artifact = self._current_artifact(run_id)
+        if artifact is None or artifact["revision"] != expected_artifact_revision:
+            raise ScribeTaskError(
+                "DOCUMENT_WRITE_CONFLICT", "decision targets a stale Story revision"
+            )
+        gate = self.story_gate(run_id)
+        if gate["recommendation"] is None or gate["decision"] is not None:
+            raise ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT", "a current Scribe recommendation is required"
+            )
+        state = RunState(
+            run_id=run.run_id,
+            phase=Phase.M_STORY,
+            revision=run.revision,
+            artifact_revision=artifact["revision"],
+            allowed_actions=(PhaseAction.STORY_DECISION,),
+        )
+        authority = WorkflowAuthority()
+        try:
+            authority.assert_revision_current(state, expected_run_revision)
+            authority.assert_action_allowed(state, PhaseAction.STORY_DECISION)
+        except WorkflowStateConflict as exc:
+            raise ScribeTaskError(exc.code, str(exc)) from exc
+        except ActionForbidden as exc:
+            raise ScribeTaskError(exc.code, str(exc)) from exc
+
+        backlog = None
+        cleanup = None
+        if value in {"Park", "No-Go"}:
+            backlog = _backlog_for_decision(
+                run_id=run_id,
+                story_revision=artifact["revision"],
+                story_digest=artifact["digest"],
+                value=value,
+                reason=reason.strip(),
+                actor=actor,
+            )
+            cleanup = {
+                "status": "needs_attention",
+                "blocking_reasons": [
+                    "release branch cleanup safety preconditions were not proven"
+                ],
+                "permitted_commands": [],
+            }
+            target = Phase.PARKED if value == "Park" else Phase.NO_GO
+            authority.transition(
+                state=state,
+                target=target,
+                expected_revision=expected_run_revision,
+                actor_kind=actor_kind,
+            )
+            next_run = run.with_step(
+                target.value, "parked" if value == "Park" else "no_go"
+            )
+        else:
+            next_run = run.with_status("running")
+        decision = {
+            "run_id": run_id,
+            "story_revision": artifact["revision"],
+            "story_digest": artifact["digest"],
+            "value": value,
+            "reason": reason.strip(),
+            "actor": actor,
+            "actor_kind": actor_kind,
+            "idempotency_key": idempotency_key,
+            "decided_at": datetime.now(timezone.utc).isoformat(),
+            "backlog": backlog,
+            "cleanup": cleanup,
+        }
+        saved = self._store.save_decision(decision)
+        updated_run = self._run_store.update_run(next_run, expected_run_revision)
+        return self._decision_response(saved, run=updated_run)
+
+    def story_gate(self, run_id: str) -> dict[str, Any]:
+        """Return the persisted Scribe recommendation and Human gate model."""
+        task = self._store.get_task_for_run(run_id)
+        result = self._store.get_result(task["task_id"]) if task else None
+        decision = self._store.get_decision(run_id)
+        accepted = result is not None and result["result_status"] == "accepted"
+        return {
+            "recommendation": result["recommendation"] if accepted else None,
+            "reason": result["reason"] if accepted else None,
+            "result": _public_result(result) if accepted else None,
+            "decision": _public_decision(decision) if decision else None,
+            "human_wait": bool(accepted and decision is None),
+            "pending_action": "story_decision"
+            if accepted and decision is None
+            else None,
+            "m_spec_task_count": self.m_spec_task_count(run_id),
+        }
+
+    def m_spec_task_count(self, run_id: str) -> int:
+        """Return the number of persisted M-SPEC tasks for a Runtime run."""
+        row = self._store._conn.execute(
+            "SELECT COUNT(*) AS count FROM v14_scribe_tasks WHERE run_id = ? AND phase = 'M-SPEC'",
+            (run_id,),
+        ).fetchone()
+        return int(row["count"])
+
+    def _decision_response(
+        self, decision: dict[str, Any], *, run: Any | None = None
+    ) -> dict[str, Any]:
+        """Return one replay-stable Human decision response envelope."""
+        current_run = run or self._run_store.get_run(str(decision["run_id"]))
+        result = _public_decision(decision)
+        result["run"] = {
+            "run_id": current_run.run_id,
+            "revision": current_run.revision,
+            "phase": current_run.current_step,
+            "status": current_run.status,
+        }
+        result["backlog_entry_count"] = 1 if decision.get("backlog") else 0
+        return result
 
     @property
     def workspace_root(self) -> Path | None:
@@ -589,6 +937,103 @@ class ScribeEntryService:
             raise ScribeTaskError("OPENCODE_UNAVAILABLE", str(exc)) from exc
         return self._adapter
 
+    def _validate_result(
+        self, task: dict[str, Any], payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Validate every persisted identity in a Scribe result payload."""
+        required = (
+            "role",
+            "task_id",
+            "attempt_id",
+            "session_id",
+            "manifest_digest",
+            "artifact_revision",
+            "artifact_digest",
+            "write_scope",
+            "recommendation",
+            "reason",
+        )
+        missing = [field for field in required if field not in payload]
+        if missing:
+            raise ScribeTaskError(
+                "VALIDATION_FAILED", f"Scribe result fields are required: {missing}"
+            )
+        if payload["role"] != "Scribe":
+            raise ScribeTaskError("RESULT_ROLE_CONFLICT", "result role is not Scribe")
+        if payload["task_id"] != task["task_id"]:
+            raise ScribeTaskError("TASK_SCOPE_DENIED", "result task is not bound")
+        if payload["attempt_id"] != task["active_attempt_id"]:
+            raise ScribeTaskError(
+                "RESULT_ATTEMPT_CONFLICT", "result attempt is not active"
+            )
+        if not task["session_id"] or payload["session_id"] != task["session_id"]:
+            raise ScribeTaskError(
+                "RESULT_SESSION_CONFLICT", "result session is not the active session"
+            )
+        if payload["manifest_digest"] != task["manifest_digest"]:
+            raise ScribeTaskError(
+                "RESULT_MANIFEST_CONFLICT", "result manifest digest is stale"
+            )
+        artifact = self._current_artifact(task["run_id"])
+        if artifact is None:
+            raise ScribeTaskError("NOT_FOUND", "current Story artifact does not exist")
+        if (
+            payload["artifact_revision"] != task["artifact_revision"]
+            or payload["artifact_revision"] != artifact["revision"]
+            or payload["artifact_digest"] != task["artifact_digest"]
+            or payload["artifact_digest"] != artifact["digest"]
+        ):
+            raise ScribeTaskError(
+                "RESULT_ARTIFACT_CONFLICT", "result targets a stale Story artifact"
+            )
+        if payload["write_scope"] != ["story.md"]:
+            raise ScribeTaskError(
+                "RESULT_WRITE_SCOPE_DENIED", "Scribe result scope must be story.md only"
+            )
+        if payload["recommendation"] not in {"Go", "Park", "No-Go"}:
+            raise ScribeTaskError(
+                "VALIDATION_FAILED", "recommendation must be Go, Park or No-Go"
+            )
+        if not isinstance(payload["reason"], str) or not payload["reason"].strip():
+            raise ScribeTaskError(
+                "VALIDATION_FAILED", "recommendation reason is required"
+            )
+        run = self._run_store.get_run(task["run_id"])
+        if run.current_step != Phase.M_STORY.value:
+            raise ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT", "Scribe result requires current M-STORY"
+            )
+        return {
+            "task_id": task["task_id"],
+            "run_id": task["run_id"],
+            "attempt_id": task["active_attempt_id"],
+            "session_id": task["session_id"],
+            "role": "Scribe",
+            "manifest_digest": task["manifest_digest"],
+            "artifact_revision": artifact["revision"],
+            "artifact_digest": artifact["digest"],
+            "write_scope": ["story.md"],
+            "recommendation": payload["recommendation"],
+            "reason": payload["reason"].strip(),
+            "received_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def _reject_result(self, task: dict[str, Any], error: ScribeTaskError) -> None:
+        """Persist rejected-result evidence without mutating Runtime state."""
+        self._store.update_attempt(
+            task["active_attempt_id"],
+            result_status="rejected",
+            error=f"{error.code}: {error.message}",
+        )
+
+    def _current_artifact(self, run_id: str) -> dict[str, Any] | None:
+        """Read the current Story identity from Runtime persistence."""
+        row = self._store._conn.execute(
+            "SELECT revision, digest FROM v14_story_artifacts WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+
     def _require_task(self, run_id: str, task_id: str) -> dict[str, Any]:
         """Validate that a task belongs to the requested Runtime run."""
         task = self._store.get_task(task_id)
@@ -610,6 +1055,12 @@ class ScribeEntryService:
         allowed = (
             ["retry", "reconcile"] if task["status"] == "blocked" else ["reconcile"]
         )
+        result = self._store.get_result(task["task_id"])
+        if result is None and active and active.get("result_status") == "rejected":
+            result = {
+                "status": "rejected",
+                "reason": active.get("error"),
+            }
         return {
             "task_id": task["task_id"],
             "run_id": task["run_id"],
@@ -632,6 +1083,7 @@ class ScribeEntryService:
             "active_attempt": active,
             "last_error": task["last_error"],
             "allowed_actions": allowed,
+            "result": _public_result(result) if result else None,
         }
 
 
@@ -728,6 +1180,63 @@ def _public_message(message: dict[str, Any]) -> dict[str, Any]:
         "status": message["status"],
         "event_sequences": {"persisted": message["message_id"]},
         "provider_message_id": message.get("provider_message_id"),
+    }
+
+
+def _public_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Return the non-secret Scribe result envelope."""
+    return {
+        "status": result.get("result_status", result.get("status")),
+        "recommendation": result.get("recommendation"),
+        "reason": result.get("reason"),
+        "task_id": result.get("task_id"),
+        "attempt_id": result.get("attempt_id"),
+        "session_id": result.get("session_id"),
+        "manifest_digest": result.get("manifest_digest"),
+        "artifact_revision": result.get("artifact_revision"),
+        "artifact_digest": result.get("artifact_digest"),
+        "write_scope": result.get("write_scope"),
+        "received_at": result.get("received_at"),
+    }
+
+
+def _public_decision(decision: dict[str, Any]) -> dict[str, Any]:
+    """Return the persisted Human decision and exit evidence."""
+    return {
+        "run_id": decision.get("run_id"),
+        "story_revision": decision.get("story_revision"),
+        "story_digest": decision.get("story_digest"),
+        "value": decision.get("value"),
+        "reason": decision.get("reason"),
+        "actor": decision.get("actor"),
+        "decided_at": decision.get("decided_at"),
+        "backlog": decision.get("backlog"),
+        "cleanup": decision.get("cleanup"),
+        "idempotency_key": decision.get("idempotency_key"),
+    }
+
+
+def _backlog_for_decision(
+    *,
+    run_id: str,
+    story_revision: int,
+    story_digest: str,
+    value: str,
+    reason: str,
+    actor: str,
+) -> dict[str, Any]:
+    """Build one stable canonical Backlog identity for Park/No-Go."""
+    identity = f"{run_id}|{value}"
+    entry_id = f"bl_{hashlib.sha256(identity.encode('utf-8')).hexdigest()[:24]}"
+    return {
+        "entry_id": entry_id,
+        "run_id": run_id,
+        "source_run": run_id,
+        "story_revision": story_revision,
+        "story_digest": story_digest,
+        "decision": value,
+        "reason": reason,
+        "actor": actor,
     }
 
 

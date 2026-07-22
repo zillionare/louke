@@ -202,6 +202,14 @@ class ReleaseRequestStore:
         ).fetchone()
         return self.get(str(row["request_id"])) if row is not None else None
 
+    def get_by_run(self, run_id: str) -> dict[str, Any] | None:
+        """Return the exact persisted release request for one Runtime run."""
+        row = self._conn.execute(
+            "SELECT request_id FROM v14_release_requests WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        return self.get(str(row["request_id"])) if row is not None else None
+
     def _has_active_release(self, request_id: str) -> bool:
         placeholders = ",".join("?" for _ in self._ACTIVE_STATUSES)
         row = self._conn.execute(
@@ -323,6 +331,15 @@ class ReleaseEntryService:
         """Return the exact release/run binding for a project path identity."""
         record = self._requests.get_by_project(project_id)
         return self._read_model(record) if record is not None else None
+
+    def project_for_run(self, run_id: str) -> dict[str, Any] | None:
+        """Return the exact project binding for one Runtime run identity."""
+        record = self._requests.get_by_run(run_id)
+        return (
+            {"project_id": record["project_id"], "run_id": record["run_id"]}
+            if record is not None and record.get("project_id")
+            else None
+        )
 
     def _run_preflight(self, record: dict[str, Any]) -> dict[str, Any]:
         check = self._foundation.preflight(record["story"], record["release_version"])

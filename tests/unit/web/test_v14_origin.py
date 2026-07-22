@@ -6,6 +6,14 @@ from types import SimpleNamespace
 import pytest
 from starlette.testclient import TestClient
 
+from louke.opencode.adapter import Instance, Message
+from louke.v014.fr0500_story_init import (
+    StoryInitResult,
+    StoryNavigation,
+    StoryRevisionEvidence,
+)
+from louke.v014.scribe_entry import ScribeEntryService
+from louke.v014.story_entry import StoryArtifactStore
 from louke.web.auth import csrf_token_for_session
 from louke.web.app import create_app
 
@@ -50,6 +58,95 @@ def _preview(client: TestClient) -> dict[str, object]:
     )
     assert response.status_code == 200
     return response.json()
+
+
+class _GateOpenCode:
+    """Deterministic OpenCode stand-in for authenticated gate HTTP tests."""
+
+    def create(self, *, correlation_id: str) -> Instance:
+        """Return one stable Scribe session identity."""
+        return Instance(id="gate-session", status="running")
+
+    def send_message(
+        self, instance_id: str, content: str, *, correlation_id: str
+    ) -> tuple[Message, bool]:
+        """Return one persisted provider message without external effects."""
+        return (
+            Message(
+                id="gate-provider-message",
+                instance_id=instance_id,
+                role="user",
+                kind="message",
+                content=content,
+            ),
+            True,
+        )
+
+    def list_messages(self, instance_id: str, *, after_message_id: str | None):
+        """Return no additional provider messages during reconciliation."""
+        return []
+
+
+def _gate_fixture(
+    tmp_path: Path,
+) -> tuple[TestClient, dict[str, object], dict[str, object]]:
+    """Build a live authenticated client with a persisted M-STORY Scribe task."""
+    client = _client(tmp_path)
+    app = client.app
+    run_store = app.state.v12_run_store
+    run = run_store.create_run(run_store._catalog.get("new_feature", "1"))
+    run = run_store.update_run(run.with_step("M-STORY", "waiting_for_human"), 0)
+    artifact = StoryArtifactStore(run_store).save(
+        run.run_id,
+        "v0.14-001-workflow-reflow-spec",
+        StoryInitResult(
+            story_md_bytes=b"# Story\n\nShip the reflow\n",
+            evidence=StoryRevisionEvidence(
+                input_digest="sha256:input",
+                file_digest="sha256:story",
+                actor="human:human",
+                run_id=run.run_id,
+                commit_sha="sha-story",
+            ),
+            navigation=StoryNavigation(
+                run_id=run.run_id,
+                spec_id="v0.14-001-workflow-reflow-spec",
+                phase="M-STORY",
+                document="story",
+                revision_digest="sha256:story",
+                commit_sha="sha-story",
+            ),
+        ),
+        f"story-init:{run.run_id}",
+    )
+    app.state.v14_scribe_entry = ScribeEntryService(run_store, _GateOpenCode())
+    task = app.state.v14_scribe_entry.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:gate",
+        workspace=str(tmp_path),
+    )
+    preview = app.state.v14_release_entry.preview("Ship the reflow", "0.14.0")
+    app.state.v14_release_entry._requests.update(
+        preview["request_id"], project_id="project-gate", run_id=run.run_id
+    )
+    payload = {
+        "role": "Scribe",
+        "task_id": task["task_id"],
+        "attempt_id": task["active_attempt"]["attempt_id"],
+        "session_id": task["session_id"],
+        "manifest_digest": task["manifest_digest"],
+        "artifact_revision": artifact.revision,
+        "artifact_digest": artifact.digest,
+        "write_scope": ["story.md"],
+        "recommendation": "Go",
+        "reason": "The bounded story is ready for Human choice.",
+    }
+    app.state.v14_scribe_entry.submit_result(
+        run_id=run.run_id, task_id=task["task_id"], payload=payload
+    )
+    return client, {"run": run_store.get_run(run.run_id), "artifact": artifact}, task
 
 
 def test_cross_origin_release_mutation_is_rejected_before_preview(
@@ -113,6 +210,158 @@ def test_preview_non_object_payload_fails_closed_without_advancement(
     assert response.status_code == 400
     assert response.json()["error_code"] == "VALIDATION_ERROR"
     assert _release_request_count(client) == before
+
+
+def _story_action_payload(
+    *,
+    run_revision: int,
+    artifact_revision: int,
+    candidate: str,
+    project_id: str = "project-gate",
+) -> dict[str, object]:
+    """Build a canonical Runtime phase-action request for Story decisions."""
+    return {
+        "action": "story_decision",
+        "expected_run_revision": run_revision,
+        "expected_artifact_revision": artifact_revision,
+        "idempotency_key": f"decision-{candidate}",
+        "payload": {
+            "candidate": candidate,
+            "reason": "Human decision reason",
+            "project_id": project_id,
+        },
+    }
+
+
+def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0700-03: invalid Human gate requests leave the decision empty."""
+    client, facts, _ = _gate_fixture(tmp_path)
+    run = facts["run"]
+    artifact = facts["artifact"]
+    headers = {
+        "Origin": "https://louke.example",
+        "X-Louke-CSRF": _csrf(client),
+    }
+
+    stale = client.post(
+        f"/api/v14/runs/{run.run_id}/actions",
+        headers=headers,
+        json=_story_action_payload(
+            run_revision=run.revision - 1,
+            artifact_revision=artifact.revision,
+            candidate="Go",
+        ),
+    )
+    assert stale.status_code == 409
+    assert stale.json()["error_code"] == "WORKFLOW_STATE_CONFLICT"
+
+    agent_payload = _story_action_payload(
+        run_revision=run.revision,
+        artifact_revision=artifact.revision,
+        candidate="Go",
+    )
+    agent_payload["payload"]["actor_kind"] = "agent"
+    agent = client.post(
+        f"/api/v14/runs/{run.run_id}/actions",
+        headers=headers,
+        json=agent_payload,
+    )
+    assert agent.status_code == 403
+    assert agent.json()["error_code"] == "HUMAN_AUTHORITY_REQUIRED"
+
+    outside = client.post(
+        f"/api/v14/runs/{run.run_id}/actions",
+        headers=headers,
+        json=_story_action_payload(
+            run_revision=run.revision,
+            artifact_revision=artifact.revision,
+            candidate="Go",
+            project_id="project-other",
+        ),
+    )
+    assert outside.status_code == 404
+    assert outside.json()["error_code"] == "NOT_FOUND"
+
+    invalid = client.post(
+        f"/api/v14/runs/{run.run_id}/actions",
+        headers=headers,
+        json=_story_action_payload(
+            run_revision=run.revision,
+            artifact_revision=artifact.revision,
+            candidate="Maybe",
+        ),
+    )
+    assert invalid.status_code == 400
+    assert invalid.json()["error_code"] == "VALIDATION_FAILED"
+    assert client.app.state.v14_scribe_entry.story_gate(run.run_id)["decision"] is None
+    assert client.app.state.v12_run_store.get_run(run.run_id).current_step == "M-STORY"
+
+
+def test_story_gate_http_accepts_authenticated_human_go_and_renders_gate_read_model(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0700-03: valid Human Go is persisted and exposed without M-SPEC."""
+    client, facts, _ = _gate_fixture(tmp_path)
+    run = facts["run"]
+    artifact = facts["artifact"]
+    pending = client.get("/api/v14/projects/project-gate/current")
+    assert pending.json()["story_gate"]["recommendation"] == "Go"
+    assert pending.json()["story_gate"]["reason"]
+    assert pending.json()["human_wait"] is True
+    assert pending.json()["allowed_actions"] == ["story_decision"]
+    story_page = client.get("/projects/project-gate/requirements/story")
+    assert "Human story decision" in story_page.text
+    assert "data-decision='Go'" in story_page.text
+    headers = {
+        "Origin": "https://louke.example",
+        "X-Louke-CSRF": _csrf(client),
+    }
+    response = client.post(
+        f"/api/v14/runs/{run.run_id}/actions",
+        headers=headers,
+        json=_story_action_payload(
+            run_revision=run.revision,
+            artifact_revision=artifact.revision,
+            candidate="Go",
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["value"] == "Go"
+    assert response.json()["actor"] == "human:human"
+    current = client.get("/api/v14/projects/project-gate/current")
+    assert current.status_code == 200
+    assert current.json()["story_gate"]["decision"]["value"] == "Go"
+    assert current.json()["run"]["phase"] == "M-STORY"
+    assert current.json()["allowed_actions"] == []
+    assert client.get("/projects/project-gate/requirements/story").status_code == 200
+
+
+def test_story_gate_http_park_creates_terminal_backlog_and_needs_attention(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0800-01: valid Human Park creates one Backlog entry and no M-SPEC task."""
+    client, facts, _ = _gate_fixture(tmp_path)
+    run = facts["run"]
+    artifact = facts["artifact"]
+    response = client.post(
+        f"/api/v14/runs/{run.run_id}/actions",
+        headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
+        json=_story_action_payload(
+            run_revision=run.revision,
+            artifact_revision=artifact.revision,
+            candidate="Park",
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["backlog_entry_count"] == 1
+    assert response.json()["cleanup"]["status"] == "needs_attention"
+    current = client.get("/api/v14/projects/project-gate/current")
+    assert current.json()["run"]["phase"] == "PARKED"
+    assert current.json()["story_gate"]["m_spec_task_count"] == 0
 
 
 @pytest.mark.parametrize(

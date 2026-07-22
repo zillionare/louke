@@ -64,6 +64,7 @@ from .api.v14_releases import (
 )
 from .api.v14_scribe import (
     current_project,
+    run_action,
     story_artifact,
     story_page,
     task_messages,
@@ -182,6 +183,11 @@ def create_app(
             Route(
                 "/api/v14/projects/{project_id}/current",
                 endpoint=current_project,
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/actions",
+                endpoint=run_action,
+                methods=["POST"],
             ),
             Route(
                 "/api/v14/runs/{run_id}/artifacts/{kind}",

@@ -221,3 +221,165 @@ def test_reply_rejects_wrong_task_attempt_or_stale_artifact() -> None:
             expected_attempt_id=task["active_attempt"]["attempt_id"],
             expected_artifact_revision=artifact.revision + 1,
         )
+
+
+def _scribe_result_payload(task: dict[str, object], artifact) -> dict[str, object]:
+    """Build a result bound to the current task manifest and Story artifact."""
+    return {
+        "role": "Scribe",
+        "task_id": task["task_id"],
+        "attempt_id": task["active_attempt"]["attempt_id"],
+        "session_id": task["session_id"],
+        "manifest_digest": task["manifest_digest"],
+        "artifact_revision": artifact.revision,
+        "artifact_digest": artifact.digest,
+        "write_scope": ["story.md"],
+        "recommendation": "Go",
+        "reason": "The request has a coherent user outcome and bounded scope.",
+    }
+
+
+def test_valid_scribe_result_persists_recommendation_without_dispatching_m_spec() -> (
+    None
+):
+    """AC-FR0700-02: valid Scribe result waits for Human at M-STORY with no M-SPEC task."""
+    store = _store()
+    run = _story_run(store)
+    artifact = _artifact(store, run.run_id)
+    service = ScribeEntryService(store, FakeOpenCode())
+    task = service.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:one",
+        workspace="/workspace",
+    )
+
+    result = service.submit_result(
+        run_id=run.run_id,
+        task_id=task["task_id"],
+        payload=_scribe_result_payload(task, artifact),
+    )
+
+    assert result["recommendation"] == "Go"
+    assert result["reason"]
+    assert store.get_run(run.run_id).current_step == "M-STORY"
+    assert store.get_run(run.run_id).status == "waiting_for_human"
+    assert service.m_spec_task_count(run.run_id) == 0
+    assert (
+        service.task_read(run.run_id, task["task_id"])["result"]["status"] == "accepted"
+    )
+
+
+def test_invalid_scribe_result_is_rejected_without_advancing_runtime() -> None:
+    """AC-FR0700-02: stale manifest/result identity is rejected without state changes."""
+    store = _store()
+    run = _story_run(store)
+    artifact = _artifact(store, run.run_id)
+    service = ScribeEntryService(store, FakeOpenCode())
+    task = service.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:one",
+        workspace="/workspace",
+    )
+    payload = _scribe_result_payload(task, artifact)
+    payload["manifest_digest"] = "sha256:stale"
+    before = store.get_run(run.run_id)
+
+    with pytest.raises(ScribeTaskError, match="RESULT_MANIFEST_CONFLICT"):
+        service.submit_result(
+            run_id=run.run_id,
+            task_id=task["task_id"],
+            payload=payload,
+        )
+
+    after = store.get_run(run.run_id)
+    assert after == before
+    assert (
+        service.task_read(run.run_id, task["task_id"])["result"]["status"] == "rejected"
+    )
+
+
+def test_human_go_decision_is_revision_bound_and_idempotent() -> None:
+    """AC-FR0700-03: current Human Go records actor/reason and remains in M-STORY."""
+    store = _store()
+    run = _story_run(store)
+    artifact = _artifact(store, run.run_id)
+    service = ScribeEntryService(store, FakeOpenCode())
+    task = service.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:one",
+        workspace="/workspace",
+    )
+    service.submit_result(
+        run_id=run.run_id,
+        task_id=task["task_id"],
+        payload=_scribe_result_payload(task, artifact),
+    )
+    current = store.get_run(run.run_id)
+
+    decision = service.decide_story(
+        run_id=run.run_id,
+        value="Go",
+        reason="Proceed to the interview.",
+        expected_run_revision=current.revision,
+        expected_artifact_revision=artifact.revision,
+        idempotency_key="decision-1",
+        actor="human:alice",
+        actor_kind="human",
+    )
+    replay = service.decide_story(
+        run_id=run.run_id,
+        value="Go",
+        reason="Proceed to the interview.",
+        expected_run_revision=current.revision,
+        expected_artifact_revision=artifact.revision,
+        idempotency_key="decision-1",
+        actor="human:alice",
+        actor_kind="human",
+    )
+
+    assert decision == replay
+    assert decision["actor"] == "human:alice"
+    assert decision["story_digest"] == artifact.digest
+    assert store.get_run(run.run_id).current_step == "M-STORY"
+
+
+def test_park_decision_creates_one_backlog_entry_and_needs_attention_cleanup() -> None:
+    """AC-FR0800-01: Park is terminal, canonical, idempotent, and does not dispatch M-SPEC."""
+    store = _store()
+    run = _story_run(store)
+    artifact = _artifact(store, run.run_id)
+    service = ScribeEntryService(store, FakeOpenCode())
+    task = service.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:one",
+        workspace="/workspace",
+    )
+    payload = _scribe_result_payload(task, artifact)
+    payload["recommendation"] = "Park"
+    service.submit_result(run_id=run.run_id, task_id=task["task_id"], payload=payload)
+    current = store.get_run(run.run_id)
+
+    decision = service.decide_story(
+        run_id=run.run_id,
+        value="Park",
+        reason="Park until the provider namespace is confirmed.",
+        expected_run_revision=current.revision,
+        expected_artifact_revision=artifact.revision,
+        idempotency_key="decision-park",
+        actor="human:alice",
+        actor_kind="human",
+    )
+
+    assert decision["backlog"]["entry_id"]
+    assert decision["cleanup"]["status"] == "needs_attention"
+    assert decision["backlog_entry_count"] == 1
+    assert service.m_spec_task_count(run.run_id) == 0
+    assert store.get_run(run.run_id).current_step == "PARKED"
