@@ -54,23 +54,12 @@ _CONTRACT_BUNDLE = ".louke/project/release-contract-bundle.json"
 # Upstream blocker: Scribe recommendation ingestion
 # ---------------------------------------------------------------------------
 
-#: ``ScribeEntryService.submit_result`` is the only validated seam that
-#: persists a Scribe recommendation.  It is NOT exposed via any public web
-#: route (IF-API-08 lists task read/message/reconcile/retry but no
-#: result-submit endpoint), and no adapter callback (``send_message``,
-#: ``list_messages``, ``stream_events``, ``reconcile``) feeds into it.
-#: The production code therefore has no public path from the OpenCode
-#: provider boundary to ``submit_result``.
-SCRIBE_RESULT_UPSTREAM_BLOCKER = (
-    "ScribeEntryService.submit_result is the only validated Scribe "
-    "recommendation ingestion seam, but it is not exposed via any public "
-    "web route (IF-API-08: task_read/messages/reconcile/retry only) and no "
-    "adapter callback feeds into it. The production task transport/result "
-    "ingestion path does not exist. Tests cannot deliver a Scribe "
-    "recommendation through the public protocol without an upstream fix "
-    "that wires adapter output to submit_result or exposes a public "
-    "result-ingestion endpoint."
-)
+#: Production (commit 77cbb17) now ingests controlled OpenCode Scribe results
+#: during ``reconcile`` via ``adapter.reconcile_session`` -> ``submit_result``.
+#: The stand-in emits the exact ``scribe.story.v1`` result schema as an
+#: assistant JSON message; ``RealOpenCodeAdapter.reconcile_session`` parses it
+#: and ``ScribeEntryService._ingest_provider_results`` feeds it to
+#: ``submit_result`` through the public task transport path.
 
 
 # ---------------------------------------------------------------------------
@@ -88,13 +77,27 @@ Implements the public OpenCode protocol endpoints that
   POST   /api/session/{id}/prompt     - send message
   GET    /api/session/{id}/message    - list messages
 
-Records every operation in ``--ledger`` as JSON lines so tests can
-independently prove dispatch happened through the public protocol boundary.
+When the Scribe prompt is received, the stand-in parses the embedded task
+manifest, computes the manifest digest, and emits an assistant message
+containing a JSON object matching the ``scribe.story.v1`` contract.  The
+production ``reconcile_session`` -> ``_ingest_provider_results`` ->
+``submit_result`` path validates and persists the recommendation through
+the public task transport boundary.
+
+The ``--mode`` flag controls result emission:
+  default  - valid Go recommendation
+  malformed - assistant content is not valid JSON
+  wrong_role - result with role "Sage" instead of "Scribe"
+  stale_artifact - result with a wrong artifact_revision
+  no_result - assistant content is "ack" (no JSON)
+
+Records every operation in ``--ledger`` as JSON lines.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -102,6 +105,7 @@ from urllib.parse import urlparse
 
 
 _ledger_path = ""
+_mode = "default"
 _sessions: dict[str, dict] = {}
 _messages: dict[str, list[dict]] = {}
 _next_id = 0
@@ -123,9 +127,90 @@ def _record(entry: dict) -> None:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
+def _parse_manifest(prompt_text: str) -> dict | None:
+    """Extract the task manifest JSON from a Scribe prompt."""
+    marker = "Task manifest:\n"
+    idx = prompt_text.find(marker)
+    if idx < 0:
+        return None
+    start = idx + len(marker)
+    end_marker = "\n\nCurrent story.md:"
+    end_idx = prompt_text.find(end_marker, start)
+    if end_idx < 0:
+        end_idx = len(prompt_text)
+    raw = prompt_text[start:end_idx].strip()
+    try:
+        manifest = json.loads(raw)
+        if isinstance(manifest, dict):
+            return manifest
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return None
+
+
+def _compute_manifest_digest(manifest: dict) -> str:
+    """Compute the manifest digest using the same algorithm as production."""
+    serialized = json.dumps(manifest, sort_keys=True)
+    return "sha256:" + hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _build_scribe_result(manifest: dict, session_id: str, mode: str) -> str:
+    """Build the scribe.story.v1 result JSON or a controlled malformation."""
+    artifact = manifest.get("artifact", {})
+    task_id = manifest.get("task_id", "")
+    attempt_id = manifest.get("attempt_id", "")
+    manifest_digest = _compute_manifest_digest(manifest)
+    artifact_revision = artifact.get("revision", 0)
+    artifact_digest = artifact.get("digest", "")
+
+    if mode == "malformed":
+        return "not valid json {{{"
+    if mode == "no_result":
+        return "ack"
+    if mode == "wrong_role":
+        return json.dumps({
+            "role": "Sage",
+            "task_id": task_id,
+            "attempt_id": attempt_id,
+            "session_id": session_id,
+            "manifest_digest": manifest_digest,
+            "artifact_revision": artifact_revision,
+            "artifact_digest": artifact_digest,
+            "write_scope": ["story.md"],
+            "recommendation": "Go",
+            "reason": "wrong role test",
+        })
+    if mode == "stale_artifact":
+        return json.dumps({
+            "role": "Scribe",
+            "task_id": task_id,
+            "attempt_id": attempt_id,
+            "session_id": session_id,
+            "manifest_digest": manifest_digest,
+            "artifact_revision": artifact_revision + 999,
+            "artifact_digest": artifact_digest,
+            "write_scope": ["story.md"],
+            "recommendation": "Go",
+            "reason": "stale artifact test",
+        })
+    # default: valid Go recommendation
+    return json.dumps({
+        "role": "Scribe",
+        "task_id": task_id,
+        "attempt_id": attempt_id,
+        "session_id": session_id,
+        "manifest_digest": manifest_digest,
+        "artifact_revision": artifact_revision,
+        "artifact_digest": artifact_digest,
+        "write_scope": ["story.md"],
+        "recommendation": "Go",
+        "reason": "The bounded Story is ready for Human review.",
+    })
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
-        pass  # suppress stderr noise
+        pass
 
     def _json(self, code: int, body: dict) -> None:
         data = json.dumps(body).encode("utf-8")
@@ -146,22 +231,17 @@ class Handler(BaseHTTPRequestHandler):
             return {}
 
     def do_POST(self):
-        global _next_id
         path = urlparse(self.path).path
         correlation = self.headers.get("x-correlation-id", "")
         if path == "/api/session":
-            body = self._body()
             sid = _new_id("sess")
             _sessions[sid] = {"id": sid, "status": "running", "created": _now()}
             _messages.setdefault(sid, [])
             _record({"kind": "session_create", "session_id": sid,
-                      "correlation_id": correlation, "body": body})
+                      "correlation_id": correlation})
             self._json(200, {"data": {"id": sid, "time": {"created": time.time()}}})
             return
         parts = path.strip("/").split("/")
-        if len(parts) == 3 and parts[0] == "api" and parts[1] == "session" and parts[2] == "prompt":
-            # Actually /api/session/{id}/prompt
-            pass
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "session" and parts[3] == "prompt":
             sid = parts[2]
             if sid not in _sessions:
@@ -173,14 +253,22 @@ class Handler(BaseHTTPRequestHandler):
             user_msg = {"id": msg_id, "sessionID": sid, "role": "user",
                         "type": "message", "content": [{"type": "text", "text": text}]}
             _messages[sid].append(user_msg)
+            # Parse the Scribe prompt and emit a controlled assistant result.
+            manifest = _parse_manifest(text)
+            assistant_content = "ack"
+            result_emitted = False
+            if manifest is not None:
+                assistant_content = _build_scribe_result(manifest, sid, _mode)
+                result_emitted = True
             assistant_id = _new_id("msg")
             assistant_msg = {"id": assistant_id, "sessionID": sid, "role": "assistant",
                              "type": "message",
-                             "content": [{"type": "text", "text": "ack"}]}
+                             "content": [{"type": "text", "text": assistant_content}]}
             _messages[sid].append(assistant_msg)
             _record({"kind": "send_message", "session_id": sid,
                       "correlation_id": correlation,
-                      "prompt_digest": hashlib.sha256(text.encode()).hexdigest()})
+                      "prompt_digest": hashlib.sha256(text.encode()).hexdigest(),
+                      "result_emitted": result_emitted, "mode": _mode})
             self._json(200, {"data": {"id": msg_id}})
             return
         self._json(404, {"error": f"unknown POST {path}"})
@@ -218,7 +306,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     port = int(sys.argv[1])
     _ledger_path = sys.argv[2]
-    # Write empty ledger start.
+    _mode = sys.argv[3] if len(sys.argv) > 3 else "default"
     open(_ledger_path, "w").close()
     server = HTTPServer(("127.0.0.1", port), Handler)
     server.serve_forever()
@@ -258,11 +346,17 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def start_opencode_standin(tmp_path: Path) -> OpenCodeStandIn:
+def start_opencode_standin(tmp_path: Path, *, mode: str = "default") -> OpenCodeStandIn:
     """Start the OpenCode HTTP stand-in as a subprocess.
 
-    Returns the stand-in handle with ``base_url`` for ``LOUKE_OPENCODE_BASE_URL``
-    and ``ledger_path`` for independent dispatch verification.
+    Args:
+        tmp_path: Temp directory for the script and ledger.
+        mode: Result emission mode (default, malformed, wrong_role,
+            stale_artifact, no_result).
+
+    Returns the stand-in handle with ``base_url`` for
+    ``LOUKE_OPENCODE_BASE_URL`` and ``ledger_path`` for independent
+    dispatch verification.
     """
     script_path = tmp_path / "opencode-standin.py"
     script_path.write_text(_OPENCODE_STANDIN_SCRIPT, encoding="utf-8")
@@ -270,7 +364,13 @@ def start_opencode_standin(tmp_path: Path) -> OpenCodeStandIn:
     ledger_path = tmp_path / "opencode-ledger.jsonl"
     port = _free_port()
     proc = subprocess.Popen(
-        [__import__("sys").executable, str(script_path), str(port), str(ledger_path)],
+        [
+            __import__("sys").executable,
+            str(script_path),
+            str(port),
+            str(ledger_path),
+            mode,
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
