@@ -124,10 +124,16 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     asset = client.get("/assets/min-square_97-snk-X32c8tE-unsplash.jpg")
     assert asset.status_code == 200
     guest = client.get("/", follow_redirects=False)
-    assert guest.status_code == 303
-    assert guest.headers["location"].startswith("/login")
+    # v0.14 workspace surfaces the workbench chrome to anonymous visitors;
+    # ?legacy=1 still requires login (it falls through to home_page which
+    # is gated).
+    assert guest.status_code == 200
+    assert 'data-louke-region="toolbar"' in guest.text
+    legacy_guest = client.get("/?legacy=1", follow_redirects=False)
+    assert legacy_guest.status_code == 303
+    assert legacy_guest.headers["location"].startswith("/login")
     authenticate(client)
-    home = client.get("/")
+    home = client.get("/?legacy=1")
     assert home.status_code == 200
     # No header -> English fallback
     assert "Model Bindings" in home.text
@@ -135,7 +141,7 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "wiki" in home.text
     assert "Aaron" in home.text
 
-    home_en = client.get("/", headers={"accept-language": "en-US,en;q=0.9"})
+    home_en = client.get("/?legacy=1", headers={"accept-language": "en-US,en;q=0.9"})
     assert home_en.status_code == 200
     assert "Model Bindings" in home_en.text
     assert "Design Docs" in home_en.text
@@ -149,7 +155,7 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "Register &amp; Sign In" in login_en.text
 
     # Explicit Chinese
-    home_zh = client.get("/", headers={"accept-language": "zh-CN,zh;q=0.9"})
+    home_zh = client.get("/?legacy=1", headers={"accept-language": "zh-CN,zh;q=0.9"})
     assert home_zh.status_code == 200
     assert "模型绑定" in home_zh.text
     assert "设计文档" in home_zh.text
@@ -163,7 +169,7 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "注册并登录" in login_zh.text
 
     # Unsupported language (French) -> fall back to English
-    home_fr = client.get("/", headers={"accept-language": "fr-FR,fr;q=0.9"})
+    home_fr = client.get("/?legacy=1", headers={"accept-language": "fr-FR,fr;q=0.9"})
     assert home_fr.status_code == 200
     assert "Model Bindings" in home_fr.text
     assert "模型绑定" not in home_fr.text
@@ -767,7 +773,9 @@ def test_wiki_menu_has_refresh_icon(tmp_path: Path) -> None:
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
     # The refresh button is in the sidebar on every page, not just /wiki.
-    home = client.get("/")
+    # ``?legacy=1`` opts into the v0.12 shell where the wiki refresh icon
+    # is exposed in the sidebar.
+    home = client.get("/?legacy=1")
     assert home.status_code == 200
     body = home.text
     assert 'id="wiki-refresh"' in body

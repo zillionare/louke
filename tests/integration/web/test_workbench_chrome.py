@@ -102,6 +102,60 @@ def test_settings_shows_current_runtime_identity(monkeypatch) -> None:
     assert 'data-testid="settings-local-runtime"' in html
 
 
+def _authenticated_root_html(tmp_path) -> tuple[str, str]:
+    """Build a v0.14 workspace, register a user, return (home, legacy)."""
+    from tests.test_web_server import build_project, authenticate
+
+    root = build_project(tmp_path)
+    # Override project version to v0.14 to mirror the current workspace state.
+    project_toml = root / ".louke" / "project" / "project.toml"
+    text = project_toml.read_text(encoding="utf-8")
+    text = text.replace('version = "0.8"', 'version = "0.14.0"', 1)
+    text = text.replace(
+        'spec_id = "demo"', 'spec_id = "v0.14-002-workflow-reflow-design"', 1
+    )
+    text = text.replace(
+        'release_branch = "releases/v0.8"', 'release_branch = "releases/0.14.0"', 1
+    )
+    project_toml.write_text(text, encoding="utf-8")
+
+    client = TestClient(create_app(root))
+    authenticate(client)
+    home = client.get("/", follow_redirects=False)
+    legacy = client.get("/?legacy=1", follow_redirects=False)
+    return home.text, legacy.text
+
+
+def test_root_renders_workbench_chrome(tmp_path) -> None:
+    """GET / must render the v0.13 workbench chrome on a v0.14 workspace.
+
+    Regression for v0.14.0: the previous routing fell back to ``home_page``
+    whenever the project version did not start with ``0.13``, which served
+    the v0.12 sidebar + main shell. v0.14 must default to the toolbar +
+    sidebar + main chrome and only opt back into the legacy surface when
+    ``?legacy=1`` is supplied.
+    """
+    home, _ = _authenticated_root_html(tmp_path)
+    assert 'data-louke-region="toolbar"' in home
+    assert 'data-testid="workbench-toolbar"' in home
+    assert 'data-testid="workbench-sidebar"' in home
+    assert 'data-testid="workbench-main"' in home
+    assert '<button class="sidebar-toggle"' not in home
+
+
+def test_legacy_query_param_keeps_v012_shell(tmp_path) -> None:
+    """GET /?legacy=1 must still render the v0.12 sidebar + main shell.
+
+    The v0.12 ``home_page`` (sidebar-toggle + app-shell + cards) remains in
+    the codebase while it is being cleaned up; the opt-in must keep working
+    until the legacy surface is removed.
+    """
+    _, legacy = _authenticated_root_html(tmp_path)
+    assert '<button class="sidebar-toggle"' in legacy
+    assert '<aside class="sidebar"' in legacy
+    assert 'data-louke-region="toolbar"' not in legacy
+
+
 def test_settings_runtime_read_model_is_public(monkeypatch) -> None:
     """AC-FR1512-01@v0.13.1: the runtime read model is JSON and uncached."""
     monkeypatch.setenv("LOUKE_RUNTIME_MODE", "global")

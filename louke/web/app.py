@@ -259,7 +259,9 @@ async def setup_home_redirect(request: Request) -> Response:
 
     v0.13 makes the workbench chrome the product entry point. Older project
     workspaces retain the previous home page so their compatibility surface is
-    not silently changed.
+    not silently changed. v0.14 defaults to the workbench chrome regardless of
+    the project version; ``?legacy=1`` opts back into the v0.12 home page
+    while the legacy surface is being cleaned up.
 
     Args:
         request: The incoming Starlette request.
@@ -269,12 +271,9 @@ async def setup_home_redirect(request: Request) -> Response:
     """
     if getattr(request.app.state, "setup_only", False):
         return RedirectResponse(url="/setup", status_code=303)
-    project = request.app.state.store.project_info().get("project", {})
-    version = str(project.get("version") or "")
-    spec_id = str(project.get("spec_id") or "")
-    if version.startswith("0.13") or spec_id.startswith("v0.13"):
-        return await workbench(request)
-    return await home_page(request)
+    if request.query_params.get("legacy") == "1":
+        return await home_page(request)
+    return await workbench(request)
 
 
 async def home_page(request: Request) -> HTMLResponse:
