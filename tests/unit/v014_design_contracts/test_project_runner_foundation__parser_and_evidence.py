@@ -125,9 +125,11 @@ def test_product_identity_accepts_symlinked_product_python(
 ) -> None:
     """AC-NFR0300-03: venv Python symlinks must not invalidate product identity."""
     root = tmp_path / "repo"
+    physical_case_root = tmp_path / "physical-case"
     case_root = tmp_path / "case"
     root.mkdir()
-    case_root.mkdir()
+    physical_case_root.mkdir()
+    case_root.symlink_to(physical_case_root, target_is_directory=True)
     product_root = case_root / "workspace" / ".venv"
     product_bin = product_root / "bin"
     product_bin.mkdir(parents=True)
@@ -152,7 +154,7 @@ def test_product_identity_accepts_symlinked_product_python(
                 "stdout": json.dumps(
                     {
                         "python": str(resolved_python),
-                        "louke": str(product_louke),
+                        "louke": str(product_louke.resolve()),
                         "version": "0.14.0",
                     }
                 ),

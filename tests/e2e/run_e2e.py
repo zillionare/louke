@@ -344,10 +344,10 @@ def _verify_product_identity(
     if probe.returncode:
         raise RuntimeError(f"product identity probe failed: {probe.stderr.strip()}")
     identity = json.loads(probe.stdout)
-    product_root = product_python.parent.parent.absolute()
+    product_root = product_python.parent.parent.resolve()
     if Path(identity["python"]).resolve() != product_python.resolve():
         raise RuntimeError(f"product executable mismatch: {identity}")
-    if not _inside(Path(identity["louke"]).absolute(), product_root):
+    if not _inside(Path(identity["louke"]).resolve(), product_root):
         raise RuntimeError(f"product louke is outside product venv: {identity}")
     if identity["version"] != version:
         raise RuntimeError(f"product metadata mismatch: {identity}")
