@@ -159,14 +159,12 @@ def run_foundation_ensure(
     except Exception as exc:  # noqa: BLE001
         return FoundationProgramResult(status=FAILED, details={"error": str(exc)})
 
-    if outcome.result in {SATISFIED, REPAIRED}:
-        status = "pass"
-    elif outcome.result == BLOCKED:
-        status = BLOCKED
-    elif outcome.result == RETRYABLE:
-        status = RETRYABLE
-    else:
-        status = FAILED
+    status = {
+        SATISFIED: "pass",
+        REPAIRED: "pass",
+        BLOCKED: BLOCKED,
+        RETRYABLE: RETRYABLE,
+    }.get(outcome.result, FAILED)
     return FoundationProgramResult(
         status=status,
         details={"handler_result": outcome.result, **outcome.output},
