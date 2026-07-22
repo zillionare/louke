@@ -243,7 +243,11 @@ jobs:
         run: .venv/bin/playwright install --with-deps chromium
       - name: Validate Chromium system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: .venv/bin/playwright install-deps chromium
+        run: |
+          browser="$(${PWD}/.venv/bin/python -c 'from pathlib import Path; print(next(Path.home().glob(".cache/ms-playwright/chromium-*/chrome-linux/chrome")).resolve())')"
+          ldd "$browser" > /tmp/louke-chromium-ldd.txt
+          .venv/bin/python -c 'from pathlib import Path; missing = [line for line in Path("/tmp/louke-chromium-ldd.txt").read_text().splitlines() if "not found" in line]; raise SystemExit("missing Chromium libraries: " + "; ".join(missing)) if missing else None'
+          "$browser" --headless --no-sandbox --version
       - name: Run e2e stand-in via project runner
         run: |
           tests/e2e/run-project-venv e2e --profile all --runtime both
