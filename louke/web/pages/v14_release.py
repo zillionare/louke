@@ -70,8 +70,28 @@ async function confirmRelease(button) {{
       request_digest: preview.request_digest, idempotency_key: crypto.randomUUID()}})
   }});
   const body = await response.json();
-  result.textContent = body.continue_url ? `Release status: ${{body.status}}` : (body.message || body.status);
-  if (body.continue_url) window.location.assign(body.continue_url);
+  if (body.request_id) await watchStatus(body.request_id);
+  else result.textContent = body.message || body.status;
+}}
+async function watchStatus(requestId) {{
+  const response = await fetch(`/api/v14/releases/requests/${{requestId}}`);
+  const body = await response.json();
+  result.textContent = `Release status: ${{body.status}}`;
+  if (body.continue_url) {{ window.location.assign(body.continue_url); return; }}
+  if (["blocked", "conflict"].includes(body.status)) {{
+    const retry = document.createElement("button");
+    retry.textContent = "Recheck Foundation";
+    retry.onclick = async () => {{
+      retry.disabled = true;
+      const checked = await fetch(`/api/v14/releases/requests/${{requestId}}/recheck`, {{
+        method: "POST", headers: {{"X-Louke-CSRF": csrf}}
+      }});
+      const next = await checked.json();
+      if (next.continue_url) window.location.assign(next.continue_url);
+      else await watchStatus(requestId);
+    }};
+    result.appendChild(retry);
+  }}
 }}
 </script>
 </body></html>"""
