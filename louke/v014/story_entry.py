@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import sqlite3
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -151,7 +152,7 @@ class StoryArtifactStore:
                         artifact.idempotency_key,
                     ),
                 )
-            except Exception as exc:
+            except sqlite3.IntegrityError as exc:
                 raise ValueError(
                     "initial Story idempotency identity conflicts"
                 ) from exc
