@@ -84,6 +84,7 @@ def test_e2e_caches_pip_and_playwright_with_locked_inputs(
     )
     assert "ldd" in cache_hit_install["run"]
     assert "--version" in cache_hit_install["run"]
+    assert "if missing:" in cache_hit_install["run"]
     cache_miss_install = next(
         step
         for step in e2e_steps
