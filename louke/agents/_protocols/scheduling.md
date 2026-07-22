@@ -5,7 +5,7 @@
 Defines the rules for louke multi-agent **serial collaboration on the same `releases/{version}` branch**. Maestro is the sole scheduling arbiter; all subagents must obey Maestro's arrangement and must not decide on their own when to write code, when to review, or when to fix.
 
 **Applicable scenarios**:
-- Maestro arranges the serial order of code-writing agents such as Devon/Prism/Keeper/Shield
+- Maestro arranges the serial order of semantic coding/review agents such as Devon/Prism/Shield
 - Any agent reports a potential concurrency conflict when detected
 - Design the queuing rules for write operations such as review/gate fixes
 
@@ -21,7 +21,7 @@ Defines the rules for louke multi-agent **serial collaboration on the same `rele
 
 - At any given moment, **only one agent is allowed to produce commits/pushes** on `releases/{version}`
 - The writer is explicitly designated by Maestro, typically a Devon instance handling the R-G-R cycle of a single issue
-- Other agents that need to write (Prism/Keeper/Shield, etc.) must be scheduled by Maestro and can take over only after the current writer finishes and pushes
+- Other agents that need to write (Prism/Shield, etc.) must be scheduled by Maestro and can take over only after the current writer finishes and pushes
 
 ### 2.3 Read-Operation Window
 
@@ -52,7 +52,7 @@ Maestro decides which side to keep, rolling back to the last consistent state if
 | **Maestro** | Sole scheduling arbiter; decides who writes, who reads, and who waits |
 | **Devon** | Does not create branches; handles one issue at a time; pushes immediately after committing; reports concurrency conflicts immediately when detected |
 | **Prism** | Does not write fixes to the current branch unless explicitly scheduled by Maestro; reviews are read-only |
-| **Keeper** | Gate fixes must be scheduled by Maestro; no queue jumping |
+| **Runtime gate** | Gate fixes are deterministic program work; no semantic Agent queue jumping |
 | **Shield** | e2e test write operations must be scheduled by Maestro |
 
 ## 5. Version

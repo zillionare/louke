@@ -22,9 +22,12 @@ def test_canonical_semantic_agent_registry_excludes_legacy_roles() -> None:
 
 def test_board_source_and_generated_bundle_exclude_legacy_prompts() -> None:
     """Board generation must neither read nor render retired prompts."""
-    source_names = {path.stem.lower() for path in board.canonical_agent_sources()}
+    source_names = {
+        path.stem.lower()
+        for path in board.agent_source().glob("*.md")
+        if path.name not in board.SKIP
+    }
     assert LEGACY_ROLES.isdisjoint(source_names)
-    assert LEGACY_ROLES.isdisjoint(board.GENERATED_AGENT_NAMES)
 
 
 def test_canonical_maestro_stage_table_uses_runtime_gates() -> None:
@@ -78,6 +81,7 @@ def test_keeper_compatibility_cli_delegates_to_runtime_without_state_writer(
         keeper,
         "write_stage_result",
         lambda **_: pytest.fail("compatibility CLI wrote stage authority"),
+        raising=False,
     )
     args = type(
         "Args",

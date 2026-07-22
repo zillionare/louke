@@ -25,7 +25,7 @@
 - **Lint/type check**: no errors OK
 - **Commit**: `refactor: {description}`
 
-## Keeper Gate
+## Runtime Quality Gate
 
 - [ ] Red phase complete (test failed first)
 - [ ] Green phase complete (associated tests pass)

@@ -409,16 +409,16 @@ def print_help_text():
     print()
     print("Agent commands:")
     print("  lk agent <name> <cmd> [opts]")
-    print("    scout      identity-check, foundation, invite-owner, commit-foundation")
+    print("    scout      deprecated compatibility onboarding adapter")
     print(
         "    sage       quote-check, commit-spec, create-issues, record-lock (legacy adapters)"
     )
-    print("    warden     foundation-check")
+    print("    warden     deprecated compatibility foundation adapter")
     print("    lex        verify-acceptance, verify-issue, verify-project, quote-check")
     print(
         "    archer     ci-scan, check-acs, commit-design, validate-test-plan, validate-arch"
     )
-    print("    keeper     gate, regression")
+    print("    keeper     deprecated compatibility quality adapter")
     print("    judge      security-audit, quick-scan")
     print(
         "    prism      review, review-testplan, review-arch, test-patterns, "

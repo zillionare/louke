@@ -61,7 +61,8 @@ Lòukè defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI — 
 
 ![](docs/arch.png)
 
-- **12 Agents** = implementer ≠ reviewer; cross-stage context is disjoint
+- **10 canonical semantic Agents** = implementer ≠ reviewer; deterministic gates
+  belong to Runtime programs
 - **`lk` CLI** = OS-process-level contract; `exit 0/1` is unbypassable
 - **Two-tier memory** = `raw/` (episodic) + `wiki/` (distilled), maintained by Librarian
 - **Promise** = spec → code → test three-segment bidirectional reachability; breakage at any node can be traced to its source
@@ -70,14 +71,14 @@ Lòukè defines 12 specialized agents, a 10-stage pipeline, and an `lk` CLI — 
 
 | Stage        | Implementer     | Reviewer              | Notes                                                     |
 | ------------ | --------------- | --------------------- | --------------------------------------------------------- |
-| M-FOUND      | Scout           | Warden                | Project setup + permission gate                           |
+| M-FOUND      | Runtime program | none                  | Project setup + foundation check                         |
 | M-SPEC       | Sage            | Lex                   | spec + FR → issue                                         | Lex reviews + 100% verifies |
 | M-TESTPLAN   | Archer          | Sage                  | Test plan (Sage has unique spec context)                  |
 | M-ARCH       | Archer          | Prism                 | Architecture + interfaces                                 |
 | M-LOCK       | Maestro         | User                  | 3-signal lock                                             |
-| M-DEV        | Devon           | **Prism → Keeper ★**  | Code + unit tests                                         |
-| M-E2E        | Shield          | **Prism → Keeper ★**  | e2e tests                                                 |
-| M-BUGFIX     | Devon           | **Keeper ★**          | Bug fixes                                                 |
+| M-DEV        | Devon           | **Prism → Runtime ★** | Code + unit tests                                         |
+| M-E2E        | Shield          | **Prism → Runtime ★** | e2e tests                                                 |
+| M-BUGFIX     | Devon           | **Runtime ★**         | Bug fixes                                                 |
 | M-SECURITY   | Judge (S-level) | User                  | Deep security audit                                       |
 | M-MILESTONE  | Librarian       | Maestro               | raw → wiki distillation                                   |
 
@@ -143,26 +144,28 @@ sequenceDiagram
 
 Each agent has a default primary model (with an in-tier fallback). Override via `~/.louke/models.json` (user-level) or `.louke/models.json` (project-level); use `lk models list` / `lk models doctor` to check current bindings, `lk models bind <abstract> <full>` to override.
 
-### 6.1 Agent Permissions (v0.6-009)
+### 6.1 Agent Permissions (v0.14)
 
-5 agents have explicit `permission:` blocks (YAML object, 11-13 keys) constraining their tool access. The other 7 also have explicit blocks (11 keys each) — all 12 agents declare their permissions explicitly. **All 11 subagents have `task: deny`** to enforce "Maestro is the sole orchestrator" design.
+Canonical semantic Agents have explicit `permission:` blocks. Runtime owns
+foundation, quality, regression, and workflow state checks. Legacy names are
+compatibility-only CLI adapters and are not semantic Agents or board prompts.
 
 | Agent | Mode | `question` | `edit` | Notes |
 |---|---|---|---|---|
 | **Maestro** | `primary` | ❌ | ✅ | Conductor; `task: allow` to dispatch subagents; `external_directory: ask`; 13 keys |
-| **Warden** | `subagent` | ❌ | ❌ | Read-only auditor; 11 keys |
 | **Judge** | `subagent` | ✅ | ❌ | Read-only security auditor; 11 keys; can ask user clarifying questions |
 | **Archer** | `subagent` | ✅ | ✅ | Writes spec artifacts; 11 keys; path restriction via prompt |
 | **Librarian** | `subagent` | ❌ | ✅ | Writes wiki; 11 keys; path restriction via prompt |
 | **Sage** | `subagent` | ✅ | (default) | Interactive spec clarification |
-| **Scout** | `subagent` | ✅ | (default) | Interactive project foundation |
-| Lex / Devon / Shield / Keeper / Prism / Warden / Librarian | `subagent` | ❌ | `task: deny`, `question: deny` | Non-interactive; explicit permission block |
+| Lex / Devon / Shield / Prism / Librarian | `subagent` | ❌ | `task: deny`, `question: deny` | Non-interactive; explicit permission block |
 
 > Run `lk agent lint` to verify all agent frontmatter conforms.
 
-### 6.2 Layered Orchestration (v0.6-009)
+### 6.2 Layered Orchestration (v0.14)
 
-**Maestro is the only `mode: primary` agent.** The other 11 agents are `mode: subagent` — they do not appear in OpenCode's `<Leader>a` list and cannot be selected as primary. Maestro orchestrates them via the `task` tool.
+**Maestro is the only `mode: primary` agent.** Semantic subagents do not appear in
+OpenCode's `<Leader>a` list. Maestro routes intent and summarizes evidence; Runtime
+dispatches deterministic programs and owns workflow state.
 
 - Users see **only** Maestro in `<Leader>a`
 - Maestro dispatches work to subagents in isolated child sessions
@@ -171,7 +174,7 @@ Each agent has a default primary model (with an in-tier fallback). Override via 
 - After a subagent completes, focus auto-returns to Maestro
 - For viewing a subagent's context, press `<Leader>+Down` to enter / `<Leader>+Up` to return
 
-### 6.3 The 12 Agents (reference)
+### 6.3 Canonical semantic Agents (reference)
 
 | Agent          | Role                                             | Tier    | Open-source example  | Closed-source example (reference)           |
 | -------------- | ------------------------------------------------ | :-----: | -------------------- | ------------------------------------------- |
@@ -183,10 +186,11 @@ Each agent has a default primary model (with an in-tier fallback). Override via 
 | **Prism**      | Prism — multi-angle code review (anti-pattern + security) | A | `deepseek-v4-pro` | `opus-4.8`, `gpt-5.5`                   |
 | **Shield**     | Shield — writes e2e test scripts                | A       | `kimi-2.6`           | `opus-4.8`, `gpt-5.5`                      |
 | **Lex**        | The law — spec-level structural validation      | B       | `deepseek-v4-flash`  | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6`    |
-| **Warden**     | Gatekeeper — guards exit conditions             | B       | `glm-5`              | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6`    |
-| **Keeper**     | Warden of gates — enforces quality gates        | B       | `minimax-2.7`        | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6`    |
-| **Scout**      | Pathfinder — scouts preconditions               | B       | `glm-5`              | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6`    |
 | **Librarian**  | Librarian — distills Wiki, preserves memory     | B       | `minimax-2.7`        | `gpt-5.4-mini`, `gpt-5.4`, `sonnet-4.6`    |
+
+`lk agent scout|warden|keeper` remains available only as deprecated
+compatibility adapters for existing scripts. They call the same Runtime programs,
+create no semantic Agent session, and do not write stage authority.
 
 ## 7. Usage Guide
 ### 7.1. Install

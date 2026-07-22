@@ -1,9 +1,4 @@
-"""Scout commands - project foundation.
-
-Scout responsibilities: gather project info, create repo, create project,
-validate permissions.
-All commands are exposed via this module.
-"""
+"""Deprecated compatibility CLI for project onboarding commands."""
 
 import argparse
 import glob
@@ -19,7 +14,9 @@ from ._common import package_root
 
 
 def register(subparsers):
-    parser = subparsers.add_parser("scout", help="project foundation (Scout)")
+    parser = subparsers.add_parser(
+        "scout", help="deprecated compatibility adapter for onboarding"
+    )
     sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
     # identity-check: validate gh and git account consistency (Step 4a, prevents PR push success but issue create 403)
@@ -666,10 +663,8 @@ def cmd_foundation(args):
     if args.dry_run:
         print(f"would write {info_path}")
         print(f"would write {spec_dir / 'story.md'}")
-        print(f"would run lk agent scout identity-check --repo {args.repo}")
-        print(
-            f"would run lk agent warden foundation-check --repo {args.repo} --version {args.version} --spec-id {args.spec_id}"
-        )
+        print(f"would run Runtime identity check --repo {args.repo}")
+        print("would run Runtime foundation program check")
         if full_p0:
             login = _gh_api_login(args) or "<gh-user>"
             print(f"would gh repo create/view for {args.repo}")
@@ -771,37 +766,19 @@ def cmd_foundation(args):
             backlog_url=backlog_url,
         )
 
-    # Step 4a / 4: identity + foundation-check (existing tools)
-    for cmd in (
-        [
-            sys.executable,
-            "-m",
-            "louke.__main__",
-            "agent",
-            "scout",
-            "identity-check",
-            "--repo",
-            args.repo,
-        ],
-        [
-            sys.executable,
-            "-m",
-            "louke.__main__",
-            "agent",
-            "warden",
-            "foundation-check",
-            "--repo",
-            args.repo,
-            "--version",
-            args.version,
-            "--spec-id",
-            args.spec_id,
-        ],
-    ):
-        result = subprocess.run(cmd, cwd=cwd)
-        if result.returncode != 0:
-            print(f"failed: {' '.join(cmd)}", file=sys.stderr)
-            return result.returncode
+    # Compatibility onboarding delegates foundation readiness to Runtime.
+    identity_result = cmd_identity_check(argparse.Namespace(repo=args.repo))
+    if identity_result != 0:
+        return identity_result
+    from .runtime.foundation import foundation_program_check
+
+    foundation_result = foundation_program_check(cwd)
+    if foundation_result.status != "pass":
+        print(
+            f"Runtime foundation check failed: {foundation_result.details}",
+            file=sys.stderr,
+        )
+        return 1
     if not args.no_commit:
         return cmd_commit_foundation(
             argparse.Namespace(

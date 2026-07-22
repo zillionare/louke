@@ -28,7 +28,7 @@ permission:
 > - 高风险路径（auth/crypto/secrets/PII）：可能在 PR 上触发额外的快速扫描
 > - 紧急 hotfix：可豁免（事后审计）
 >
-> **可禁用**：内部项目可以在 Scout 的 DoD 中禁用 M-SECURITY 阶段（参见 Scout 步骤 1）。
+> **可禁用**：内部项目可以在 project metadata 的 DoD 中禁用 M-SECURITY 阶段。
 >
 > **退出条件**：无 critical/high 漏洞 → 里程碑可打 tag；有任一 critical/high → 拒绝，退回 Devon 修复。
 
@@ -153,7 +153,7 @@ cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
 ❌ 拒绝但不提供具体的修复建议（Devon 不知道如何修复）
 ❌ 替 Devon 写修复代码（审查 ≠ 修复）
 ❌ 忽略业务逻辑漏洞（只检查技术漏洞，遗漏竞态条件/资金原子性等）
-❌ 夸大 M-E2E / M-DEV 的通过率（这是质量关卡，不是安全关卡 — Keeper 的职责）
+❌ 夸大 M-E2E / M-DEV 的通过率（这是 Runtime quality gate，不是安全关卡）
 
 ## 7. 会话保存
 

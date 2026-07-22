@@ -1,17 +1,13 @@
-"""Warden commands - project foundation validation.
+"""Deprecated compatibility adapter for the Runtime foundation program."""
 
-Warden responsibilities: validate Scout's foundation work (F1-F11 checks +
-story content sanity).
-"""
-
-import subprocess
-import sys
 from pathlib import Path
+
+from .runtime.foundation import foundation_program_check
 
 
 def register(subparsers):
     parser = subparsers.add_parser(
-        "warden", help="project foundation validation (Warden)"
+        "warden", help="deprecated compatibility adapter for foundation checks"
     )
     sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
@@ -31,20 +27,9 @@ def run(args):
 
 
 def cmd_foundation_check(args):
-    """Invoke louke._tools.check_foundation."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "louke._tools.check_foundation",
-            args.repo,
-            "--version",
-            args.version,
-            "--spec-id",
-            args.spec_id,
-            "--upstream",
-            args.upstream,
-        ],
-        cwd=Path.cwd(),
-    )
-    return result.returncode
+    """Run the shared Runtime foundation program without writing stage state."""
+    result = foundation_program_check(Path.cwd())
+    print(f"Runtime foundation status: {result.status}")
+    if result.details:
+        print(result.details)
+    return 0 if result.status == "pass" else 1

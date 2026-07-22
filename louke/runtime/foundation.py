@@ -4,7 +4,7 @@ This module implements the ``foundation.ensure`` program step required by
 FR-0401. It checks workspace-level foundation resources, performs idempotent
 auto-repairs, surfaces structured questions for human-decidable gaps, and
 classifies errors into terminal ``failed`` or policy-retryable states. It never
-dispatches Scout or Warden agents.
+dispatches a legacy semantic Agent.
 """
 
 from __future__ import annotations

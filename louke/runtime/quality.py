@@ -50,7 +50,7 @@ def run_quality_gate(
     """
     root = Path.cwd() if cwd is None else Path(cwd)
     roots = normalize_repo_relative_roots(tests_roots or [], default=["tests/"])
-    targets = _resolve_scan_targets(commit_range, roots, root, full_scan)
+    targets = resolve_scan_targets(commit_range, roots, root, full_scan)
     findings = _commit_findings(commit_range, root)
     findings.extend(_rgr_findings(commit_range, root))
     if not skip_ac_trace:
@@ -113,12 +113,29 @@ def run_regression_gate(
 _ISSUE_RE = re.compile(r"#(\d+)")
 
 
-def _resolve_scan_targets(
-    commit_range: str, roots: list[str], cwd: Path, full_scan: bool
+def resolve_scan_targets(
+    commit_range: str,
+    roots: list[str],
+    cwd: Path,
+    full_scan: bool,
+    git_runner=git,
 ) -> list[str]:
+    """Resolve changed test files for a Runtime quality scan.
+
+    Args:
+        commit_range: Git revision range under review.
+        roots: Relative test roots.
+        cwd: Workspace root.
+        full_scan: Whether to return all roots without diffing.
+
+    Returns:
+        Changed paths, or the supplied roots when no changed path is found.
+    """
     if full_scan:
         return roots
-    rc, output, _ = git("diff", "--name-only", commit_range, "--", *roots, cwd=cwd)
+    rc, output, _ = git_runner(
+        "diff", "--name-only", commit_range, "--", *roots, cwd=cwd
+    )
     if rc != 0:
         return roots
     return [line for line in output.splitlines() if line] or roots
@@ -214,7 +231,7 @@ def _anti_pattern_findings(targets: list[str], cwd: Path) -> list[dict[str, obje
         "--exclude",
         "tests/fixtures",
     ]
-    baseline = cwd / ".louke" / "project" / "baselines" / "keeper-anti-pattern.txt"
+    baseline = cwd / ".louke" / "project" / "baselines" / "quality-anti-pattern.txt"
     if baseline.exists():
         command.extend(["--legacy-baseline", str(baseline)])
     if subprocess.run(command, cwd=cwd).returncode == 0:

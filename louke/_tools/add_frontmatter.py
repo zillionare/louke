@@ -8,7 +8,6 @@ from pathlib import Path
 
 AGENTS_DIR = Path(__file__).parent.parent / "agents"
 DESCRIPTIONS = {
-    "Scout": "Project foundation — runs the §2.1 initialization flow",
     "Sage": "Story peer review and requirements authoring — independently review Story, then produce Spec and Acceptance contracts",
     "Scribe": "M-STORY author — discover, clarify, and return a review-ready Story with a Go/Park/No-Go recommendation",
     "Lex": "Requirements semantic reviewer — audit Story coverage, Spec/Acceptance assertability, and scope fidelity",
@@ -16,10 +15,8 @@ DESCRIPTIONS = {
     "Maestro": "Pipeline orchestrator — manages the development workflow",
     "Devon": "Coding implementation — implements features per spec (R-G-R)",
     "Prism": "Independent technical review — test-plan, architecture, code, and e2e quality",
-    "Keeper": "Quality gate — commit format + tests + lint gate",
     "Shield": "e2e test authoring — writes e2e tests per test-plan (B-tier)",
     "Judge": "S-tier security audit — deep review of sensitive information leakage risks",
-    "Warden": "Deprecated foundation reviewer — retained only for legacy compatibility",
     "Librarian": "Knowledge base — manages wiki, decision records and project memory",
 }
 
