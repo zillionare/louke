@@ -61,6 +61,43 @@ class FoundationProgramResult:
     details: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class FoundationEnsureRequest:
+    """Normalized inputs accepted by the Runtime foundation ensure handler.
+
+    Attributes:
+        workspace: Workspace root where foundation resources are materialized.
+        repo: GitHub repository in ``owner/name`` form.
+        version: Release version used for the release branch and projects.
+        spec_id: Spec identity to initialize or verify.
+        keyword: Legacy keyword retained for compatibility inference.
+        upstream: Upstream branch used by release-branch preparation.
+        story: Inline story text, when supplied.
+        story_file: Optional path to a story source file.
+        dod: Definition-of-done text for project metadata.
+        security_audit: Explicit security policy, or empty for inference.
+        no_commit: Whether compatibility commit/push is disabled.
+        no_repo: Whether remote repository resources are disabled.
+        dry_run: Whether to report operations without changing resources.
+        public: Whether repository creation may request public visibility.
+    """
+
+    workspace: Path
+    repo: str
+    version: str
+    spec_id: str
+    keyword: str
+    upstream: str
+    story: str
+    story_file: str
+    dod: str
+    security_audit: str
+    no_commit: bool
+    no_repo: bool
+    dry_run: bool
+    public: bool
+
+
 def foundation_program_check(workspace: Path) -> FoundationProgramResult:
     """Check the minimum foundation contract without dispatching an Agent.
 
@@ -84,6 +121,55 @@ def foundation_program_check(workspace: Path) -> FoundationProgramResult:
     return FoundationProgramResult(
         status="pass",
         details={"verified": [project_file.as_posix()]},
+    )
+
+
+def run_foundation_ensure(
+    request: FoundationEnsureRequest, adapter: FoundationAdapter
+) -> FoundationProgramResult:
+    """Execute one Runtime-owned foundation ensure attempt.
+
+    Args:
+        request: Normalized compatibility or canonical program inputs.
+        adapter: Resource adapter used by the Runtime handler.
+
+    Returns:
+        ``pass`` for a satisfied or repaired foundation, otherwise ``blocked``
+        or ``failed`` with structured diagnostics. No workflow stage authority
+        is written by this function.
+
+    Raises:
+        TypeError: If ``request.workspace`` is not path-like.
+    """
+    workspace = Path(request.workspace)
+    context = StepContext(
+        run_id=f"foundation:{request.spec_id}",
+        step_id="foundation.ensure",
+        attempt_id=f"foundation:{request.spec_id}",
+        workspace=str(workspace),
+        idempotency_key=f"foundation:{request.spec_id}",
+    )
+    try:
+        outcome = foundation_ensure_handler(adapter)(context)
+    except FoundationError as exc:
+        return FoundationProgramResult(
+            status=RETRYABLE if exc.retryable else FAILED,
+            details={"error": exc.message},
+        )
+    except Exception as exc:  # noqa: BLE001
+        return FoundationProgramResult(status=FAILED, details={"error": str(exc)})
+
+    if outcome.result in {SATISFIED, REPAIRED}:
+        status = "pass"
+    elif outcome.result == BLOCKED:
+        status = BLOCKED
+    elif outcome.result == RETRYABLE:
+        status = RETRYABLE
+    else:
+        status = FAILED
+    return FoundationProgramResult(
+        status=status,
+        details={"handler_result": outcome.result, **outcome.output},
     )
 
 

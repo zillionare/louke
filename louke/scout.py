@@ -11,6 +11,12 @@ from pathlib import Path
 import yaml
 
 from ._common import package_root
+from .runtime.foundation import (
+    FoundationEnsureRequest,
+    FoundationError,
+    FoundationGap,
+    run_foundation_ensure,
+)
 
 
 def register(subparsers):
@@ -601,152 +607,194 @@ def cmd_install_precommit(args):
     return 0
 
 
-def cmd_foundation(args):
-    """Scout foundation: MVP (FR-0400) + full P0 (FR-0401) + backlog (FR-0402)."""
-    cwd = Path.cwd()
-
-    # Auto-infer --repo from git remote if not provided
-    if not args.repo:
-        repo_inferred = _infer_repo_from_git_remote(cwd)
-        if repo_inferred is None:
-            print(
-                "error: --repo not provided and cannot be inferred from git remote origin.\n"
-                "  -> agent: use the question tool to ask the user for owner/repo, then retry with --repo owner/repo.\n"
-                "  -> example: lk agent scout foundation --repo zillionare/louke --keyword init-foundation --version 0.7 ...",
-                file=sys.stderr,
-            )
-            return 1
-        args.repo = repo_inferred
-
-    # Auto-infer --spec-id: scan .louke/project/specs/v{version}-*.md, take max NNN + 1, join with --keyword
-    if not args.spec_id:
-        specs_dir = cwd / ".louke/project/specs"
+def _foundation_request(args, workspace: Path) -> FoundationEnsureRequest | None:
+    """Adapt legacy foundation arguments into a Runtime request without writes."""
+    repo = args.repo or _infer_repo_from_git_remote(workspace)
+    if not repo:
+        print(
+            "error: --repo is required when git remote origin cannot be inferred; "
+            "the deprecated adapter cannot continue",
+            file=sys.stderr,
+        )
+        return None
+    spec_id = args.spec_id
+    if not spec_id:
+        specs_dir = workspace / ".louke/project/specs"
+        existing = []
         if specs_dir.exists():
-            existing = []
-            for d in specs_dir.iterdir():
-                m = re.match(rf"^v{re.escape(args.version)}-(\d+)-", d.name)
-                if m:
-                    existing.append(int(m.group(1)))
-            next_nnn = max(existing) + 1 if existing else 1
-        else:
-            next_nnn = 1
-        # --keyword is required=True, so it is present here
-        args.spec_id = f"v{args.version}-{next_nnn:03d}-{args.keyword}"
+            for directory in specs_dir.iterdir():
+                match = re.match(rf"^v{re.escape(args.version)}-(\d+)-", directory.name)
+                if match:
+                    existing.append(int(match.group(1)))
+        next_number = max(existing) + 1 if existing else 1
+        spec_id = f"v{args.version}-{next_number:03d}-{args.keyword}"
+    return FoundationEnsureRequest(
+        workspace=workspace,
+        repo=repo,
+        version=args.version,
+        spec_id=spec_id,
+        keyword=args.keyword,
+        upstream=args.upstream,
+        story=args.story,
+        story_file=args.story_file,
+        dod=args.dod,
+        security_audit=args.security_audit,
+        no_commit=args.no_commit,
+        no_repo=args.no_repo,
+        dry_run=args.dry_run,
+        public=args.public,
+    )
 
-    spec_dir = cwd / ".louke/project/specs" / args.spec_id
-    info_path = cwd / ".louke/project/project.toml"
-    story_text = args.story
-    if args.story_file:
-        story_text = Path(args.story_file).read_text(encoding="utf-8")
-    if not story_text and not sys.stdin.isatty():
-        story_text = sys.stdin.read().strip()
-    if not story_text:
-        story_text = f"Story for {args.spec_id}"
-    owner, repo_name = args.repo.split("/", 1)
-    if args.security_audit:
-        security = args.security_audit
-    else:
-        security = (
+
+class _ScoutFoundationAdapter:
+    """Compatibility resource adapter used only behind the Runtime handler."""
+
+    def __init__(self, request: FoundationEnsureRequest, args) -> None:
+        self._request = request
+        self._args = args
+        self._complete = False
+
+    def check(self, workspace: str) -> list[FoundationGap]:
+        """Return one idempotent compatibility repair until the flow completes."""
+        if self._complete:
+            return []
+        return [FoundationGap(key="compat.foundation.ensure", auto_repairable=True)]
+
+    def create(self, workspace: str, gap: FoundationGap) -> None:
+        """Run the legacy resource adapter under Runtime ownership."""
+        self._create_resources(Path(workspace))
+        self._complete = True
+
+    def _create_resources(self, workspace: Path) -> None:
+        request = self._request
+        args = self._args
+        if not request.dry_run and not request.no_commit:
+            raise FoundationError(
+                "deprecated foundation commit/push is unsupported; "
+                "use the Runtime controlled commit program"
+            )
+        try:
+            owner, repo_name = request.repo.split("/", 1)
+        except ValueError as exc:
+            raise FoundationError("repo must use owner/name form") from exc
+
+        story_text = request.story
+        if request.story_file:
+            story_text = Path(request.story_file).read_text(encoding="utf-8")
+        if not story_text and not sys.stdin.isatty():
+            story_text = sys.stdin.read().strip()
+        if not story_text:
+            story_text = f"Story for {request.spec_id}"
+        security = request.security_audit or (
             "disabled"
-            if ("关闭安全" in args.dod or "no security" in args.dod.lower())
+            if ("关闭安全" in request.dod or "no security" in request.dod.lower())
             else "enabled"
         )
-    release_branch = f"releases/{args.version}"
+        spec_dir = workspace / ".louke/project/specs" / request.spec_id
+        info_path = workspace / ".louke/project/project.toml"
+        if request.dry_run:
+            self._print_dry_run(info_path, spec_dir, repo_name, security)
+            return
 
-    full_p0 = not args.no_repo
+        spec_dir.mkdir(parents=True, exist_ok=True)
+        info_path.parent.mkdir(parents=True, exist_ok=True)
+        if not info_path.exists():
+            info_path.write_text(
+                _render_project_info_13_fields(
+                    version=request.version,
+                    repo=request.repo,
+                    owner=owner,
+                    repo_name=repo_name,
+                    spec_id=request.spec_id,
+                    release_branch=f"releases/{request.version}",
+                    dod=request.dod,
+                    security=security,
+                    test_framework="pytest",
+                    project_id="",
+                    backlog_project="",
+                ),
+                encoding="utf-8",
+            )
+        story_path = spec_dir / "story.md"
+        if not story_path.exists():
+            story_path.write_text(story_text + "\n", encoding="utf-8")
 
-    project_id = ""
-    smoke_issue_num = ""
-    smoke_pr_num = ""
-    backlog_url = ""
+        if not request.no_repo:
+            self._ensure_remote_resources(
+                args, request, info_path, repo_name, story_text
+            )
 
-    if args.dry_run:
+        # Identity validation is retained only as compatibility onboarding;
+        # it does not write workflow state or replace the Runtime gate.
+        if cmd_identity_check(argparse.Namespace(repo=request.repo)) != 0:
+            raise FoundationError("compatibility identity check failed")
+
+    def _print_dry_run(
+        self, info_path: Path, spec_dir: Path, repo_name: str, security: str
+    ) -> None:
+        """Report compatibility operations without performing side effects."""
+        request = self._request
         print(f"would write {info_path}")
         print(f"would write {spec_dir / 'story.md'}")
-        print(f"would run Runtime identity check --repo {args.repo}")
+        print(f"would run Runtime identity check --repo {request.repo}")
         print("would run Runtime foundation program check")
-        if full_p0:
-            login = _gh_api_login(args) or "<gh-user>"
-            print(f"would gh repo create/view for {args.repo}")
-            print(f"would ensure releases/{args.version} branch")
-            print(f"would ensure project {repo_name}-{args.version} under {login}")
+        if not request.no_repo:
+            login = _gh_api_login(self._args) or "<gh-user>"
+            print(f"would gh repo create/view for {request.repo}")
+            print(f"would ensure releases/{request.version} branch")
+            print(f"would ensure project {repo_name}-{request.version} under {login}")
             print(f"would ensure project {repo_name}-backlog under {login}")
             print("would gh issue create (smoke) + close")
             print("would gh pr create (smoke) + close")
-        return 0
 
-    spec_dir.mkdir(parents=True, exist_ok=True)
-    info_path.parent.mkdir(parents=True, exist_ok=True)
-    if not info_path.exists():
-        info_path.write_text(
-            _render_project_info_13_fields(
-                version=args.version,
-                repo=args.repo,
-                owner=owner,
-                repo_name=repo_name,
-                spec_id=args.spec_id,
-                release_branch=release_branch,
-                dod=args.dod,
-                security=security,
-                test_framework="pytest",
-                project_id="",
-                backlog_project="",
-            ),
-            encoding="utf-8",
-        )
-    story_path = spec_dir / "story.md"
-    if not story_path.exists():
-        story_path.write_text(story_text + "\n", encoding="utf-8")
-
-    if full_p0:
+    def _ensure_remote_resources(
+        self,
+        args,
+        request: FoundationEnsureRequest,
+        info_path: Path,
+        repo_name: str,
+        story_text: str,
+    ) -> None:
+        """Run compatibility onboarding resource adapters under Runtime control."""
         login = _gh_api_login(args)
         if login is None:
-            print(
-                "gh not authenticated; please run gh auth login or use --no-repo for MVP-only",
-                file=sys.stderr,
+            raise FoundationError(
+                "gh not authenticated; use --no-repo for local foundation only"
             )
-            return 1
-        owner_to_use = login
-        # Step 2: ensure repo
-        repo_view = _gh_repo_view(args, args.repo)
+        repo_view = _gh_repo_view(args, request.repo)
         if repo_view is None:
             description = (story_text.splitlines()[0] if story_text else "").strip()[
                 :200
             ]
-            ok = _gh_repo_create(
-                args, args.repo, description or f"{repo_name}", args.public
-            )
-            if not ok:
+            if not _gh_repo_create(
+                args, request.repo, description or repo_name, request.public
+            ):
                 print(
                     "repo create failed (owner exists may be collaborator): continue",
                     file=sys.stderr,
                 )
         else:
-            print(f"repo {args.repo} already exists")
-        # Step 4: release branch
-        if not _ensure_release_branch(args, args.repo, args.version, args.upstream):
-            return 1
-        # Step 3: per-release Project
+            print(f"repo {request.repo} already exists")
+        if not _ensure_release_branch(
+            args, request.repo, request.version, request.upstream
+        ):
+            raise FoundationError("release branch preparation failed")
         project_id = _ensure_project(
             args,
-            owner_to_use,
-            f"{repo_name}-{args.version}",
-            f"Work for {repo_name} release {args.version}",
+            login,
+            f"{repo_name}-{request.version}",
+            f"Work for {repo_name} release {request.version}",
         )
-        # Step 3.5: per-repo backlog Project (FR-0402; soft-fail)
-        backlog_url = _ensure_backlog_project(args, owner_to_use, repo_name) or ""
-        # Step 4b: smoke issue + PR
-        smoke_issue_num = _gh_smoke_issue(args, args.repo, args.version) or ""
-        smoke_pr_num = _gh_smoke_pr(args, args.repo, args.version) or ""
-        # Step 6: invite-owner
+        backlog_url = _ensure_backlog_project(args, login, repo_name) or ""
+        smoke_issue_num = _gh_smoke_issue(args, request.repo, request.version) or ""
+        smoke_pr_num = _gh_smoke_pr(args, request.repo, request.version) or ""
         if project_id:
-            from . import scout as _self
-
-            rc = _self.run(
+            # Compatibility onboarding only; this is not a stage authority.
+            rc = run(
                 argparse.Namespace(
                     command="invite-owner",
-                    repo=args.repo,
-                    version=args.version,
+                    repo=request.repo,
+                    version=request.version,
                     project_id=project_id,
                     role="READER",
                     dry_run=False,
@@ -757,7 +805,6 @@ def cmd_foundation(args):
                     f"warn: invite-owner failed (rc={rc}); foundation continues",
                     file=sys.stderr,
                 )
-        # Update project.toml with resolved IDs (fix-002: from project-info.md)
         _update_project_info_fields(
             info_path,
             project_id=project_id,
@@ -766,28 +813,19 @@ def cmd_foundation(args):
             backlog_url=backlog_url,
         )
 
-    # Compatibility onboarding delegates foundation readiness to Runtime.
-    identity_result = cmd_identity_check(argparse.Namespace(repo=args.repo))
-    if identity_result != 0:
-        return identity_result
-    from .runtime.foundation import foundation_program_check
 
-    foundation_result = foundation_program_check(cwd)
-    if foundation_result.status != "pass":
+def cmd_foundation(args):
+    """Adapt the deprecated foundation CLI to the Runtime ensure handler."""
+    request = _foundation_request(args, Path.cwd())
+    if request is None:
+        return 1
+    result = run_foundation_ensure(request, _ScoutFoundationAdapter(request, args))
+    if result.status != "pass":
         print(
-            f"Runtime foundation check failed: {foundation_result.details}",
+            f"Runtime foundation ensure {result.status}: {result.details}",
             file=sys.stderr,
         )
         return 1
-    if not args.no_commit:
-        return cmd_commit_foundation(
-            argparse.Namespace(
-                spec_id=args.spec_id,
-                message=f"story/prd: initial draft for {args.spec_id}",
-                version=args.version,
-                no_push=False,
-            )
-        )
     print("[foundation complete]")
     return 0
 
