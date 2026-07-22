@@ -24,9 +24,11 @@ from starlette.responses import (
 from starlette.routing import Mount, Route
 
 from .auth import (
+    CSRF_COOKIE,
     SESSION_COOKIE,
     AuthenticatedUser,
     authenticate_user,
+    csrf_token_for_session,
     current_user,
     issue_session_cookie,
     register_user,
@@ -54,6 +56,13 @@ from .api.setup import create_app as _create_setup_app
 from .api.migration import create_app as _create_migration_app
 from .api.security import create_app as _create_security_app
 from .api.discussions import create_app as _create_discussions_app
+from .api.v14_releases import (
+    confirm_release,
+    foundation_status,
+    preview_release,
+    recheck_release,
+    release_status,
+)
 from .api._runtime_store import build_run_store
 from louke.runtime.workflow_graph import WorkflowGraphBuilder
 from louke.runtime.store import RunNotFoundError, WorkflowRun, WorkflowRunStore
@@ -71,6 +80,7 @@ from .pages.runs import (
 )
 from .pages.migration import create_app as _create_migration_page_app
 from .pages.workbench import workbench
+from .pages.v14_release import release_new_page
 from .api.files import files as end_user_files
 from .runs.badges import status_badge
 
@@ -138,6 +148,25 @@ def create_app(
             Route("/api/auth/register", endpoint=api_auth_register, methods=["POST"]),
             Route("/api/auth/login", endpoint=api_auth_login, methods=["POST"]),
             Route("/api/auth/logout", endpoint=api_auth_logout, methods=["POST"]),
+            Route(
+                "/api/v14/releases/preview", endpoint=preview_release, methods=["POST"]
+            ),
+            Route(
+                "/api/v14/releases/confirm", endpoint=confirm_release, methods=["POST"]
+            ),
+            Route(
+                "/api/v14/releases/requests/{request_id}/foundation",
+                endpoint=foundation_status,
+            ),
+            Route(
+                "/api/v14/releases/requests/{request_id}/recheck",
+                endpoint=recheck_release,
+                methods=["POST"],
+            ),
+            Route(
+                "/api/v14/releases/requests/{request_id}",
+                endpoint=release_status,
+            ),
             Route("/api/bindings", endpoint=api_bindings, methods=["GET", "PUT"]),
             Route("/api/wiki", endpoint=api_wiki_index, methods=["GET"]),
             Route("/api/wiki/refresh", endpoint=api_wiki_refresh, methods=["POST"]),
@@ -219,6 +248,7 @@ def create_app(
                 endpoint=gates_page_decide,
                 methods=["POST"],
             ),
+            Route("/projects/new", endpoint=release_new_page, methods=["GET"]),
             Route("/runs/{run_id}", endpoint=runs_page_detail),
             Route(
                 "/runs/{run_id}/command",
@@ -232,6 +262,22 @@ def create_app(
     )
     app.state.store = store
     app.state.v12_run_store = project_runtime_store
+    from louke.v014.foundation_adapter import ShellFoundationAdapter
+    from louke.v014.release_entry import ReleaseEntryService
+
+    project_info = store.project_info().get("project", {})
+    workspace_id = str(project_info.get("project") or project_info.get("repo") or "")
+    app.state.v14_release_entry = ReleaseEntryService(
+        project_runtime_store,
+        ShellFoundationAdapter(
+            project_root,
+            spec_id=str(
+                project_info.get("contract_bundle_entry_spec")
+                or "v0.14-001-workflow-reflow-spec"
+            ),
+        ),
+        workspace_id=workspace_id,
+    )
     app.state.broker = broker
     app.state.setup_only = setup_only
     return app
@@ -593,6 +639,7 @@ async def api_auth_login(request: Request) -> JSONResponse:
 async def api_auth_logout(request: Request) -> JSONResponse:
     response = JSONResponse({"ok": True})
     response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(CSRF_COOKIE, path="/")
     return response
 
 
@@ -1271,11 +1318,21 @@ def _ui_language(request: Request) -> str:
 
 
 def _set_session_cookie(response: Response, store: ProjectStore, username: str) -> None:
+    """Set the HttpOnly session and readable session-bound CSRF cookies."""
+    session_cookie = issue_session_cookie(store, username)
     response.set_cookie(
         SESSION_COOKIE,
-        issue_session_cookie(store, username),
+        session_cookie,
         max_age=7 * 24 * 60 * 60,
         httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    response.set_cookie(
+        CSRF_COOKIE,
+        csrf_token_for_session(store, session_cookie),
+        max_age=7 * 24 * 60 * 60,
+        httponly=False,
         samesite="lax",
         path="/",
     )

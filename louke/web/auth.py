@@ -11,6 +11,7 @@ from .store import ProjectStore, ValidationError
 
 
 SESSION_COOKIE = "louke_session"
+CSRF_COOKIE = "louke_csrf"
 
 
 @dataclass
@@ -42,6 +43,54 @@ def issue_session_cookie(store: ProjectStore, username: str) -> str:
         _session_secret(store), encoded.encode("ascii"), hashlib.sha256
     ).hexdigest()
     return f"{encoded}.{signature}"
+
+
+def csrf_token_for_session(store: ProjectStore, session_cookie: str) -> str:
+    """Return the CSRF token bound to one authenticated session cookie.
+
+    Args:
+        store: Project store whose workspace-specific signing key is used.
+        session_cookie: The signed session cookie issued by
+            :func:`issue_session_cookie`.
+
+    Returns:
+        A deterministic token that must be sent in the mutation header.
+
+    Raises:
+        ValueError: If ``session_cookie`` is empty.
+    """
+    if not session_cookie:
+        raise ValueError("session_cookie is required")
+    return hmac.new(
+        _session_secret(store),
+        f"csrf\n{session_cookie}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def verify_csrf_token(
+    store: ProjectStore, session_cookie: str | None, token: str | None
+) -> bool:
+    """Verify a non-empty CSRF token against the authenticated session.
+
+    Args:
+        store: Project store whose workspace-specific signing key is used.
+        session_cookie: Signed session cookie from the request.
+        token: Header token supplied by the browser.
+
+    Returns:
+        ``True`` only when both values are present and the token matches.
+
+    Raises:
+        None. Malformed or missing values fail closed with ``False``.
+    """
+    if not session_cookie or not token:
+        return False
+    try:
+        expected = csrf_token_for_session(store, session_cookie)
+    except ValueError:
+        return False
+    return hmac.compare_digest(expected, token)
 
 
 def register_user(
