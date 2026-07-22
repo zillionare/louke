@@ -161,24 +161,43 @@ def _resolve_playwright_browsers_path(
         RuntimeError: If the configured cache or Chromium executable is absent
             or cannot be mapped to a Playwright cache root.
     """
-    configured = environment.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
-    if configured:
-        cache = Path(configured).expanduser().resolve()
-        if not cache.is_dir():
-            raise RuntimeError(f"PLAYWRIGHT_BROWSERS_PATH does not exist: {cache}")
-        environment["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
-        return cache
-    if executable_path is None:
-        try:
-            from playwright.sync_api import sync_playwright
+    configured = _configured_browser_cache(environment)
+    if configured is not None:
+        return configured
+    executable = executable_path or _discover_chromium_executable()
+    cache = _cache_for_chromium(executable)
+    environment["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
+    return cache
 
-            with sync_playwright() as playwright:
-                executable_path = Path(playwright.chromium.executable_path)
-        except Exception as exc:
-            raise RuntimeError(
-                "Chromium discovery failed; set PLAYWRIGHT_BROWSERS_PATH "
-                "to an installed Playwright browser cache"
-            ) from exc
+
+def _configured_browser_cache(environment: dict[str, str]) -> Path | None:
+    """Validate an explicitly configured Playwright browser cache."""
+    configured = environment.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if not configured:
+        return None
+    cache = Path(configured).expanduser().resolve()
+    if not cache.is_dir():
+        raise RuntimeError(f"PLAYWRIGHT_BROWSERS_PATH does not exist: {cache}")
+    environment["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
+    return cache
+
+
+def _discover_chromium_executable() -> Path:
+    """Discover Chromium through the installed Playwright package."""
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as playwright:
+            return Path(playwright.chromium.executable_path)
+    except Exception as exc:
+        raise RuntimeError(
+            "Chromium discovery failed; set PLAYWRIGHT_BROWSERS_PATH "
+            "to an installed Playwright browser cache"
+        ) from exc
+
+
+def _cache_for_chromium(executable_path: Path) -> Path:
+    """Map a Chromium executable to its Playwright cache root."""
     executable = executable_path.expanduser().resolve()
     if not executable.is_file():
         raise RuntimeError(f"Chromium executable does not exist: {executable}")
@@ -194,9 +213,7 @@ def _resolve_playwright_browsers_path(
         raise RuntimeError(
             f"Chromium executable is outside a Playwright cache: {executable}"
         )
-    cache = version_directory.parent
-    environment["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
-    return cache
+    return version_directory.parent
 
 
 def _require_chromium(environment: dict[str, str]) -> None:
