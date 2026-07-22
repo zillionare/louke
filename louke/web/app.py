@@ -96,12 +96,12 @@ def create_app(
     if project_root is None:
         project_root = Path.cwd()
     store = ProjectStore(Path(project_root))
-    runtime_store = build_run_store(
+    project_runtime_store = build_run_store(
         str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3")
     )
     for sub_app in (projects_app, runtime_app, gates_app, bindings_app):
         sub_app.state._state.clear()
-        sub_app.state.v12_run_store = runtime_store
+        sub_app.state.v12_run_store = project_runtime_store
     broker = EventBroker()
     app = Starlette(
         debug=False,
@@ -211,7 +211,7 @@ def create_app(
         ],
     )
     app.state.store = store
-    app.state.v12_run_store = runtime_store
+    app.state.v12_run_store = project_runtime_store
     app.state.broker = broker
     app.state.setup_only = setup_only
     return app
