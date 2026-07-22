@@ -39,6 +39,13 @@ def test_scout_is_not_a_compatibility_cli_route() -> None:
     assert "scout" not in agent_action.choices
 
 
+def test_user_help_omits_scout(capsys: pytest.CaptureFixture[str]) -> None:
+    """User help must not advertise the retired Scout command."""
+    cli.print_help_text()
+
+    assert "scout" not in capsys.readouterr().out.lower()
+
+
 def test_web_binding_roster_matches_current_agent_roles() -> None:
     """Web bindings must expose Scribe and never expose retired adapters."""
     bound_agents = {name.lower() for names in ROLE_TO_AGENTS.values() for name in names}
