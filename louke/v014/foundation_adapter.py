@@ -320,18 +320,18 @@ class ShellFoundationAdapter:
         return result.returncode == 0, (result.stderr or result.stdout).strip()
 
     def _output(self, *command: str) -> tuple[str, str]:
-        """Run one command and return trimmed stdout plus stderr/stdout error."""
+        """Run one command and discard stdout whenever its exit code is non-zero."""
         result = subprocess.run(command, cwd=self._root, capture_output=True, text=True)
-        return result.stdout.strip(), "" if result.returncode == 0 else (
-            result.stderr or result.stdout
-        ).strip()
+        if result.returncode != 0:
+            return "", (result.stderr or result.stdout).strip()
+        return result.stdout.strip(), ""
 
     def _output_at(self, path: Path, *command: str) -> tuple[str, str]:
-        """Run a command in a controlled worktree."""
+        """Run a command in a controlled worktree, failing closed on errors."""
         result = subprocess.run(command, cwd=path, capture_output=True, text=True)
-        return result.stdout.strip(), "" if result.returncode == 0 else (
-            result.stderr or result.stdout
-        ).strip()
+        if result.returncode != 0:
+            return "", (result.stderr or result.stdout).strip()
+        return result.stdout.strip(), ""
 
     def _uncertain(
         self, resources: dict[str, Any], remediation: str

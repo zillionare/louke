@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -24,11 +25,9 @@ from starlette.responses import (
 from starlette.routing import Mount, Route
 
 from .auth import (
-    CSRF_COOKIE,
     SESSION_COOKIE,
     AuthenticatedUser,
     authenticate_user,
-    csrf_token_for_session,
     current_user,
     issue_session_cookie,
     register_user,
@@ -115,6 +114,7 @@ def create_app(
     *,
     setup_only: bool = False,
     mode: str | None = None,
+    allowed_origin: str | None = None,
 ) -> Starlette:
     """Create the Web application for one project workspace.
 
@@ -123,6 +123,8 @@ def create_app(
         setup_only: Whether the root route should redirect to setup.
         mode: Explicit Runtime mode, including Louke-only
             ``development_bootstrap``.
+        allowed_origin: Trusted v0.14 mutation origin. If omitted, the
+            ``LOUKE_ALLOWED_ORIGIN`` environment setting is used.
 
     Returns:
         A configured Starlette application.
@@ -307,6 +309,9 @@ def create_app(
     )
     app.state.store = store
     app.state.v12_run_store = project_runtime_store
+    app.state.v14_allowed_origin = allowed_origin or os.environ.get(
+        "LOUKE_ALLOWED_ORIGIN", ""
+    )
     from louke.v014.foundation_adapter import ShellFoundationAdapter
     from louke.v014.release_entry import ReleaseEntryService
     from louke.v014.scribe_entry import ScribeEntryService
@@ -699,7 +704,6 @@ async def api_auth_login(request: Request) -> JSONResponse:
 async def api_auth_logout(request: Request) -> JSONResponse:
     response = JSONResponse({"ok": True})
     response.delete_cookie(SESSION_COOKIE, path="/")
-    response.delete_cookie(CSRF_COOKIE, path="/")
     return response
 
 
@@ -1378,22 +1382,14 @@ def _ui_language(request: Request) -> str:
 
 
 def _set_session_cookie(response: Response, store: ProjectStore, username: str) -> None:
-    """Set the HttpOnly session and readable session-bound CSRF cookies."""
+    """Set the Strict HttpOnly session cookie; CSRF travels in a header."""
     session_cookie = issue_session_cookie(store, username)
     response.set_cookie(
         SESSION_COOKIE,
         session_cookie,
         max_age=7 * 24 * 60 * 60,
         httponly=True,
-        samesite="lax",
-        path="/",
-    )
-    response.set_cookie(
-        CSRF_COOKIE,
-        csrf_token_for_session(store, session_cookie),
-        max_age=7 * 24 * 60 * 60,
-        httponly=False,
-        samesite="lax",
+        samesite="strict",
         path="/",
     )
 

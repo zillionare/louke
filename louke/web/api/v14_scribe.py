@@ -11,7 +11,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 
 from louke.v014.scribe_entry import ScribeEntryService, ScribeTaskError
 
-from louke.web.auth import SESSION_COOKIE, current_user, verify_csrf_token
+from louke.web.auth import SESSION_COOKIE, current_user, same_origin, verify_csrf_token
 
 
 async def story_page(request: Request) -> HTMLResponse | JSONResponse:
@@ -209,6 +209,12 @@ def _require_human(request: Request, *, csrf_required: bool):
     user = current_user(request.app.state.store, session)
     if user is None:
         return _error("AUTH_REQUIRED", "login required", 401)
+    if not same_origin(request, getattr(request.app.state, "v14_allowed_origin", None)):
+        return _error(
+            "ORIGIN_FORBIDDEN",
+            "configured same-origin Origin header required",
+            403,
+        )
     if csrf_required and not verify_csrf_token(
         request.app.state.store, session, request.headers.get("x-louke-csrf")
     ):

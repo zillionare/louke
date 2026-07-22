@@ -42,6 +42,7 @@ def create_app(
     *,
     setup_only: bool = False,
     mode: str | None = None,
+    allowed_origin: str | None = None,
 ):
     """Create the Starlette app, recording setup_only on app.state.
 
@@ -49,7 +50,12 @@ def create_app(
     """
     from .web.app import create_app as _create_app
 
-    return _create_app(project_root, setup_only=setup_only, mode=mode)
+    return _create_app(
+        project_root,
+        setup_only=setup_only,
+        mode=mode,
+        allowed_origin=allowed_origin,
+    )
 
 
 _VALID_STAGES = frozenset(

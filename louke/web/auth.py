@@ -11,7 +11,6 @@ from .store import ProjectStore, ValidationError
 
 
 SESSION_COOKIE = "louke_session"
-CSRF_COOKIE = "louke_csrf"
 
 
 @dataclass
@@ -91,6 +90,32 @@ def verify_csrf_token(
     except ValueError:
         return False
     return hmac.compare_digest(expected, token)
+
+
+def same_origin(request: Any, configured_origin: str | None = None) -> bool:
+    """Return whether a request carries the configured exact Origin header.
+
+    Args:
+        request: Starlette-compatible request exposing ``headers`` and ``url``.
+        configured_origin: Trusted scheme/host origin. When omitted, the
+            request's own scheme and host are used as the server configuration.
+
+    Returns:
+        ``True`` only for a non-empty, non-``null`` exact origin match.
+
+    Raises:
+        None. Missing or malformed request attributes fail closed.
+    """
+    origin = str(request.headers.get("origin") or "").strip().rstrip("/")
+    if not origin or origin.lower() == "null":
+        return False
+    configured = str(configured_origin or "").strip().rstrip("/")
+    if not configured:
+        try:
+            configured = f"{request.url.scheme}://{request.url.netloc}".rstrip("/")
+        except AttributeError:
+            return False
+    return hmac.compare_digest(origin, configured)
 
 
 def register_user(

@@ -7,7 +7,7 @@ from html import escape
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse
 
-from louke.web.auth import CSRF_COOKIE, SESSION_COOKIE, current_user
+from louke.web.auth import SESSION_COOKIE, csrf_token_for_session, current_user
 
 
 async def release_new_page(request: Request) -> HTMLResponse | RedirectResponse:
@@ -15,8 +15,10 @@ async def release_new_page(request: Request) -> HTMLResponse | RedirectResponse:
     user = current_user(request.app.state.store, request.cookies.get(SESSION_COOKIE))
     if user is None:
         return RedirectResponse(url="/login?next=/projects/new", status_code=303)
-    csrf_cookie = request.cookies.get(CSRF_COOKIE, "")
-    return HTMLResponse(_render_page(csrf_cookie))
+    session_cookie = request.cookies.get(SESSION_COOKIE, "")
+    return HTMLResponse(
+        _render_page(csrf_token_for_session(request.app.state.store, session_cookie))
+    )
 
 
 def _render_page(csrf_token: str) -> str:
