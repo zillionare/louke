@@ -91,7 +91,7 @@ def test_validate_host_compat_rejects_missing_capability():
         build_command="build",
         artifact_kinds=("wheel",),
         precommit_config_path=".pre-commit-config.yaml",
-        ci_workflow_path=".github/workflows/ci.yml",
+        ci_workflow_path=".github/workflows/user-check.yml",
         capabilities=frozenset({"test", "build"}),  # missing artifact/pre-commit/ci
     )
     with pytest.raises(HostCompatError) as exc:

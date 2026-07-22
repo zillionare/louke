@@ -121,7 +121,7 @@ def test_is_diff_in_scope_rejects_out_of_scope_path() -> None:
         prompt_paths=_prompt_paths(),
     )
     assert is_diff_in_scope(manifest, "louke/v014/fr0300_write_auth.py") is False
-    assert is_diff_in_scope(manifest, ".github/workflows/ci.yml") is False
+    assert is_diff_in_scope(manifest, ".github/workflows/louke-ci.yml") is False
 
 
 def test_attribute_diff_accepts_in_scope_change() -> None:

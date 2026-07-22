@@ -109,7 +109,7 @@ import smoke:
   louke.cli_v12                  FAIL  Traceback (most recent call last):
 
 --- 0.9 CI configuration snapshot ---
-  ci.yml lines: 2107
+  legacy CI workflow lines: 2107
   contains 'pytest': False
   contains 'coverage': False
   contains 'runtime': False

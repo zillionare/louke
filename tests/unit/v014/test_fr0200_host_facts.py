@@ -34,7 +34,7 @@ def _make_workspace(tmp_path: Path) -> Path:
     )
     (tmp_path / ".pre-commit-config.yaml").write_text("repos: []\n", encoding="utf-8")
     (tmp_path / ".github" / "workflows").mkdir(parents=True)
-    (tmp_path / ".github" / "workflows" / "ci.yml").write_text(
+    (tmp_path / ".github" / "workflows" / "louke-ci.yml").write_text(
         "name: ci\n", encoding="utf-8"
     )
     return tmp_path
@@ -76,6 +76,7 @@ def test_collect_host_facts_records_absent_observation_without_digest(
 ) -> None:
     """AC-FR0200-01: a missing file is recorded as absent (a fact, not invented)."""
     workspace = _make_workspace(tmp_path)
+    (workspace / ".github" / "workflows" / "louke-ci.yml").unlink()
     snapshot = collect_host_facts(
         workspace_id="github.com/example/demo",
         base_commit="a" * 40,

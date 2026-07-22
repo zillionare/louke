@@ -5,7 +5,7 @@
 - **Baseline SHA**: `6c2e309` (Batch 3 head)
 - **Date**: 2026-07-15
 
-## 1. ci.yml `test` job step list - BEFORE (at `6c2e309`)
+## 1. Legacy CI `test` job step list - BEFORE (at `6c2e309`)
 
 ```
 - name: Checkout
@@ -26,7 +26,7 @@ Observations (gap-analysis §3 P0-3 / Batch 0 §0.9):
 - No package import smoke beyond `lk --help`.
 - No `lk --version` assertion.
 
-## 2. ci.yml `test` job step list - AFTER (at `c1ef7bf`)
+## 2. Legacy CI `test` job step list - AFTER (at `c1ef7bf`)
 
 ```
 - name: Checkout
@@ -184,7 +184,7 @@ Rationale:
    restructuring the job (checkout, build, install) and validating that
    `lk agent archer ci-scan` works against the local wheel - this is
    scope creep for v0.12.1 (gap-analysis §4 Batch 4 only requires the
-   primary `ci.yml` to run unit/integration/coverage/package-smoke).
+   primary legacy CI workflow to run unit/integration/coverage/package-smoke).
 3. gap-analysis §3 P0-3 explicitly allows either fixing louke-ci.yml or
    "明确说明该 job 只验证向后兼容而非当前构建" (explicitly document
    that this job only verifies backward compatibility, not the current
@@ -201,13 +201,13 @@ asserts the workflow contract so a future edit that silently drops a gate
 fails in CI rather than only being noticed at release time:
 
 - `TestCIWorkflowContract` (7 tests):
-  - ci.yml file exists
-  - ci.yml runs `pytest tests/unit tests/integration tests/ground_truth`
-  - ci.yml measures `--cov=louke.runtime`
-  - ci.yml installs `pytest-cov`
-  - ci.yml smoke-imports all v0.12 subpackages from the wheel
-  - ci.yml asserts `lk --version` reports `0.12.1`
-  - ci.yml retains the BATS suite
+  - legacy CI workflow file existed
+  - legacy CI workflow ran `pytest tests/unit tests/integration tests/ground_truth`
+  - legacy CI workflow measured `--cov=louke.runtime`
+  - legacy CI workflow installed `pytest-cov`
+  - legacy CI workflow smoke-imported all v0.12 subpackages from the wheel
+  - legacy CI workflow asserted `lk --version` reports `0.12.1`
+  - legacy CI workflow retained the BATS suite
 - `TestPytestMarkerRegistration` (3 tests, parametrized):
   - pyproject.toml registers `e2e` marker
   - pyproject.toml registers `integration` marker
@@ -217,7 +217,7 @@ fails in CI rather than only being noticed at release time:
 
 ```
 $ git log --oneline 6c2e309..HEAD
-c1ef7bf feat: green – #179 – S6: add unit+integration+coverage+package-smoke steps to ci.yml
+c1ef7bf feat: green – #179 – S6: add unit+integration+coverage+package-smoke steps to the legacy CI workflow
 ```
 
 (Refactor commit with marker registration + this evidence file follows.)

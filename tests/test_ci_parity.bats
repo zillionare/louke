@@ -2,10 +2,10 @@
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
-@test "FR-0700 AC-1: .github/workflows/ci.yml contains pre-commit run --all-files step" {
-    run grep -q "Run pre-commit on all files" "$REPO_ROOT/.github/workflows/ci.yml"
+@test "FR-0700 AC-1: canonical workflow contains pre-commit run --all-files step" {
+    run grep -q "Run pre-commit on all files" "$REPO_ROOT/.github/workflows/louke-ci.yml"
     [ "$status" -eq 0 ]
-    run grep -q "pre-commit run --all-files" "$REPO_ROOT/.github/workflows/ci.yml"
+    run grep -q "pre-commit run --all-files" "$REPO_ROOT/.github/workflows/louke-ci.yml"
     [ "$status" -eq 0 ]
 }
 

@@ -33,8 +33,8 @@ def test_other_workflows_unchanged(mock_ci_contract):
         "ok": True,
         "managed_files": [".github/workflows/louke-ci.yml"],
         "unchanged_files": [
-            ".github/workflows/ci.yml",
-            ".github/workflows/release.yml",
+            ".github/workflows/user-check.yml",
+            ".github/workflows/user-release-check.yml",
         ],
     }
     result = mock_ci_contract.generate(contract={})

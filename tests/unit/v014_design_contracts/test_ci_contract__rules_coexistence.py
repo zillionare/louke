@@ -85,8 +85,8 @@ def test_render_does_not_touch_user_workflows(tmp_path: Path) -> None:
     """AC-FR1300-01: rendering the managed workflow leaves user workflows intact."""
     workflows_dir = tmp_path / ".github" / "workflows"
     workflows_dir.mkdir(parents=True)
-    user_ci = workflows_dir / "ci.yml"
-    user_release = workflows_dir / "release.yml"
+    user_ci = workflows_dir / "user-check.yml"
+    user_release = workflows_dir / "user-release-check.yml"
     user_ci.write_text("name: ci\non: push\n", encoding="utf-8")
     user_release.write_text(
         "name: release\non: push:\n  tags: ['v*']\n", encoding="utf-8"
@@ -103,7 +103,7 @@ def test_render_idempotent_does_not_change_user_files(tmp_path: Path) -> None:
     """AC-FR1300-01: rendering twice yields the same managed file, user files untouched."""
     workflows_dir = tmp_path / ".github" / "workflows"
     workflows_dir.mkdir(parents=True)
-    user_ci = workflows_dir / "ci.yml"
+    user_ci = workflows_dir / "user-check.yml"
     user_ci.write_text("name: ci\n", encoding="utf-8")
     managed = workflows_dir / "louke-ci.yml"
     managed.write_text(ci.render(_contract()), encoding="utf-8")

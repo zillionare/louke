@@ -148,13 +148,8 @@ def _build_inventory(observations: list[Observation]) -> dict[str, list[str]]:
         ]
     if "pre-commit-config" in present_kinds:
         inventory["hooks"] = [".pre-commit-config.yaml"]
-    if "ci-workflow" in present_kinds or "release-workflow" in present_kinds:
-        workflows: list[str] = []
-        if "ci-workflow" in present_kinds:
-            workflows.append(".github/workflows/ci.yml")
-        if "release-workflow" in present_kinds:
-            workflows.append(".github/workflows/release.yml")
-        inventory["ci_workflows"] = workflows
+    if "managed-ci" in present_kinds:
+        inventory["ci_workflows"] = [".github/workflows/louke-ci.yml"]
         if "GitHub Actions" not in inventory["external_capabilities"]:
             inventory["external_capabilities"] = ["GitHub Actions"]
     inventory["default_branch"] = ["main"]  # convention; Runtime overrides if needed
@@ -262,10 +257,6 @@ def collect_host_facts(
         _observe_file(workspace_root, "dependency-lock", "poetry.lock"),
         _observe_file(workspace_root, "runner-bootstrap", "tests/e2e/run-project-venv"),
         _observe_file(workspace_root, "runner-implementation", "tests/e2e/run_e2e.py"),
-        _observe_file(workspace_root, "ci-workflow", ".github/workflows/ci.yml"),
-        _observe_file(
-            workspace_root, "release-workflow", ".github/workflows/release.yml"
-        ),
         _observe_file(workspace_root, "pre-commit-config", ".pre-commit-config.yaml"),
         _observe_file(
             workspace_root, "release-adapter", "tools/louke_python_release_adapter.py"

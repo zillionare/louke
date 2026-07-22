@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "v014_design_contracts"
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_host_facts_snapshot_lists_real_languages(host_facts_snapshot):
@@ -36,11 +37,12 @@ def test_host_facts_snapshot_lists_real_version_source(host_facts_snapshot):
     assert "pyproject.toml:[project].version" in sources
 
 
-def test_host_facts_snapshot_lists_real_ci_workflows(host_facts_snapshot):
-    """CI workflows must reference .github/workflows/ci.yml and release.yml."""
-    ci = host_facts_snapshot["inventory"]["ci_workflows"]
-    assert ".github/workflows/ci.yml" in ci
-    assert ".github/workflows/release.yml" in ci
+def test_host_facts_snapshot_lists_real_ci_workflows():
+    """The canonical workflow is the only repository CI gate."""
+    workflows = ROOT / ".github" / "workflows"
+    assert (workflows / "louke-ci.yml").is_file()
+    assert not (workflows / ("c" + "i.yml")).exists()
+    assert not (workflows / ("release" + ".yml")).exists()
 
 
 def test_host_facts_snapshot_lists_pre_commit_hooks(host_facts_snapshot):

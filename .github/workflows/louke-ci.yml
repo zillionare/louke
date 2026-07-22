@@ -16,9 +16,8 @@ name: Louke CI
 #   - real-smoke (tag/manual only; needs required+build+verify)
 #   - publish (tag/manual only; needs required+real-smoke+build+verify)
 #
-# The legacy ci.yml and release.yml continue to exist on the remote until
-# the maintainer confirms the migration and pushes the deletion in the same
-# change set (architecture §9.3 requires same-PR deletion).
+# This workflow is the sole repository gate; release publishing is handled by
+# its tag/manual jobs below so no second workflow is required.
 #
 # All non-publish jobs use `permissions: contents: read`. real-smoke runs
 # only in a protected `release-smoke` environment with a sandbox-only

@@ -39,8 +39,7 @@ _DEFAULT_FORBIDDEN_EFFECTS = (
 
 _FORBIDDEN_PATH_PREFIXES = (
     ".git/",
-    ".github/workflows/ci.yml",  # user CI - cannot be modified by Archer
-    ".github/workflows/release.yml",  # user release - cannot be modified
+    ".github/workflows/louke-ci.yml",  # managed CI - cannot be modified by Archer
 )
 
 

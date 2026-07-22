@@ -9,7 +9,7 @@ the v0.7 release line.
 When v0.7.0 was originally tagged (2026-07-06), the in-repo metadata
 (`pyproject.toml: version = "0.6.14"`, `VERSION = "0.3.0"`) was stale
 relative to the released code. The release workflow
-(`.github/workflows/release.yml`) works around this at build time by
+The legacy release workflow worked around this at build time by
 syncing `pyproject.toml` from the tag, but the on-disk `VERSION` file and
 the committed `pyproject.toml` value remained outdated. v0.7.1 closes
 this gap so the in-repo metadata matches what `pip` actually installs.

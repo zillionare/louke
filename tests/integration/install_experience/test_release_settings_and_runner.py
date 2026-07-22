@@ -68,15 +68,15 @@ def test_host_adapter_reads_embedded_wheel_metadata(tmp_path: Path) -> None:
     }
 
 
-def test_release_workflow_gates_every_built_artifact() -> None:
+def test_canonical_workflow_gates_every_built_artifact() -> None:
     """I-12 / AC-FR1510-03@v0.13.1: publish follows per-artifact gate."""
-    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+    workflow = (ROOT / ".github" / "workflows" / "louke-ci.yml").read_text(
         encoding="utf-8"
     )
     assert "for artifact in dist/louke-*.whl dist/louke-*.tar.gz" in workflow
     assert "louke_python_release_adapter.py inspect" in workflow
     assert "release verify --tag" in workflow
-    assert workflow.index("Verify every built artifact") < workflow.index(
+    assert workflow.index("Verify every artifact against the git tag") < workflow.index(
         "Publish to PyPI"
     )
 
