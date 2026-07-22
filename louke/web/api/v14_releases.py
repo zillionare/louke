@@ -142,9 +142,7 @@ def _require_human(request: Request, *, csrf_required: bool):
 
 def _required_string(payload: object, field: str) -> str:
     """Return a non-empty string field from a JSON object."""
-    if not isinstance(payload, dict):
-        raise ValueError("JSON object payload is required")
-    value = payload.get(field)
+    value = _required_field(payload, field)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} is required")
     return value.strip()
@@ -152,12 +150,17 @@ def _required_string(payload: object, field: str) -> str:
 
 def _required_int(payload: object, field: str) -> int:
     """Return an integer field without accepting booleans."""
-    if not isinstance(payload, dict):
-        raise ValueError("JSON object payload is required")
-    value = payload.get(field)
+    value = _required_field(payload, field)
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field} must be an integer")
     return value
+
+
+def _required_field(payload: object, field: str) -> Any:
+    """Return a field from a JSON object or raise a client-validation error."""
+    if not isinstance(payload, dict):
+        raise ValueError("JSON object payload is required")
+    return payload.get(field)
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
