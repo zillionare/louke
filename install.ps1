@@ -109,8 +109,8 @@ exit /b 1
 try {
     $python = Find-Python
     $versionText = (& $python.Path @($python.Arguments + @("-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"))).Trim()
-    $version = [version]$versionText
-    if ($version -lt [version]"3.11") {
+    $pythonVersion = [version]$versionText
+    if ($pythonVersion -lt [version]"3.11") {
         throw "Python 3.11 or newer is required (found $versionText)."
     }
 
