@@ -30,7 +30,14 @@ from typing import Any, Iterator, List, Optional
 
 import httpx
 
-from .adapter import Instance, Message, StreamEvent, new_id
+from .adapter import (
+    Instance,
+    Message,
+    ProviderResult,
+    SessionReconcile,
+    StreamEvent,
+    new_id,
+)
 
 
 _HEALTH_PATH = "/global/health"
@@ -390,6 +397,48 @@ class RealOpenCodeAdapter:
                         message_id=next(iter(assistant_messages), ""),
                         error=str(error),
                     )
+
+    def reconcile_session(
+        self, instance_id: str, *, after_result_id: Optional[str] = None
+    ) -> SessionReconcile:
+        """Query assistant messages and normalize a completed JSON result.
+
+        Args:
+            instance_id: OpenCode session identity bound to the task attempt.
+            after_result_id: Optional result cursor retained by the caller.
+
+        Returns:
+            A running, completed, not-found, or ambiguous session outcome.
+            Assistant JSON objects are returned as controlled provider results.
+
+        Raises:
+            No exception is raised for provider/session uncertainty; it is
+            represented by ``status="ambiguous"`` for fail-closed recovery.
+        """
+        try:
+            messages = self.list_messages(instance_id, after_message_id=None)
+        except RuntimeError as exc:
+            text = str(exc)
+            if "HTTP 404" in text:
+                return SessionReconcile(status="not_found", error=text)
+            return SessionReconcile(status="ambiguous", error=text)
+        assistant_messages = [
+            message for message in messages if message.role == "assistant"
+        ]
+        if not assistant_messages:
+            return SessionReconcile(status="running")
+        results: list[ProviderResult] = []
+        for message in assistant_messages:
+            if after_result_id and message.id == after_result_id:
+                continue
+            payload: dict[str, object] | None
+            try:
+                decoded = json.loads(message.content)
+            except (TypeError, json.JSONDecodeError):
+                decoded = None
+            payload = decoded if isinstance(decoded, dict) else None
+            results.append(ProviderResult(result_id=message.id, payload=payload))
+        return SessionReconcile(status="completed", results=results)
 
     def cancel(self, instance_id: str, *, correlation_id: str) -> None:
         """Cancel the current generation for a session.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import List, Optional
 
-from .adapter import Instance, Message, StreamEvent, new_id
+from .adapter import Instance, Message, SessionReconcile, StreamEvent, new_id
 
 
 class InMemoryOpenCodeAdapter:
@@ -102,6 +102,18 @@ class InMemoryOpenCodeAdapter:
             message_id=assistant.id,
             content=assistant.content,
         )
+
+    def reconcile_session(
+        self, instance_id: str, *, after_result_id: str | None = None
+    ) -> SessionReconcile:
+        """Report that an in-memory session has no controlled result yet."""
+        with self._lock:
+            instance = self._instances.get(instance_id)
+        if instance is None:
+            return SessionReconcile(status="not_found")
+        if instance.status != "running":
+            return SessionReconcile(status="ambiguous", error="session is not running")
+        return SessionReconcile(status="running")
 
 
 _singleton: Optional[InMemoryOpenCodeAdapter] = None

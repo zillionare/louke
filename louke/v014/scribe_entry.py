@@ -831,9 +831,20 @@ class ScribeEntryService:
     def reconcile(self, run_id: str, task_id: str) -> dict[str, Any]:
         """Reconcile persisted task state with the existing OpenCode session."""
         task = self._require_task(run_id, task_id)
+        if self._store.get_result(task_id) is not None:
+            return self._read_task(task)
         if not task["session_id"]:
             return self._read_task(task)
         try:
+            outcome = self._resolve_adapter().reconcile_session(
+                task["session_id"], after_result_id=None
+            )
+            if outcome.status == "completed":
+                self._ingest_provider_results(task, outcome.results)
+                return self._read_task(self._store.get_task(task_id) or task)
+            if outcome.status in {"not_found", "ambiguous"}:
+                self._mark_reconciliation_uncertain(task, outcome.error)
+                return self._read_task(self._store.get_task(task_id) or task)
             messages = self._resolve_adapter().list_messages(
                 task["session_id"], after_message_id=None
             )
@@ -859,6 +870,35 @@ class ScribeEntryService:
                 task_id, status="blocked", connection="blocked", last_error=str(exc)
             )
         return self._read_task(self._store.get_task(task_id) or task)
+
+    def _ingest_provider_results(
+        self, task: dict[str, Any], results: list[Any]
+    ) -> None:
+        """Validate the latest controlled provider result, if one exists."""
+        if not results:
+            return
+        provider_result = results[-1]
+        payload = provider_result.payload
+        if payload is None:
+            payload = {}
+        try:
+            self.submit_result(
+                run_id=task["run_id"], task_id=task["task_id"], payload=payload
+            )
+        except ScribeTaskError:
+            return
+
+    def _mark_reconciliation_uncertain(
+        self, task: dict[str, Any], error: str | None
+    ) -> None:
+        """Persist fail-closed evidence for a missing or ambiguous session."""
+        detail = error or "OpenCode session result could not be confirmed"
+        self._store.update_attempt(
+            task["active_attempt_id"], status="uncertain", error=detail
+        )
+        self._store.update_task(
+            task["task_id"], status="blocked", connection="blocked", last_error=detail
+        )
 
     def retry(self, run_id: str, task_id: str, workspace: str) -> dict[str, Any]:
         """Create one new attempt for a blocked task and retry real transport."""
@@ -1285,8 +1325,11 @@ def _scribe_prompt(manifest: dict[str, Any], story_body: str) -> str:
     """Build the non-secret initial Scribe prompt from persisted task facts."""
     return (
         "You are the Scribe for the bound M-STORY task. Do not decide for Human, "
-        "do not write outside story.md, and return a Go/Park/No-Go suggestion "
-        "before interviewing.\n\n"
+        "do not write outside story.md. After your work, return exactly one JSON "
+        "object matching the scribe.story.v1 contract; do not wrap it in Markdown. "
+        "The object must include role, task_id, attempt_id, session_id, "
+        "manifest_digest, artifact_revision, artifact_digest, write_scope, "
+        "recommendation and reason. recommendation is only a suggestion to Human.\n\n"
         f"Task manifest:\n{json.dumps(manifest, sort_keys=True, ensure_ascii=False)}\n\n"
         f"Current story.md:\n{story_body}"
     )

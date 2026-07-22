@@ -12,6 +12,7 @@ InstanceStatus = Literal["starting", "running", "stopping", "stopped", "error"]
 MessageRole = Literal["user", "assistant", "system"]
 MessageKind = Literal["message", "command", "status", "error"]
 StreamEventType = Literal["delta", "completed", "error"]
+SessionReconcileStatus = Literal["running", "completed", "not_found", "ambiguous"]
 
 
 def new_id() -> str:
@@ -82,6 +83,23 @@ class StreamEvent:
         return result
 
 
+@dataclass
+class ProviderResult:
+    """One normalized, non-secret result emitted by an OpenCode session."""
+
+    result_id: str
+    payload: Optional[dict[str, object]] = None
+
+
+@dataclass
+class SessionReconcile:
+    """Outcome of querying an existing OpenCode session and turn."""
+
+    status: SessionReconcileStatus
+    results: List[ProviderResult] = field(default_factory=list)
+    error: Optional[str] = None
+
+
 class OpenCodeAdapter(Protocol):
     def create(self, *, correlation_id: str) -> Instance: ...
     def list(self) -> List[Instance]: ...
@@ -96,3 +114,8 @@ class OpenCodeAdapter(Protocol):
     def stream_events(
         self, instance_id: str, last_event_id: Optional[str] = None
     ) -> object: ...
+
+    def reconcile_session(
+        self, instance_id: str, *, after_result_id: Optional[str] = None
+    ) -> SessionReconcile:
+        """Query the existing session without dispatching another turn."""

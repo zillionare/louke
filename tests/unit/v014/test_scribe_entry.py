@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from louke.opencode.adapter import Instance, Message
+from louke.opencode.adapter import Instance, Message, ProviderResult, SessionReconcile
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.store import WorkflowRunStore
 from louke.v014.fr0500_story_init import (
@@ -74,6 +74,7 @@ class FakeOpenCode:
     create_calls: int = 0
     send_calls: int = 0
     messages: list[Message] = field(default_factory=list)
+    provider_result: ProviderResult | None = None
 
     def create(self, *, correlation_id: str) -> Instance:
         self.create_calls += 1
@@ -99,6 +100,13 @@ class FakeOpenCode:
 
     def list_messages(self, instance_id: str, *, after_message_id: str | None):
         return list(self.messages)
+
+    def reconcile_session(
+        self, instance_id: str, *, after_result_id: str | None = None
+    ) -> SessionReconcile:
+        if self.provider_result is None:
+            return SessionReconcile(status="running")
+        return SessionReconcile(status="completed", results=[self.provider_result])
 
 
 def test_ensure_task_persists_manifest_and_dispatches_real_scribe_session() -> None:
@@ -126,6 +134,7 @@ def test_ensure_task_persists_manifest_and_dispatches_real_scribe_session() -> N
     assert task["manifest"]["artifact"]["digest"] == artifact.digest
     assert adapter.create_calls == 1
     assert adapter.send_calls == 1
+    assert "exactly one JSON object" in adapter.messages[0].content
 
 
 def test_unavailable_opencode_is_blocked_and_does_not_fake_a_session() -> None:
@@ -300,6 +309,60 @@ def test_invalid_scribe_result_is_rejected_without_advancing_runtime() -> None:
     assert (
         service.task_read(run.run_id, task["task_id"])["result"]["status"] == "rejected"
     )
+
+
+def test_reconcile_ingests_completed_opencode_result_through_adapter_protocol() -> None:
+    """AC-FR0700-02: reconcile consumes a completed provider result once."""
+    store = _store()
+    run = _story_run(store)
+    artifact = _artifact(store, run.run_id)
+    adapter = FakeOpenCode()
+    service = ScribeEntryService(store, adapter)
+    task = service.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:one",
+        workspace="/workspace",
+    )
+    adapter.provider_result = ProviderResult(
+        result_id="provider-result-1",
+        payload=_scribe_result_payload(task, artifact),
+    )
+
+    reconciled = service.reconcile(run.run_id, task["task_id"])
+
+    assert reconciled["result"]["status"] == "accepted"
+    assert reconciled["result"]["recommendation"] == "Go"
+    assert reconciled["status"] == "running"
+    assert service.m_spec_task_count(run.run_id) == 0
+
+
+def test_reconcile_rejects_malformed_provider_result_without_runtime_progress() -> None:
+    """IF-API-08: malformed provider output is rejected and remains auditable."""
+    store = _store()
+    run = _story_run(store)
+    artifact = _artifact(store, run.run_id)
+    adapter = FakeOpenCode()
+    service = ScribeEntryService(store, adapter)
+    task = service.ensure_task(
+        run_id=run.run_id,
+        artifact=artifact,
+        human_request="Ship the reflow",
+        foundation_manifest_identity="foundation:one",
+        workspace="/workspace",
+    )
+    adapter.provider_result = ProviderResult(
+        result_id="provider-result-malformed",
+        payload={"role": "Scribe"},
+    )
+
+    reconciled = service.reconcile(run.run_id, task["task_id"])
+
+    assert reconciled["result"]["status"] == "rejected"
+    assert reconciled["status"] == "running"
+    assert store.get_run(run.run_id) == run
+    assert service.m_spec_task_count(run.run_id) == 0
 
 
 def test_human_go_decision_is_revision_bound_and_idempotent() -> None:
