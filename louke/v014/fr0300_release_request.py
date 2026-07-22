@@ -141,30 +141,32 @@ class ReleasePreview:
     side_effects: tuple[str, ...] = ()
 
 
-_VERSION_RE = None  # lazily compiled
-
-
 def _is_valid_release_version(version: str) -> bool:
-    """Return ``True`` if ``version`` looks like a canonical PEP 440 release.
+    """Return whether the host-provided version is safe as a Git branch leaf.
 
-    Accepts ``MAJOR.MINOR.PATCH`` (optionally with a leading ``v``) and the
-    common prerelease/build-metadata shapes; rejects empty/whitespace and
-    obvious garbage. The full PEP 440 grammar is intentionally not pulled in
-    to avoid adding a dependency; the spec (FR-0300) explicitly inherits the
-    host's already-signed Project preview contract for full validity, so this
-    function only enforces the cheap structural checks the unit layer can
-    reason about deterministically.
+    IF-WEB-03 owns product version validity. This boundary only rejects empty,
+    control, path-traversal, and Git ref-invalid values that could escape the
+    controlled release branch/worktree identity.
     """
-    global _VERSION_RE
-    if _VERSION_RE is None:
-        import re
-
-        _VERSION_RE = re.compile(
-            r"^v?\d+\.\d+\.\d+"
-            r"(?:[._-]?(?:a|b|rc|alpha|beta|pre|post|dev)[._-]?\d*)?"
-            r"(?:\+[A-Za-z0-9._-]+)?$"
-        )
-    return bool(_VERSION_RE.match(version.strip()))
+    value = version.strip().removeprefix("v")
+    if not value or value in {".", ".."}:
+        return False
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        return False
+    if any(char.isspace() or char in "~^:?*[\\" for char in value):
+        return False
+    if (
+        value.startswith("/")
+        or value.endswith("/")
+        or "//" in value
+        or ".." in value
+        or "/." in value
+        or value.endswith(".")
+        or value.endswith(".lock")
+        or "@{" in value
+    ):
+        return False
+    return True
 
 
 def preview_release_request(

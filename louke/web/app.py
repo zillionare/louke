@@ -703,7 +703,7 @@ async def api_auth_login(request: Request) -> JSONResponse:
 
 async def api_auth_logout(request: Request) -> JSONResponse:
     response = JSONResponse({"ok": True})
-    response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(SESSION_COOKIE, path="/", samesite="strict")
     return response
 
 

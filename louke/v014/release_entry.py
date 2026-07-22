@@ -194,6 +194,14 @@ class ReleaseRequestStore:
             record[field] = json.loads(record[field]) if record[field] else None
         return record
 
+    def get_by_project(self, project_id: str) -> dict[str, Any] | None:
+        """Return the exact persisted release request for one project identity."""
+        row = self._conn.execute(
+            "SELECT request_id FROM v14_release_requests WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+        return self.get(str(row["request_id"])) if row is not None else None
+
     def _has_active_release(self, request_id: str) -> bool:
         placeholders = ",".join("?" for _ in self._ACTIVE_STATUSES)
         row = self._conn.execute(
@@ -311,6 +319,11 @@ class ReleaseEntryService:
         """Return the persisted public status read model for a release request."""
         return self._read_model(self._requests.get(request_id))
 
+    def current_project(self, project_id: str) -> dict[str, Any] | None:
+        """Return the exact release/run binding for a project path identity."""
+        record = self._requests.get_by_project(project_id)
+        return self._read_model(record) if record is not None else None
+
     def _run_preflight(self, record: dict[str, Any]) -> dict[str, Any]:
         check = self._foundation.preflight(record["story"], record["release_version"])
         self._requests.update(record["request_id"], main_check=check)
@@ -335,6 +348,10 @@ class ReleaseEntryService:
         resources.setdefault("local_project", {"id": project_id})
         resources.setdefault("workflow_run", {"id": run_id})
         outcome = FoundationOutcome(outcome.status, resources, outcome.remediation)
+        if outcome.status != "ready":
+            self._mark_run_foundation_pending(run_id)
+        else:
+            self._activate_run_after_foundation(run_id)
         if outcome.status == "ready" and self._story_entry is not None:
             try:
                 story = self._initialize_story(record, resources)
@@ -369,6 +386,23 @@ class ReleaseEntryService:
         definition = self._definition()
         return self._run_store.create_run(definition)
 
+    def _mark_run_foundation_pending(self, run_id: str) -> None:
+        """Keep a failed Foundation run non-active until reconciliation succeeds."""
+        run = self._run_store.get_run(run_id)
+        if run.status == "foundation_pending":
+            return
+        self._run_store.update_run(
+            run.with_step("M-START", "foundation_pending"), run.revision
+        )
+
+    def _activate_run_after_foundation(self, run_id: str) -> None:
+        """Restore the normal Runtime status after Foundation succeeds."""
+        run = self._run_store.get_run(run_id)
+        if run.status == "foundation_pending":
+            self._run_store.update_run(
+                run.with_step("M-START", "waiting_human"), run.revision
+            )
+
     def _definition(self) -> WorkflowDefinition:
         """Resolve the immutable entry definition from the Runtime catalog."""
         catalog = self._run_store._catalog
@@ -399,12 +433,12 @@ class ReleaseEntryService:
         """Convert a persisted request record into IF-API-03 response fields."""
         return {
             "request_id": record["request_id"],
+            "project_id": record["project_id"],
             "status": record["status"],
             "backlog": record["backlog"],
             "main_check": record["main_check"],
             "foundation": record["foundation"],
             "story": _story_from_foundation(record["foundation"]),
-            "project_id": record["project_id"],
             "run_id": record["run_id"],
             "continue_url": (
                 f"/projects/{record['project_id']}/requirements/story"

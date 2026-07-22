@@ -118,7 +118,9 @@ def _require_human(request: Request, *, csrf_required: bool):
     user = current_user(store, session)
     if user is None:
         return JSONResponse(_error("AUTH_REQUIRED", "login required"), status_code=401)
-    if not same_origin(request, getattr(request.app.state, "v14_allowed_origin", None)):
+    if csrf_required and not same_origin(
+        request, getattr(request.app.state, "v14_allowed_origin", None)
+    ):
         return JSONResponse(
             _error("ORIGIN_FORBIDDEN", "configured same-origin Origin header required"),
             status_code=403,

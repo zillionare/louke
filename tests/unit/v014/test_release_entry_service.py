@@ -303,6 +303,48 @@ def test_partial_foundation_effect_is_not_reported_as_ready() -> None:
     assert result["run_id"]
 
 
+def test_failed_foundation_run_is_persisted_as_non_active_operation_evidence() -> None:
+    """AC-FR0400-01: blocked Foundation never looks like an active started run."""
+    outcome = FoundationOutcome(
+        status="blocked",
+        resources={},
+        remediation="release branch cannot be reconciled",
+    )
+    store = _run_store()
+    service = ReleaseEntryService(
+        store, FakeFoundation(_main_check(), outcome), workspace_id="ws-1"
+    )
+    preview = service.preview("Ship the reflow", "v0.14.0")
+
+    result = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-1",
+        actor="human",
+    )
+
+    run = store.get_run(result["run_id"])
+    assert result["status"] == "blocked"
+    assert run.current_step == "M-START"
+    assert run.status == "foundation_pending"
+
+
+def test_project_lookup_returns_only_its_persisted_request_identity() -> None:
+    """AC-FR0600-01: project lookup cannot borrow another request's run."""
+    service = ReleaseEntryService(
+        _run_store(),
+        FakeFoundation(_main_check(), _ready_outcome()),
+        workspace_id="ws-1",
+    )
+    preview = service.preview("Ship the reflow", "v0.14.0")
+    request_id = preview["request_id"]
+    service._requests.update(request_id, project_id="project-a", run_id="run-a")
+
+    assert service.current_project("project-a")["run_id"] == "run-a"
+    assert service.current_project("project-b") is None
+
+
 def test_uncertain_foundation_recheck_reuses_the_original_run() -> None:
     """AC-FR0400-03: recovery queries one Foundation identity and never duplicates the run."""
     outcome = FoundationOutcome(
@@ -326,6 +368,44 @@ def test_uncertain_foundation_recheck_reuses_the_original_run() -> None:
     assert second["status"] == "ready"
     assert second["run_id"] == first["run_id"]
     assert foundation.provision_calls == 2
+
+
+def test_blocked_foundation_recheck_after_restart_reactivates_same_run(
+    tmp_path,
+) -> None:
+    """AC-FR0400-03: restart/recheck reuses evidence without orphan activation."""
+    db_path = str(tmp_path / "runtime.sqlite3")
+    first_foundation = FakeFoundation(
+        _main_check(),
+        FoundationOutcome(
+            status="blocked", resources={}, remediation="release branch missing"
+        ),
+    )
+    first_store = _run_store(db_path)
+    first_service = ReleaseEntryService(
+        first_store, first_foundation, workspace_id="ws-1"
+    )
+    preview = first_service.preview("Ship the reflow", "v0.14.0")
+    blocked = first_service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-1",
+        actor="human",
+    )
+    run_id = blocked["run_id"]
+    assert first_store.get_run(run_id).status == "foundation_pending"
+    first_store.close()
+
+    second_foundation = FakeFoundation(_main_check(), _ready_outcome())
+    second_store = _run_store(db_path)
+    second_service = ReleaseEntryService(
+        second_store, second_foundation, workspace_id="ws-1"
+    )
+    recovered = second_service.recheck(preview["request_id"], actor="human")
+
+    assert recovered["run_id"] == run_id
+    assert second_store.get_run(run_id).status == "waiting_human"
 
 
 def test_uncertain_foundation_blocks_a_second_release_request() -> None:

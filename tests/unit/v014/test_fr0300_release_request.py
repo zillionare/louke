@@ -52,7 +52,7 @@ def _identity(
         ("Add offline cache", "", "release_version", "RELEASE_VERSION_INVALID"),
         (
             "Add offline cache",
-            "not-a-version",
+            "../escape",
             "release_version",
             "RELEASE_VERSION_INVALID",
         ),
@@ -71,6 +71,18 @@ def test_preview_rejects_empty_or_invalid_inputs_without_side_effects(
         )
     assert exc_info.value.field == expected_field
     assert exc_info.value.code == expected_code
+
+
+def test_preview_preserves_host_legal_prerelease_and_build_metadata() -> None:
+    """AC-FR0300-01: IF-WEB-03 versions are not narrowed to PEP 440."""
+    preview = preview_release_request(
+        workspace_id="ws_1",
+        story="Ship the reflow",
+        release_version="v2026-preview+linux",
+        active_main_release_present=False,
+    )
+
+    assert preview.release_version == "v2026-preview+linux"
 
 
 def test_preview_with_no_active_main_release_has_zero_side_effects() -> None:

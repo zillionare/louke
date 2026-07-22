@@ -50,7 +50,7 @@ def test_preview_is_side_effect_free_and_contains_request_identity() -> None:
     [
         ("", "v0.14.0", "story"),
         ("story", "", "release_version"),
-        ("story", "v0.14", "release_version"),
+        ("story", "../escape", "release_version"),
     ],
 )
 def test_preview_rejects_invalid_release_input(
