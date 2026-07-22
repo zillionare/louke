@@ -95,3 +95,23 @@ def test_install_matrix_remains_required(workflow: dict) -> None:
     """
     required_needs = workflow["jobs"]["required"]["needs"]
     assert "install-matrix" in required_needs
+
+
+def test_install_matrix_uses_available_supported_runners(workflow: dict) -> None:
+    """The canonical first-install matrix uses only available supported runners."""
+    expected = {
+        (os, python_version)
+        for os in ("ubuntu-22.04", "macos-14", "windows-2022")
+        for python_version in ("3.11", "3.12", "3.13")
+    }
+    entries = _install_matrix(workflow)["strategy"]["matrix"]["include"]
+    actual = {(entry["os"], entry["python-version"]) for entry in entries}
+
+    assert actual == expected
+
+
+def test_unit_matrix_retains_python_314(workflow: dict) -> None:
+    """The unit matrix continues to cover Python 3.14 independently."""
+    versions = workflow["jobs"]["unit"]["strategy"]["matrix"]["python-version"]
+
+    assert versions == ["3.11", "3.12", "3.13", "3.14"]
