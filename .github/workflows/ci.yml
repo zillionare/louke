@@ -61,7 +61,7 @@ jobs:
         run: |
           /tmp/lk-venv/bin/python -c "import louke.runtime, louke.opencode, louke.web.api, louke.web.pages, louke.cli_v12; print('OK')"
       - name: "Package smoke: lk --version"
-        run: /tmp/lk-venv/bin/lk --version | grep "0.13.1"
+        run: /tmp/lk-venv/bin/lk --version | grep "0.14.0"
       - name: "Package smoke: lk --help"
         run: /tmp/lk-venv/bin/lk --help
       - name: Upload wheel artifact
@@ -200,7 +200,7 @@ jobs:
           cd /tmp
           "$GITHUB_WORKSPACE/tests/e2e/run-project-venv" e2e --profile all --runtime both
 
-  # ── First-install platform matrix (v0.13.1) ──────────────────────
+  # ── First-install platform matrix (v0.14.0) ──────────────────────
   install-matrix:
     name: first install (${{ matrix.os }}, Python ${{ matrix.python-version }})
     needs: lint
@@ -230,7 +230,7 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          bash install.sh --version 0.13.1
+          bash install.sh --version 0.14.0
           export PATH="$HOME/.local/bin:$PATH"
           test -x .venv/bin/python
           .venv/bin/python -c "import louke"
@@ -242,7 +242,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          .\install.ps1 -Version 0.13.1
+          .\install.ps1 -Version 0.14.0
           if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw 'local venv missing' }
           & .\.venv\Scripts\python.exe -c "import louke"
           if (-not (Test-Path "$env:USERPROFILE\.louke\venv\Scripts\python.exe")) { throw 'global venv missing' }

@@ -1,4 +1,4 @@
-"""CI contract test asserting the v0.13.1 CI gates.
+"""CI contract test asserting the v0.14.0 CI gates.
 
 S6 (#179): the main ``.github/workflows/ci.yml`` must, on every push/PR,
 actually run the v0.12 Python behavior gates from the current checkout.
@@ -54,7 +54,7 @@ def _ci_workflow_text() -> str:
 
 
 class TestCIWorkflowContract:
-    """Static contract over ``.github/workflows/ci.yml`` for v0.13.1.
+    """Static contract over ``.github/workflows/ci.yml`` for v0.14.0.
 
     Each assertion maps to a gap-analysis §3 P0-3 / Batch 4 acceptance
     criterion: the workflow must run unit+integration+ground_truth with
@@ -139,7 +139,7 @@ class TestCIWorkflowContract:
         """CI asserts ``lk --version`` reports the release version.
 
         Asserts the workflow contains a step running ``lk --version`` and
-        grepping for ``0.13.1``. This is the version-convergence gate:
+        grepping for ``0.14.0``. This is the version-convergence gate:
         drift between wheel METADATA, ``louke.__version__`` and the CLI
         version string must fail CI, not just be discovered post-release.
         """
@@ -147,7 +147,7 @@ class TestCIWorkflowContract:
         assert "lk --version" in text, (
             "ci.yml does not run 'lk --version' from the installed wheel"
         )
-        assert "0.13.1" in text, "ci.yml does not assert lk --version reports 0.13.1"
+        assert "0.14.0" in text, "ci.yml does not assert lk --version reports 0.14.0"
 
     def test_ci_retains_bats_suite(self) -> None:
         """CI retains the legacy BATS suite (v0.5 commit-policy).
