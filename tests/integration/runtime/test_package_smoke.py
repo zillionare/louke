@@ -49,7 +49,11 @@ EXPECTED_WHEEL_MODULES: tuple[str, ...] = (
 )
 
 #: The release version every source must converge on. Bumped per release.
-EXPECTED_VERSION = "0.13.1"
+#: Must match ``pyproject.toml [project].version`` and the release identity
+#: declared in ``.louke/project/project.toml`` so wheel METADATA, the
+#: installed ``louke.__version__`` and ``lk --version`` all report the same
+#: string as the release branch/tag (e.g. ``releases/0.14.0`` / ``v0.14.0``).
+EXPECTED_VERSION = "0.14.0"
 
 
 def _repo_root() -> Path:
