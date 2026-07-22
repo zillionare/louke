@@ -37,14 +37,19 @@ from . import __version__
 uvicorn_run: Any = None
 
 
-def create_app(project_root: str | Path | None = None, *, setup_only: bool = False):
+def create_app(
+    project_root: str | Path | None = None,
+    *,
+    setup_only: bool = False,
+    mode: str | None = None,
+):
     """Create the Starlette app, recording setup_only on app.state.
 
     This is a thin seam over louke.web.app.create_app so tests can patch it.
     """
     from .web.app import create_app as _create_app
 
-    return _create_app(project_root, setup_only=setup_only)
+    return _create_app(project_root, setup_only=setup_only, mode=mode)
 
 
 _VALID_STAGES = frozenset(
@@ -265,7 +270,7 @@ def _project_venv_python(root: Path) -> Path | None:
 
 def _start_or_dry_run(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:
     if args.dry_run:
-        create_app(root, setup_only=setup_only)
+        _create_served_app(root, setup_only=setup_only)
         return 0
     return _run_uvicorn(args, root, setup_only=setup_only)
 
@@ -282,9 +287,29 @@ def _run_uvicorn(args: argparse.Namespace, root: Path, *, setup_only: bool) -> i
                 f"lk serve: missing runtime dependency uvicorn ({exc})", file=sys.stderr
             )
             return 1
-    app = create_app(root, setup_only=setup_only)
+    app = _create_served_app(root, setup_only=setup_only)
     runner(app, host=args.host, port=args.port, log_level="info")
     return 0
+
+
+def _runtime_mode_for_root(root: Path) -> str | None:
+    """Return the explicitly selected Runtime mode for a served workspace."""
+    from .runtime.release_contract import (
+        DEVELOPMENT_BOOTSTRAP_MODE,
+        is_louke_workspace,
+    )
+
+    if is_louke_workspace(root):
+        return DEVELOPMENT_BOOTSTRAP_MODE
+    return None
+
+
+def _create_served_app(root: Path, *, setup_only: bool):
+    """Create a served app with bootstrap mode only for Louke itself."""
+    mode = _runtime_mode_for_root(root)
+    if mode is None:
+        return create_app(root, setup_only=setup_only)
+    return create_app(root, setup_only=setup_only, mode=mode)
 
 
 def _resolve_project_root(explicit: str) -> Path:

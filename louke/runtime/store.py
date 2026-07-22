@@ -55,6 +55,9 @@ class WorkflowRun:
         revision: Monotonic revision starting at 0 for the initial record.
         status: Run lifecycle status (e.g. ``waiting_for_human``).
         contract_digest: Deterministic digest of the bound definition.
+        contract_bundle_id: Release contract bundle identity, when present.
+        contract_bundle_release: Release version of the bound bundle.
+        contract_bundle_contracts: Ordered contract identities in the bundle.
         created_at: ISO 8601 UTC timestamp of run creation.
         updated_at: ISO 8601 UTC timestamp of the last update.
     """
@@ -66,6 +69,9 @@ class WorkflowRun:
     revision: int
     status: str
     contract_digest: str
+    contract_bundle_id: str | None
+    contract_bundle_release: str | None
+    contract_bundle_contracts: tuple[str, ...]
     created_at: str
     updated_at: str
 
@@ -81,6 +87,9 @@ class WorkflowRun:
             revision=self.revision,
             status=status,
             contract_digest=self.contract_digest,
+            contract_bundle_id=self.contract_bundle_id,
+            contract_bundle_release=self.contract_bundle_release,
+            contract_bundle_contracts=self.contract_bundle_contracts,
             created_at=self.created_at,
             updated_at=datetime.now(timezone.utc).isoformat(),
         )
@@ -97,6 +106,9 @@ class WorkflowRun:
             revision=self.revision,
             status=status,
             contract_digest=self.contract_digest,
+            contract_bundle_id=self.contract_bundle_id,
+            contract_bundle_release=self.contract_bundle_release,
+            contract_bundle_contracts=self.contract_bundle_contracts,
             created_at=self.created_at,
             updated_at=datetime.now(timezone.utc).isoformat(),
         )
@@ -110,6 +122,9 @@ _RUN_COLUMNS: tuple[str, ...] = (
     "revision",
     "status",
     "contract_digest",
+    "contract_bundle_id",
+    "contract_bundle_release",
+    "contract_bundle_contracts",
     "created_at",
     "updated_at",
 )
@@ -127,6 +142,9 @@ def _run_to_tuple(
         run.revision,
         run.status,
         run.contract_digest,
+        run.contract_bundle_id,
+        run.contract_bundle_release,
+        json.dumps(run.contract_bundle_contracts),
         run.created_at,
         run.updated_at,
     )
@@ -142,6 +160,9 @@ def _row_to_run(row: sqlite3.Row) -> WorkflowRun:
         revision=row["revision"],
         status=row["status"],
         contract_digest=row["contract_digest"],
+        contract_bundle_id=row["contract_bundle_id"],
+        contract_bundle_release=row["contract_bundle_release"],
+        contract_bundle_contracts=tuple(json.loads(row["contract_bundle_contracts"])),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -179,12 +200,18 @@ def _definition_digest(definition: WorkflowDefinition) -> str:
         "definition_id": definition.definition_id,
         "version": definition.version,
         "start_step": definition.start_step,
+        "contract_bundle_id": definition.contract_bundle_id,
+        "contract_bundle_release": definition.contract_bundle_release,
+        "contract_sources": definition.contract_sources,
         "steps": [
             {
                 "step_id": step.step_id,
                 "kind": step.kind,
                 "required": step.required,
                 "capability": step.capability,
+                "owner": step.owner,
+                "contract_source": step.contract_source,
+                "implemented": step.implemented,
                 "transitions": [
                     {
                         "edge_id": edge.edge_id,
@@ -392,11 +419,15 @@ class WorkflowRunStore:
                 revision INTEGER NOT NULL,
                 status TEXT NOT NULL,
                 contract_digest TEXT NOT NULL,
+                contract_bundle_id TEXT,
+                contract_bundle_release TEXT,
+                contract_bundle_contracts TEXT NOT NULL DEFAULT '[]',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
             """
         )
+        self._migrate_run_columns()
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS workflow_events (
@@ -489,6 +520,22 @@ class WorkflowRunStore:
                     f"ALTER TABLE workflow_events ADD COLUMN {column} {dtype}"
                 )
 
+    def _migrate_run_columns(self) -> None:
+        """Add release contract identity columns without dropping run history."""
+        existing = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(workflow_runs)")
+        }
+        additions = (
+            ("contract_bundle_id", "TEXT"),
+            ("contract_bundle_release", "TEXT"),
+            ("contract_bundle_contracts", "TEXT NOT NULL DEFAULT '[]'"),
+        )
+        for column, definition in additions:
+            if column not in existing:
+                self._conn.execute(
+                    f"ALTER TABLE workflow_runs ADD COLUMN {column} {definition}"
+                )
+
     @property
     def schema_columns(self) -> tuple[str, ...]:
         """Return the column names of the ``workflow_runs`` table.
@@ -530,6 +577,9 @@ class WorkflowRunStore:
             revision=0,
             status=derive_status(definition.start_step, definition),
             contract_digest=_definition_digest(definition),
+            contract_bundle_id=definition.contract_bundle_id,
+            contract_bundle_release=definition.contract_bundle_release,
+            contract_bundle_contracts=definition.contract_sources,
             created_at=now,
             updated_at=now,
         )

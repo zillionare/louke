@@ -63,6 +63,9 @@ class Step:
         transitions: Outgoing edges to subsequent steps.
         handler: Registered handler name for ``program`` steps.
         shell: Forbidden shell command field; rejected by validation.
+        owner: Runtime-visible primary owner of the stage.
+        contract_source: Contract identity that defines the stage.
+        implemented: Whether the current Runtime has an executable handler.
     """
 
     step_id: str
@@ -72,6 +75,9 @@ class Step:
     handler: str | None = None
     shell: str | None = None
     capability: str | None = None
+    owner: str | None = None
+    contract_source: str | None = None
+    implemented: bool = True
 
 
 @dataclass(frozen=True)
@@ -83,12 +89,18 @@ class WorkflowDefinition:
         version: Immutable version string.
         start_step: Id of the entry step.
         steps: Finite, ordered collection of steps.
+        contract_bundle_id: Release contract bundle identity, when bound.
+        contract_bundle_release: Release version of the bound bundle.
+        contract_sources: Ordered contract identities represented by the bundle.
     """
 
     definition_id: str
     version: str
     start_step: str
     steps: tuple[Step, ...] = field(default_factory=tuple)
+    contract_bundle_id: str | None = None
+    contract_bundle_release: str | None = None
+    contract_sources: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -354,6 +366,8 @@ def derive_status(step_id: str, definition: WorkflowDefinition) -> str:
         return "in_progress"
     if step.kind == "human_gate":
         return "waiting_for_human"
+    if not step.implemented:
+        return "blocked"
     if not step.transitions:
         return "completed"
     return "in_progress"

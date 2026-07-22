@@ -114,6 +114,12 @@ class WorkflowOrchestrator:
             self._store.append_event(blocked_event)
             raise self._gate_blocked_error(run, current_step)
 
+        if not current_step.implemented:
+            raise IllegalTransitionError(
+                f"step '{current_step.step_id}' is blocked: "
+                "Runtime handler is not implemented"
+            )
+
         if command.requested_next_step is not None and command.result is None:
             raise IllegalTransitionError(
                 "client cannot select next_step without a step result"

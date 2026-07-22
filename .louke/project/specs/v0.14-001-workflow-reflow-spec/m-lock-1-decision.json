@@ -34,6 +34,24 @@
         "project_node_id": "PVT_kwHOED0Dk84Bdvjw",
         "issues_created": "24 OPEN at zillionare/louke #226..#249 (except #225 closed as duplicate of #246)"
       }
+    },
+    {
+      "decision_revision": 3,
+      "approved_at": "2026-07-22T20:30:00+08:00",
+      "spec_revision": 8,
+      "acceptance_revision": 9,
+      "bound_story_digest": "sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634",
+      "spec_digest": "sha256:32b2f4c51209b0c8e4167439533370877ad38040fb44ae696d20d01280c81069",
+      "acceptance_digest": "sha256:159e82bce6d43580200ab9f968ee5e645b528374ba896fbec8f5191b66799f9f",
+      "reason_for_reapproval": "Human authorized immediate lock of the current v0.14-001 revision and activation of v0.14-001/002/003 as one Runtime entry contract bundle for Louke self-development.",
+      "validation_mode": "development_bootstrap",
+      "legacy_formal_validators": "not_executed",
+      "host_project_production_validation": false,
+      "entry_contract_bundle_id": "louke-v0.14.0-entry-contract-bundle",
+      "entry_spec": "v0.14-001-workflow-reflow-spec",
+      "chat_mode": "task_bound",
+      "chat_first": false,
+      "form_first": true
     }
   ],
   "approver": {
@@ -42,23 +60,32 @@
     "decision_method": "maestro_interview"
   },
   "current_binding": {
-    "decision_revision": 2,
-    "approved_at": "2026-07-18T19:05:00+08:00",
+    "decision_revision": 3,
+    "approved_at": "2026-07-22T20:30:00+08:00",
     "spec_id": "v0.14-001-workflow-reflow-spec",
     "story_id": "STR-1402",
     "bound_story_digest": "sha256:e04e88b336c7f08a3f67ef40354fa35c3e78ec66935805aa6f2da7272dfd0634",
-    "spec_digest": "sha256:1507b61f5caf3a64c88234eed8ca550a171b60ad2fa4e7aeec78d32bf580ea21",
-    "acceptance_digest": "sha256:a414d1574f396d1ec03a5c69d85f1193a252b21591f0aa16f758291ddb57dfd5",
+    "spec_digest": "sha256:32b2f4c51209b0c8e4167439533370877ad38040fb44ae696d20d01280c81069",
+    "acceptance_digest": "sha256:159e82bce6d43580200ab9f968ee5e645b528374ba896fbec8f5191b66799f9f",
     "doc_index_digest_sha256": "sha256:6cbb8c7756b30e7851e8af713f1ebc37f7b022dae391a1f691d94914a0e02197",
-    "spec_revision": 6,
-    "acceptance_revision": 6,
-    "test_plan_revision": 6
+    "spec_revision": 8,
+    "acceptance_revision": 9,
+    "test_plan_revision": 9,
+    "entry_contract_bundle_id": "louke-v0.14.0-entry-contract-bundle",
+    "entry_spec": "v0.14-001-workflow-reflow-spec",
+    "bundle_contracts": [
+      "v0.14-001-workflow-reflow-spec",
+      "v0.14-002-workflow-reflow-design",
+      "v0.14-003-workflow-reflow-impl"
+    ],
+    "validation_mode": "development_bootstrap",
+    "legacy_formal_validators": "not_executed"
   },
   "spec_artifact_state": {
-    "spec_revision": 6,
-    "acceptance_revision": 6,
+    "spec_revision": 8,
+    "acceptance_revision": 9,
     "spec_review_artifact": ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md",
-    "spec_lex_verdict": "PASS-WITH-COMMENTS",
+    "spec_lex_verdict": "PASS",
     "total_active_units": 24,
     "fr_count": 21,
     "nfr_count": 3,
@@ -102,6 +129,8 @@
   "notes": [
     "v0.14-001 spec body / acceptance body / Story content unchanged across revisions 2 -> 6. Only added HTML anchors (<a id=\"fr-XXXX\"></a> / <a id=\"ac-fr-XXXX\"></a>) and refreshed frontmatter digest fields.",
     "Decision revision 2 supersedes revision 1 by user authorization 2026-07-18 (anchor support for verify_issue_schema.py).",
-    "Downstream Spec 2/3/4 MUST not reinterpret the 24 active units; they only add M-TESTPLAN / M-ARCH / M-DEV support."
+    "Downstream Spec 2/3/4 MUST not reinterpret the 24 active units; they only add M-TESTPLAN / M-ARCH / M-DEV support.",
+    "Decision revision 3 supersedes only the stale rev6 current binding; approval history revisions 1 and 2 remain unchanged.",
+    "v0.14-001/002/003 are activated as one release contract bundle; this bootstrap is for Louke itself and is not host-project production validation."
   ]
 }

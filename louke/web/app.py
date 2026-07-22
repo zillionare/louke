@@ -91,13 +91,32 @@ migration_page_app = _create_migration_page_app()
 
 
 def create_app(
-    project_root: str | Path | None = None, *, setup_only: bool = False
+    project_root: str | Path | None = None,
+    *,
+    setup_only: bool = False,
+    mode: str | None = None,
 ) -> Starlette:
+    """Create the Web application for one project workspace.
+
+    Args:
+        project_root: Workspace root. Defaults to the current directory.
+        setup_only: Whether the root route should redirect to setup.
+        mode: Explicit Runtime mode, including Louke-only
+            ``development_bootstrap``.
+
+    Returns:
+        A configured Starlette application.
+
+    Raises:
+        ReleaseContractError: If the selected Runtime contract is invalid.
+    """
     if project_root is None:
         project_root = Path.cwd()
     store = ProjectStore(Path(project_root))
     project_runtime_store = build_run_store(
-        str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3")
+        str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3"),
+        workspace_root=project_root,
+        mode=mode,
     )
     for sub_app in (projects_app, runtime_app, gates_app, bindings_app):
         sub_app.state._state.clear()

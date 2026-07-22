@@ -1,0 +1,193 @@
+{
+  "schema": "louke.runtime.release-contract-bundle.v1",
+  "manifest_id": "louke-v0.14.0-entry-contract-bundle",
+  "release": "0.14.0",
+  "entry_spec": "v0.14-001-workflow-reflow-spec",
+  "status": "locked",
+  "mode": "development_bootstrap",
+  "locked_at": "2026-07-22T20:30:00+08:00",
+  "human_decision": {
+    "decision": "立即 lock v0.14-001-workflow-reflow-spec 当前 revision，并将其设置为 Runtime 入口合同",
+    "bundle": "001、002、003 都是 v0.14 的组成部分，作为同一个 release contract bundle 激活",
+    "bootstrap": "Louke 自身开发 v0.14 免去完整形式化验证；采用简化 bootstrap，不得伪装成宿主项目 production validation",
+    "journey": "同意 required public golden journey 与 task-bound Chat；Chat-first 不在本轮，沿用 001 form-first",
+    "entry_spec": "v0.14-001-workflow-reflow-spec"
+  },
+  "checks": {
+    "legacy_formal_validators": "not_executed"
+  },
+  "contracts": [
+    {
+      "spec_id": "v0.14-001-workflow-reflow-spec",
+      "role": "requirements_entry",
+      "files": [
+        {
+          "path": ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec.md",
+          "revision": 8,
+          "content_digest": "sha256:32b2f4c51209b0c8e4167439533370877ad38040fb44ae696d20d01280c81069"
+        },
+        {
+          "path": ".louke/project/specs/v0.14-001-workflow-reflow-spec/acceptance.md",
+          "revision": 9,
+          "content_digest": "sha256:159e82bce6d43580200ab9f968ee5e645b528374ba896fbec8f5191b66799f9f"
+        }
+      ]
+    },
+    {
+      "spec_id": "v0.14-002-workflow-reflow-design",
+      "role": "design_contract",
+      "files": [
+        {
+          "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/spec.md",
+          "revision": "Lex round 1 revision",
+          "content_digest": "sha256:315c8d20254fceb63971b029d69c81889972eedb581621981a012f17edc8867f"
+        },
+        {
+          "path": ".louke/project/specs/v0.14-002-workflow-reflow-design/acceptance.md",
+          "revision": "Lex round 1 revision",
+          "content_digest": "sha256:39b09cbf36cc0f4f0dcc8f0e8a79949049a2b6baddcecbcf2183ad407e493559"
+        }
+      ]
+    },
+    {
+      "spec_id": "v0.14-003-workflow-reflow-impl",
+      "role": "implementation_validation_release_contract",
+      "files": [
+        {
+          "path": ".louke/project/specs/v0.14-003-workflow-reflow-impl/spec.md",
+          "revision": "Lex round 1 revision",
+          "content_digest": "sha256:a5c95c7a7ea1f8237913d9779fbc598d679211ece9be314ace944874b706280a"
+        },
+        {
+          "path": ".louke/project/specs/v0.14-003-workflow-reflow-impl/acceptance.md",
+          "revision": "Lex round 1 revision",
+          "content_digest": "sha256:a19e25689e59f722d2b72d6903ce4be1b333cf0441c5e3b14a351f6566dfe287"
+        }
+      ]
+    }
+  ],
+  "definition": {
+    "definition_id": "new_feature",
+    "version": "0.14.0",
+    "start_step": "M-START",
+    "steps": [
+      {
+        "step_id": "M-START",
+        "kind": "program",
+        "owner": "Runtime",
+        "contract_source": "v0.14-001-workflow-reflow-spec",
+        "handler": "v014.m_start",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-01", "from_step": "M-START", "to_step": "M-STORY", "condition": "done"}]
+      },
+      {
+        "step_id": "M-STORY",
+        "kind": "program",
+        "owner": "Scribe",
+        "contract_source": "v0.14-001-workflow-reflow-spec",
+        "handler": "v014.m_story",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-02", "from_step": "M-STORY", "to_step": "M-SPEC", "condition": "done"}]
+      },
+      {
+        "step_id": "M-SPEC",
+        "kind": "program",
+        "owner": "Sage",
+        "contract_source": "v0.14-001-workflow-reflow-spec",
+        "handler": "v014.m_spec",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-03", "from_step": "M-SPEC", "to_step": "M-ACC", "condition": "done"}]
+      },
+      {
+        "step_id": "M-ACC",
+        "kind": "program",
+        "owner": "Sage",
+        "contract_source": "v0.14-001-workflow-reflow-spec",
+        "handler": "v014.m_acc",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-04", "from_step": "M-ACC", "to_step": "M-REQ-APPROVAL", "condition": "done"}]
+      },
+      {
+        "step_id": "M-REQ-APPROVAL",
+        "kind": "human_gate",
+        "owner": "Human",
+        "contract_source": "v0.14-001-workflow-reflow-spec",
+        "handler": "v014.m_req_approval",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-05", "from_step": "M-REQ-APPROVAL", "to_step": "M-DESIGN", "condition": "approved"}]
+      },
+      {
+        "step_id": "M-DESIGN",
+        "kind": "program",
+        "owner": "Archer",
+        "contract_source": "v0.14-002-workflow-reflow-design",
+        "handler": "v014.m_design",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-06", "from_step": "M-DESIGN", "to_step": "M-IMPL", "condition": "done"}]
+      },
+      {
+        "step_id": "M-IMPL",
+        "kind": "program",
+        "owner": "Devon",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_impl",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-07", "from_step": "M-IMPL", "to_step": "M-TEST", "condition": "done"}]
+      },
+      {
+        "step_id": "M-TEST",
+        "kind": "program",
+        "owner": "Shield",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_test",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-08", "from_step": "M-TEST", "to_step": "M-VERIFY", "condition": "done"}]
+      },
+      {
+        "step_id": "M-VERIFY",
+        "kind": "program",
+        "owner": "Runtime",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_verify",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-09", "from_step": "M-VERIFY", "to_step": "M-SECURITY", "condition": "done"}]
+      },
+      {
+        "step_id": "M-SECURITY",
+        "kind": "program",
+        "owner": "Judge",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_security",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-10", "from_step": "M-SECURITY", "to_step": "M-RELEASE", "condition": "done"}]
+      },
+      {
+        "step_id": "M-RELEASE",
+        "kind": "human_gate",
+        "owner": "Human",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_release",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-11", "from_step": "M-RELEASE", "to_step": "M-PUBLISH", "condition": "approved"}]
+      },
+      {
+        "step_id": "M-PUBLISH",
+        "kind": "program",
+        "owner": "Runtime",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_publish",
+        "implemented": false,
+        "transitions": [{"edge_id": "v014-12", "from_step": "M-PUBLISH", "to_step": "M-MILESTONE", "condition": "done"}]
+      },
+      {
+        "step_id": "M-MILESTONE",
+        "kind": "program",
+        "owner": "Runtime",
+        "contract_source": "v0.14-003-workflow-reflow-impl",
+        "handler": "v014.m_milestone",
+        "implemented": false,
+        "transitions": []
+      }
+    ]
+  }
+}

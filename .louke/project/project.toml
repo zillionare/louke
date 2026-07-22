@@ -4,6 +4,14 @@ repo = "github.com/zillionare/louke"
 project = "louke-0.14.0"
 project_id = "https://github.com/users/quantclaws/projects/20"
 spec_id = "v0.14-002-workflow-reflow-design"
+# Legacy compatibility pointer only; Runtime authority is the release bundle.
+legacy_spec_id = "v0.14-002-workflow-reflow-design"
+legacy_spec_id_authoritative = false
+contract_bundle_id = "louke-v0.14.0-entry-contract-bundle"
+contract_bundle_path = ".louke/project/release-contract-bundle.json"
+contract_bundle_release = "0.14.0"
+contract_bundle_entry_spec = "v0.14-001-workflow-reflow-spec"
+contract_bundle_mode = "development_bootstrap"
 release_branch = "releases/0.14.0"
 
 [meta]

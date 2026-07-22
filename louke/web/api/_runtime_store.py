@@ -1,4 +1,4 @@
-"""Shared v0.12 workflow catalog and project Runtime-store accessors.
+"""Shared Runtime workflow catalog and project Runtime-store accessors.
 
 The top-level web application supplies one SQLite-backed store to every
 Runtime, projects, gates and bindings sub-application. Standalone sub-apps
@@ -10,6 +10,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
+from louke.runtime.release_contract import (
+    DEVELOPMENT_BOOTSTRAP_MODE,
+    build_entry_definition,
+    is_louke_workspace,
+    load_release_contract_bundle,
+)
 from louke.runtime.store import WorkflowRunStore
 
 if TYPE_CHECKING:
@@ -31,13 +37,77 @@ AVAILABLE_MODELS: frozenset[str] = frozenset(
 )
 
 
-def _new_feature_definition() -> WorkflowDefinition:
-    """Return the minimal ``new_feature`` workflow definition.
+def _bug_fix_definition() -> WorkflowDefinition:
+    """Return the minimal ``bug_fix`` workflow definition.
 
-    The graph is: ``start`` (program) -> ``requirements_approval`` (human_gate)
-    -> ``design`` (program) -> ``m_lock`` (human_gate) -> ``implementation``
-    (semantic_task) -> ``complete`` (program, terminal).
+    The graph is: ``source_contract_verify`` (program) -> ``reproduce``
+    (program) -> ``fix`` (semantic_task) -> ``complete`` (program, terminal).
     """
+    verify = Step(
+        step_id="source_contract_verify",
+        kind="program",
+        transitions=(Edge("e3", "source_contract_verify", "reproduce", "verified"),),
+    )
+    reproduce = Step(
+        step_id="reproduce",
+        kind="program",
+        transitions=(Edge("e6", "reproduce", "fix", "done"),),
+    )
+    fix = Step(
+        step_id="fix",
+        kind="semantic_task",
+        capability="code_generation",
+        transitions=(Edge("e7", "fix", "complete", "done"),),
+    )
+    complete = Step(step_id="complete", kind="program")
+    return WorkflowDefinition(
+        definition_id="bug_fix",
+        version="1",
+        start_step="source_contract_verify",
+        steps=(verify, reproduce, fix, complete),
+    )
+
+
+def build_catalog(
+    workspace_root: str | None = None,
+    *,
+    mode: str | None = None,
+) -> DefinitionRegistry:
+    """Return the Runtime catalog for a workspace and explicit runtime mode.
+
+    Args:
+        workspace_root: Workspace whose Runtime contract is being served.
+        mode: ``development_bootstrap`` only for Louke's own v0.14 workspace.
+            ``None`` retains the legacy host-project compatibility definition.
+
+    Returns:
+        A registry containing the canonical v0.14 ``new_feature`` definition
+        when bootstrap is enabled, plus the compatibility ``bug_fix`` entry.
+
+    Raises:
+        DevelopmentBootstrapError: If bootstrap is requested by a host project.
+        ReleaseContractError: If Louke's bundle is missing or stale.
+    """
+    registry = DefinitionRegistry()
+    if (
+        mode is None
+        and workspace_root is not None
+        and is_louke_workspace(workspace_root)
+    ):
+        mode = DEVELOPMENT_BOOTSTRAP_MODE
+    if mode == DEVELOPMENT_BOOTSTRAP_MODE:
+        if workspace_root is None:
+            raise ValueError("workspace_root is required for development bootstrap")
+        bundle = load_release_contract_bundle(workspace_root, mode=mode)
+        registry.register(build_entry_definition(bundle))
+    else:
+        registry.register(_legacy_new_feature_definition())
+    registry.register(_bug_fix_definition())
+    return registry
+
+
+def _legacy_new_feature_definition() -> WorkflowDefinition:
+    """Return the read-only compatibility graph for non-Louke host workspaces."""
     start = Step(
         step_id="start",
         kind="program",
@@ -73,56 +143,28 @@ def _new_feature_definition() -> WorkflowDefinition:
     )
 
 
-def _bug_fix_definition() -> WorkflowDefinition:
-    """Return the minimal ``bug_fix`` workflow definition.
-
-    The graph is: ``source_contract_verify`` (program) -> ``reproduce``
-    (program) -> ``fix`` (semantic_task) -> ``complete`` (program, terminal).
-    """
-    verify = Step(
-        step_id="source_contract_verify",
-        kind="program",
-        transitions=(Edge("e3", "source_contract_verify", "reproduce", "verified"),),
-    )
-    reproduce = Step(
-        step_id="reproduce",
-        kind="program",
-        transitions=(Edge("e6", "reproduce", "fix", "done"),),
-    )
-    fix = Step(
-        step_id="fix",
-        kind="semantic_task",
-        capability="code_generation",
-        transitions=(Edge("e7", "fix", "complete", "done"),),
-    )
-    complete = Step(step_id="complete", kind="program")
-    return WorkflowDefinition(
-        definition_id="bug_fix",
-        version="1",
-        start_step="source_contract_verify",
-        steps=(verify, reproduce, fix, complete),
-    )
-
-
-def build_catalog() -> DefinitionRegistry:
-    """Return a ``DefinitionRegistry`` populated with v0.12 definitions."""
-    registry = DefinitionRegistry()
-    registry.register(_new_feature_definition())
-    registry.register(_bug_fix_definition())
-    return registry
-
-
-def build_run_store(db_path: str | None = None) -> WorkflowRunStore:
+def build_run_store(
+    db_path: str | None = None,
+    *,
+    workspace_root: str | None = None,
+    mode: str | None = None,
+) -> WorkflowRunStore:
     """Return a catalog-bound ``WorkflowRunStore``.
 
     Args:
         db_path: Optional SQLite file path. ``None`` creates an isolated
             in-memory store, which is the default for standalone sub-app tests.
 
+        workspace_root: Workspace whose Runtime catalog is being served.
+        mode: Explicit Runtime mode passed to :func:`build_catalog`.
+
     Returns:
-        A ``WorkflowRunStore`` bound to the v0.12 workflow catalog.
+        A ``WorkflowRunStore`` bound to the selected immutable catalog.
     """
-    return WorkflowRunStore(db_path=db_path, catalog=build_catalog())
+    return WorkflowRunStore(
+        db_path=db_path,
+        catalog=build_catalog(workspace_root, mode=mode),
+    )
 
 
 def get_definition(store: WorkflowRunStore, definition_id: str, version: str):
@@ -147,6 +189,11 @@ def get_definition(store: WorkflowRunStore, definition_id: str, version: str):
         raise DefinitionNotFoundError(
             f"store has no catalog; definition {definition_id!r} not found"
         )
+    if definition_id == "new_feature" and version == "1":
+        try:
+            return catalog.get(definition_id, "0.14.0")
+        except DefinitionNotFoundError:
+            pass
     return catalog.get(definition_id, version)
 
 
