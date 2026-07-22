@@ -30,27 +30,24 @@ def _load_runner():
 runner = _load_runner()
 
 
-def test_unwired_design_contracts_profile_is_not_exposed() -> None:
-    """AC-FR0900-01: an undelivered profile cannot enter the stand-in DAG."""
+def test_v014_profile_is_exposed() -> None:
+    """AC-FR0900-01: the v0.14 entry profile is part of the runner DAG."""
     parser = runner._parser()
-
-    with pytest.raises(SystemExit):
-        parser.parse_args(
-            ["e2e", "--profile", "design-contracts", "--runtime", "local"]
-        )
-    assert runner._expand_profiles("all") == ["install", "chromium"]
+    args = parser.parse_args(["e2e", "--profile", "v014", "--runtime", "local"])
+    assert args.profile == "v014"
+    assert runner._expand_profiles("all") == ["install", "chromium", "v014"]
 
 
 def test_e2e_profile_choices_include_delivered_profiles() -> None:
-    """AC-FR0900-01: --profile choices are install|chromium|all."""
+    """AC-FR0900-01: --profile choices include v014."""
     parser = runner._parser()
     args = parser.parse_args(["e2e", "--profile", "install", "--runtime", "local"])
     assert args.profile == "install"
 
 
 def test_all_profile_expands_to_delivered_profiles() -> None:
-    """AC-FR0900-01: all expands exactly to install,chromium."""
-    assert runner._expand_profiles("all") == ["install", "chromium"]
+    """AC-FR0900-01: all expands exactly to install,chromium,v014."""
+    assert runner._expand_profiles("all") == ["install", "chromium", "v014"]
 
 
 def test_unknown_profile_exits_nonzero() -> None:
@@ -69,10 +66,11 @@ def test_runtime_choices_unchanged() -> None:
 
 
 def test_integration_discovery_is_ordered() -> None:
-    """AC-FR0800-01: integration discovery keeps historical path then v014 path."""
+    """AC-FR0800-01: integration discovery includes both v014 suites."""
     assert runner._integration_paths() == [
         "tests/integration/install_experience",
         "tests/integration/v014_design_contracts",
+        "tests/integration/v014_workflow_reflow",
     ]
 
 
@@ -80,6 +78,45 @@ def test_install_profile_path() -> None:
     """AC-FR0900-01: install profile resolves to the install e2e directory."""
     paths, _selection = runner._profile_paths("install")
     assert paths == ["tests/e2e/install_experience"]
+
+
+def test_v014_profile_path() -> None:
+    """AC-FR0900-01: v014 resolves to the workflow reflow e2e directory."""
+    paths, selection = runner._profile_paths("v014")
+    assert paths == ["tests/e2e/v014_workflow_reflow"]
+    assert selection == ["-m", "chromium_e2e"]
+
+
+def test_server_contract_uses_product_interpreter_and_isolated_workspace(
+    tmp_path: Path,
+) -> None:
+    """AC-NFR0300-01: Shield receives a product-only public server command."""
+    product_python = tmp_path / "product" / "bin" / "python"
+    workspace = tmp_path / "workspace"
+    command = runner._server_command(product_python, workspace)
+    assert command == [
+        str(product_python),
+        "-m",
+        "louke",
+        "serve",
+        "--project-root",
+        str(workspace),
+        "--host",
+        "127.0.0.1",
+        "--opencode-backend",
+        "mock",
+    ]
+    assert "lk" not in command
+
+
+def test_wheel_path_rejects_ambiguous_product_artifacts(tmp_path: Path) -> None:
+    """AC-NFR0300-03: product installation has exactly one wheel input."""
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    (wheelhouse / "louke-0.14.0-a.whl").write_bytes(b"a")
+    (wheelhouse / "louke-0.14.0-b.whl").write_bytes(b"b")
+    with pytest.raises(RuntimeError, match="exactly one"):
+        runner._wheel_path(wheelhouse, "0.14.0")
 
 
 def test_evidence_schema_required_fields() -> None:

@@ -29,12 +29,15 @@ def test_write_story_preserves_template_and_commits_once(tmp_path, monkeypatch) 
     adapter, target = _writer_workspace(tmp_path)
     commands: list[tuple[str, ...]] = []
 
-    def run(*command: str) -> tuple[bool, str]:
+    def run_at(path: Path, *command: str) -> tuple[bool, str]:
         commands.append(command)
         return True, ""
 
-    monkeypatch.setattr(adapter, "_run", run)
+    monkeypatch.setattr(adapter, "_run_at", run_at)
     monkeypatch.setattr(adapter, "_output_at", lambda path, *command: ("sha-story", ""))
+    monkeypatch.setattr(
+        adapter, "_output_bytes_at", lambda path, *command: (target.read_bytes(), "")
+    )
 
     result = adapter.write_story(
         workspace=str(tmp_path),
@@ -50,7 +53,15 @@ def test_write_story_preserves_template_and_commits_once(tmp_path, monkeypatch) 
     assert result.evidence.commit_sha == "sha-story"
     assert commands == [
         ("git", "add", "--", ".louke/project/specs/spec-1/story.md"),
-        ("git", "commit", "-m", "chore: initialize Story run-1"),
+        (
+            "git",
+            "commit",
+            "--only",
+            "-m",
+            "chore: initialize Story run-1",
+            "--",
+            ".louke/project/specs/spec-1/story.md",
+        ),
     ]
 
 

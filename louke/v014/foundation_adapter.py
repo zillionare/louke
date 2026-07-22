@@ -179,6 +179,7 @@ class ShellFoundationAdapter:
             spec_id=spec_id,
             existing_bytes=existing,
         )
+        relative_target = target.relative_to(worktree).as_posix()
         if existing is not None:
             commit_sha, error = self._output_at(
                 worktree,
@@ -187,26 +188,48 @@ class ShellFoundationAdapter:
                 "-1",
                 "--format=%H",
                 "--",
-                target.relative_to(worktree).as_posix(),
+                relative_target,
             )
             if not commit_sha:
                 raise RuntimeError(f"cannot reconcile existing Story commit: {error}")
+            committed, blob_error = self._output_bytes_at(
+                worktree, "git", "show", f"{commit_sha}:{relative_target}"
+            )
+            if committed != result.story_md_bytes:
+                raise RuntimeError(
+                    "existing Story commit does not contain the current Story bytes: "
+                    f"{blob_error or relative_target}"
+                )
             return _with_commit_sha(result, commit_sha)
         if not target.parent.is_dir():
             raise RuntimeError(f"controlled spec directory is absent: {target.parent}")
         target.write_bytes(result.story_md_bytes)
-        relative_target = target.relative_to(worktree).as_posix()
-        ok, error = self._run("git", "add", "--", relative_target)
+        ok, error = self._run_at(worktree, "git", "add", "--", relative_target)
         if not ok:
             raise RuntimeError(f"Story git add failed: {error}")
-        ok, error = self._run(
-            "git", "commit", "-m", f"chore: initialize Story {run_id}"
+        ok, error = self._run_at(
+            worktree,
+            "git",
+            "commit",
+            "--only",
+            "-m",
+            f"chore: initialize Story {run_id}",
+            "--",
+            relative_target,
         )
         if not ok:
             raise RuntimeError(f"Story git commit failed: {error}")
         commit_sha, error = self._output_at(worktree, "git", "rev-parse", "HEAD")
         if not commit_sha:
             raise RuntimeError(f"Story commit identity could not be confirmed: {error}")
+        committed, blob_error = self._output_bytes_at(
+            worktree, "git", "show", f"{commit_sha}:{relative_target}"
+        )
+        if committed != result.story_md_bytes:
+            raise RuntimeError(
+                "Story commit does not contain the expected Story bytes: "
+                f"{blob_error or relative_target}"
+            )
         return _with_commit_sha(result, commit_sha)
 
     def _ensure_branch(self, branch: str, main_sha: str) -> tuple[dict[str, str], str]:
@@ -332,6 +355,19 @@ class ShellFoundationAdapter:
         if result.returncode != 0:
             return "", (result.stderr or result.stdout).strip()
         return result.stdout.strip(), ""
+
+    def _run_at(self, path: Path, *command: str) -> tuple[bool, str]:
+        """Run a mutating command in the controlled release worktree."""
+        result = self._execute(path, command)
+        return result.returncode == 0, (result.stderr or result.stdout).strip()
+
+    def _output_bytes_at(self, path: Path, *command: str) -> tuple[bytes, str]:
+        """Read exact command bytes from the controlled release worktree."""
+        result = subprocess.run(command, cwd=path, capture_output=True, text=False)
+        if result.returncode != 0:
+            error = (result.stderr or result.stdout).decode(errors="replace").strip()
+            return b"", error
+        return result.stdout, ""
 
     @staticmethod
     def _execute(

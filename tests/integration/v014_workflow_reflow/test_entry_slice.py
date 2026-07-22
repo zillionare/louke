@@ -174,7 +174,25 @@ class TestEntrySliceGoldenPath:
         # Independent Git ground truth: symbolic HEAD and SHA.
         assert _git_symbolic_head(workspace, worktree_path) == "releases/0.14.0"
         head_sha = _git_head_sha(workspace, worktree_path)
-        assert release_branch["head_sha"] == head_sha
+        # Foundation records the branch head before Story creates its first
+        # controlled-worktree commit; the Story commit must retain that exact
+        # Foundation parent rather than rewriting unrelated branch evidence.
+        assert _git_head_sha(workspace, worktree_path) == head_sha
+        assert (
+            subprocess.run(
+                [
+                    "git",
+                    "merge-base",
+                    "--is-ancestor",
+                    release_branch["head_sha"],
+                    head_sha,
+                ],
+                cwd=worktree_path,
+                check=False,
+            ).returncode
+            == 0
+        )
+        assert release_branch["head_sha"] != head_sha
         assert foundation_resources["spec_directory"]["path"].endswith(SPEC_ID_REF)
 
         # --- AC-FR0500-01/03: Story revision + navigation -------------------

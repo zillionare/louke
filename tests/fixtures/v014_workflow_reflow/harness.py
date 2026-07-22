@@ -35,10 +35,8 @@ RELEASE_VERSION = "0.14.0"
 RELEASE_BRANCH = f"releases/{RELEASE_VERSION}"
 
 # The canonical human story used across the entry-slice tests.  The workspace
-# builder pre-writes ``story.md`` with the template substituted by this story
-# so that ``ShellFoundationAdapter.write_story`` takes the reconcile-existing
-# path (the Foundation adapter runs ``git add`` in the workspace root, not the
-# worktree; pre-existing story.md avoids the new-file commit path).
+# builder intentionally leaves ``story.md`` absent by default so Foundation
+# and Story creation exercise the controlled worktree path.
 CANONICAL_HUMAN_STORY = "Ship the v0.14 reflow entry slice for authenticated Go."
 
 # Contract files that the release-contract bundle byte-verifies.  These are
@@ -382,7 +380,9 @@ class IsolatedWorkspace:
             self.git("branch", "-D", branch)
 
 
-def build_isolated_workspace(tmp_path: Path) -> IsolatedWorkspace:
+def build_isolated_workspace(
+    tmp_path: Path, *, include_story: bool = False
+) -> IsolatedWorkspace:
     """Create a Louke-like workspace with a bare Git remote.
 
     The workspace contains:
@@ -444,20 +444,15 @@ def build_isolated_workspace(tmp_path: Path) -> IsolatedWorkspace:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-    # --- Pre-create story.md with the template substituted by the canonical
-    # human story.  The Foundation adapter's ``write_story`` reconciles an
-    # existing story.md (using ``_output_at(worktree, ...)`` which runs in the
-    # worktree) rather than the new-file path (which runs ``git add`` in the
-    # workspace root).  The bytes must exactly match what
-    # ``initialize_story_revision`` produces for the same human story.
-    story_template_path = REPO_ROOT / "louke" / "templates" / "story.md"
-    story_template_body = story_template_path.read_text(encoding="utf-8")
-    story_placeholder = "{用户原始输入，逐字记录，不修改或转述}"
-    story_md_body = story_template_body.replace(
-        story_placeholder, CANONICAL_HUMAN_STORY
-    )
-    story_md_path = root / ".louke" / "project" / "specs" / SPEC_ID / "story.md"
-    story_md_path.write_text(story_md_body, encoding="utf-8")
+    if include_story:
+        story_template_path = REPO_ROOT / "louke" / "templates" / "story.md"
+        story_template_body = story_template_path.read_text(encoding="utf-8")
+        story_placeholder = "{用户原始输入，逐字记录，不修改或转述}"
+        story_md_body = story_template_body.replace(
+            story_placeholder, CANONICAL_HUMAN_STORY
+        )
+        story_md_path = root / ".louke" / "project" / "specs" / SPEC_ID / "story.md"
+        story_md_path.write_text(story_md_body, encoding="utf-8")
 
     # --- Stand-in gh -------------------------------------------------------
     gh_dir = tmp_path / "gh-bin"

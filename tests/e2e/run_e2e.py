@@ -10,6 +10,7 @@ DAG.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -48,6 +49,40 @@ def _declared_version(root: Path) -> str:
         return str(tomllib.load(stream)["project"]["version"])
 
 
+def _git_revision(root: Path) -> str:
+    """Return the exact source revision used for the product wheel."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True
+    )
+    if result.returncode:
+        raise RuntimeError(f"cannot resolve source revision: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def _assert_clean_source(root: Path) -> None:
+    """Reject a wheel build that cannot be attributed to one Git revision."""
+    result = subprocess.run(
+        ["git", "diff", "--quiet", "HEAD", "--"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet", "HEAD", "--"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    untracked = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode or staged.returncode or untracked.stdout.strip():
+        raise RuntimeError("source tree is dirty; cannot build a same-SHA wheel")
+
+
 def _verify_host_identity(root: Path) -> str:
     expected_python = _expected_python(root)
     actual_python = Path(sys.executable).absolute()
@@ -83,7 +118,7 @@ def _parser() -> argparse.ArgumentParser:
     e2e = subparsers.add_parser("e2e")
     e2e.add_argument(
         "--profile",
-        choices=("install", "chromium", "all"),
+        choices=("install", "chromium", "v014", "all"),
         required=True,
     )
     e2e.add_argument("--runtime", choices=("local", "global", "both"), required=True)
@@ -109,11 +144,32 @@ def _run_pytest(
 
 
 def _prepare_wheelhouse(root: Path, temporary_root: Path, version: str) -> Path:
+    _assert_clean_source(root)
+    source_sha = _git_revision(root)
     configured = os.environ.get("LOUKE_E2E_WHEELHOUSE", "").strip()
     if configured:
         wheelhouse = Path(configured).resolve()
-        if not list(wheelhouse.glob(f"louke-{version}-*.whl")):
+        wheels = list(wheelhouse.glob(f"louke-{version}-*.whl"))
+        if not wheels:
             raise RuntimeError(f"wheelhouse has no louke {version} wheel: {wheelhouse}")
+        manifest_path = wheelhouse / "manifest.json"
+        if not manifest_path.is_file():
+            raise RuntimeError(f"wheelhouse lacks same-SHA manifest: {manifest_path}")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("source_sha") != source_sha:
+            raise RuntimeError(
+                f"wheelhouse source SHA mismatch: expected {source_sha}, got {manifest.get('source_sha')}"
+            )
+        wheel = _wheel_path(wheelhouse, version)
+        if manifest.get("wheel") != wheel.name:
+            raise RuntimeError(
+                "wheelhouse manifest does not identify the selected wheel"
+            )
+        if (
+            manifest.get("wheel_sha256")
+            != hashlib.sha256(wheel.read_bytes()).hexdigest()
+        ):
+            raise RuntimeError("wheelhouse wheel digest does not match its manifest")
         return wheelhouse
 
     artifacts = temporary_root / "artifacts"
@@ -142,10 +198,14 @@ def _prepare_wheelhouse(root: Path, temporary_root: Path, version: str) -> Path:
         cwd=root,
         env=os.environ.copy(),
     )
+    wheel_digest = hashlib.sha256(wheels[0].read_bytes()).hexdigest()
     manifest = {
         "version": version,
+        "source_sha": source_sha,
         "runner_python": str(Path(sys.executable).absolute()),
         "wheel": wheels[0].name,
+        "wheel_sha256": wheel_digest,
+        "editable": False,
     }
     (wheelhouse / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -189,6 +249,7 @@ def _install_case(
     root: Path, case_root: Path, wheelhouse: Path, version: str, runtime: str
 ) -> tuple[Path, Path, dict[str, str]]:
     environment = _base_case_env(case_root, wheelhouse)
+    wheel = _wheel_path(wheelhouse, version)
     seed = case_root / ("workspace" if runtime == "local" else "seed")
     seed.mkdir()
     if os.name == "nt":
@@ -201,9 +262,18 @@ def _install_case(
             str(root / "install.ps1"),
             "-Version",
             version,
+            "-Wheel",
+            str(wheel),
         ]
     else:
-        command = ["bash", str(root / "install.sh"), "--version", version]
+        command = [
+            "bash",
+            str(root / "install.sh"),
+            "--version",
+            version,
+            "--wheel",
+            str(wheel),
+        ]
     _run(command, cwd=seed, env=environment)
 
     case_home = Path(environment["HOME"])
@@ -230,6 +300,14 @@ def _install_case(
     environment["LOUKE_E2E_CASE_CWD"] = str(cwd.resolve())
     environment["LOUKE_E2E_CASE_HOME"] = str(case_home.resolve())
     environment["LOUKE_E2E_WHEEL_VERSION"] = version
+    environment["LOUKE_E2E_SOURCE_SHA"] = _git_revision(root)
+    wheel_manifest = json.loads(
+        (wheelhouse / "manifest.json").read_text(encoding="utf-8")
+    )
+    environment["LOUKE_E2E_WHEEL_SHA256"] = str(wheel_manifest["wheel_sha256"])
+    environment["LOUKE_E2E_SERVER_COMMAND"] = json.dumps(
+        _server_command(product_python, cwd), separators=(",", ":")
+    )
     environment["LOUKE_E2E_SHIM"] = str(
         (shim_dir / ("lk.cmd" if os.name == "nt" else "lk")).absolute()
     )
@@ -275,6 +353,32 @@ def _verify_product_identity(
         raise RuntimeError(f"product metadata mismatch: {identity}")
 
 
+def _wheel_path(wheelhouse: Path, version: str) -> Path:
+    """Resolve exactly one non-editable product wheel from a wheelhouse."""
+    wheels = list(wheelhouse.glob(f"louke-{version}-*.whl"))
+    if len(wheels) != 1:
+        raise RuntimeError(
+            f"expected exactly one louke {version} wheel, found {wheels}"
+        )
+    return wheels[0].absolute()
+
+
+def _server_command(product_python: Path, workspace: Path) -> list[str]:
+    """Return the public installed-product command Shield uses to start Louke."""
+    return [
+        str(product_python.absolute()),
+        "-m",
+        "louke",
+        "serve",
+        "--project-root",
+        str(workspace.absolute()),
+        "--host",
+        "127.0.0.1",
+        "--opencode-backend",
+        "mock",
+    ]
+
+
 # Locked v014 runner evidence schema (project-runner.candidate.json §evidence_schema).
 EVIDENCE_REQUIRED_FIELDS: tuple[str, ...] = (
     "schema_version",
@@ -299,6 +403,7 @@ EVIDENCE_REQUIRED_FIELDS: tuple[str, ...] = (
 _INTEGRATION_PATHS: tuple[str, ...] = (
     "tests/integration/install_experience",
     "tests/integration/v014_design_contracts",
+    "tests/integration/v014_workflow_reflow",
 )
 
 
@@ -308,15 +413,17 @@ def _integration_paths() -> list[str]:
 
 
 def _expand_profiles(profile: str) -> list[str]:
-    """Expand a selected profile; ``all`` -> install,chromium."""
+    """Expand a selected profile; ``all`` includes the v0.14 entry suite."""
     if profile == "all":
-        return ["install", "chromium"]
+        return ["install", "chromium", "v014"]
     return [profile]
 
 
 def _profile_paths(profile: str) -> tuple[list[str], list[str]]:
     if profile == "install":
         return ["tests/e2e/install_experience"], []
+    if profile == "v014":
+        return ["tests/e2e/v014_workflow_reflow"], ["-m", "chromium_e2e"]
     return ["tests/e2e/test_v013_chromium_journey_e2e.py"], ["-m", "chromium_e2e"]
 
 
