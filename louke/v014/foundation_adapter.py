@@ -316,22 +316,29 @@ class ShellFoundationAdapter:
 
     def _run(self, *command: str) -> tuple[bool, str]:
         """Run one argument-vector command and return success plus redacted error."""
-        result = subprocess.run(command, cwd=self._root, capture_output=True, text=True)
+        result = self._execute(self._root, command)
         return result.returncode == 0, (result.stderr or result.stdout).strip()
 
     def _output(self, *command: str) -> tuple[str, str]:
         """Run one command and discard stdout whenever its exit code is non-zero."""
-        result = subprocess.run(command, cwd=self._root, capture_output=True, text=True)
+        result = self._execute(self._root, command)
         if result.returncode != 0:
             return "", (result.stderr or result.stdout).strip()
         return result.stdout.strip(), ""
 
     def _output_at(self, path: Path, *command: str) -> tuple[str, str]:
         """Run a command in a controlled worktree, failing closed on errors."""
-        result = subprocess.run(command, cwd=path, capture_output=True, text=True)
+        result = self._execute(path, command)
         if result.returncode != 0:
             return "", (result.stderr or result.stdout).strip()
         return result.stdout.strip(), ""
+
+    @staticmethod
+    def _execute(
+        cwd: Path, command: tuple[str, ...]
+    ) -> subprocess.CompletedProcess[str]:
+        """Execute one controlled command with captured text output."""
+        return subprocess.run(command, cwd=cwd, capture_output=True, text=True)
 
     def _uncertain(
         self, resources: dict[str, Any], remediation: str
