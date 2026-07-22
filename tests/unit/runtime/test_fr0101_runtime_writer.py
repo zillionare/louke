@@ -31,9 +31,10 @@ def _lock_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
-    design = Step(step_id="design", kind="program")
-    cancel = Step(step_id="cancel", kind="program")
+    design = Step(step_id="design", kind="program", implemented=True)
+    cancel = Step(step_id="cancel", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="ac_fr0101",
         version="1",
@@ -60,9 +61,10 @@ def _program_step_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
-    next_step = Step(step_id="next", kind="program")
-    end = Step(step_id="end", kind="program")
+    next_step = Step(step_id="next", kind="program", implemented=True)
+    end = Step(step_id="end", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="ac_fr0101",
         version="1",

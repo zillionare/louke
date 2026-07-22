@@ -63,6 +63,7 @@ def _full_workflow_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
     design = Step(
         step_id="design",
@@ -75,6 +76,7 @@ def _full_workflow_definition() -> WorkflowDefinition:
                 condition="done",
             ),
         ),
+        implemented=True,
     )
     m_lock = Step(
         step_id="m_lock",
@@ -93,6 +95,7 @@ def _full_workflow_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
     implementation = Step(
         step_id="implementation",
@@ -106,9 +109,10 @@ def _full_workflow_definition() -> WorkflowDefinition:
                 condition="done",
             ),
         ),
+        implemented=True,
     )
-    archive = Step(step_id="archive", kind="program")
-    review = Step(step_id="requirements_review", kind="program")
+    archive = Step(step_id="archive", kind="program", implemented=True)
+    review = Step(step_id="requirements_review", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="fr0901",
         version="1",

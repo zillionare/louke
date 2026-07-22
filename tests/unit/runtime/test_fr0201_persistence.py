@@ -18,8 +18,9 @@ def _human_gate_definition() -> WorkflowDefinition:
                 condition="approved",
             ),
         ),
+        implemented=True,
     )
-    design = Step(step_id="design", kind="program")
+    design = Step(step_id="design", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="ac_fr0201",
         version="1",
@@ -40,8 +41,9 @@ def _program_step_definition() -> WorkflowDefinition:
                 condition="done",
             ),
         ),
+        implemented=True,
     )
-    end = Step(step_id="end", kind="program")
+    end = Step(step_id="end", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="ac_fr0201_idempotency",
         version="1",

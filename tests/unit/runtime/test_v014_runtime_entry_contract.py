@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from pathlib import Path
 
@@ -103,4 +104,26 @@ def test_run_read_model_preserves_bundle_identity() -> None:
         "v0.14-001-workflow-reflow-spec",
         "v0.14-002-workflow-reflow-design",
         "v0.14-003-workflow-reflow-impl",
+    )
+
+
+def test_m_lock_links_immutable_lex_round_three_artifact_and_tag_staleness() -> None:
+    """The bootstrap decision must be traceable and stale on release-tag drift."""
+    decision_path = (
+        LOUKE_ROOT
+        / ".louke/project/specs/v0.14-001-workflow-reflow-spec/m-lock-1-decision.json"
+    )
+    decision = json.loads(decision_path.read_text(encoding="utf-8"))
+
+    artifact = decision["lex_decision_artifact"]
+    assert artifact["path"] == (
+        ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md"
+    )
+    assert artifact["round"] == 3
+    assert artifact["git_commit"] == ("1d88e616681849892f3269e7688ebe124534e0fa")
+    assert artifact["sha256"] == (
+        "sha256:fa8543ed093bdf9098deb07bfb4655f1961cb88211146a4c743cf8ad1467b3e5"
+    )
+    assert any(
+        "release tag" in trigger.lower() for trigger in decision["stale_triggers"]
     )

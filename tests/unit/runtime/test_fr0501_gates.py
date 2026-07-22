@@ -52,9 +52,10 @@ def _human_gate_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
-    design = Step(step_id="design", kind="program")
-    rework = Step(step_id="rework", kind="program")
+    design = Step(step_id="design", kind="program", implemented=True)
+    rework = Step(step_id="rework", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="fr0501",
         version="1",

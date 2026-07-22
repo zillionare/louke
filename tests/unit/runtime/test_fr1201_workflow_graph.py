@@ -46,6 +46,7 @@ def _graph_definition() -> WorkflowDefinition:
         "start",
         "program",
         transitions=(Edge("e1", "start", "requirements_approval", "done"),),
+        implemented=True,
     )
     req = Step(
         "requirements_approval",
@@ -54,28 +55,35 @@ def _graph_definition() -> WorkflowDefinition:
             Edge("e2", "requirements_approval", "design", "approved"),
             Edge("e2b", "requirements_approval", "skipped_step", "rejected"),
         ),
+        implemented=True,
     )
     design = Step(
-        "design", "program", transitions=(Edge("e3", "design", "m_lock", "done"),)
+        "design",
+        "program",
+        transitions=(Edge("e3", "design", "m_lock", "done"),),
+        implemented=True,
     )
     m_lock = Step(
         "m_lock",
         "human_gate",
         transitions=(Edge("e4", "m_lock", "implementation", "approved"),),
+        implemented=True,
     )
     impl = Step(
         "implementation",
         "semantic_task",
         capability="agent_task",
         transitions=(Edge("e5", "implementation", "archive", "done"),),
+        implemented=True,
     )
     skipped = Step(
         "skipped_step",
         "program",
         required=False,
         transitions=(Edge("e6", "skipped_step", "archive", "done"),),
+        implemented=True,
     )
-    archive = Step("archive", "program")
+    archive = Step("archive", "program", implemented=True)
     return WorkflowDefinition(
         "graph_test", "1", "start", (start, req, design, m_lock, impl, skipped, archive)
     )

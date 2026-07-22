@@ -358,8 +358,9 @@ def test_coverage_recovery_idempotent_when_already_needs_attention():
                 step_id="start",
                 kind="program",
                 transitions=(Edge("e1", "start", "end", "done"),),
+                implemented=True,
             ),
-            Step(step_id="end", kind="program"),
+            Step(step_id="end", kind="program", implemented=True),
         ),
     )
     registry = DefinitionRegistry()

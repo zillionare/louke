@@ -31,13 +31,15 @@ def _program_chain_definition() -> WorkflowDefinition:
         step_id="start",
         kind="program",
         transitions=(Edge("e1", "start", "middle", "done"),),
+        implemented=True,
     )
     middle = Step(
         step_id="middle",
         kind="program",
         transitions=(Edge("e2", "middle", "end", "done"),),
+        implemented=True,
     )
-    end = Step(step_id="end", kind="program")
+    end = Step(step_id="end", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="nfr0001_chain",
         version="1",

@@ -42,8 +42,9 @@ def _program_step_definition() -> CatalogWorkflowDefinition:
         step_id="start",
         kind="program",
         transitions=(Edge("e1", "start", "end", "done"),),
+        implemented=True,
     )
-    end = Step(step_id="end", kind="program")
+    end = Step(step_id="end", kind="program", implemented=True)
     return CatalogWorkflowDefinition(
         definition_id="nfr0101_cas",
         version="1",

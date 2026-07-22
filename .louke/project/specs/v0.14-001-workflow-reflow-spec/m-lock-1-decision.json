@@ -92,6 +92,12 @@
     "active_unit_upper_bound": 30,
     "within_scope": true
   },
+  "lex_decision_artifact": {
+    "path": ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec-review.md",
+    "round": 3,
+    "git_commit": "1d88e616681849892f3269e7688ebe124534e0fa",
+    "sha256": "sha256:fa8543ed093bdf9098deb07bfb4655f1961cb88211146a4c743cf8ad1467b3e5"
+  },
   "binding_decisions": {
     "issue_one_per_requirement": true,
     "lease_isolation_algorithm_owner": "Archer (Architecture stage)",
@@ -124,6 +130,7 @@
   "stale_triggers": [
     "Any byte change in story.md, spec.md, or acceptance.md invalidates the current decision.",
     "Any change in bound_story_digest, spec_digest, acceptance_digest, or doc_index_digest_sha256 invalidates the current decision.",
+    "Any movement, replacement, or retagging of the bound release tag v0.14.0 invalidates the current decision.",
     "Adoption of FR-0910 / FR-0110 / FR-0720 contracts into this Spec is forbidden and would invalidate the scope statement."
   ],
   "notes": [

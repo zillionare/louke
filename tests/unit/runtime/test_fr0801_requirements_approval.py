@@ -56,9 +56,10 @@ def _requirements_approval_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
-    design = Step(step_id="design", kind="program")
-    review = Step(step_id="requirements_review", kind="program")
+    design = Step(step_id="design", kind="program", implemented=True)
+    review = Step(step_id="requirements_review", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="fr0801",
         version="1",
@@ -180,6 +181,7 @@ def _requirements_approval_with_implementation_definition() -> WorkflowDefinitio
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
     design = Step(
         step_id="design",
@@ -192,13 +194,15 @@ def _requirements_approval_with_implementation_definition() -> WorkflowDefinitio
                 condition="done",
             ),
         ),
+        implemented=True,
     )
     implementation = Step(
         step_id="implementation",
         kind="semantic_task",
         capability="agent_task",
+        implemented=True,
     )
-    review = Step(step_id="requirements_review", kind="program")
+    review = Step(step_id="requirements_review", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="fr0801_ac3",
         version="1",
@@ -475,9 +479,10 @@ def _bug_fix_definition() -> WorkflowDefinition:
                 condition="rejected",
             ),
         ),
+        implemented=True,
     )
-    reproduce = Step(step_id="reproduce_failure", kind="program")
-    review = Step(step_id="requirements_review", kind="program")
+    reproduce = Step(step_id="reproduce_failure", kind="program", implemented=True)
+    review = Step(step_id="requirements_review", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="bug_fix",
         version="1",

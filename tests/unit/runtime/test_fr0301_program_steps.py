@@ -22,6 +22,7 @@ from louke.runtime.catalog import (
 
 
 def _step(step_id: str, kind: str, **kwargs) -> Step:
+    kwargs.setdefault("implemented", True)
     return Step(step_id=step_id, kind=kind, **kwargs)
 
 

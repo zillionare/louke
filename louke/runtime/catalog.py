@@ -77,7 +77,7 @@ class Step:
     capability: str | None = None
     owner: str | None = None
     contract_source: str | None = None
-    implemented: bool = True
+    implemented: bool = False
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,7 @@ from louke.runtime.catalog import (
     Step,
     WorkflowDefinition,
     DefinitionValidationError,
+    derive_status,
     validate_definition,
 )
 
@@ -146,3 +147,16 @@ def test_ac_fr0001_01_definition_validation_returns_locatable_error():
             assert getattr(error, attr) == expected_value, (
                 f"{name}: expected {attr}={expected_value}, got {getattr(error, attr)}"
             )
+
+
+def test_step_without_implemented_field_is_blocked_fail_closed() -> None:
+    """An omitted implementation declaration must not expose an executable step."""
+    definition = WorkflowDefinition(
+        definition_id="unimplemented",
+        version="1",
+        start_step="start",
+        steps=(Step(step_id="start", kind="program"),),
+    )
+
+    assert Step(step_id="start", kind="program").implemented is False
+    assert derive_status("start", definition) == "blocked"

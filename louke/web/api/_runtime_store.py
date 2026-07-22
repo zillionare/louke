@@ -49,19 +49,22 @@ def _bug_fix_definition() -> WorkflowDefinition:
         step_id="source_contract_verify",
         kind="program",
         transitions=(Edge("e3", "source_contract_verify", "reproduce", "verified"),),
+        implemented=True,
     )
     reproduce = Step(
         step_id="reproduce",
         kind="program",
         transitions=(Edge("e6", "reproduce", "fix", "done"),),
+        implemented=True,
     )
     fix = Step(
         step_id="fix",
         kind="semantic_task",
         capability="code_generation",
         transitions=(Edge("e7", "fix", "complete", "done"),),
+        implemented=True,
     )
-    complete = Step(step_id="complete", kind="program")
+    complete = Step(step_id="complete", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="bug_fix",
         version="1",
@@ -114,29 +117,34 @@ def _host_compatibility_definition() -> WorkflowDefinition:
         step_id="start",
         kind="program",
         transitions=(Edge("e1", "start", "requirements_approval", "done"),),
+        implemented=True,
     )
     req = Step(
         step_id="requirements_approval",
         kind="human_gate",
         transitions=(Edge("e2", "requirements_approval", "design", "approved"),),
+        implemented=True,
     )
     design = Step(
         step_id="design",
         kind="program",
         transitions=(Edge("e3", "design", "m_lock", "done"),),
+        implemented=True,
     )
     m_lock = Step(
         step_id="m_lock",
         kind="human_gate",
         transitions=(Edge("e4", "m_lock", "implementation", "approved"),),
+        implemented=True,
     )
     implementation = Step(
         step_id="implementation",
         kind="semantic_task",
         capability="code_generation",
         transitions=(Edge("e5", "implementation", "complete", "done"),),
+        implemented=True,
     )
-    complete = Step(step_id="complete", kind="program")
+    complete = Step(step_id="complete", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="new_feature",
         version="1",
@@ -203,9 +211,11 @@ def get_or_create_store(app: "Starlette") -> WorkflowRunStore:
     """Return the per-app singleton ``WorkflowRunStore``, creating it lazily.
 
     The store is created on first call (inside the request thread) and cached
-    on ``app.state.v12_run_store`` so subsequent requests reuse it. This is
-    required because the ``sqlite3`` connection is thread-bound and Starlette
-    dispatches requests in a portal thread distinct from the app-build thread.
+    on ``app.state.runtime_run_store`` so subsequent requests reuse it. The
+    legacy ``v12_run_store`` injection alias is promoted to the canonical
+    identity when present. This is required because the ``sqlite3`` connection
+    is thread-bound and Starlette dispatches requests in a portal thread
+    distinct from the app-build thread.
 
     Args:
         app: The Starlette sub-app whose ``state`` caches the store.
@@ -215,7 +225,9 @@ def get_or_create_store(app: "Starlette") -> WorkflowRunStore:
     """
     store = getattr(app.state, _STORE_ATTR, None)
     if store is None:
+        store = getattr(app.state, _COMPAT_STORE_ATTR, None)
+    if store is None:
         store = build_run_store()
-        setattr(app.state, _STORE_ATTR, store)
-        setattr(app.state, _COMPAT_STORE_ATTR, store)
+    setattr(app.state, _STORE_ATTR, store)
+    setattr(app.state, _COMPAT_STORE_ATTR, store)
     return store

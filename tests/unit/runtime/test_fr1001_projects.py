@@ -35,13 +35,15 @@ def _new_feature_definition() -> WorkflowDefinition:
         step_id="start",
         kind="program",
         transitions=(Edge("e1", "start", "requirements_approval", "done"),),
+        implemented=True,
     )
     req = Step(
         step_id="requirements_approval",
         kind="human_gate",
         transitions=(Edge("e2", "requirements_approval", "design", "approved"),),
+        implemented=True,
     )
-    design = Step(step_id="design", kind="program")
+    design = Step(step_id="design", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="new_feature",
         version="1",
@@ -56,8 +58,9 @@ def _bug_fix_definition() -> WorkflowDefinition:
         step_id="source_contract_verify",
         kind="program",
         transitions=(Edge("e3", "source_contract_verify", "reproduce", "verified"),),
+        implemented=True,
     )
-    reproduce = Step(step_id="reproduce", kind="program")
+    reproduce = Step(step_id="reproduce", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="bug_fix",
         version="1",

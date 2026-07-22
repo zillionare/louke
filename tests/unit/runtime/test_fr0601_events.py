@@ -35,6 +35,7 @@ def _lifecycle_definition() -> WorkflowDefinition:
                 condition="done",
             ),
         ),
+        implemented=True,
     )
     gate = Step(
         step_id="gate",
@@ -47,8 +48,9 @@ def _lifecycle_definition() -> WorkflowDefinition:
                 condition="approved",
             ),
         ),
+        implemented=True,
     )
-    end = Step(step_id="end", kind="program")
+    end = Step(step_id="end", kind="program", implemented=True)
     return WorkflowDefinition(
         definition_id="fr0601_lifecycle",
         version="1",
@@ -171,8 +173,9 @@ def test_ac_fr0601_02_state_and_last_event_revision_consistent_and_atomic():
                             condition="done",
                         ),
                     ),
+                    implemented=True,
                 ),
-                Step(step_id="end", kind="program"),
+                Step(step_id="end", kind="program", implemented=True),
             ),
         )
     )
@@ -241,8 +244,9 @@ def test_ac_fr0601_03_event_redacts_secrets_and_credentials():
                             condition="done",
                         ),
                     ),
+                    implemented=True,
                 ),
-                Step(step_id="end", kind="program"),
+                Step(step_id="end", kind="program", implemented=True),
             ),
         )
     )

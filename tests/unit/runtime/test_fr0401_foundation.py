@@ -22,6 +22,7 @@ from louke.runtime.store import WorkflowRunStore
 
 
 def _step(step_id: str, kind: str, **kwargs: Any) -> Step:
+    kwargs.setdefault("implemented", True)
     return Step(step_id=step_id, kind=kind, **kwargs)
 
 
