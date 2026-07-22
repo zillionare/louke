@@ -54,6 +54,9 @@ from .api.setup import create_app as _create_setup_app
 from .api.migration import create_app as _create_migration_app
 from .api.security import create_app as _create_security_app
 from .api.discussions import create_app as _create_discussions_app
+from .api._runtime_store import build_run_store
+from louke.runtime.workflow_graph import WorkflowGraphBuilder
+from louke.runtime.store import RunNotFoundError, WorkflowRun, WorkflowRunStore
 
 from .pages.setup import create_app as _create_setup_page_app
 from .pages.projects import create_app as _create_projects_page_app
@@ -69,7 +72,7 @@ from .pages.runs import (
 from .pages.migration import create_app as _create_migration_page_app
 from .pages.workbench import workbench
 from .api.files import files as end_user_files
-from .runs.badges import badges_for_result, status_badge
+from .runs.badges import status_badge
 
 projects_app = _create_projects_app()
 runtime_app = _create_runtime_app()
@@ -93,6 +96,12 @@ def create_app(
     if project_root is None:
         project_root = Path.cwd()
     store = ProjectStore(Path(project_root))
+    runtime_store = build_run_store(
+        str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3")
+    )
+    for sub_app in (projects_app, runtime_app, gates_app, bindings_app):
+        sub_app.state._state.clear()
+        sub_app.state.v12_run_store = runtime_store
     broker = EventBroker()
     app = Starlette(
         debug=False,
@@ -202,6 +211,7 @@ def create_app(
         ],
     )
     app.state.store = store
+    app.state.v12_run_store = runtime_store
     app.state.broker = broker
     app.state.setup_only = setup_only
     return app
@@ -970,97 +980,159 @@ async def api_render(request: Request) -> JSONResponse:
     )
 
 
-def _runs_payload(request: Request) -> dict[str, Any]:
-    """Read the optional workspace Runs fixture/read model safely."""
-    path = request.app.state.store.root / ".louke" / "project" / "runs.json"
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"current": [], "history": [], "graphs": {}}
-    return (
-        payload
-        if isinstance(payload, dict)
-        else {"current": [], "history": [], "graphs": {}}
-    )
+_TERMINAL_RUN_STATUSES = frozenset({"completed", "cancelled", "failed", "archived"})
+_KNOWN_RUN_STATUSES = frozenset(
+    {
+        "in_progress",
+        "waiting_for_human",
+        "completed",
+        "cancelled",
+        "failed",
+        "archived",
+        "blocked",
+        "needs_attention",
+    }
+)
+_KNOWN_GRAPH_STATES = frozenset(
+    {
+        "completed",
+        "current",
+        "waiting_for_human",
+        "blocked",
+        "failed",
+        "pending",
+        "skipped_by_definition",
+    }
+)
+
+
+def _runtime_store(request: Request) -> WorkflowRunStore:
+    """Return the project Runtime store shared by all v0.12 sub-apps."""
+    return request.app.state.v12_run_store
+
+
+def _run_summary(run: WorkflowRun) -> dict[str, Any]:
+    """Build the compatibility summary from Runtime fields only."""
+    status = str(run.status)
+    return {
+        "project_id": run.run_id,
+        "project_name": run.definition_id,
+        "run_id": run.run_id,
+        "workflow_definition_id": run.definition_id,
+        "workflow_version": run.definition_version,
+        "status": status,
+        "run_status": status,
+        "current_step": run.current_step,
+        "updated_at": run.updated_at,
+        "status_unknown": status not in _KNOWN_RUN_STATUSES,
+    }
+
+
+def _graph_node_payload(node: Any) -> dict[str, Any]:
+    """Return one graph node with an explicit unknown-state fallback."""
+    state = node.state
+    payload: dict[str, Any] = {
+        "stage_id": node.step_id,
+        "kind": node.kind,
+        "label": node.label,
+        "state": state,
+        "required": node.required,
+        "unknown": state not in _KNOWN_GRAPH_STATES,
+        "badges": [status_badge(state)],
+    }
+    if payload["unknown"]:
+        payload["display_label"] = f"unknown stage/status: {node.step_id}"
+    return payload
+
+
+def _graph_payload(graph: Any) -> dict[str, Any]:
+    """Return the JSON-safe compatibility graph projection."""
+    return {
+        "run_id": graph.run_id,
+        "definition_id": graph.definition_id,
+        "definition_version": graph.definition_version,
+        "current_step": graph.current_node_id,
+        "revision": graph.revision,
+        "nodes": [_graph_node_payload(node) for node in graph.nodes],
+        "edges": [
+            {
+                "edge_id": edge.edge_id,
+                "from_step": edge.from_step,
+                "to_step": edge.to_step,
+                "condition": edge.condition,
+            }
+            for edge in graph.edges
+        ],
+    }
 
 
 async def api_ui_runs(request: Request) -> JSONResponse:
-    """Return the current/history Runs sidebar read model."""
-    payload = _runs_payload(request)
+    """Return the current/history projection of Runtime-owned runs."""
+    summaries = [_run_summary(run) for run in _runtime_store(request).list_runs()]
     return JSONResponse(
         {
-            "current": payload.get("current", []),
-            "history": payload.get("history", []),
+            "current": [
+                item
+                for item in summaries
+                if item["status"] not in _TERMINAL_RUN_STATUSES
+            ],
+            "history": [
+                item for item in summaries if item["status"] in _TERMINAL_RUN_STATUSES
+            ],
             "create_project_href": "/projects/new",
         }
     )
 
 
 async def api_ui_run_graph(request: Request) -> JSONResponse:
-    """Return a definition-bound graph with safe badge fallbacks."""
-    payload = _runs_payload(request)
+    """Return a definition-bound Runtime graph with safe badge fallbacks."""
     run_id = request.path_params["run_id"]
-    graph = payload.get("graphs", {}).get(run_id)
-    if not isinstance(graph, dict):
+    try:
+        graph = WorkflowGraphBuilder(_runtime_store(request)).build(run_id)
+    except RunNotFoundError:
         return JSONResponse(
             {"code": "RUN_NOT_FOUND", "message": f"run {run_id} not found"},
             status_code=404,
         )
-    nodes = []
-    for raw in graph.get("nodes", []):
-        node = dict(raw) if isinstance(raw, dict) else {"stage_id": str(raw)}
-        result = node.get("result") if isinstance(node.get("result"), dict) else {}
-        state = str(node.get("state", "pending"))
-        node["state"] = state
-        node["unknown"] = state not in {
-            "completed",
-            "current",
-            "waiting_for_human",
-            "blocked",
-            "failed",
-            "pending",
-            "skipped_by_definition",
-        }
-        node["badges"] = [status_badge(state), *badges_for_result(result)]
-        if node["unknown"]:
-            node["display_label"] = (
-                f"unknown stage/status: {node.get('stage_id', state)}"
-            )
-        nodes.append({key: value for key, value in node.items() if key != "result"})
-    return JSONResponse({**graph, "nodes": nodes})
+    return JSONResponse(_graph_payload(graph))
 
 
 async def api_ui_artifact(request: Request) -> JSONResponse:
-    """Return a read-only digest/verdict/reviewer/conclusion projection."""
-    payload = _runs_payload(request)
-    graph = payload.get("graphs", {}).get(request.path_params["run_id"], {})
+    """Return a read-only Runtime event projection for one workflow step."""
+    run_id = request.path_params["run_id"]
     stage_id = request.path_params["stage_id"]
-    node = next(
-        (item for item in graph.get("nodes", []) if item.get("stage_id") == stage_id),
-        None,
-    )
-    if not isinstance(node, dict):
+    try:
+        graph = WorkflowGraphBuilder(_runtime_store(request)).build(run_id)
+    except RunNotFoundError:
+        return JSONResponse(
+            {"code": "RUN_NOT_FOUND", "message": f"run {run_id} not found"},
+            status_code=404,
+        )
+    if stage_id not in {node.step_id for node in graph.nodes}:
         return JSONResponse(
             {"code": "STAGE_NOT_FOUND", "message": f"stage {stage_id} not found"},
             status_code=404,
         )
-    result = node.get("result") if isinstance(node.get("result"), dict) else {}
-    metadata = (
-        result.get("metadata") if isinstance(result.get("metadata"), dict) else {}
+    event = next(
+        (
+            item
+            for item in reversed(_runtime_store(request).get_events(run_id))
+            if item.step_id == stage_id
+        ),
+        None,
     )
-    badge = badges_for_result(result)[0]
     return JSONResponse(
         {
-            "run_id": request.path_params["run_id"],
+            "run_id": run_id,
             "stage_id": stage_id,
-            "result_kind": result.get("kind", ""),
-            "unknown": badge["unknown"],
+            "result_kind": event.type if event is not None else "",
+            "unknown": event is None,
             "stale": False,
-            "digest": result.get("digest", ""),
-            "verdict": result.get("verdict", result.get("outcome", "")),
-            "required_reviewer": result.get("role", ""),
-            "review_conclusion": metadata.get("conclusion", metadata.get("note", "")),
-            "display_label": badge["display_label"] if badge["unknown"] else "",
+            "digest": event.output_digest if event is not None else "",
+            "verdict": event.details.get("result", "") if event is not None else "",
+            "required_reviewer": "",
+            "review_conclusion": "",
+            "display_label": "runtime event" if event is None else "",
         }
     )
 

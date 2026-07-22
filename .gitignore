@@ -55,6 +55,7 @@ louke.egg-info/
 # Web server runtime state (local auth users, serve activity log)
 .louke/web-users.json
 .louke/project/.serve-activity.jsonl
+.louke/project/runtime.sqlite3
 
 # Local model alias overrides (per-machine; not framework config)
 .louke/models.json

@@ -1,16 +1,8 @@
-"""Shared v0.12 workflow catalog and per-app run-store singletons.
+"""Shared v0.12 workflow catalog and project Runtime-store accessors.
 
-Each v0.12 HTTP sub-app is self-contained and operates against an in-memory
-``WorkflowRunStore`` (``db_path=None``) by default, with a registered catalog
-containing minimal ``new_feature`` and ``bug_fix`` definitions.
-
-The store is created lazily on the first request rather than at app-build
-time, because Starlette's ASGI server (and the test ``TestClient``) dispatches
-requests in a portal thread distinct from the thread that built the app. The
-underlying ``sqlite3`` connection in :class:`WorkflowRunStore` is bound to the
-thread that created it, so the store must be created inside the request
-lifecycle. :func:`get_or_create_store` is the single accessor every sub-app
-handler uses to obtain the per-app singleton store.
+The top-level web application supplies one SQLite-backed store to every
+Runtime, projects, gates and bindings sub-application. Standalone sub-apps
+remain available with an isolated in-memory store for unit tests.
 """
 
 from __future__ import annotations
@@ -120,14 +112,17 @@ def build_catalog() -> DefinitionRegistry:
     return registry
 
 
-def build_run_store() -> WorkflowRunStore:
-    """Return an in-memory ``WorkflowRunStore`` with the v0.12 catalog bound.
+def build_run_store(db_path: str | None = None) -> WorkflowRunStore:
+    """Return a catalog-bound ``WorkflowRunStore``.
 
-    The store uses ``db_path=None`` so each call returns an isolated, in-memory
-    SQLite database. Callers that need the store to persist across requests
-    should use :func:`get_or_create_store` instead.
+    Args:
+        db_path: Optional SQLite file path. ``None`` creates an isolated
+            in-memory store, which is the default for standalone sub-app tests.
+
+    Returns:
+        A ``WorkflowRunStore`` bound to the v0.12 workflow catalog.
     """
-    return WorkflowRunStore(catalog=build_catalog())
+    return WorkflowRunStore(db_path=db_path, catalog=build_catalog())
 
 
 def get_definition(store: WorkflowRunStore, definition_id: str, version: str):

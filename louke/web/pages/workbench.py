@@ -602,57 +602,27 @@ def _end_user_docs(root: Path) -> str:
     )
 
 
-def _runs_payload(root: Path) -> dict:
-    """Load the optional persisted Runs read model, tolerating bad input."""
-    try:
-        payload = json.loads((root / ".louke" / "project" / "runs.json").read_text())
-    except (OSError, json.JSONDecodeError):
-        return {"current": [], "history": [], "graphs": {}}
-    return (
-        payload
-        if isinstance(payload, dict)
-        else {"current": [], "history": [], "graphs": {}}
-    )
-
-
 def _runs_sidebar(root: Path) -> str:
-    """Render current and historical Projects navigation for Runs."""
-    payload = _runs_payload(root)
-    groups = []
-    for title, key in (("Current project", "current"), ("History", "history")):
-        items = "".join(
-            f'<button type="button" data-testid="runs-project-{escape(str(item.get("project_id", "")))}" data-run-id="{escape(str(item.get("run_id", "")))}">{escape(str(item.get("project_name", item.get("project_id", ""))))}</button>'
-            for item in payload.get(key, [])
-            if isinstance(item, dict)
-        )
-        groups.append(f"<strong>{title}</strong><div>{items}</div>")
+    """Render Runtime-backed current/history containers for Runs."""
+    del root
     return (
         '<section data-sidebar-kind="runs" data-testid="runs-sidebar" hidden>'
-        + "".join(groups)
+        '<strong>Current project</strong><div data-runs-group="current">'
+        '<span data-testid="runs-empty-state">No workflow runs</span></div>'
+        '<strong>History</strong><div data-runs-group="history">'
+        '<span data-testid="runs-history-empty-state">No workflow runs</span></div>'
         + '<a href="/projects/new">Create new project</a></section>'
     )
 
 
 def _runs_content(root: Path) -> str:
-    """Render graph nodes and a read-only artifact detail drawer."""
-    payload = _runs_payload(root)
-    graph = next(iter(payload.get("graphs", {}).values()), {})
-    nodes = graph.get("nodes", []) if isinstance(graph, dict) else []
-    node_html = "".join(
-        f'<button type="button" data-testid="runs-node-{escape(str(node.get("stage_id", "")))}" data-stage-id="{escape(str(node.get("stage_id", "")))}">{escape(str(node.get("label", node.get("stage_id", ""))))} <span data-testid="badge-{escape(str((node.get("result") or {}).get("outcome", (node.get("result") or {}).get("verdict", "unknown"))))}"></span>'
-        f"{_unknown_marker(node)}</button>"
-        for node in nodes
-        if isinstance(node, dict)
+    """Render the dynamic Runtime graph and read-only artifact drawer."""
+    del root
+    return (
+        '<div data-tab-content="runs" hidden>'
+        '<section data-testid="runs-graph">Select a run to view its workflow graph</section>'
+        '<aside data-testid="stage-artifact-detail" hidden></aside></div>'
     )
-    return f'<div data-tab-content="runs" hidden><section data-testid="runs-graph">{node_html or "Select a run to view its workflow graph"}</section><aside data-testid="stage-artifact-detail" hidden></aside></div>'
-
-
-def _unknown_marker(node: dict) -> str:
-    """Return the explicit fallback marker for an unrecognised result kind."""
-    kind = str((node.get("result") or {}).get("kind", ""))
-    if kind in {"author", "review", "gate"}:
-        return ""
-    return '<span data-testid="stage-unknown-fallback">unknown: true</span>'
 
 
 def _page(
@@ -1241,8 +1211,14 @@ function renderSidebar(activity){{const sidebar=document.querySelector('[data-lo
  function selectAgent(agent){{if(!transcripts[agent]){{showToast('未知 Agent: '+agent+'; 已回退到 Maestro');agent='Maestro';}}activeAgent=agent;document.querySelectorAll('[data-chat-agent]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.chatAgent===agent)));Object.entries(transcripts).forEach(([name,node])=>node.hidden=name!==agent);const input=document.querySelector('[data-testid="chat-input"]');input.placeholder='Message '+agent+'...';}}
  function openTab(activity){{ensureTab(activity);activeTab=activity;document.querySelectorAll('[data-testid="workbench-tab"]').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tabKey===activity)));document.querySelectorAll('[data-activity]').forEach(button=>button.setAttribute('aria-current',button.dataset.activity===activity?'page':'false'));if(activity!=='settings')renderSidebar(activity);showMain(activity);if(activity==='dev-docs')initDocWorkspace();if(activity==='chat')selectAgent(activeAgent);}}
   document.querySelectorAll('[data-activity]').forEach(button=>button.addEventListener('click',()=>{{const activity=button.dataset.activity;if(activity==='gears')return openTab('settings');if(activity==='accounts'){{document.querySelector('[data-testid="accounts-menu"]').hidden=false;return;}}openTab(activity);}}));
-  document.querySelectorAll('[data-run-id]').forEach(button=>button.addEventListener('click',()=>{{document.querySelector('[data-tab-content="runs"]').hidden=false;}}));
-  document.querySelectorAll('[data-stage-id]').forEach(button=>button.addEventListener('click',async()=>{{const detail=document.querySelector('[data-testid="stage-artifact-detail"]');const run=document.querySelector('[data-run-id]')?.dataset.runId||'run-active';const item=await (await fetch('/api/ui/runs/'+run+'/stages/'+button.dataset.stageId+'/artifact')).json();detail.innerHTML='<h2>Stage artifact</h2><dl><dt>sha256</dt><dd>'+String(item.digest||'')+'</dd><dt>verdict</dt><dd>'+String(item.verdict||'')+'</dd><dt>required_reviewer</dt><dd>'+String(item.required_reviewer||'')+'</dd><dt>review_conclusion</dt><dd>'+String(item.review_conclusion||'')+'</dd></dl>';detail.hidden=false;}}));
+  const terminalRunStatuses=new Set(['completed','cancelled','failed','archived']);
+  function runGroupItems(key){{return document.querySelector('[data-runs-group="'+key+'"]');}}
+  function renderRunGroup(key,items){{const group=runGroupItems(key);if(!group)return;group.replaceChildren();if(!items.length){{const empty=document.createElement('span');empty.dataset.testid=key==='current'?'runs-empty-state':'runs-history-empty-state';empty.textContent='No workflow runs';group.append(empty);return;}}items.forEach(item=>{{const button=document.createElement('button');button.type='button';button.dataset.testid='runs-project-'+item.run_id;button.dataset.runId=item.run_id;button.textContent=(item.project_name||item.definition_id||item.run_id)+(item.status_unknown?' (unknown status)':'');group.append(button);}});}}
+  async function loadRuntimeRun(runId){{const graphHost=document.querySelector('[data-testid="runs-graph"]');if(!graphHost)return;const responses=await Promise.all([fetch('/api/runtime/runs/'+encodeURIComponent(runId)),fetch('/api/runtime/runs/'+encodeURIComponent(runId)+'/events'),fetch('/api/gates/runs/'+encodeURIComponent(runId)+'/gates'),fetch('/api/ui/runs/'+encodeURIComponent(runId)+'/graph')]);if(!responses[0].ok)return;const run=await responses[0].json();const graph=responses[3].ok?await responses[3].json():{{nodes:[]}};graphHost.replaceChildren();graphHost.dataset.runId=runId;graphHost.dataset.runStatus=run.status;graphHost.dataset.eventCount=String((await responses[1].json()).items?.length||0);graphHost.dataset.gateCount=String((await responses[2].json()).items?.length||0);(graph.nodes||[]).forEach(node=>{{const button=document.createElement('button');button.type='button';button.dataset.testid='runs-node-'+node.stage_id;button.dataset.stageId=node.stage_id;button.dataset.runId=runId;button.textContent=(node.label||node.stage_id)+' ['+(node.state||'unknown')+']';if(node.unknown)button.dataset.unknown='true';graphHost.append(button);}});}}
+  async function refreshRuntimeRuns(){{const response=await fetch('/api/runtime/runs');if(!response.ok)return;const items=(await response.json()).items||[];renderRunGroup('current',items.filter(item=>!terminalRunStatuses.has(item.status)));renderRunGroup('history',items.filter(item=>terminalRunStatuses.has(item.status)));}}
+  document.addEventListener('click',event=>{{const runButton=event.target.closest('[data-run-id]');if(runButton){{openTab('runs');loadRuntimeRun(runButton.dataset.runId);}}}});
+  refreshRuntimeRuns();
+  document.addEventListener('click',async event=>{{const button=event.target.closest('[data-stage-id]');if(!button)return;const detail=document.querySelector('[data-testid="stage-artifact-detail"]');const run=button.dataset.runId||document.querySelector('[data-testid="runs-graph"]')?.dataset.runId;if(!run)return;const response=await fetch('/api/ui/runs/'+encodeURIComponent(run)+'/stages/'+encodeURIComponent(button.dataset.stageId)+'/artifact');const item=await response.json();detail.replaceChildren();const title=document.createElement('h2');title.textContent='Stage artifact';detail.append(title);const fields=[['sha256',item.digest],['verdict',item.verdict],['required_reviewer',item.required_reviewer],['review_conclusion',item.review_conclusion]];const list=document.createElement('dl');fields.forEach(([label,value])=>{{const term=document.createElement('dt');term.textContent=label;const description=document.createElement('dd');description.textContent=String(value||'');list.append(term,description);}});detail.append(list);detail.hidden=false;}});
  document.querySelector('[data-testid="chat-agent-list"]').addEventListener('click',event=>{{const button=event.target.closest('[data-chat-agent]');if(button)selectAgent(button.dataset.chatAgent);}});
  document.addEventListener('click',event=>{{const button=event.target.closest('[data-chat-agent]');if(button&&!transcripts[button.dataset.chatAgent])selectAgent(button.dataset.chatAgent);}});
  function addChatMessage(agent,message){{const node=transcripts[agent];if(!node||!message||!message.content)return;const id=message.id||agent+'-'+message.role+'-'+message.content;renderedMessages[agent]??=new Set();if(renderedMessages[agent].has(id))return;renderedMessages[agent].add(id);const item=document.createElement('p');item.dataset.role=message.role;item.dataset.messageId=message.id||'';item.textContent=message.content;node.append(item);node.scrollTop=node.scrollHeight;}}

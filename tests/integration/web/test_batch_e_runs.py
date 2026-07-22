@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from starlette.testclient import TestClient
 
 from louke.web.app import create_app
-
-
-FIXTURE = Path(__file__).parents[2] / "fixtures" / "runs" / "project_active.json"
 
 
 def _client(tmp_path: Path) -> TestClient:
@@ -19,77 +15,81 @@ def _client(tmp_path: Path) -> TestClient:
     (project / "project.toml").write_text(
         "[project]\nspec_id='fixture'\n", encoding="utf-8"
     )
-    (project / "runs.json").write_text(
-        FIXTURE.read_text(encoding="utf-8"), encoding="utf-8"
-    )
     return TestClient(create_app(tmp_path))
 
 
+def _create_run(client: TestClient) -> dict[str, object]:
+    """Create a Runtime run for the Workbench read-model checks."""
+    response = client.post(
+        "/api/runtime/runs",
+        json={"definition_id": "new_feature", "definition_version": "1"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 def test_runs_sidebar_lists_projects(tmp_path: Path) -> None:
-    """AC-FR1313-01: Runs lists current and historical fixture projects."""
-    response = _client(tmp_path).get("/workbench")
+    """AC-FR1313-01: Runtime-created projects appear in the Runs projection."""
+    client = _client(tmp_path)
+    run = _create_run(client)
+    response = client.get("/workbench")
     assert response.status_code == 200
     assert 'data-testid="runs-sidebar"' in response.text
-    assert 'data-testid="runs-project-project-active"' in response.text
-    assert 'data-testid="runs-project-project-history"' in response.text
+    projection = client.get("/api/ui/runs").json()
+    assert projection["current"][0]["run_id"] == run["run_id"]
+    assert "/api/runtime/runs" in response.text
 
 
 def test_runs_workflow_graph_renders(tmp_path: Path) -> None:
-    """AC-FR1313-02/04, AC-FR1314-01/02/03: graph nodes expose badges."""
+    """AC-FR1313-02/04: graph nodes are derived from the bound Runtime definition."""
     client = _client(tmp_path)
-    graph = client.get("/api/ui/runs/run-active/graph")
+    run = _create_run(client)
+    graph = client.get(f"/api/ui/runs/{run['run_id']}/graph")
     assert graph.status_code == 200
     payload = graph.json()
     assert [node["stage_id"] for node in payload["nodes"]] == [
-        "author",
-        "review",
-        "gate",
+        "start",
+        "requirements_approval",
+        "design",
+        "m_lock",
+        "implementation",
+        "complete",
     ]
     html = client.get("/workbench").text
     assert 'data-testid="runs-graph"' in html
-    assert 'data-testid="runs-node-author"' in html
-    assert 'data-testid="badge-done"' in html
+    assert "/api/ui/runs/" in html
 
 
 def test_stage_node_click_opens_artifact_detail(tmp_path: Path) -> None:
-    """AC-FR1315-01/02/03: artifact detail is read-only and has four fields."""
+    """AC-FR1315-01/02/03: Runtime stage detail is read-only and explicit."""
     client = _client(tmp_path)
-    artifact = client.get("/api/ui/runs/run-active/stages/review/artifact")
+    run = _create_run(client)
+    artifact = client.get(f"/api/ui/runs/{run['run_id']}/stages/start/artifact")
     assert artifact.status_code == 200
     body = artifact.json()
-    assert body["digest"] == "abc123"
-    assert body["verdict"] == "PASS"
-    assert body["required_reviewer"] == "Prism"
-    assert body["review_conclusion"] == "Looks good"
+    assert body["run_id"] == run["run_id"]
+    assert body["stage_id"] == "start"
+    assert body["unknown"] is False
+    assert body["result_kind"] == "run.created"
     assert "Save" not in client.get("/workbench").text
 
 
 def test_stage_unknown_kind_fallback(tmp_path: Path) -> None:
-    """AC-FR1316-01/03/04: unknown result values are explicit fallbacks."""
+    """AC-FR1316-01/03/04: unknown Runtime statuses are explicit fallbacks."""
     client = _client(tmp_path)
-    runs = json.loads((tmp_path / ".louke" / "project" / "runs.json").read_text())
-    runs["graphs"]["run-active"]["nodes"].append(
-        {
-            "stage_id": "future_stage",
-            "label": "future_stage",
-            "state": "future_status",
-            "result": json.loads(
-                (
-                    Path(__file__).parents[2]
-                    / "fixtures"
-                    / "runs"
-                    / "stage_result_unknown_kind.json"
-                ).read_text()
-            ),
-        }
-    )
-    (tmp_path / ".louke" / "project" / "runs.json").write_text(json.dumps(runs))
-    payload = client.get("/api/ui/runs/run-active/graph").json()
-    unknown = payload["nodes"][-1]
-    assert unknown["unknown"] is True
-    assert unknown["badges"][0]["display_label"]
-    assert any(badge["value"] == "unknown_thing_xyz" for badge in unknown["badges"])
-    assert any(badge["unknown"] for badge in unknown["badges"])
+    run = _create_run(client)
+    app = client.app
+
+    def mark_unknown() -> None:
+        store = app.state.v12_run_store
+        current = store.get_run(run["run_id"])
+        store.update_run(current.with_status("future_status"), current.revision)
+
+    with client:
+        client.portal.call(mark_unknown)
+        item = client.get("/api/ui/runs").json()["current"][0]
+    assert item["status"] == "future_status"
+    assert item["status_unknown"] is True
 
 
 def test_badge_mapping_correct() -> None:
