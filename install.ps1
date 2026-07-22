@@ -116,11 +116,11 @@ try {
 
     # -Wheel takes precedence: a local wheel (e.g. this CI run's build
     # artifact) is installed verbatim; -Version validates the result below.
-    $package = if ($Wheel) { $Wheel } elseif ($Editable) { (Get-Location).Path } elseif ($Version -eq "latest") { "louke" } else { "louke==$Version" }
+    $packageSpec = if ($Wheel) { $Wheel } elseif ($Editable) { (Get-Location).Path } elseif ($Version -eq "latest") { "louke" } else { "louke==$Version" }
     $projectVenv = Join-Path (Get-Location) ".venv"
     $globalVenv = Join-Path $env:USERPROFILE ".louke\venv"
-    Install-Runtime $python $projectVenv $package
-    Install-Runtime $python $globalVenv $package
+    Install-Runtime $python $projectVenv $packageSpec
+    Install-Runtime $python $globalVenv $packageSpec
 
     $projectVersion = Get-RuntimeVersion $projectVenv
     $globalVersion = Get-RuntimeVersion $globalVenv

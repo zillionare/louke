@@ -88,6 +88,17 @@ def _requirement_id(ac_id: str) -> str:
     return f"{match.group(1).upper()}-{match.group(2)}"
 
 
+def _acceptance_ids_missing_from_spec(
+    acceptance_ids: frozenset[str], spec_requirements: frozenset[str]
+) -> frozenset[str]:
+    """Return acceptance IDs whose parent requirement is absent from spec."""
+    return frozenset(
+        ac_id
+        for ac_id in acceptance_ids
+        if _requirement_id(ac_id) not in spec_requirements
+    )
+
+
 def _iter_test_files(tests_path: Path) -> Iterable[Path]:
     """Yield test files under ``tests_path`` recursively.
 
@@ -163,9 +174,7 @@ def build_closure_report(
     uncovered = declared - referenced
     spec = spec_path or acceptance_path.with_name("spec.md")
     requirements = extract_requirement_ids(spec)
-    unknown = frozenset(
-        ac_id for ac_id in declared if _requirement_id(ac_id) not in requirements
-    )
+    unknown = _acceptance_ids_missing_from_spec(declared, requirements)
     tests_without = _tests_without_ac(tests_path)
     return ClosureReport(
         total_ac_count=len(declared),
