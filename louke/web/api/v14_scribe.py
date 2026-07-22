@@ -9,6 +9,7 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
+from louke.runtime.store import RunNotFoundError
 from louke.v014.scribe_entry import ScribeEntryService, ScribeTaskError
 
 from louke.web.auth import (
@@ -195,7 +196,7 @@ def _run_for_binding(request: Request, run_id: str):
     """Return only the run named by the persisted project binding."""
     try:
         return request.app.state.v12_run_store.get_run(run_id)
-    except Exception:
+    except RunNotFoundError:
         return None
 
 
