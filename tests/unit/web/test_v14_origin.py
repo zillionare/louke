@@ -3,6 +3,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from starlette.testclient import TestClient
 
 from louke.web.auth import csrf_token_for_session
@@ -27,8 +28,28 @@ def _client(tmp_path: Path) -> TestClient:
 
 def _csrf(client: TestClient) -> str:
     """Return the header token derived from the HttpOnly session cookie."""
-    session = client.cookies.get("louke_session")
+    session = client.cookies.get("louke_session").strip('"')
     return csrf_token_for_session(client.app.state.store, session)
+
+
+def _release_request_count(client: TestClient) -> int:
+    """Return the number of persisted v0.14 release requests."""
+    connection = client.app.state.v14_release_entry._requests._conn
+    row = connection.execute(
+        "SELECT COUNT(*) AS count FROM v14_release_requests"
+    ).fetchone()
+    return int(row["count"])
+
+
+def _preview(client: TestClient) -> dict[str, object]:
+    """Create a valid release preview through the authenticated HTTP surface."""
+    response = client.post(
+        "/api/v14/releases/preview",
+        headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
+        json={"story": "Ship the reflow", "release_version": "0.14.0"},
+    )
+    assert response.status_code == 200
+    return response.json()
 
 
 def test_cross_origin_release_mutation_is_rejected_before_preview(
@@ -45,6 +66,121 @@ def test_cross_origin_release_mutation_is_rejected_before_preview(
 
     assert response.status_code == 403
     assert response.json()["error_code"] == "ORIGIN_FORBIDDEN"
+
+
+@pytest.mark.parametrize(
+    ("payload", "error_code"),
+    [
+        ({"story": "Ship the reflow", "release_version": ""}, "VALIDATION_ERROR"),
+        ({"story": "Ship the reflow"}, "VALIDATION_ERROR"),
+        (
+            {"story": "Ship the reflow", "release_version": "../escape"},
+            "RELEASE_VERSION_INVALID",
+        ),
+    ],
+)
+def test_preview_invalid_release_values_fail_closed_without_advancement(
+    tmp_path: Path, payload: dict[str, str], error_code: str
+) -> None:
+    """AC-FR0300-01: invalid preview values return stable 400 without persistence."""
+    client = _client(tmp_path)
+    before = _release_request_count(client)
+
+    response = client.post(
+        "/api/v14/releases/preview",
+        headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == error_code
+    assert _release_request_count(client) == before
+
+
+def test_preview_non_object_payload_fails_closed_without_advancement(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0300-01: malformed preview structure returns stable 400 without state changes."""
+    client = _client(tmp_path)
+    before = _release_request_count(client)
+
+    response = client.post(
+        "/api/v14/releases/preview",
+        headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
+        json=["Ship the reflow", "0.14.0"],
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    assert _release_request_count(client) == before
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "expected_preview_revision": 0,
+            "request_digest": "digest",
+            "idempotency_key": "key",
+        },
+        {
+            "preview_id": "",
+            "expected_preview_revision": 0,
+            "request_digest": "digest",
+            "idempotency_key": "key",
+        },
+        {
+            "preview_id": "preview",
+            "expected_preview_revision": True,
+            "request_digest": "digest",
+            "idempotency_key": "key",
+        },
+        {
+            "preview_id": "preview",
+            "expected_preview_revision": 0,
+            "request_digest": "",
+            "idempotency_key": "key",
+        },
+    ],
+)
+def test_confirm_malformed_fields_fail_closed_without_advancement(
+    tmp_path: Path, payload: dict[str, object]
+) -> None:
+    """AC-FR0300-01: malformed confirm fields return stable 400 and keep preview state."""
+    client = _client(tmp_path)
+    preview = _preview(client)
+    request_id = preview["request_id"]
+    before = client.app.state.v14_release_entry.status(request_id)
+
+    response = client.post(
+        "/api/v14/releases/confirm",
+        headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    after = client.app.state.v14_release_entry.status(request_id)
+    assert after["status"] == before["status"] == "preview"
+
+
+def test_confirm_non_object_payload_fails_closed_without_advancement(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0300-01: malformed confirm structure returns stable 400 without advancement."""
+    client = _client(tmp_path)
+    preview = _preview(client)
+    request_id = preview["request_id"]
+
+    response = client.post(
+        "/api/v14/releases/confirm",
+        headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
+        json=["not", "an", "object"],
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    assert client.app.state.v14_release_entry.status(request_id)["status"] == "preview"
 
 
 def test_cross_origin_scribe_mutation_is_rejected_before_task_access(

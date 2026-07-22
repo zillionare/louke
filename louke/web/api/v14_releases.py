@@ -13,6 +13,7 @@ from louke.v014.release_entry import (
     ReleaseRequestConflictError,
     StalePreviewError,
 )
+from louke.v014.fr0300_release_request import PreviewError
 
 
 async def preview_release(request: Request) -> JSONResponse:
@@ -20,11 +21,13 @@ async def preview_release(request: Request) -> JSONResponse:
     user_or_response = _require_human(request, csrf_required=True)
     if isinstance(user_or_response, JSONResponse):
         return user_or_response
-    payload = await request.json()
-    story = _required_string(payload, "story")
-    release_version = _required_string(payload, "release_version")
     try:
+        payload = await request.json()
+        story = _required_string(payload, "story")
+        release_version = _required_string(payload, "release_version")
         preview = _service(request).preview(story, release_version)
+    except PreviewError as exc:
+        return JSONResponse(_error(exc.code, exc.message), status_code=400)
     except ValueError as exc:
         return JSONResponse(_error("VALIDATION_ERROR", str(exc)), status_code=400)
     return JSONResponse(preview)
@@ -35,8 +38,8 @@ async def confirm_release(request: Request) -> JSONResponse:
     user_or_response = _require_human(request, csrf_required=True)
     if isinstance(user_or_response, JSONResponse):
         return user_or_response
-    payload = await request.json()
     try:
+        payload = await request.json()
         result = _service(request).confirm(
             _required_string(payload, "preview_id"),
             expected_preview_revision=_required_int(
@@ -137,16 +140,20 @@ def _require_human(request: Request, *, csrf_required: bool):
     return user
 
 
-def _required_string(payload: dict[str, Any], field: str) -> str:
+def _required_string(payload: object, field: str) -> str:
     """Return a non-empty string field from a JSON object."""
+    if not isinstance(payload, dict):
+        raise ValueError("JSON object payload is required")
     value = payload.get(field)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} is required")
     return value.strip()
 
 
-def _required_int(payload: dict[str, Any], field: str) -> int:
+def _required_int(payload: object, field: str) -> int:
     """Return an integer field without accepting booleans."""
+    if not isinstance(payload, dict):
+        raise ValueError("JSON object payload is required")
     value = payload.get(field)
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field} must be an integer")
