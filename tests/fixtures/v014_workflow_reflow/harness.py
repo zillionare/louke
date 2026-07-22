@@ -10,19 +10,19 @@ prove dispatch happened and identities match -- no fake app-internal success.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
+import socket
 import stat
 import subprocess
 import textwrap
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List
-
-from louke.opencode.adapter import Instance, Message
+from typing import Any
+from urllib.error import URLError
+from urllib.request import urlopen
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -34,14 +34,8 @@ SPEC_ID = "v0.14-001-workflow-reflow-spec"
 RELEASE_VERSION = "0.14.0"
 RELEASE_BRANCH = f"releases/{RELEASE_VERSION}"
 
-# The canonical human story used across the entry-slice tests.  The workspace
-# builder intentionally leaves ``story.md`` absent by default so Foundation
-# and Story creation exercise the controlled worktree path.
 CANONICAL_HUMAN_STORY = "Ship the v0.14 reflow entry slice for authenticated Go."
 
-# Contract files that the release-contract bundle byte-verifies.  These are
-# copied verbatim from the real Louke workspace so the development-bootstrap
-# catalog activates the M-START → M-STORY definition.
 _CONTRACT_FILES: tuple[str, ...] = (
     ".louke/project/specs/v0.14-001-workflow-reflow-spec/spec.md",
     ".louke/project/specs/v0.14-001-workflow-reflow-spec/acceptance.md",
@@ -51,183 +45,252 @@ _CONTRACT_FILES: tuple[str, ...] = (
     ".louke/project/specs/v0.14-003-workflow-reflow-impl/acceptance.md",
 )
 
-# Files that must be present for ``is_louke_workspace`` and the Foundation
-# adapter's story-template fallback.
 _LOUKE_MARKER = "louke/__init__.py"
 _PROJECT_TOML = ".louke/project/project.toml"
 _CONTRACT_BUNDLE = ".louke/project/release-contract-bundle.json"
 
 
 # ---------------------------------------------------------------------------
-# L2 OpenCode stand-in
+# Upstream blocker: Scribe recommendation ingestion
 # ---------------------------------------------------------------------------
+
+#: ``ScribeEntryService.submit_result`` is the only validated seam that
+#: persists a Scribe recommendation.  It is NOT exposed via any public web
+#: route (IF-API-08 lists task read/message/reconcile/retry but no
+#: result-submit endpoint), and no adapter callback (``send_message``,
+#: ``list_messages``, ``stream_events``, ``reconcile``) feeds into it.
+#: The production code therefore has no public path from the OpenCode
+#: provider boundary to ``submit_result``.
+SCRIBE_RESULT_UPSTREAM_BLOCKER = (
+    "ScribeEntryService.submit_result is the only validated Scribe "
+    "recommendation ingestion seam, but it is not exposed via any public "
+    "web route (IF-API-08: task_read/messages/reconcile/retry only) and no "
+    "adapter callback feeds into it. The production task transport/result "
+    "ingestion path does not exist. Tests cannot deliver a Scribe "
+    "recommendation through the public protocol without an upstream fix "
+    "that wires adapter output to submit_result or exposes a public "
+    "result-ingestion endpoint."
+)
+
+
+# ---------------------------------------------------------------------------
+# OpenCode HTTP stand-in subprocess
+# ---------------------------------------------------------------------------
+
+_OPENCODE_STANDIN_SCRIPT = r'''#!/usr/bin/env python3
+"""Deterministic OpenCode HTTP stand-in for v0.14-001 entry-slice tests.
+
+Implements the public OpenCode protocol endpoints that
+``RealOpenCodeAdapter`` calls:
+  POST   /api/session                 - create session
+  GET    /api/session                 - list sessions
+  DELETE /api/session/{id}            - stop session
+  POST   /api/session/{id}/prompt     - send message
+  GET    /api/session/{id}/message    - list messages
+
+Records every operation in ``--ledger`` as JSON lines so tests can
+independently prove dispatch happened through the public protocol boundary.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+import time
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
+
+
+_ledger_path = ""
+_sessions: dict[str, dict] = {}
+_messages: dict[str, list[dict]] = {}
+_next_id = 0
+
+
+def _now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _new_id(prefix: str) -> str:
+    global _next_id
+    _next_id += 1
+    return f"{prefix}_{_next_id:08d}"
+
+
+def _record(entry: dict) -> None:
+    entry["at"] = _now()
+    with open(_ledger_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, sort_keys=True) + "\n")
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass  # suppress stderr noise
+
+    def _json(self, code: int, body: dict) -> None:
+        data = json.dumps(body).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _body(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0))
+        if length == 0:
+            return {}
+        raw = self.rfile.read(length)
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
+
+    def do_POST(self):
+        global _next_id
+        path = urlparse(self.path).path
+        correlation = self.headers.get("x-correlation-id", "")
+        if path == "/api/session":
+            body = self._body()
+            sid = _new_id("sess")
+            _sessions[sid] = {"id": sid, "status": "running", "created": _now()}
+            _messages.setdefault(sid, [])
+            _record({"kind": "session_create", "session_id": sid,
+                      "correlation_id": correlation, "body": body})
+            self._json(200, {"data": {"id": sid, "time": {"created": time.time()}}})
+            return
+        parts = path.strip("/").split("/")
+        if len(parts) == 3 and parts[0] == "api" and parts[1] == "session" and parts[2] == "prompt":
+            # Actually /api/session/{id}/prompt
+            pass
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "session" and parts[3] == "prompt":
+            sid = parts[2]
+            if sid not in _sessions:
+                self._json(404, {"error": "session not found"})
+                return
+            body = self._body()
+            text = (body.get("prompt") or {}).get("text", "")
+            msg_id = _new_id("msg")
+            user_msg = {"id": msg_id, "sessionID": sid, "role": "user",
+                        "type": "message", "content": [{"type": "text", "text": text}]}
+            _messages[sid].append(user_msg)
+            assistant_id = _new_id("msg")
+            assistant_msg = {"id": assistant_id, "sessionID": sid, "role": "assistant",
+                             "type": "message",
+                             "content": [{"type": "text", "text": "ack"}]}
+            _messages[sid].append(assistant_msg)
+            _record({"kind": "send_message", "session_id": sid,
+                      "correlation_id": correlation,
+                      "prompt_digest": hashlib.sha256(text.encode()).hexdigest()})
+            self._json(200, {"data": {"id": msg_id}})
+            return
+        self._json(404, {"error": f"unknown POST {path}"})
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+        parts = path.strip("/").split("/")
+        if path == "/api/session":
+            items = [{"id": s["id"], "time": {"created": s["created"]}}
+                     for s in _sessions.values()]
+            self._json(200, {"data": items, "cursor": {}})
+            return
+        if len(parts) >= 4 and parts[3] == "message":
+            sid = parts[2]
+            msgs = _messages.get(sid, [])
+            self._json(200, {"data": msgs, "cursor": {}})
+            return
+        if path == "/global/health":
+            self._json(200, {"healthy": True})
+            return
+        self._json(404, {"error": f"unknown GET {path}"})
+
+    def do_DELETE(self):
+        path = urlparse(self.path).path
+        parts = path.strip("/").split("/")
+        if len(parts) >= 3 and parts[0] == "api" and parts[1] == "session":
+            sid = parts[2]
+            if sid in _sessions:
+                _sessions[sid]["status"] = "stopped"
+            self._json(200, {"data": True})
+            return
+        self._json(404, {"error": f"unknown DELETE {path}"})
+
+
+if __name__ == "__main__":
+    port = int(sys.argv[1])
+    _ledger_path = sys.argv[2]
+    # Write empty ledger start.
+    open(_ledger_path, "w").close()
+    server = HTTPServer(("127.0.0.1", port), Handler)
+    server.serve_forever()
+'''
 
 
 @dataclass
-class DispatchRecord:
-    """One recorded Scribe dispatch through the provider boundary."""
+class OpenCodeStandIn:
+    """A running OpenCode HTTP stand-in subprocess."""
 
-    correlation_id: str
-    task_id: str
-    attempt_id: str
-    session_id: str
-    prompt_digest: str
-    dispatched_at: str
-    recommendation_delivered: bool
+    process: subprocess.Popen
+    base_url: str
+    ledger_path: Path
+
+    def read_ledger(self) -> list[dict[str, Any]]:
+        if not self.ledger_path.exists():
+            return []
+        entries = []
+        for line in self.ledger_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                entries.append(json.loads(line))
+        return entries
+
+    def stop(self) -> None:
+        if self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait(timeout=5)
 
 
-class L2ScribeStandIn:
-    """Deterministic L2 stand-in for the OpenCode provider boundary.
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
 
-    Implements the :class:`~louke.opencode.adapter.OpenCodeAdapter` protocol.
-    On the first Scribe ``send_message`` the stand-in records the dispatch in
-    its ledger and delivers one ``Go`` recommendation through the validated
-    ``submit_result`` seam on :class:`~louke.v014.scribe_entry.ScribeEntryService`.
 
-    The recommendation goes through **full validation** in ``submit_result``
-    (role, task, attempt, session, manifest, artifact, write scope).  If any
-    identity is stale the result is rejected and the ledger records the
-    rejection -- there is no fake app-internal success.
+def start_opencode_standin(tmp_path: Path) -> OpenCodeStandIn:
+    """Start the OpenCode HTTP stand-in as a subprocess.
+
+    Returns the stand-in handle with ``base_url`` for ``LOUKE_OPENCODE_BASE_URL``
+    and ``ledger_path`` for independent dispatch verification.
     """
-
-    def __init__(self, scribe_service: Any | None = None) -> None:
-        self._scribe = scribe_service
-        self._instances: dict[str, Instance] = {}
-        self._messages: dict[str, list[Message]] = {}
-        self._next_id = 0
-        self.dispatch_ledger: list[DispatchRecord] = []
-        self.recommendation = "Go"
-        self.reason = "The bounded Story is ready for Human review."
-
-    # -- OpenCodeAdapter protocol ------------------------------------------
-
-    def create(self, *, correlation_id: str) -> Instance:
-        self._next_id += 1
-        instance = Instance(id=f"l2-session-{self._next_id}", status="running")
-        self._instances[instance.id] = instance
-        self._messages.setdefault(instance.id, [])
-        return instance
-
-    def list(self) -> List[Instance]:
-        return list(self._instances.values())
-
-    def stop(self, instance_id: str) -> Instance:
-        inst = self._instances.get(instance_id)
-        if inst is None:
-            return Instance(id=instance_id, status="stopped")
-        inst.status = "stopped"
-        return inst
-
-    def send_message(
-        self, instance_id: str, content: str, *, correlation_id: str
-    ) -> tuple[Message, bool]:
-        if instance_id not in self._instances:
-            raise KeyError(instance_id)
-        user_msg = Message(
-            id=f"l2-msg-{self._next_id}",
-            instance_id=instance_id,
-            role="user",
-            kind="message",
-            content=content,
-        )
-        self._messages[instance_id].append(user_msg)
-        self._next_id += 1
-        # Scribe dispatches carry the correlation id ``scribe:<task>:<attempt>``.
-        delivered = self._maybe_deliver_recommendation(
-            correlation_id, instance_id, content
-        )
-        echo = Message(
-            id=f"l2-msg-{self._next_id}",
-            instance_id=instance_id,
-            role="assistant",
-            kind="message",
-            content=f"recommendation delivered: {self.recommendation}"
-            if delivered
-            else "ack",
-        )
-        self._messages[instance_id].append(echo)
-        self._next_id += 1
-        return user_msg, True
-
-    def list_messages(
-        self, instance_id: str, *, after_message_id: str | None = None
-    ) -> List[Message]:
-        msgs = list(self._messages.get(instance_id, []))
-        if not after_message_id:
-            return msgs
-        for i, m in enumerate(msgs):
-            if m.id == after_message_id:
-                return msgs[i + 1 :]
-        return msgs
-
-    def stream_events(self, instance_id: str, last_event_id: str | None = None):
-        from louke.opencode.adapter import StreamEvent, new_id
-
-        messages = self.list_messages(instance_id, after_message_id=None)
-        assistant = next((m for m in reversed(messages) if m.role == "assistant"), None)
-        if assistant is None:
-            return
-        yield StreamEvent(
-            event_id=new_id(),
-            type="completed",
-            message_id=assistant.id,
-            content=assistant.content,
-        )
-
-    # -- Provider / task boundary ------------------------------------------
-
-    def _maybe_deliver_recommendation(
-        self, correlation_id: str, session_id: str, prompt: str
-    ) -> bool:
-        """Deliver one Scribe recommendation through ``submit_result``.
-
-        Returns ``True`` when a recommendation was delivered (or the
-        correlation id is not a Scribe dispatch and nothing happened).
-        """
-        if not correlation_id.startswith("scribe:") or self._scribe is None:
-            return False
-        parts = correlation_id.split(":")
-        if len(parts) < 3:
-            return False
-        task_id = parts[1]
-        attempt_id = parts[2]
-        task = self._scribe._store.get_task(task_id)
-        if task is None:
-            return False
-        payload = {
-            "role": "Scribe",
-            "task_id": task_id,
-            "attempt_id": task["active_attempt_id"],
-            "session_id": session_id,
-            "manifest_digest": task["manifest_digest"],
-            "artifact_revision": task["artifact_revision"],
-            "artifact_digest": task["artifact_digest"],
-            "write_scope": ["story.md"],
-            "recommendation": self.recommendation,
-            "reason": self.reason,
-        }
-        delivered = False
+    script_path = tmp_path / "opencode-standin.py"
+    script_path.write_text(_OPENCODE_STANDIN_SCRIPT, encoding="utf-8")
+    script_path.chmod(script_path.stat().st_mode | stat.S_IEXEC)
+    ledger_path = tmp_path / "opencode-ledger.jsonl"
+    port = _free_port()
+    proc = subprocess.Popen(
+        [__import__("sys").executable, str(script_path), str(port), str(ledger_path)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    base_url = f"http://127.0.0.1:{port}"
+    # Wait for the stand-in to be ready.
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
         try:
-            self._scribe.submit_result(
-                run_id=task["run_id"], task_id=task_id, payload=payload
-            )
-            delivered = True
+            import urllib.request
+
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(f"{base_url}/global/health", timeout=1) as resp:
+                if resp.status == 200:
+                    break
         except Exception:
-            # Validation rejected the result -- record the failure, no fake
-            # success.  The run/artifact/verdict remain unchanged.
-            delivered = False
-        self.dispatch_ledger.append(
-            DispatchRecord(
-                correlation_id=correlation_id,
-                task_id=task_id,
-                attempt_id=attempt_id,
-                session_id=session_id,
-                prompt_digest=f"sha256:{hashlib.sha256(prompt.encode()).hexdigest()}",
-                dispatched_at=datetime.now(timezone.utc).isoformat(),
-                recommendation_delivered=delivered,
-            )
-        )
-        return delivered
+            time.sleep(0.2)
+    else:
+        proc.terminate()
+        raise RuntimeError(f"OpenCode stand-in did not start at {base_url}")
+    return OpenCodeStandIn(process=proc, base_url=base_url, ledger_path=ledger_path)
 
 
 # ---------------------------------------------------------------------------
@@ -243,10 +306,6 @@ Records every invocation in ``--ledger-path`` and responds to the two
 
   * ``gh project list   --owner O --format json``
   * ``gh project create --owner O --title T --format json``
-
-All other ``gh`` invocations exit non-zero with a clear message so the
-Foundation adapter surfaces them as ``uncertain`` rather than silently
-faking success.
 \"\"\"
 from __future__ import annotations
 
@@ -324,7 +383,6 @@ class GhLedgerEntry:
 
 
 def read_gh_ledger(ledger_path: Path) -> list[GhLedgerEntry]:
-    """Read the stand-in ``gh`` operation ledger."""
     if not ledger_path.exists():
         return []
     raw = json.loads(ledger_path.read_text(encoding="utf-8"))
@@ -353,10 +411,8 @@ class IsolatedWorkspace:
     bare_remote: Path
     gh_ledger: Path
     gh_bin: Path
-    orig_path: str = ""
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
-        """Run a Git command inside the workspace root."""
         return subprocess.run(
             ["git", *args],
             cwd=str(self.root),
@@ -372,12 +428,10 @@ class IsolatedWorkspace:
         return result.stdout.strip()
 
     def cleanup(self) -> None:
-        """Remove worktrees and temp directories."""
         worktrees = self.root / ".louke" / "worktrees"
         if worktrees.exists():
             shutil.rmtree(worktrees, ignore_errors=True)
-        for branch in (RELEASE_BRANCH,):
-            self.git("branch", "-D", branch)
+        self.git("branch", "-D", RELEASE_BRANCH)
 
 
 def build_isolated_workspace(
@@ -385,17 +439,15 @@ def build_isolated_workspace(
 ) -> IsolatedWorkspace:
     """Create a Louke-like workspace with a bare Git remote.
 
-    The workspace contains:
-      * The Louke package marker (``louke/__init__.py``) and templates.
-      * ``project.toml`` with the Louke repository identity.
-      * The release-contract bundle and all byte-verified contract files.
-      * A Git repository with ``main`` pushed to a bare ``origin``.
-      * A stand-in ``gh`` script on an isolated ``PATH``.
+    The workspace contains the Louke package marker, project.toml, the
+    release-contract bundle, byte-verified contract files, a Git repo with
+    ``main`` pushed to a bare ``origin``, and a stand-in ``gh`` script.
+    ``story.md`` is intentionally left absent so Foundation creates it
+    through the public controlled-worktree commit path.
     """
     root = tmp_path / "workspace"
     root.mkdir(parents=True)
 
-    # --- Copy Louke marker and templates ---------------------------------
     louke_pkg = root / "louke"
     louke_pkg.mkdir()
     shutil.copy2(REPO_ROOT / "louke" / "__init__.py", louke_pkg / "__init__.py")
@@ -405,9 +457,9 @@ def build_isolated_workspace(
         REPO_ROOT / "louke" / "templates" / "story.md", templates_dst / "story.md"
     )
 
-    # --- Copy project.toml (trimmed to identity fields) -------------------
     project_dir = root / ".louke" / "project"
     project_dir.mkdir(parents=True)
+    project_dir / "specs" / SPEC_ID
     specs_dir = project_dir / "specs"
     specs_dir.mkdir(parents=True)
 
@@ -432,12 +484,10 @@ def build_isolated_workspace(
         encoding="utf-8",
     )
 
-    # --- Copy release-contract bundle -------------------------------------
     shutil.copy2(
         REPO_ROOT / _CONTRACT_BUNDLE, project_dir / "release-contract-bundle.json"
     )
 
-    # --- Copy contract files (byte-verified by the bundle) ----------------
     for rel in _CONTRACT_FILES:
         src = REPO_ROOT / rel
         dst = root / rel
@@ -454,7 +504,6 @@ def build_isolated_workspace(
         story_md_path = root / ".louke" / "project" / "specs" / SPEC_ID / "story.md"
         story_md_path.write_text(story_md_body, encoding="utf-8")
 
-    # --- Stand-in gh -------------------------------------------------------
     gh_dir = tmp_path / "gh-bin"
     gh_dir.mkdir()
     gh_bin = gh_dir / "gh"
@@ -462,7 +511,6 @@ def build_isolated_workspace(
     gh_bin.write_text(_GH_STANDIN_SCRIPT, encoding="utf-8")
     gh_bin.chmod(gh_bin.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
-    # --- Git init + bare remote -------------------------------------------
     bare_remote = tmp_path / "bare-remote.git"
     subprocess.run(
         ["git", "init", "--bare", str(bare_remote)],
@@ -492,12 +540,7 @@ def build_isolated_workspace(
         capture_output=True,
         text=True,
     )
-    subprocess.run(
-        ["git", "branch", "-M", "main"],
-        cwd=str(root),
-        env=env,
-        check=True,
-    )
+    subprocess.run(["git", "branch", "-M", "main"], cwd=str(root), env=env, check=True)
     subprocess.run(
         ["git", "remote", "add", "origin", str(bare_remote)],
         cwd=str(root),
@@ -522,30 +565,38 @@ def build_isolated_workspace(
 
 
 # ---------------------------------------------------------------------------
-# Authenticated HTTP client helper
+# Live server lifecycle helpers
 # ---------------------------------------------------------------------------
 
 
-def register_and_login(
-    client: Any, username: str = "human", password: str = "secret"
-) -> str:
-    """Register a Human principal and return the session cookie value."""
-    response = client.post(
-        "/api/auth/register",
-        json={"username": username, "password": password},
-    )
-    assert response.status_code == 200, response.text
-    return client.cookies.get("louke_session").strip('"')
+def wait_for_health(base_url: str, timeout: float = 30) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with urlopen(f"{base_url}/health", timeout=1) as resp:
+                if resp.status == 200:
+                    return
+        except (URLError, OSError):
+            time.sleep(0.2)
+    raise TimeoutError(f"lk serve did not become healthy at {base_url}")
 
 
-def csrf_token(client: Any) -> str:
-    """Derive the CSRF header token from the authenticated session cookie."""
-    from louke.web.auth import csrf_token_for_session
-
-    session = client.cookies.get("louke_session").strip('"')
-    return csrf_token_for_session(client.app.state.store, session)
-
-
-def auth_headers(client: Any, origin: str = "http://127.0.0.1:9999") -> dict[str, str]:
-    """Return Origin + CSRF headers for an authenticated mutation."""
-    return {"Origin": origin, "X-Louke-CSRF": csrf_token(client)}
+def server_command(
+    python: str, workspace: str, *, port: int = 0, opencode_backend: str = "real"
+) -> list[str]:
+    """Return the public ``lk serve`` command for the installed product."""
+    cmd = [
+        python,
+        "-m",
+        "louke",
+        "serve",
+        "--project-root",
+        workspace,
+        "--host",
+        "127.0.0.1",
+        "--opencode-backend",
+        opencode_backend,
+    ]
+    if port:
+        cmd.extend(["--port", str(port)])
+    return cmd
