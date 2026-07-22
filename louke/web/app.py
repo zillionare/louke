@@ -1267,8 +1267,12 @@ async def api_ui_artifact(request: Request) -> JSONResponse:
             "stale": False,
             "digest": event.output_digest if event is not None else "",
             "verdict": event.details.get("result", "") if event is not None else "",
-            "required_reviewer": "",
-            "review_conclusion": "",
+            "required_reviewer": event.details.get("reviewer", "")
+            if event is not None
+            else "",
+            "review_conclusion": event.details.get("conclusion", "")
+            if event is not None
+            else "",
             "display_label": "runtime event" if event is None else "",
         }
     )

@@ -222,7 +222,7 @@ def _devdocs_view(
         f'<section data-testid="devdocs-view" data-spec-id="{escape(spec_id)}" '
         f'data-initial-doc="{escape(doc_name)}" '
         f'data-doc-list="{escape(document_json, quote=True)}" '
-        f'data-doc-name="{escape(doc_name)}" data-doc-path="{escape(path.relative_to(specs_dir.parent.parent).as_posix())}">'
+        f'data-doc-name="{escape(doc_name)}" data-doc-path="{escape(path.relative_to(specs_dir.parent.parent.parent).as_posix())}">'
         '<header class="devdocs-toolbar">'
         "<strong>Dev Docs</strong><span>多文档实时编辑工作区</span>"
         '<div class="devdocs-tools">'
@@ -593,7 +593,7 @@ def _end_user_docs(root: Path) -> str:
             if path.is_file() and not path.is_symlink():
                 relative = path.relative_to(root).as_posix()
                 buttons.append(
-                    f'<button type="button" data-testid="enduserdocs-file-{escape(path.name)}" '
+                    f'<button type="button" data-testid="enduserdocs-file-{escape(path.stem)}" '
                     f'data-enduserdocs-path="{escape(relative)}">{escape(path.name)}</button>'
                 )
     return (

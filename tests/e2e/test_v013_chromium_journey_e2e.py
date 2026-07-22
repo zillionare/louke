@@ -85,10 +85,51 @@ def _prepare_workspace(root: Path) -> None:
     (specs / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
     (end_user / "guide.md").write_text("# User Guide\n\nHello.\n", encoding="utf-8")
     (wiki / "README.md").write_text("# README\n", encoding="utf-8")
-    fixture = Path(__file__).parents[1] / "fixtures" / "runs" / "project_active.json"
-    (project / "runs.json").write_text(
-        fixture.read_text(encoding="utf-8"), encoding="utf-8"
+    _seed_runtime_run(root)
+
+
+def _seed_runtime_run(root: Path) -> None:
+    """Create a Runtime store run with a review-stage event for the Runs tab.
+
+    The v0.13 workbench reads runs from the Runtime SQLite store (not the
+    legacy ``runs.json``).  This seeds one run at the ``design`` step with
+    an event whose details carry the values the browser test asserts on:
+    ``abc123`` (digest), ``PASS`` (verdict), ``Prism`` (reviewer),
+    ``Looks good`` (conclusion).
+    """
+    from louke.web.api._runtime_store import build_run_store
+    from louke.runtime.store import WorkflowEvent
+
+    db_path = str(root / ".louke" / "project" / "runtime.sqlite3")
+    store = build_run_store(db_path, workspace_root=root)
+    definition = store._catalog.get("new_feature", "1")
+    run = store.create_run(definition)
+    # Advance to the design step so the graph shows meaningful nodes.
+    run = store.update_run(run.with_step("design", "waiting_for_human"), run.revision)
+    # Attach a review-like event at the design step with the expected
+    # artifact detail values.
+    event = WorkflowEvent(
+        event_id="evt-review-1",
+        run_id=run.run_id,
+        sequence=1,
+        type="step.completed",
+        at="2026-07-16T00:00:00Z",
+        actor={"role": "Prism"},
+        from_step="requirements_approval",
+        to_step="design",
+        revision=run.revision,
+        details={
+            "result": "PASS",
+            "reviewer": "Prism",
+            "conclusion": "Looks good",
+        },
+        step_id="design",
+        attempt_id="att-1",
+        correlation_id="",
+        input_digest="sha256:input",
+        output_digest="abc123",
     )
+    store.append_event(event)
 
 
 @pytest.mark.chromium_e2e
@@ -157,70 +198,96 @@ def test_v013_chromium_main_journey() -> None:
         _wait_for_health(base_url)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
-            page = browser.new_page()
-            errors: list[str] = []
-            failed_requests: list[str] = []
-            page.on("pageerror", lambda error: errors.append(str(error)))
-            page.on(
-                "response",
-                lambda response: (
-                    failed_requests.append(f"{response.status} {response.url}")
-                    if response.status >= 500
-                    else None
-                ),
-            )
-            login = page.request.post(
-                f"{base_url}/api/auth/login",
-                data={"username": "owner", "password": "secret"},
-            )
-            assert login.ok
-            page.goto(f"{base_url}/workbench", wait_until="domcontentloaded")
-            expect = page.get_by_test_id
-            assert expect("workbench-toolbar").is_visible()
-            assert expect("workbench-sidebar").is_visible()
-            assert expect("workbench-main").is_visible()
+            try:
+                page = browser.new_page()
+                errors: list[str] = []
+                failed_requests: list[str] = []
+                page.on("pageerror", lambda error: errors.append(str(error)))
+                page.on(
+                    "response",
+                    lambda response: (
+                        failed_requests.append(f"{response.status} {response.url}")
+                        if response.status >= 500
+                        else None
+                    ),
+                )
+                login = page.request.post(
+                    f"{base_url}/api/auth/login",
+                    data={"username": "owner", "password": "secret"},
+                )
+                assert login.ok
+                page.goto(f"{base_url}/workbench", wait_until="domcontentloaded")
+                expect = page.get_by_test_id
+                assert expect("workbench-toolbar").is_visible()
+                assert expect("workbench-sidebar").is_visible()
+                assert expect("workbench-main").is_visible()
 
-            expect("toolbar-dev-docs").click()
-            assert expect("devdocs-tree").is_visible()
-            page.locator('[data-testid^="devdocs-spec-"]').first.click()
-            expect("devdocs-file-spec").first.click()
-            page.wait_for_url("**/workbench?spec=*&doc=spec")
-            page.wait_for_load_state("domcontentloaded")
-            expect("devdocs-pane-container").locator(".doc-pane").first.wait_for()
-            assert expect("devdocs-cross-ref-US-1301").is_visible()
-            expect("devdocs-cross-ref-US-1301").click()
-            assert "#us-1301" in page.url
+                expect("toolbar-dev-docs").click()
+                assert expect("devdocs-tree").is_visible()
+                page.locator('[data-testid^="devdocs-spec-"]').first.click()
+                expect("devdocs-file-spec").first.click()
+                page.wait_for_url("**/workbench?spec=*&doc=spec")
+                page.wait_for_load_state("domcontentloaded")
+                expect("devdocs-pane-container").locator(".doc-pane").first.wait_for()
+                assert expect("devdocs-cross-ref-US-1301").is_visible()
+                expect("devdocs-cross-ref-US-1301").click()
+                assert "#us-1301" in page.url
 
-            expect("toolbar-end-user-docs").click()
-            assert expect("enduserdocs-tree").is_visible()
-            expect("enduserdocs-file-guide").click()
-            assert expect("enduserdocs-editor").is_visible()
-            assert "User Guide" in expect("enduserdocs-editor").input_value()
+                expect("toolbar-end-user-docs").click()
+                assert expect("enduserdocs-tree").is_visible()
+                expect("enduserdocs-file-guide").click()
+                assert expect("enduserdocs-editor").is_visible()
+                # loadDoc is async (fetches /api/files); wait for content.
+                page.wait_for_function(
+                    """() => {
+                        const el = document.querySelector('[data-testid="enduserdocs-editor"]');
+                        return el && el.value && el.value.includes('User Guide');
+                    }""",
+                    timeout=5000,
+                )
+                assert "User Guide" in expect("enduserdocs-editor").input_value()
 
-            expect("toolbar-wiki").click()
-            assert expect("wiki-tree").is_visible()
-            expect("wiki-page-README").click()
-            assert page.get_by_text("README", exact=True).last.is_visible()
+                expect("toolbar-wiki").click()
+                assert expect("wiki-tree").is_visible()
+                expect("wiki-page-README").click()
+                assert page.get_by_text("README", exact=True).last.is_visible()
 
-            expect("toolbar-runs").click()
-            assert expect("runs-sidebar").is_visible()
-            expect("runs-project-project-active").click()
-            expect("runs-node-review").click()
-            detail = expect("stage-artifact-detail")
-            assert detail.is_visible()
-            for value in ("abc123", "PASS", "Prism", "Looks good"):
-                assert value in detail.inner_text()
+                expect("toolbar-runs").click()
+                assert expect("runs-sidebar").is_visible()
+                # The Runs sidebar is populated from the Runtime store via
+                # /api/ui/runs.  Fetch the actual run_id rather than hardcoding.
+                runs_response = page.request.get(f"{base_url}/api/ui/runs")
+                assert runs_response.ok
+                runs_json = runs_response.json()
+                assert runs_json["current"], "at least one current run must exist"
+                run_id = runs_json["current"][0]["run_id"]
+                run_button = page.locator(f'[data-testid="runs-project-{run_id}"]')
+                run_button.wait_for()
+                run_button.click()
+                # Click the design stage node (from the host compatibility
+                # definition graph) to load the artifact detail.
+                design_node = page.locator('[data-testid="runs-node-design"]')
+                design_node.wait_for()
+                design_node.click()
+                detail = expect("stage-artifact-detail")
+                detail.wait_for()
+                assert detail.is_visible()
+                for value in ("abc123", "PASS", "Prism", "Looks good"):
+                    assert value in detail.inner_text()
 
-            open_tabs = page.locator('[data-testid="workbench-tab"]:not([hidden])')
-            keys = open_tabs.evaluate_all(
-                "nodes => nodes.map(node => node.dataset.tabKey)"
-            )
-            assert {"dev-docs", "end-user-docs", "wiki", "runs"}.issubset(set(keys))
-            assert not errors
-            assert not failed_requests
+                open_tabs = page.locator('[data-testid="workbench-tab"]:not([hidden])')
+                keys = open_tabs.evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.tabKey)"
+                )
+                assert {"dev-docs", "end-user-docs", "wiki", "runs"}.issubset(set(keys))
+                assert not errors
+                assert not failed_requests
+            finally:
+                # Close browser inside the sync_playwright context so the
+                # event loop is still active; closing after the context
+                # exits raises "Event loop is closed".
+                browser.close()
     finally:
-        if browser is not None:
-            browser.close()
         if server.poll() is None:
             server.terminate()
             try:
