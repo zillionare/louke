@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from louke import agent, board, keeper, maestro
+from louke import __main__ as cli, agent, board, keeper, maestro
 from louke.web.bindings import ROLE_TO_AGENTS
 from louke.web.pages import workbench
 from louke.runtime.foundation import FoundationProgramResult
@@ -22,6 +22,21 @@ def test_canonical_semantic_agent_registry_excludes_legacy_roles() -> None:
     assert LEGACY_ROLES.isdisjoint(agent.AGENTS)
     assert "scribe" in agent.CANONICAL_SEMANTIC_AGENTS
     assert "scribe" not in agent.AGENTS
+
+
+def test_scout_is_not_a_compatibility_cli_route() -> None:
+    """Retired Scout must not be reachable through the user-facing agent parser."""
+    assert "scout" not in agent.COMPATIBILITY_ADAPTERS
+
+    parser = cli.build_parser()
+    command_action = next(
+        action for action in parser._actions if action.dest == "command"
+    )
+    agent_parser = command_action.choices["agent"]
+    agent_action = next(
+        action for action in agent_parser._actions if action.dest == "agent_command"
+    )
+    assert "scout" not in agent_action.choices
 
 
 def test_web_binding_roster_matches_current_agent_roles() -> None:
@@ -107,6 +122,14 @@ def test_foundation_holdpoint_calls_runtime_program(
     assert passed is True
     assert message == "Runtime foundation program passed"
     assert calls == [tmp_path]
+
+
+def test_canonical_foundation_path_does_not_route_through_scout() -> None:
+    """M-FOUND must call the Runtime foundation program without Scout routing."""
+    source = inspect.getsource(maestro._holdpoint).lower()
+
+    assert "foundation_program_check" in source
+    assert "scout" not in source
 
 
 def test_keeper_compatibility_cli_delegates_to_runtime_without_state_writer(

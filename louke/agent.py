@@ -18,7 +18,6 @@ from pathlib import Path
 
 from . import (
     MIN_OPENCODE_VERSION,
-    scout,
     sage,
     warden,
     lex,
@@ -61,7 +60,6 @@ AGENTS = {
 }
 
 COMPATIBILITY_ADAPTERS = {
-    "scout": scout,
     "warden": warden,
     "keeper": keeper,
 }

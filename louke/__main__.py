@@ -408,7 +408,6 @@ def print_help_text():
     print()
     print("Agent commands:")
     print("  lk agent <name> <cmd> [opts]")
-    print("    scout      deprecated compatibility onboarding adapter")
     print(
         "    sage       quote-check, commit-spec, create-issues, record-lock (legacy adapters)"
     )
