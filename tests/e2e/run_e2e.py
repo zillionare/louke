@@ -143,6 +143,86 @@ def _run_pytest(
     return subprocess.run(command, cwd=root, env=environment).returncode
 
 
+def _resolve_playwright_browsers_path(
+    environment: dict[str, str], *, executable_path: Path | None = None
+) -> Path:
+    """Resolve and export the canonical Playwright browser cache directory.
+
+    Args:
+        environment: Child-process environment to update with the explicit
+            ``PLAYWRIGHT_BROWSERS_PATH`` value.
+        executable_path: Optional already discovered Chromium executable,
+            provided by unit tests or a caller that owns discovery.
+
+    Returns:
+        The existing Playwright browser cache directory.
+
+    Raises:
+        RuntimeError: If the configured cache or Chromium executable is absent
+            or cannot be mapped to a Playwright cache root.
+    """
+    configured = environment.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if configured:
+        cache = Path(configured).expanduser().resolve()
+        if not cache.is_dir():
+            raise RuntimeError(f"PLAYWRIGHT_BROWSERS_PATH does not exist: {cache}")
+        environment["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
+        return cache
+    if executable_path is None:
+        try:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as playwright:
+                executable_path = Path(playwright.chromium.executable_path)
+        except Exception as exc:
+            raise RuntimeError(
+                "Chromium discovery failed; set PLAYWRIGHT_BROWSERS_PATH "
+                "to an installed Playwright browser cache"
+            ) from exc
+    executable = executable_path.expanduser().resolve()
+    if not executable.is_file():
+        raise RuntimeError(f"Chromium executable does not exist: {executable}")
+    version_directory = next(
+        (
+            parent
+            for parent in executable.parents
+            if parent.name.startswith("chromium-")
+        ),
+        None,
+    )
+    if version_directory is None or not version_directory.parent.is_dir():
+        raise RuntimeError(
+            f"Chromium executable is outside a Playwright cache: {executable}"
+        )
+    cache = version_directory.parent
+    environment["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
+    return cache
+
+
+def _require_chromium(environment: dict[str, str]) -> None:
+    """Fail the required browser profile when Chromium cannot launch."""
+    _resolve_playwright_browsers_path(environment)
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from pathlib import Path; "
+            "from playwright.sync_api import sync_playwright; "
+            "p=sync_playwright().start(); "
+            "path=Path(p.chromium.executable_path); "
+            "p.stop(); "
+            "raise SystemExit(0 if path.is_file() else 1)",
+        ],
+        cwd=_repo_root(),
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode:
+        detail = probe.stderr.strip() or probe.stdout.strip()
+        raise RuntimeError(f"Chromium is unavailable for required E2E: {detail}")
+
+
 def _prepare_wheelhouse(root: Path, temporary_root: Path, version: str) -> Path:
     _assert_clean_source(root)
     source_sha = _git_revision(root)
@@ -465,6 +545,8 @@ def main(argv: list[str] | None = None) -> int:
                         root, case_root, wheelhouse, version, runtime
                     )
                     environment["LOUKE_E2E_PROFILE"] = profile
+                    if profile in {"chromium", "v014"}:
+                        _require_chromium(environment)
                     paths, selection = _profile_paths(profile)
                     result = _run_pytest(
                         root,
