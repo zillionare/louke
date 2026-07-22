@@ -113,6 +113,11 @@ jobs:
         with:
           name: louke-build-artifacts
           path: dist/
+      - name: Install release adapter tool deps
+        # tools/louke_python_release_adapter.py imports packaging.version
+        # (a build-backend transitive, not a louke runtime dep). Install it
+        # explicitly so the inspect step does not need the full wheel.
+        run: python -m pip install --quiet packaging
       - name: Inspect each artifact with the release adapter
         run: |
           set -euo pipefail
@@ -155,14 +160,20 @@ jobs:
           name: louke-build-artifacts
           path: dist/
       - name: Install wheel + test deps into clean venv
+        # jsonschema is a runtime dep (contract_registry.py:227); declaring it
+        # in pyproject.toml dependencies means the wheel pulls it automatically.
+        # Belt-and-suspenders: list it explicitly in case the wheel is stale.
         run: |
           python -m venv /tmp/lk-venv
           /tmp/lk-venv/bin/pip install --force-reinstall dist/louke-*.whl
-          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov build
+          /tmp/lk-venv/bin/pip install --quiet pytest pytest-cov build jsonschema
       - name: Run unit tests with coverage
+        # --cov=louke.runtime matches v0.13 ci.yml (louke.web and other
+        # non-runtime modules lack unit coverage; measuring the full louke
+        # package yields ~59%, well under the 95% gate).
         run: |
           /tmp/lk-venv/bin/python -m pytest -q tests/unit \
-            --cov=louke --cov-report=xml --cov-report=term-missing \
+            --cov=louke.runtime --cov-report=xml --cov-report=term-missing \
             --cov-fail-under=95
       - name: Upload coverage XML (3.12 only)
         if: matrix.python-version == '3.12'

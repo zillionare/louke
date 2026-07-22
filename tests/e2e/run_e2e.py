@@ -246,6 +246,12 @@ def _verify_product_identity(
         raise RuntimeError("product Python must differ from project runner Python")
     if _inside(product_python.absolute(), (root / ".venv").absolute()):
         raise RuntimeError("product Python must not be inside the repository .venv")
+    # Run the probe from the case workspace (a temp dir with no louke/ source
+    # tree).  ``python -c`` puts cwd (``''``) on sys.path[0]; if the probe
+    # inherits the repo root cwd, ``import louke`` resolves to the checkout's
+    # source package instead of the product venv's installed wheel, causing a
+    # false "product louke is outside product venv" failure.
+    probe_cwd = Path(environment["LOUKE_E2E_CASE_CWD"])
     probe = subprocess.run(
         [
             str(product_python),
@@ -254,6 +260,7 @@ def _verify_product_identity(
             "print(json.dumps({'python':sys.executable,'louke':louke.__file__,"
             "'version':importlib.metadata.version('louke')}))",
         ],
+        cwd=probe_cwd,
         env=environment,
         text=True,
         capture_output=True,
