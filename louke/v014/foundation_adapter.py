@@ -181,29 +181,40 @@ class ShellFoundationAdapter:
         )
         relative_target = target.relative_to(worktree).as_posix()
         if existing is not None:
-            commit_sha, error = self._output_at(
-                worktree,
-                "git",
-                "log",
-                "-1",
-                "--format=%H",
-                "--",
-                relative_target,
-            )
-            if not commit_sha:
-                raise RuntimeError(f"cannot reconcile existing Story commit: {error}")
-            committed, blob_error = self._output_bytes_at(
-                worktree, "git", "show", f"{commit_sha}:{relative_target}"
-            )
-            if committed != result.story_md_bytes:
-                raise RuntimeError(
-                    "existing Story commit does not contain the current Story bytes: "
-                    f"{blob_error or relative_target}"
-                )
-            return _with_commit_sha(result, commit_sha)
+            return self._reconcile_story(worktree, relative_target, result)
         if not target.parent.is_dir():
             raise RuntimeError(f"controlled spec directory is absent: {target.parent}")
         target.write_bytes(result.story_md_bytes)
+        return self._commit_story(worktree, relative_target, result, run_id)
+
+    def _reconcile_story(
+        self, worktree: Path, relative_target: str, result: StoryInitResult
+    ) -> StoryInitResult:
+        """Reconcile a matching Story and verify its committed blob exactly."""
+        commit_sha, error = self._output_at(
+            worktree,
+            "git",
+            "log",
+            "-1",
+            "--format=%H",
+            "--",
+            relative_target,
+        )
+        if not commit_sha:
+            raise RuntimeError(f"cannot reconcile existing Story commit: {error}")
+        self._assert_story_blob(
+            worktree, relative_target, commit_sha, result.story_md_bytes
+        )
+        return _with_commit_sha(result, commit_sha)
+
+    def _commit_story(
+        self,
+        worktree: Path,
+        relative_target: str,
+        result: StoryInitResult,
+        run_id: str,
+    ) -> StoryInitResult:
+        """Commit only the Story path while retaining unrelated index state."""
         ok, error = self._run_at(worktree, "git", "add", "--", relative_target)
         if not ok:
             raise RuntimeError(f"Story git add failed: {error}")
@@ -222,15 +233,22 @@ class ShellFoundationAdapter:
         commit_sha, error = self._output_at(worktree, "git", "rev-parse", "HEAD")
         if not commit_sha:
             raise RuntimeError(f"Story commit identity could not be confirmed: {error}")
-        committed, blob_error = self._output_bytes_at(
+        self._assert_story_blob(
+            worktree, relative_target, commit_sha, result.story_md_bytes
+        )
+        return _with_commit_sha(result, commit_sha)
+
+    def _assert_story_blob(
+        self, worktree: Path, relative_target: str, commit_sha: str, expected: bytes
+    ) -> None:
+        """Fail closed unless a confirmed commit contains the exact Story bytes."""
+        committed, error = self._output_bytes_at(
             worktree, "git", "show", f"{commit_sha}:{relative_target}"
         )
-        if committed != result.story_md_bytes:
+        if committed != expected:
             raise RuntimeError(
-                "Story commit does not contain the expected Story bytes: "
-                f"{blob_error or relative_target}"
+                f"Story commit does not contain expected bytes: {error or relative_target}"
             )
-        return _with_commit_sha(result, commit_sha)
 
     def _ensure_branch(self, branch: str, main_sha: str) -> tuple[dict[str, str], str]:
         """Query or create a release branch without overwriting an existing ref."""
