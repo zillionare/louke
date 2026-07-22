@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ._common import resolve_existing_path
+from ._common import RUNTIME_FOUNDATION_PROGRAM, resolve_existing_path
 
 
 def register(subparsers):
@@ -399,14 +399,14 @@ def cmd_create_issues(args):
     repo = _read_project_info_value("Repo").replace("github.com/", "")
     if not repo:
         print(
-            "Repo field missing in project.toml; run the Runtime foundation program first",
+            f"Repo field missing in project.toml; run the {RUNTIME_FOUNDATION_PROGRAM} first",
             file=sys.stderr,
         )
         return 1
     branch = _read_project_info_value("Release Branch")
     if not branch:
         print(
-            "Release Branch field missing in project.toml; run the Runtime foundation program first",
+            f"Release Branch field missing in project.toml; run the {RUNTIME_FOUNDATION_PROGRAM} first",
             file=sys.stderr,
         )
         return 1
@@ -417,7 +417,7 @@ def cmd_create_issues(args):
             file=sys.stderr,
         )
         print(
-            "  hint: run the Runtime foundation program (writes Project ID) or pass --skip-project",
+            f"  hint: run the {RUNTIME_FOUNDATION_PROGRAM} (writes Project ID) or pass --skip-project",
             file=sys.stderr,
         )
         return 1

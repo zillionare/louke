@@ -7,6 +7,7 @@ from typing import Iterable, Optional
 
 PROJECT_INFO_PATH = Path(".louke/project/project.toml")  # fix-002: from project-info.md
 PROJECT_HISTORY_PATH = Path(".louke/project/history.md")
+RUNTIME_FOUNDATION_PROGRAM = "Runtime foundation program"
 
 
 def _toml_load(path: Path) -> dict:

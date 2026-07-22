@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ._common import resolve_existing_path
+from ._common import RUNTIME_FOUNDATION_PROGRAM, resolve_existing_path
 
 
 def register(subparsers):
@@ -204,7 +204,7 @@ def cmd_verify_project(args):
     project_url = _read_project_info("Project ID")
     if not project_url or not project_url.startswith("https://"):
         print(
-            "Project URL missing in project.toml; run the Runtime foundation program first",
+            f"Project URL missing in project.toml; run the {RUNTIME_FOUNDATION_PROGRAM} first",
             file=sys.stderr,
         )
         return 1
