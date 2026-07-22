@@ -80,6 +80,15 @@ class FakeStoryWriter:
         return _result(run_id, human_story)
 
 
+@dataclass
+class FakeScribeEntry:
+    calls: list[dict[str, object]]
+
+    def ensure_task(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        return {"task_id": "task-1", "state": "blocked"}
+
+
 def test_story_entry_persists_artifact_and_advances_runtime_to_m_story() -> None:
     """Initial Story creation commits one Runtime transition and one artifact."""
     store = _run_store()
@@ -131,6 +140,35 @@ def test_story_entry_replay_reuses_revision_after_service_restart(tmp_path) -> N
 
     assert second == first
     assert second_writer.calls == 0
+
+
+def test_story_entry_ensures_scribe_task_after_story_is_persisted() -> None:
+    """Story persistence binds the first Scribe task to its artifact identity."""
+    store = _run_store()
+    writer = FakeStoryWriter()
+    scribe = FakeScribeEntry(calls=[])
+    run = store.create_run(store._catalog.get("new_feature", "0.14.0"))
+
+    outcome = StoryEntryService(store, writer, scribe_entry=scribe).initialize(
+        run_id=run.run_id,
+        workspace="/workspace",
+        spec_id="spec-1",
+        human_story="Ship the reflow",
+        actor="human:alice",
+        idempotency_key="story-init-1",
+        foundation_manifest_identity="foundation:abc",
+    )
+
+    assert outcome.task == {"task_id": "task-1", "state": "blocked"}
+    assert scribe.calls == [
+        {
+            "run_id": run.run_id,
+            "artifact": outcome.artifact,
+            "human_request": "Ship the reflow",
+            "foundation_manifest_identity": "foundation:abc",
+            "workspace": "/workspace",
+        }
+    ]
 
 
 def test_story_entry_conflict_keeps_runtime_at_m_start() -> None:

@@ -428,6 +428,7 @@ class ReleaseEntryService:
             human_story=str(record["story"]),
             actor=str(record.get("actor") or "human"),
             idempotency_key=f"story-init:{record['request_id']}",
+            foundation_manifest_identity=_foundation_identity(resources),
         )
         return {
             "path": result.artifact.path,
@@ -438,6 +439,7 @@ class ReleaseEntryService:
             "commit_sha": result.artifact.commit_sha,
             "phase": result.run.current_step,
             "run_id": result.run.run_id,
+            "task": result.task,
         }
 
 
@@ -456,6 +458,12 @@ def _story_from_foundation(foundation: dict[str, Any] | None) -> dict[str, Any] 
     resources = foundation.get("resources") or {}
     story = resources.get("story")
     return dict(story) if isinstance(story, dict) else None
+
+
+def _foundation_identity(resources: dict[str, Any]) -> str:
+    """Return a stable non-secret identity for the confirmed Foundation set."""
+    payload = json.dumps(resources, sort_keys=True, separators=(",", ":"))
+    return f"foundation:{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _serialize_field(field: str, value: Any) -> Any:

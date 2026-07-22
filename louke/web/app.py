@@ -63,6 +63,16 @@ from .api.v14_releases import (
     recheck_release,
     release_status,
 )
+from .api.v14_scribe import (
+    current_project,
+    story_artifact,
+    story_page,
+    task_messages,
+    task_read,
+    task_reconcile,
+    task_reply,
+    task_retry,
+)
 from .api._runtime_store import build_run_store
 from louke.runtime.workflow_graph import WorkflowGraphBuilder
 from louke.runtime.store import RunNotFoundError, WorkflowRun, WorkflowRunStore
@@ -167,6 +177,37 @@ def create_app(
                 "/api/v14/releases/requests/{request_id}",
                 endpoint=release_status,
             ),
+            Route(
+                "/api/v14/projects/{project_id}/current",
+                endpoint=current_project,
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/artifacts/{kind}",
+                endpoint=story_artifact,
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/tasks/{task_id}",
+                endpoint=task_read,
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/tasks/{task_id}/messages",
+                endpoint=task_messages,
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/tasks/{task_id}/messages",
+                endpoint=task_reply,
+                methods=["POST"],
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/tasks/{task_id}/reconcile",
+                endpoint=task_reconcile,
+                methods=["POST"],
+            ),
+            Route(
+                "/api/v14/runs/{run_id}/tasks/{task_id}/retry",
+                endpoint=task_retry,
+                methods=["POST"],
+            ),
             Route("/api/bindings", endpoint=api_bindings, methods=["GET", "PUT"]),
             Route("/api/wiki", endpoint=api_wiki_index, methods=["GET"]),
             Route("/api/wiki/refresh", endpoint=api_wiki_refresh, methods=["POST"]),
@@ -248,6 +289,10 @@ def create_app(
                 endpoint=gates_page_decide,
                 methods=["POST"],
             ),
+            Route(
+                "/projects/{project_id}/requirements/story",
+                endpoint=story_page,
+            ),
             Route("/projects/new", endpoint=release_new_page, methods=["GET"]),
             Route("/runs/{run_id}", endpoint=runs_page_detail),
             Route(
@@ -264,6 +309,7 @@ def create_app(
     app.state.v12_run_store = project_runtime_store
     from louke.v014.foundation_adapter import ShellFoundationAdapter
     from louke.v014.release_entry import ReleaseEntryService
+    from louke.v014.scribe_entry import ScribeEntryService
     from louke.v014.story_entry import StoryEntryService
 
     project_info = store.project_info().get("project", {})
@@ -275,12 +321,23 @@ def create_app(
             or "v0.14-001-workflow-reflow-spec"
         ),
     )
+    scribe_entry = ScribeEntryService(
+        project_runtime_store,
+        workspace_root=project_root,
+    )
+    story_entry = StoryEntryService(
+        project_runtime_store,
+        foundation_adapter,
+        scribe_entry=scribe_entry,
+    )
     app.state.v14_release_entry = ReleaseEntryService(
         project_runtime_store,
         foundation_adapter,
         workspace_id=workspace_id,
-        story_entry=StoryEntryService(project_runtime_store, foundation_adapter),
+        story_entry=story_entry,
     )
+    app.state.v14_story_entry = story_entry
+    app.state.v14_scribe_entry = scribe_entry
     app.state.broker = broker
     app.state.setup_only = setup_only
     return app

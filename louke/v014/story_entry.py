@@ -52,6 +52,7 @@ class StoryEntryOutcome:
 
     run: WorkflowRun
     artifact: StoryArtifact
+    task: dict[str, object] | None = None
 
 
 class StoryWriter(Protocol):
@@ -67,6 +68,21 @@ class StoryWriter(Protocol):
         run_id: str,
     ) -> StoryInitResult:
         """Write or reconcile the initial Story and return commit evidence."""
+
+
+class ScribeDispatcher(Protocol):
+    """Port for Runtime-owned Scribe task/session dispatch."""
+
+    def ensure_task(
+        self,
+        *,
+        run_id: str,
+        artifact: StoryArtifact,
+        human_request: str,
+        foundation_manifest_identity: str,
+        workspace: str,
+    ) -> dict[str, object]:
+        """Persist and dispatch the task bound to the initial Story."""
 
 
 class StoryArtifactStore:
@@ -162,9 +178,15 @@ class StoryArtifactStore:
 class StoryEntryService:
     """Execute M-START through the Runtime program-step executor."""
 
-    def __init__(self, run_store: WorkflowRunStore, writer: StoryWriter) -> None:
+    def __init__(
+        self,
+        run_store: WorkflowRunStore,
+        writer: StoryWriter,
+        scribe_entry: ScribeDispatcher | None = None,
+    ) -> None:
         self._run_store = run_store
         self._writer = writer
+        self._scribe_entry = scribe_entry
         self._artifacts = StoryArtifactStore(run_store)
 
     def artifact(self, run_id: str) -> StoryArtifact | None:
@@ -180,6 +202,7 @@ class StoryEntryService:
         human_story: str,
         actor: str,
         idempotency_key: str,
+        foundation_manifest_identity: str = "",
     ) -> StoryEntryOutcome:
         """Create the initial Story and advance the bound run to M-STORY.
 
@@ -202,7 +225,16 @@ class StoryEntryService:
         run = self._run_store.get_run(run_id)
         existing = self._artifacts.get(run_id)
         if existing is not None and existing.idempotency_key == idempotency_key:
-            return StoryEntryOutcome(run=run, artifact=existing)
+            return StoryEntryOutcome(
+                run=run,
+                artifact=existing,
+                task=self._ensure_scribe(
+                    existing,
+                    human_story,
+                    foundation_manifest_identity,
+                    workspace,
+                ),
+            )
         if run.current_step != "M-START":
             raise ValueError(
                 f"Story initialization requires M-START, got {run.current_step}"
@@ -232,7 +264,34 @@ class StoryEntryService:
         artifact = self._artifacts.get(run_id)
         if artifact is None:
             raise ValueError("M-START completed without a persisted Story artifact")
-        return StoryEntryOutcome(run=outcome.run, artifact=artifact)
+        return StoryEntryOutcome(
+            run=outcome.run,
+            artifact=artifact,
+            task=self._ensure_scribe(
+                artifact,
+                human_story,
+                foundation_manifest_identity,
+                workspace,
+            ),
+        )
+
+    def _ensure_scribe(
+        self,
+        artifact: StoryArtifact,
+        human_story: str,
+        foundation_manifest_identity: str,
+        workspace: str,
+    ) -> dict[str, object] | None:
+        """Ensure the M-STORY Scribe task exists after Story persistence."""
+        if self._scribe_entry is None:
+            return None
+        return self._scribe_entry.ensure_task(
+            run_id=artifact.run_id,
+            artifact=artifact,
+            human_request=human_story,
+            foundation_manifest_identity=foundation_manifest_identity,
+            workspace=workspace,
+        )
 
     def _handler(
         self,
