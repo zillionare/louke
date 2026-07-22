@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from louke.opencode.adapter import OpenCodeAdapter
+from louke.opencode.adapter import OpenCodeAdapter, ProviderResult
 from louke.runtime.store import WorkflowRunStore
 from louke.v014.fr0400_task_manifest import build_manifest
 from louke.v014.fr0600_workflow_authority import (
@@ -836,7 +836,8 @@ class ScribeEntryService:
         if not task["session_id"]:
             return self._read_task(task)
         try:
-            outcome = self._resolve_adapter().reconcile_session(
+            adapter = self._resolve_adapter()
+            outcome = adapter.reconcile_session(
                 task["session_id"], after_result_id=None
             )
             if outcome.status == "completed":
@@ -845,9 +846,7 @@ class ScribeEntryService:
             if outcome.status in {"not_found", "ambiguous"}:
                 self._mark_reconciliation_uncertain(task, outcome.error)
                 return self._read_task(self._store.get_task(task_id) or task)
-            messages = self._resolve_adapter().list_messages(
-                task["session_id"], after_message_id=None
-            )
+            messages = adapter.list_messages(task["session_id"], after_message_id=None)
             for message in messages:
                 client_id = f"provider:{message.id}"
                 if self._store.get_message_by_client(client_id) is None:
@@ -872,7 +871,7 @@ class ScribeEntryService:
         return self._read_task(self._store.get_task(task_id) or task)
 
     def _ingest_provider_results(
-        self, task: dict[str, Any], results: list[Any]
+        self, task: dict[str, Any], results: list[ProviderResult]
     ) -> None:
         """Validate the latest controlled provider result, if one exists."""
         if not results:
