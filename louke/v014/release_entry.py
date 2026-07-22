@@ -62,7 +62,13 @@ class FoundationAdapter(Protocol):
 class ReleaseRequestStore:
     """SQLite persistence for v0.14 preview and confirmation identities."""
 
-    _ACTIVE_STATUSES = ("preflight", "foundation", "ready", "conflict")
+    _ACTIVE_STATUSES = (
+        "preflight",
+        "foundation",
+        "ready",
+        "blocked",
+        "conflict",
+    )
 
     def __init__(self, run_store: WorkflowRunStore) -> None:
         self._run_store = run_store
@@ -214,13 +220,7 @@ class ReleaseRequestStore:
         values: list[Any] = []
         for key, value in fields.items():
             assignments.append(f"{key} = ?")
-            values.append(
-                json.dumps(asdict(value), sort_keys=True)
-                if key in {"main_check", "foundation"} and value is not None
-                else json.dumps(value, sort_keys=True)
-                if key == "backlog" and value is not None
-                else value
-            )
+            values.append(_serialize_field(key, value))
         assignments.append("updated_at = ?")
         values.append(_now())
         values.append(request_id)
@@ -315,7 +315,7 @@ class ReleaseEntryService:
             return self._read_model(
                 self._requests.update(record["request_id"], status="blocked")
             )
-        run = self._create_run()
+        run_id = record["run_id"] or self._create_run().run_id
         project_id = (
             f"prj_{hashlib.sha256(record['request_id'].encode()).hexdigest()[:12]}"
         )
@@ -323,14 +323,14 @@ class ReleaseEntryService:
             record["request_id"],
             status="foundation",
             project_id=project_id,
-            run_id=run.run_id,
+            run_id=run_id,
         )
         outcome = self._foundation.provision(
-            record["story"], record["release_version"], run.run_id, check
+            record["story"], record["release_version"], run_id, check
         )
         resources = dict(outcome.resources)
         resources.setdefault("local_project", {"id": project_id})
-        resources.setdefault("workflow_run", {"id": run.run_id})
+        resources.setdefault("workflow_run", {"id": run_id})
         outcome = FoundationOutcome(outcome.status, resources, outcome.remediation)
         status = (
             "ready"
@@ -402,6 +402,15 @@ def _assert_preview(record: dict[str, Any], revision: int, digest: str) -> None:
         raise StalePreviewError(
             "preview revision or request digest is stale; refresh the release preview"
         )
+
+
+def _serialize_field(field: str, value: Any) -> Any:
+    """Serialize structured request fields while preserving scalar columns."""
+    if value is None or field not in {"main_check", "foundation", "backlog"}:
+        return value
+    if field in {"main_check", "foundation"}:
+        value = asdict(value)
+    return json.dumps(value, sort_keys=True)
 
 
 def _now() -> str:

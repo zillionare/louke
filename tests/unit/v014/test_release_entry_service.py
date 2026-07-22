@@ -193,6 +193,64 @@ def test_partial_foundation_effect_is_not_reported_as_ready() -> None:
     assert result["run_id"]
 
 
+def test_uncertain_foundation_recheck_reuses_the_original_run() -> None:
+    """AC-FR0400-03: recovery queries one Foundation identity and never duplicates the run."""
+    outcome = FoundationOutcome(
+        status="uncertain",
+        resources={"github_project": {"node_id": "PVT_1"}},
+        remediation="query the release project before retrying",
+    )
+    foundation = FakeFoundation(_main_check(), outcome)
+    service = ReleaseEntryService(_run_store(), foundation, workspace_id="ws-1")
+    preview = service.preview("Ship the reflow", "v0.14.0")
+    first = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-1",
+        actor="human",
+    )
+    foundation.outcome = _ready_outcome()
+    second = service.recheck(preview["request_id"], actor="human")
+
+    assert second["status"] == "ready"
+    assert second["run_id"] == first["run_id"]
+    assert foundation.provision_calls == 2
+
+
+def test_uncertain_foundation_blocks_a_second_release_request() -> None:
+    """AC-FR0400-05: unresolved external effects keep the workspace single-active."""
+    foundation = FakeFoundation(
+        _main_check(),
+        FoundationOutcome(
+            status="uncertain",
+            resources={"github_project": {"node_id": "PVT_1"}},
+            remediation="query the release project before retrying",
+        ),
+    )
+    service = ReleaseEntryService(_run_store(), foundation, workspace_id="ws-1")
+    first = service.preview("First release", "v0.14.0")
+    service.confirm(
+        first["preview_id"],
+        expected_preview_revision=0,
+        request_digest=first["request_digest"],
+        idempotency_key="idem-first",
+        actor="human",
+    )
+    second = service.preview("Second release", "v0.15.0")
+
+    result = service.confirm(
+        second["preview_id"],
+        expected_preview_revision=0,
+        request_digest=second["request_digest"],
+        idempotency_key="idem-second",
+        actor="human",
+    )
+
+    assert result["status"] == "backlogged"
+    assert foundation.provision_calls == 1
+
+
 def test_active_release_is_persistently_backlogged_without_second_run(
     tmp_path,
 ) -> None:
