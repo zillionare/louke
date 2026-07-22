@@ -25,6 +25,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "louke-ci.yml"
 SUPPORTED_INSTALL_RUNNERS = ("ubuntu-22.04", "macos-14", "windows-2022")
 SUPPORTED_INSTALL_PYTHON_VERSIONS = ("3.11", "3.12", "3.13")
 UNIT_PYTHON_VERSIONS = (*SUPPORTED_INSTALL_PYTHON_VERSIONS, "3.14")
+BUILD_ARTIFACT = "louke-build-artifacts-${{ github.sha }}"
 
 
 @pytest.fixture(scope="module")
@@ -58,12 +59,12 @@ def test_install_matrix_needs_build_artifacts(workflow: dict) -> None:
 
 
 def test_install_matrix_downloads_build_artifacts(workflow: dict) -> None:
-    """install-matrix downloads ``louke-build-artifacts`` into ``dist/``."""
+    """install-matrix downloads this commit's build artifact into ``dist/``."""
     steps = _install_matrix(workflow)["steps"]
     downloads = [s for s in steps if "download-artifact" in s.get("uses", "")]
     assert downloads, "install-matrix has no download-artifact step"
     download = downloads[0]
-    assert download["with"]["name"] == "louke-build-artifacts"
+    assert download["with"]["name"] == BUILD_ARTIFACT
     assert download["with"]["path"] == "dist/"
 
 
