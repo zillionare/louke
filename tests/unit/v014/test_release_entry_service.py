@@ -8,12 +8,19 @@ import pytest
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.store import WorkflowRunStore
+from louke.v014.fr0500_story_init import (
+    StoryInitConflict,
+    StoryInitResult,
+    StoryNavigation,
+    StoryRevisionEvidence,
+)
 from louke.v014.release_entry import (
     FoundationOutcome,
     MainCheck,
     ReleaseEntryService,
     StalePreviewError,
 )
+from louke.v014.story_entry import StoryEntryService
 
 
 def _run_store(db_path: str | None = None) -> WorkflowRunStore:
@@ -27,10 +34,16 @@ def _run_store(db_path: str | None = None) -> WorkflowRunStore:
                 Step(
                     step_id="M-START",
                     kind="program",
+                    handler="v014.m_start",
                     implemented=False,
                     transitions=(Edge("start-story", "M-START", "M-STORY", "done"),),
                 ),
-                Step(step_id="M-STORY", kind="program", implemented=False),
+                Step(
+                    step_id="M-STORY",
+                    kind="program",
+                    handler="v014.m_story",
+                    implemented=False,
+                ),
             ),
         )
     )
@@ -85,6 +98,44 @@ def _ready_outcome() -> FoundationOutcome:
         },
         remediation="",
     )
+
+
+@dataclass
+class FakeStoryWriter:
+    calls: int = 0
+    conflict: StoryInitConflict | None = None
+
+    def write_story(
+        self,
+        *,
+        workspace: str,
+        spec_id: str,
+        human_story: str,
+        actor: str,
+        run_id: str,
+    ) -> StoryInitResult:
+        self.calls += 1
+        if self.conflict is not None:
+            raise self.conflict
+        body = f"# Story\n\n> {human_story}\n"
+        return StoryInitResult(
+            story_md_bytes=body.encode(),
+            evidence=StoryRevisionEvidence(
+                input_digest="sha256:input",
+                file_digest="sha256:file",
+                actor=actor,
+                run_id=run_id,
+                commit_sha="sha-story",
+            ),
+            navigation=StoryNavigation(
+                run_id=run_id,
+                spec_id=spec_id,
+                phase="M-STORY",
+                document="story",
+                revision_digest="sha256:file",
+                commit_sha="sha-story",
+            ),
+        )
 
 
 def test_preview_persists_revision_without_foundation_side_effects() -> None:
@@ -144,6 +195,65 @@ def test_confirm_ready_persists_run_and_replays_idempotently() -> None:
     assert replay == request
     assert foundation.check_calls == 1
     assert foundation.provision_calls == 1
+
+
+def test_confirm_ready_initializes_story_and_enters_m_story() -> None:
+    """AC-FR0500-01/03: ready Foundation confirmation creates Story revision."""
+    store = _run_store()
+    foundation = FakeFoundation(_main_check(), _ready_outcome())
+    writer = FakeStoryWriter()
+    service = ReleaseEntryService(
+        store,
+        foundation,
+        workspace_id="ws-1",
+        story_entry=StoryEntryService(store, writer),
+    )
+    preview = service.preview("Ship the reflow", "v0.14.0")
+
+    request = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-1",
+        actor="human:alice",
+    )
+
+    assert request["status"] == "ready"
+    assert request["story"]["revision"] == 1
+    assert request["story"]["phase"] == "M-STORY"
+    assert store.get_run(request["run_id"]).current_step == "M-STORY"
+    assert writer.calls == 1
+
+
+def test_story_initialization_conflict_is_recoverable_and_not_ready() -> None:
+    """AC-FR0500-02: Story conflict preserves M-START and exposes remediation."""
+    store = _run_store()
+    foundation = FakeFoundation(_main_check(), _ready_outcome())
+    writer = FakeStoryWriter(
+        conflict=StoryInitConflict(
+            existing_bytes=b"human edit",
+            expected_file_digest="sha256:expected",
+        )
+    )
+    service = ReleaseEntryService(
+        store,
+        foundation,
+        workspace_id="ws-1",
+        story_entry=StoryEntryService(store, writer),
+    )
+    preview = service.preview("Ship the reflow", "v0.14.0")
+
+    request = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-1",
+        actor="human:alice",
+    )
+
+    assert request["status"] == "conflict"
+    assert "STORY_INITIALIZATION_CONFLICT" in request["foundation"]["remediation"]
+    assert store.get_run(request["run_id"]).current_step == "M-START"
 
 
 def test_blocked_preflight_can_recheck_without_creating_a_run() -> None:

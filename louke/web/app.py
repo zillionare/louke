@@ -264,19 +264,22 @@ def create_app(
     app.state.v12_run_store = project_runtime_store
     from louke.v014.foundation_adapter import ShellFoundationAdapter
     from louke.v014.release_entry import ReleaseEntryService
+    from louke.v014.story_entry import StoryEntryService
 
     project_info = store.project_info().get("project", {})
     workspace_id = str(project_info.get("project") or project_info.get("repo") or "")
+    foundation_adapter = ShellFoundationAdapter(
+        project_root,
+        spec_id=str(
+            project_info.get("contract_bundle_entry_spec")
+            or "v0.14-001-workflow-reflow-spec"
+        ),
+    )
     app.state.v14_release_entry = ReleaseEntryService(
         project_runtime_store,
-        ShellFoundationAdapter(
-            project_root,
-            spec_id=str(
-                project_info.get("contract_bundle_entry_spec")
-                or "v0.14-001-workflow-reflow-spec"
-            ),
-        ),
+        foundation_adapter,
         workspace_id=workspace_id,
+        story_entry=StoryEntryService(project_runtime_store, foundation_adapter),
     )
     app.state.broker = broker
     app.state.setup_only = setup_only

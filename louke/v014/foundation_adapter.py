@@ -5,11 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from louke.v014.release_entry import FoundationOutcome, MainCheck
+from louke.v014.fr0500_story_init import (
+    StoryInitResult,
+    StoryTemplate,
+    initialize_story_revision,
+)
 
 
 class ShellFoundationAdapter:
@@ -117,6 +123,91 @@ class ShellFoundationAdapter:
             if isinstance(value, dict) and "id" in value
         ]
         return FoundationOutcome("ready", resources, "")
+
+    def write_story(
+        self,
+        *,
+        workspace: str,
+        spec_id: str,
+        human_story: str,
+        actor: str,
+        run_id: str,
+    ) -> StoryInitResult:
+        """Write, commit, or reconcile the initial Story in a controlled worktree.
+
+        Args:
+            workspace: Absolute controlled release worktree path.
+            spec_id: Relative spec directory identity.
+            human_story: Original Human release idea.
+            actor: Non-secret actor identity recorded in revision evidence.
+            run_id: Runtime run identity recorded in revision evidence.
+
+        Returns:
+            A :class:`StoryInitResult` containing document and commit evidence.
+
+        Raises:
+            StoryInitConflict: If an existing Story has different bytes.
+            ValueError: If ``spec_id`` escapes the controlled worktree.
+            RuntimeError: If Git cannot commit or confirm the Story revision.
+
+        Side effects:
+            Writes only the controlled ``story.md`` and commits that path.
+        """
+        worktree = Path(workspace).resolve()
+        relative_spec = _safe_relative_spec(spec_id)
+        target = (
+            worktree / ".louke" / "project" / "specs" / relative_spec / "story.md"
+        ).resolve()
+        if worktree not in target.parents:
+            raise ValueError("spec_id escapes the controlled worktree")
+        template_path = self._root / "louke" / "templates" / "story.md"
+        if not template_path.is_file():
+            template_path = (
+                Path(__file__).resolve().parents[1] / "templates" / "story.md"
+            )
+        template = StoryTemplate(
+            body=template_path.read_text(encoding="utf-8"),
+            original_input_placeholder="{用户原始输入，逐字记录，不修改或转述}",
+        )
+        existing = target.read_bytes() if target.exists() else None
+        result = initialize_story_revision(
+            template=template,
+            human_story=human_story,
+            actor=actor,
+            run_id=run_id,
+            commit_sha="pending",
+            spec_id=spec_id,
+            existing_bytes=existing,
+        )
+        if existing is not None:
+            commit_sha, error = self._output_at(
+                worktree,
+                "git",
+                "log",
+                "-1",
+                "--format=%H",
+                "--",
+                target.relative_to(worktree).as_posix(),
+            )
+            if not commit_sha:
+                raise RuntimeError(f"cannot reconcile existing Story commit: {error}")
+            return _with_commit_sha(result, commit_sha)
+        if not target.parent.is_dir():
+            raise RuntimeError(f"controlled spec directory is absent: {target.parent}")
+        target.write_bytes(result.story_md_bytes)
+        relative_target = target.relative_to(worktree).as_posix()
+        ok, error = self._run("git", "add", "--", relative_target)
+        if not ok:
+            raise RuntimeError(f"Story git add failed: {error}")
+        ok, error = self._run(
+            "git", "commit", "-m", f"chore: initialize Story {run_id}"
+        )
+        if not ok:
+            raise RuntimeError(f"Story git commit failed: {error}")
+        commit_sha, error = self._output_at(worktree, "git", "rev-parse", "HEAD")
+        if not commit_sha:
+            raise RuntimeError(f"Story commit identity could not be confirmed: {error}")
+        return _with_commit_sha(result, commit_sha)
 
     def _ensure_branch(self, branch: str, main_sha: str) -> tuple[dict[str, str], str]:
         """Query or create a release branch without overwriting an existing ref."""
@@ -257,6 +348,23 @@ def _directory_digest(path: Path) -> str:
             digest.update(file_path.relative_to(path).as_posix().encode())
             digest.update(file_path.read_bytes())
     return f"sha256:{digest.hexdigest()}"
+
+
+def _safe_relative_spec(spec_id: str) -> Path:
+    """Validate a spec identity before joining it to a controlled worktree."""
+    relative = Path(spec_id)
+    if not spec_id or relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("spec_id must be a non-empty relative path")
+    return relative
+
+
+def _with_commit_sha(result: StoryInitResult, commit_sha: str) -> StoryInitResult:
+    """Return Story evidence with the confirmed commit identity."""
+    return replace(
+        result,
+        evidence=replace(result.evidence, commit_sha=commit_sha),
+        navigation=replace(result.navigation, commit_sha=commit_sha),
+    )
 
 
 def _read_project_toml(root: Path) -> dict[str, Any]:

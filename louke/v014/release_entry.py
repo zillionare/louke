@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from louke.runtime.catalog import DefinitionNotFoundError, WorkflowDefinition
 from louke.runtime.store import WorkflowRunStore
 from louke.v014.fr0300_release_request import preview_release_request
+from louke.v014.story_entry import StoryEntryService
 
 
 class StalePreviewError(ValueError):
@@ -241,12 +242,14 @@ class ReleaseEntryService:
         workspace_id: str,
         definition_id: str = "new_feature",
         definition_version: str = "0.14.0",
+        story_entry: StoryEntryService | None = None,
     ) -> None:
         self._run_store = run_store
         self._foundation = foundation
         self._workspace_id = workspace_id
         self._definition_id = definition_id
         self._definition_version = definition_version
+        self._story_entry = story_entry
         self._requests = ReleaseRequestStore(run_store)
 
     def preview(self, story: str, release_version: str) -> dict[str, Any]:
@@ -319,7 +322,7 @@ class ReleaseEntryService:
         project_id = (
             f"prj_{hashlib.sha256(record['request_id'].encode()).hexdigest()[:12]}"
         )
-        self._requests.update(
+        record = self._requests.update(
             record["request_id"],
             status="foundation",
             project_id=project_id,
@@ -332,6 +335,20 @@ class ReleaseEntryService:
         resources.setdefault("local_project", {"id": project_id})
         resources.setdefault("workflow_run", {"id": run_id})
         outcome = FoundationOutcome(outcome.status, resources, outcome.remediation)
+        if outcome.status == "ready" and self._story_entry is not None:
+            try:
+                story = self._initialize_story(record, resources)
+            except Exception as exc:
+                outcome = FoundationOutcome(
+                    "conflict",
+                    resources,
+                    f"initial Story reconciliation failed: {exc}",
+                )
+            else:
+                resources["story"] = story
+                outcome = FoundationOutcome(
+                    outcome.status, resources, outcome.remediation
+                )
         status = (
             "ready"
             if outcome.status == "ready"
@@ -386,6 +403,7 @@ class ReleaseEntryService:
             "backlog": record["backlog"],
             "main_check": record["main_check"],
             "foundation": record["foundation"],
+            "story": _story_from_foundation(record["foundation"]),
             "project_id": record["project_id"],
             "run_id": record["run_id"],
             "continue_url": (
@@ -395,6 +413,33 @@ class ReleaseEntryService:
             ),
         }
 
+    def _initialize_story(
+        self, record: dict[str, Any], resources: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create the initial Story through the Runtime program-step service."""
+        spec_path = str(resources.get("spec_directory", {}).get("path") or "")
+        spec_id = spec_path.rsplit("/", 1)[-1]
+        if not spec_id:
+            raise ValueError("Foundation ready evidence has no spec directory identity")
+        result = self._story_entry.initialize(
+            run_id=str(record["run_id"]),
+            workspace=str(resources.get("worktree", {}).get("path") or ""),
+            spec_id=spec_id,
+            human_story=str(record["story"]),
+            actor=str(record.get("actor") or "human"),
+            idempotency_key=f"story-init:{record['request_id']}",
+        )
+        return {
+            "path": result.artifact.path,
+            "revision": result.artifact.revision,
+            "digest": result.artifact.digest,
+            "input_digest": result.artifact.input_digest,
+            "actor": result.artifact.actor,
+            "commit_sha": result.artifact.commit_sha,
+            "phase": result.run.current_step,
+            "run_id": result.run.run_id,
+        }
+
 
 def _assert_preview(record: dict[str, Any], revision: int, digest: str) -> None:
     """Reject stale preview revisions or mismatched request digests."""
@@ -402,6 +447,15 @@ def _assert_preview(record: dict[str, Any], revision: int, digest: str) -> None:
         raise StalePreviewError(
             "preview revision or request digest is stale; refresh the release preview"
         )
+
+
+def _story_from_foundation(foundation: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Read Story evidence from the persisted Foundation resource bundle."""
+    if not foundation:
+        return None
+    resources = foundation.get("resources") or {}
+    story = resources.get("story")
+    return dict(story) if isinstance(story, dict) else None
 
 
 def _serialize_field(field: str, value: Any) -> Any:
