@@ -21,8 +21,10 @@ from louke.runtime.store import WorkflowRunStore
 if TYPE_CHECKING:
     from starlette.applications import Starlette
 
-#: Attribute on ``app.state`` holding the lazily-created ``WorkflowRunStore``.
-_STORE_ATTR: str = "v12_run_store"
+#: Canonical attribute on ``app.state`` holding the Runtime store.
+_STORE_ATTR: str = "runtime_run_store"
+#: Read-only compatibility alias for callers released before v0.14.
+_COMPAT_STORE_ATTR: str = "v12_run_store"
 
 #: Default models offered to the v0.12 binding sub-app (FR-1301 placeholder).
 DEFAULT_MODELS: dict[str, str] = {
@@ -101,13 +103,13 @@ def build_catalog(
         bundle = load_release_contract_bundle(workspace_root, mode=mode)
         registry.register(build_entry_definition(bundle))
     else:
-        registry.register(_legacy_new_feature_definition())
+        registry.register(_host_compatibility_definition())
     registry.register(_bug_fix_definition())
     return registry
 
 
-def _legacy_new_feature_definition() -> WorkflowDefinition:
-    """Return the read-only compatibility graph for non-Louke host workspaces."""
+def _host_compatibility_definition() -> WorkflowDefinition:
+    """Return the read-only compatibility graph for host workspaces."""
     start = Step(
         step_id="start",
         kind="program",
@@ -215,4 +217,5 @@ def get_or_create_store(app: "Starlette") -> WorkflowRunStore:
     if store is None:
         store = build_run_store()
         setattr(app.state, _STORE_ATTR, store)
+        setattr(app.state, _COMPAT_STORE_ATTR, store)
     return store

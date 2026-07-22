@@ -120,6 +120,7 @@ def create_app(
     )
     for sub_app in (projects_app, runtime_app, gates_app, bindings_app):
         sub_app.state._state.clear()
+        sub_app.state.runtime_run_store = project_runtime_store
         sub_app.state.v12_run_store = project_runtime_store
     broker = EventBroker()
     app = Starlette(
