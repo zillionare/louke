@@ -15,7 +15,9 @@ from louke.v014.fr0300_release_request import (
 )
 
 
-def _identity(story: str = "Ship the reflow", version: str = "v0.14.0"):
+def _identity(
+    story: str = "Ship the reflow", version: str = "v0.14.0"
+) -> ReleaseRequestIdentity:
     return ReleaseRequestIdentity(
         workspace_id="workspace-1", story=story, release_version=version
     )
@@ -96,7 +98,7 @@ def test_duplicate_active_release_confirms_share_one_backlog_entry() -> None:
             )
         )
 
-    assert {result.entry_id for result in results}.__len__() == 1
+    assert len({result.entry_id for result in results}) == 1
     assert len(store.list_entries(workspace_id="workspace-1")) == 1
 
 
