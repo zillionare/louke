@@ -51,6 +51,28 @@ class ReleaseRequestIdentity:
     story: str
     release_version: str
 
+    def __post_init__(self) -> None:
+        """Reject incomplete identities before they can be hashed or stored.
+
+        Args:
+            None. Dataclass fields are validated after construction.
+
+        Returns:
+            ``None`` when all identity fields are non-empty strings.
+
+        Raises:
+            ValueError: If ``workspace_id``, ``story`` or ``release_version``
+                is empty after trimming.
+        """
+        fields = {
+            "workspace_id": self.workspace_id,
+            "story": self.story,
+            "release_version": self.release_version,
+        }
+        for field, value in fields.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field} must be a non-empty string")
+
     @property
     def request_digest(self) -> str:
         """Return the deterministic ``sha256:<hex>`` digest of this identity.
