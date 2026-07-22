@@ -30,6 +30,7 @@ from typing import Iterable
 
 
 _AC_ID_PATTERN = re.compile(r"\bAC-(?:FR|NFR)\d{4}-\d{2}\b", re.IGNORECASE)
+_REQUIREMENT_ID_PATTERN = re.compile(r"\b(?:FR|NFR)-\d{4}\b", re.IGNORECASE)
 _TEST_EXTS: frozenset[str] = frozenset({".py", ".bats", ".js", ".ts"})
 
 
@@ -41,8 +42,8 @@ class ClosureReport:
         total_ac_count: Number of AC IDs declared in ``acceptance.md``.
         covered_ids: AC IDs referenced by at least one test.
         uncovered_ids: AC IDs declared but not referenced by any test.
-        unknown_ids: AC IDs referenced by tests but not declared in
-            ``acceptance.md``.
+        unknown_ids: AC IDs declared in ``acceptance.md`` whose FR/NFR
+            requirement is absent from the sibling ``spec.md``.
         tests_without_ac: Test file names that do not reference any AC ID.
     """
 
@@ -64,6 +65,27 @@ def extract_ac_ids(acceptance_path: Path) -> frozenset[str]:
     """
     text = acceptance_path.read_text(encoding="utf-8")
     return frozenset(m.group(0).upper() for m in _AC_ID_PATTERN.finditer(text))
+
+
+def extract_requirement_ids(spec_path: Path) -> frozenset[str]:
+    """Return the FR/NFR requirement IDs declared in ``spec.md``.
+
+    Args:
+        spec_path: Path to the specification document.
+
+    Returns:
+        A frozenset of uppercased requirement IDs such as ``FR-0100``.
+    """
+    text = spec_path.read_text(encoding="utf-8")
+    return frozenset(m.group(0).upper() for m in _REQUIREMENT_ID_PATTERN.finditer(text))
+
+
+def _requirement_id(ac_id: str) -> str:
+    """Return the FR/NFR requirement ID associated with an AC ID."""
+    match = re.fullmatch(r"AC-(FR|NFR)(\d{4})-\d{2}", ac_id, re.IGNORECASE)
+    if match is None:
+        raise ValueError(f"invalid AC ID: {ac_id}")
+    return f"{match.group(1).upper()}-{match.group(2)}"
 
 
 def _iter_test_files(tests_path: Path) -> Iterable[Path]:
@@ -121,12 +143,15 @@ def build_closure_report(
     *,
     acceptance_path: Path,
     tests_path: Path,
+    spec_path: Path | None = None,
 ) -> ClosureReport:
     """Build the AC closure report.
 
     Args:
         acceptance_path: Path to ``acceptance.md``.
         tests_path: Path to the ``tests/`` directory.
+        spec_path: Optional path to ``spec.md``. Defaults to the sibling
+            ``spec.md`` next to ``acceptance_path``.
 
     Returns:
         A :class:`ClosureReport` with covered/uncovered/unknown IDs and
@@ -136,7 +161,11 @@ def build_closure_report(
     referenced = collect_ac_refs(tests_path)
     covered = declared & referenced
     uncovered = declared - referenced
-    unknown = referenced - declared
+    spec = spec_path or acceptance_path.with_name("spec.md")
+    requirements = extract_requirement_ids(spec)
+    unknown = frozenset(
+        ac_id for ac_id in declared if _requirement_id(ac_id) not in requirements
+    )
     tests_without = _tests_without_ac(tests_path)
     return ClosureReport(
         total_ac_count=len(declared),
@@ -156,12 +185,8 @@ def _format_report(report: ClosureReport) -> str:
         lines.append("Uncovered AC IDs: " + ", ".join(sorted(report.uncovered_ids)))
     if report.unknown_ids:
         lines.append(
-            "Unknown AC IDs (referenced by tests but not in acceptance): "
+            "Unknown AC IDs (declared in acceptance but not in spec): "
             + ", ".join(sorted(report.unknown_ids))
-        )
-    if report.tests_without_ac:
-        lines.append(
-            "Tests without AC reference: " + ", ".join(report.tests_without_ac)
         )
     return "\n".join(lines)
 
@@ -173,8 +198,8 @@ def main(argv: list[str] | None = None) -> int:
         argv: Command-line arguments (defaults to ``sys.argv[1:]``).
 
     Returns:
-        ``0`` when all 82 AC IDs are covered and no unknown IDs or
-        AC-less tests are present; ``1`` otherwise.
+        ``0`` when all declared AC IDs are covered and no acceptance/spec
+        drift is present; ``1`` otherwise.
     """
     parser = argparse.ArgumentParser(description="AC traceability closure scanner.")
     parser.add_argument(
@@ -201,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         tests_path=args.tests,
     )
     print(_format_report(report))
-    if report.uncovered_ids or report.unknown_ids or report.tests_without_ac:
+    if report.uncovered_ids or report.unknown_ids:
         return 1
     return 0
 

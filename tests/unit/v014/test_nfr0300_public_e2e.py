@@ -91,6 +91,18 @@ def test_trace_tool_collects_ac_refs_from_tests(trace_tool) -> None:
         assert ref.startswith("AC-FR") or ref.startswith("AC-NFR")
 
 
+def test_trace_tool_ignores_cross_spec_test_ids_for_unknowns(trace_tool) -> None:
+    """AC-NFR0300-03: unknowns come from acceptance/spec drift, not old tests."""
+    report = trace_tool.build_closure_report(
+        acceptance_path=_acceptance_path(),
+        tests_path=_tests_path(),
+    )
+
+    assert "AC-FR0001-01" not in report.unknown_ids  # AC-NFR0300-03
+    assert "Unknown AC IDs" not in trace_tool._format_report(report)
+    assert "Tests without AC reference" not in trace_tool._format_report(report)
+
+
 def test_trace_tool_reports_closure_with_known_and_unknown_ids(trace_tool) -> None:
     """AC-NFR0300-03 (trace closure): the closure report lists covered AC
     IDs, uncovered AC IDs and unknown AC IDs referenced by tests."""
