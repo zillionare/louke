@@ -249,7 +249,7 @@ jobs:
 
   install-matrix:
     name: first install (${{ matrix.os }}, Python ${{ matrix.python-version }})
-    needs: quality
+    needs: build-artifacts
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -273,11 +273,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: louke-build-artifacts
+          path: dist/
       - name: Unix first install
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          bash install.sh --version 0.14.0
+          bash install.sh --version 0.14.0 --wheel dist/louke-0.14.0-py3-none-any.whl
           export PATH="$HOME/.local/bin:$PATH"
           test -x .venv/bin/python
           .venv/bin/python -c "import louke"
@@ -289,7 +294,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          .\install.ps1 -Version 0.14.0
+          .\install.ps1 -Version 0.14.0 -Wheel dist/louke-0.14.0-py3-none-any.whl
           if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw 'local venv missing' }
           & .\.venv\Scripts\python.exe -c "import louke"
           if (-not (Test-Path "$env:USERPROFILE\.louke\venv\Scripts\python.exe")) { throw 'global venv missing' }

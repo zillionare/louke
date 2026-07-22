@@ -6,6 +6,9 @@
 #   curl -sSL ... | bash -s -- v0.1.0         # specify a version
 #   curl -sSL ... | bash -s -- --editable     # dev mode (clone from GitHub then pip install -e)
 #   ./install.sh [version]                    # run locally
+#   ./install.sh --version 0.14.0 --wheel dist/louke-0.14.0-py3-none-any.whl
+#       # install a local wheel (e.g. this CI run's build artifact) verbatim;
+#       # --version still validates the installed runtime version.
 
 set -euo pipefail
 
@@ -28,6 +31,7 @@ esac
 # ---------- Parse args: VERSION may be positional or passed as --version ----------
 EDITABLE=0
 VERSION="latest"
+WHEEL=""
 while [ "$#" -gt 0 ]; do
     arg="$1"
     case "$arg" in
@@ -40,8 +44,14 @@ while [ "$#" -gt 0 ]; do
             VERSION="$2"
             shift 2
             ;;
+        --wheel)
+            [ "$#" -ge 2 ] || die "${arg} requires a path to a wheel"
+            WHEEL="$2"
+            shift 2
+            ;;
         -h|--help)
-            echo "usage: $0 [--editable|-e] [--version VERSION|version]" >&2
+            echo "usage: $0 [--editable|-e] [--version VERSION] [--wheel WHEEL] [version]" >&2
+            echo "  --wheel WHEEL  install a local wheel verbatim; --version validates the result" >&2
             exit 0
             ;;
         --)
@@ -86,7 +96,11 @@ done
 [ -n "$PYTHON_BIN" ] || die "Python 3.11+ required (found $(python3 -V 2>&1))"
 
 # ---------- Decide install source ----------
-if [ "$EDITABLE" -eq 1 ]; then
+# --wheel takes precedence: a local wheel (e.g. this CI run's build artifact)
+# is installed verbatim, and --version validates the installed runtime below.
+if [ -n "$WHEEL" ]; then
+    PKG_SPEC="$WHEEL"
+elif [ "$EDITABLE" -eq 1 ]; then
     # git clone mode
     LOUKE_HOME="${HOME}/.louke/src"
     if [ -d "$LOUKE_HOME" ]; then

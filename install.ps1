@@ -1,6 +1,22 @@
+<#
+.SYNOPSIS
+    Installs louke into a project-local and a user-global runtime.
+.DESCRIPTION
+    Creates .\.venv and %USERPROFILE%\.louke\venv, installs louke into both,
+    and installs a local-first lk shim. By default louke is pulled from PyPI;
+    -Wheel installs a local wheel (e.g. this CI run's build artifact) verbatim.
+.PARAMETER Version
+    The louke version to install and validate. Defaults to "latest".
+.PARAMETER Wheel
+    Path to a local wheel to install instead of resolving from PyPI. When set,
+    -Version is used only for post-install runtime version validation.
+.PARAMETER Editable
+    Install from the current checkout in editable mode.
+#>
 [CmdletBinding()]
 param(
     [string]$Version = "latest",
+    [string]$Wheel = "",
     [switch]$Editable
 )
 
@@ -98,7 +114,9 @@ try {
         throw "Python 3.11 or newer is required (found $versionText)."
     }
 
-    $package = if ($Editable) { (Get-Location).Path } elseif ($Version -eq "latest") { "louke" } else { "louke==$Version" }
+    # -Wheel takes precedence: a local wheel (e.g. this CI run's build
+    # artifact) is installed verbatim; -Version validates the result below.
+    $package = if ($Wheel) { $Wheel } elseif ($Editable) { (Get-Location).Path } elseif ($Version -eq "latest") { "louke" } else { "louke==$Version" }
     $projectVenv = Join-Path (Get-Location) ".venv"
     $globalVenv = Join-Path $env:USERPROFILE ".louke\venv"
     Install-Runtime $python $projectVenv $package
