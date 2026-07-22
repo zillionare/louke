@@ -30,22 +30,27 @@ def _load_runner():
 runner = _load_runner()
 
 
-def test_e2e_profile_choices_include_design_contracts() -> None:
-    """AC-FR0900-01: --profile choices are install|chromium|design-contracts|all."""
+def test_unwired_design_contracts_profile_is_not_exposed() -> None:
+    """AC-FR0900-01: an undelivered profile cannot enter the stand-in DAG."""
     parser = runner._parser()
-    args = parser.parse_args(
-        ["e2e", "--profile", "design-contracts", "--runtime", "local"]
-    )
-    assert args.profile == "design-contracts"
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["e2e", "--profile", "design-contracts", "--runtime", "local"]
+        )
+    assert runner._expand_profiles("all") == ["install", "chromium"]
 
 
-def test_all_profile_expands_to_three() -> None:
-    """AC-FR0900-01: all expands exactly to install,chromium,design-contracts."""
-    assert runner._expand_profiles("all") == [
-        "install",
-        "chromium",
-        "design-contracts",
-    ]
+def test_e2e_profile_choices_include_delivered_profiles() -> None:
+    """AC-FR0900-01: --profile choices are install|chromium|all."""
+    parser = runner._parser()
+    args = parser.parse_args(["e2e", "--profile", "install", "--runtime", "local"])
+    assert args.profile == "install"
+
+
+def test_all_profile_expands_to_delivered_profiles() -> None:
+    """AC-FR0900-01: all expands exactly to install,chromium."""
+    assert runner._expand_profiles("all") == ["install", "chromium"]
 
 
 def test_unknown_profile_exits_nonzero() -> None:
@@ -59,9 +64,7 @@ def test_runtime_choices_unchanged() -> None:
     """AC-FR0900-01: --runtime choices stay local|global|both."""
     parser = runner._parser()
     for runtime in ("local", "global", "both"):
-        args = parser.parse_args(
-            ["e2e", "--profile", "design-contracts", "--runtime", runtime]
-        )
+        args = parser.parse_args(["e2e", "--profile", "install", "--runtime", runtime])
         assert args.runtime == runtime
 
 
@@ -73,15 +76,10 @@ def test_integration_discovery_is_ordered() -> None:
     ]
 
 
-def test_design_contracts_profile_path() -> None:
-    """AC-FR0900-01: design-contracts profile resolves to the v014 e2e directory."""
-    paths, _selection = runner._profile_paths("design-contracts")
-    assert paths == ["tests/e2e/v014_design_contracts"]
-
-
-def test_design_contracts_runs_local_and_global() -> None:
-    """AC-FR0900-01: design-contracts runtimes are exactly local and global."""
-    assert runner._design_contracts_runtimes() == ["local", "global"]
+def test_install_profile_path() -> None:
+    """AC-FR0900-01: install profile resolves to the install e2e directory."""
+    paths, _selection = runner._profile_paths("install")
+    assert paths == ["tests/e2e/install_experience"]
 
 
 def test_evidence_schema_required_fields() -> None:
