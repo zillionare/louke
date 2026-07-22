@@ -11,7 +11,7 @@ from .store import ProjectStore, ValidationError
 ROLE_TO_AGENTS = {
     "S": ["Judge", "Sage", "Archer", "Prism"],
     "A": ["Maestro", "Scribe", "Devon", "Shield"],
-    "B": ["Lex", "Warden", "Keeper", "Scout", "Librarian"],
+    "B": ["Lex", "Librarian"],
 }
 AGENT_TO_ROLE = {
     agent: role for role, agents in ROLE_TO_AGENTS.items() for agent in agents

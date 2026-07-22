@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from louke import agent, board, keeper, maestro
+from louke.web.bindings import ROLE_TO_AGENTS
+from louke.web.pages import workbench
 from louke.runtime.foundation import FoundationProgramResult
 
 
@@ -18,6 +20,47 @@ def test_canonical_semantic_agent_registry_excludes_legacy_roles() -> None:
     """The canonical registry must not expose retired semantic Agents."""
     assert LEGACY_ROLES.isdisjoint(agent.CANONICAL_SEMANTIC_AGENTS)
     assert LEGACY_ROLES.isdisjoint(agent.AGENTS)
+    assert "scribe" in agent.CANONICAL_SEMANTIC_AGENTS
+    assert "scribe" not in agent.AGENTS
+
+
+def test_web_binding_roster_matches_current_agent_roles() -> None:
+    """Web bindings must expose Scribe and never expose retired adapters."""
+    bound_agents = {name.lower() for names in ROLE_TO_AGENTS.values() for name in names}
+    assert LEGACY_ROLES.isdisjoint(bound_agents)
+    assert "scribe" in bound_agents
+    assert bound_agents == set(agent.CANONICAL_SEMANTIC_AGENTS)
+
+
+def test_workbench_discovers_packaged_current_prompts() -> None:
+    """Workbench roster is sourced from packaged prompts and current bindings."""
+    names = {name.lower() for name in workbench._agents()}
+    assert LEGACY_ROLES.isdisjoint(names)
+    assert "scribe" in names
+
+
+def test_runtime_help_does_not_route_users_to_retired_agents() -> None:
+    """Current help and errors must name Runtime programs, not retired agents."""
+    root = Path(__file__).parents[3]
+    checked_files = (
+        root / "louke" / "__main__.py",
+        root / "louke" / "lex.py",
+        root / "louke" / "sage.py",
+        root / "louke" / "_common.py",
+        root / "louke" / "_tools" / "check_foundation.py",
+        root / "louke" / "_tools" / "pre_commit.py",
+    )
+    forbidden = (
+        "lk agent scout foundation",
+        "lk agent warden foundation-check",
+        "Scout's foundation",
+        "Scout must create",
+        "Warden checks",
+        "Keeper's scanners",
+    )
+    for path in checked_files:
+        source = path.read_text(encoding="utf-8")
+        assert not any(phrase in source for phrase in forbidden), path
 
 
 def test_board_source_and_generated_bundle_exclude_legacy_prompts() -> None:

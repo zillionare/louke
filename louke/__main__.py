@@ -15,9 +15,8 @@ User-facing commands:
     lk help                     Print help (also: lk --help, lk -h)
 
 Agent commands:
-    lk agent scout identity-check --repo owner/repo
+    lk agent maestro status
     lk agent sage quote-check --spec v0.1-001-init
-    lk agent warden foundation-check --repo owner/repo --version v0.1 --spec-id v0.1-001-init
     lk agent lex verify-acceptance --spec v0.1-001-init
     lk agent archer ci-scan --spec v0.1-001-init
 
@@ -316,7 +315,7 @@ def main(argv=None):
     if raw[0] == "release":
         return _cmd_release(raw[1:])
     if raw[0] == "agent":
-        # Re-parse with help parser so agent subparser handles 'agent scout xxx'
+        # Re-parse with the help parser so agent subparsers handle agent commands.
         parser = build_parser()
         try:
             args = parser.parse_args(raw)

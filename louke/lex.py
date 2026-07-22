@@ -204,7 +204,7 @@ def cmd_verify_project(args):
     project_url = _read_project_info("Project ID")
     if not project_url or not project_url.startswith("https://"):
         print(
-            "Project URL missing in project.toml; run lk agent scout foundation first",
+            "Project URL missing in project.toml; run the Runtime foundation program first",
             file=sys.stderr,
         )
         return 1

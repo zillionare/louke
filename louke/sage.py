@@ -399,14 +399,14 @@ def cmd_create_issues(args):
     repo = _read_project_info_value("Repo").replace("github.com/", "")
     if not repo:
         print(
-            "Repo field missing in project.toml; run lk agent scout foundation first",
+            "Repo field missing in project.toml; run the Runtime foundation program first",
             file=sys.stderr,
         )
         return 1
     branch = _read_project_info_value("Release Branch")
     if not branch:
         print(
-            "Release Branch field missing in project.toml; run lk agent scout foundation first",
+            "Release Branch field missing in project.toml; run the Runtime foundation program first",
             file=sys.stderr,
         )
         return 1
@@ -417,7 +417,7 @@ def cmd_create_issues(args):
             file=sys.stderr,
         )
         print(
-            "  hint: lk agent scout foundation (writes Project ID) or pass --skip-project",
+            "  hint: run the Runtime foundation program (writes Project ID) or pass --skip-project",
             file=sys.stderr,
         )
         return 1

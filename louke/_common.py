@@ -79,7 +79,7 @@ def _read_project_info_field(label: str, path: Path = PROJECT_INFO_PATH) -> str:
     if snake in meta:
         return str(meta[snake])
 
-    # Compatibility: top-level key (Scout legacy fields, e.g. [pre_commit])
+    # Compatibility: top-level key from older project.toml layouts.
     if snake in data:
         return str(data[snake])
 
@@ -130,9 +130,10 @@ def _archive_current_to_history(
     md_lines.append(body)
     md_lines.append("```")
     history_path.write_text(existing + "\n".join(md_lines) + "\n", encoding="utf-8")
-    # Clear project.toml (waiting for Scout to re-initialize)
+    # Clear project.toml until the Runtime foundation program initializes it.
     path.write_text(
-        "# Active version: waiting for Scout M-FOUND initialization\n", encoding="utf-8"
+        "# Active version: waiting for Runtime M-FOUND initialization\n",
+        encoding="utf-8",
     )
     return True
 

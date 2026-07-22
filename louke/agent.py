@@ -44,6 +44,7 @@ CANONICAL_SEMANTIC_AGENTS = frozenset(
         "shield",
         "librarian",
         "maestro",
+        "scribe",
     }
 )
 

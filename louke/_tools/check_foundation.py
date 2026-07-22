@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-check_foundation.py — validate whether Scout's foundation-stage work is complete
+check_foundation.py — validate whether the Runtime foundation program is complete
 
 Why this check is needed:
-  Scout's workflow involves multiple GitHub operations (repo/project/issue/PR) and local file creation.
+  The foundation program involves multiple GitHub operations (repo/project/issue/PR) and local file creation.
   Doing these checks inline in the agent is error-prone and hard to maintain. This script centralizes
   all checks in one place and provides consistent PASS/REJECT output.
 
@@ -30,8 +30,8 @@ Checks (F1-F11):
   F11 Identity consistency: gh and git same identity (delegates to check_identity.py L1-L5)
 
 Usage:
-  lk agent warden foundation-check <owner/repo> --version <version> --spec-id <spec-id>
-  lk agent warden foundation-check zillionare/louke --version v0.1 --spec-id v0.1-001-louke
+  python -m louke._tools.check_foundation <owner/repo> --version <version> --spec-id <spec-id>
+  python -m louke._tools.check_foundation zillionare/louke --version v0.1 --spec-id v0.1-001-louke
 
 Optional flags:
   --project-id NUMBER   GitHub Project numeric ID (skip auto-lookup)
@@ -165,7 +165,7 @@ def check_f2_project(repo: str, version: str, project_id: int | None) -> CheckRe
 
 
 def check_f3_test_issue(repo: str, version: str) -> CheckResult:
-    """F3: Test Issue exists and is closed (created by Scout)"""
+    """F3: Test Issue exists and is closed."""
     r = CheckResult(code="F3", name="Test Issue compliant")
     expected_title = f"Good First Issue: {repo.split('/')[-1]}-{version}"
 
@@ -194,12 +194,12 @@ def check_f3_test_issue(repo: str, version: str) -> CheckResult:
             r.error = f"Test Issue #{issue['number']} state is {issue.get('state')} — needs CLOSED"
             return r
 
-    r.error = f"Test Issue '{expected_title}' not found — Scout must create it"
+    r.error = f"Test Issue '{expected_title}' not found — foundation prerequisites are incomplete"
     return r
 
 
 def check_f4_test_pr(repo: str, version: str) -> CheckResult:
-    """F4: Test PR exists and is closed (created by Scout)"""
+    """F4: Test PR exists and is closed."""
     r = CheckResult(code="F4", name="Test PR compliant")
     expected_title = f"Good First PR: {repo.split('/')[-1]}-{version}"
 
@@ -229,7 +229,7 @@ def check_f4_test_pr(repo: str, version: str) -> CheckResult:
             r.error = f"Test PR #{pr['number']} state is {state} — needs CLOSED/MERGED"
             return r
 
-    r.error = f"Test PR '{expected_title}' not found — Scout must create it"
+    r.error = f"Test PR '{expected_title}' not found — foundation prerequisites are incomplete"
     return r
 
 
@@ -406,9 +406,8 @@ def check_f10_unmerged_releases(
 
     Other unmerged releases: if explicitly listed in [meta.acknowledged_orphan_releases] in project.toml,
     they pass as a warning (warning=True).
-    This mirrors the "user answers y" semantics in Scout Step 3.5:
-      - Scout warns + asks → user answers y
-      - Warden checks + warning pass → does not block, but marks [!] in the output
+    Acknowledged orphan branches remain warnings rather than blockers and are
+    shown with ``[!]`` in the output.
     """
     r = CheckResult(code="F10", name="Unmerged releases/* branches")
     exempt = f"releases/{current_release}" if current_release else None
@@ -556,7 +555,7 @@ def report(results: list[CheckResult]) -> int:
     failed = [r for r in results if not r.passed and not r.warning]
     warnings = [r for r in results if not r.passed and r.warning]
 
-    print(f"\nProject foundation check — {len(results)} items\n")
+    print(f"\nRuntime foundation program — {len(results)} checks\n")
 
     for r in results:
         if r.passed:

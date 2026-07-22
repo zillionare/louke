@@ -1,4 +1,4 @@
-"""Git pre-commit quality gates backed by Keeper's scanners.
+"""Git pre-commit quality gates backed by Runtime quality scanners.
 
 This module also implements IF-PC-01 pre-commit contract install/readback
 verification (FR-1000): preserves existing hooks, declares install/readback/
@@ -121,7 +121,7 @@ def run_quality_checks(subject: str, files: list[Path]) -> list[str]:
 
 
 def _format_scan_finding(path: Path, item: dict[str, object]) -> str:
-    """Format one Keeper anti-pattern finding for hook output."""
+    """Format one Runtime anti-pattern finding for hook output."""
     return f"{item['code']} {path}:{item['line']}"
 
 
