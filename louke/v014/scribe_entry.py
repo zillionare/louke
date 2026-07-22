@@ -378,6 +378,15 @@ class ScribeEntryService:
         task = self._require_task(run_id, task_id)
         return self._read_task(task)
 
+    def task_for_run(self, run_id: str) -> dict[str, Any] | None:
+        """Return the persisted task bound to a run without creating one."""
+        return self._store.get_task_for_run(run_id)
+
+    @property
+    def workspace_root(self) -> Path | None:
+        """Return the server-owned workspace root used for retry dispatch."""
+        return self._workspace_root
+
     def list_messages(self, run_id: str, task_id: str) -> list[dict[str, Any]]:
         """Return persisted Chat messages after validating task ownership."""
         task = self._require_task(run_id, task_id)

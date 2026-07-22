@@ -151,7 +151,7 @@ async def task_retry(request: Request) -> JSONResponse:
         result = _scribe(request).retry(
             request.path_params["run_id"],
             request.path_params["task_id"],
-            str(Path(request.app.state.v14_scribe_entry._workspace_root or "")),
+            str(Path(request.app.state.v14_scribe_entry.workspace_root or "")),
         )
     except ScribeTaskError as exc:
         return _error(exc.code, exc.message, 409)
@@ -171,7 +171,7 @@ def _current_run(request: Request):
 
 def _task_for_artifact(request: Request, run_id: str) -> dict[str, Any] | None:
     """Read the task bound to a run without creating a new task."""
-    return _scribe(request)._store.get_task_for_run(run_id)
+    return _scribe(request).task_for_run(run_id)
 
 
 def _artifact_model(artifact: Any) -> dict[str, Any]:
