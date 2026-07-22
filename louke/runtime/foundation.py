@@ -10,6 +10,7 @@ dispatches Scout or Warden agents.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Protocol
 
 from louke.runtime.program_steps import HandlerResult, StepContext
@@ -44,6 +45,46 @@ class FoundationError(Exception):
         super().__init__(message)
         self.message = message
         self.retryable = retryable
+
+
+@dataclass(frozen=True)
+class FoundationProgramResult:
+    """Result returned by the canonical M-FOUND Runtime program.
+
+    Attributes:
+        status: ``pass`` when the workspace foundation is ready, otherwise
+            ``blocked`` or ``failed``.
+        details: Structured diagnostics for the Runtime evidence layer.
+    """
+
+    status: str
+    details: dict[str, Any]
+
+
+def foundation_program_check(workspace: Path) -> FoundationProgramResult:
+    """Check the minimum foundation contract without dispatching an Agent.
+
+    Args:
+        workspace: Workspace root to inspect.
+
+    Returns:
+        A :class:`FoundationProgramResult` describing whether the project
+        metadata required by later stages exists.
+
+    Raises:
+        TypeError: If ``workspace`` is not path-like.
+    """
+    root = Path(workspace)
+    project_file = root / ".louke" / "project" / "project.toml"
+    if not project_file.is_file():
+        return FoundationProgramResult(
+            status="blocked",
+            details={"missing": [project_file.as_posix()]},
+        )
+    return FoundationProgramResult(
+        status="pass",
+        details={"verified": [project_file.as_posix()]},
+    )
 
 
 class FoundationAdapter(Protocol):

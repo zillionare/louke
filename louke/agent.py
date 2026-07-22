@@ -33,19 +33,36 @@ from . import (
 )
 
 
+CANONICAL_SEMANTIC_AGENTS = frozenset(
+    {
+        "sage",
+        "lex",
+        "archer",
+        "judge",
+        "prism",
+        "devon",
+        "shield",
+        "librarian",
+        "maestro",
+    }
+)
+
 AGENTS = {
-    "scout": scout,
     "sage": sage,
-    "warden": warden,
     "lex": lex,
     "archer": archer,
-    "keeper": keeper,
     "judge": judge,
     "prism": prism,
     "devon": devon,
     "shield": shield,
     "librarian": librarian,
     "maestro": maestro,
+}
+
+COMPATIBILITY_ADAPTERS = {
+    "scout": scout,
+    "warden": warden,
+    "keeper": keeper,
 }
 
 from ._common import git_root  # noqa: E402
@@ -70,7 +87,6 @@ PERMISSION_KEYS = {
 
 # v0.6-009 FR-0010: 5 agents require a permission block
 PERMISSION_REQUIRED = {
-    "warden",
     "judge",
     "archer",
     "librarian",
@@ -138,8 +154,12 @@ def register(parser):
         help="only show agents that currently fail to resolve (i.e. have an unresolved abstract)",
     )
 
-    # 12 agent subcommands
+    # Canonical semantic Agent subcommands.
     for name, module in AGENTS.items():
+        if hasattr(module, "register"):
+            module.register(sub)
+    # Retained CLI names are adapters only; they are not part of AGENTS.
+    for name, module in COMPATIBILITY_ADAPTERS.items():
         if hasattr(module, "register"):
             module.register(sub)
 
@@ -152,6 +172,13 @@ def run(args):
     if args.agent_command == "list-models":
         return cmd_list_models(args)
     module = AGENTS.get(args.agent_command)
+    if module is None:
+        module = COMPATIBILITY_ADAPTERS.get(args.agent_command)
+        if module is not None:
+            print(
+                f"deprecated compatibility adapter: lk agent {args.agent_command}",
+                file=sys.stderr,
+            )
     if not module or not hasattr(module, "run"):
         print(f"lk agent: '{args.agent_command}' not found", flush=True)
         return 1

@@ -13,6 +13,21 @@ from .models import frontmatter_binding, resolve_model
 
 
 SKIP = {"README.md", "ROSTER.md"}
+RETIRED_AGENT_NAMES = frozenset({"scout", "warden", "keeper"})
+GENERATED_AGENT_NAMES = frozenset(
+    {
+        "archer",
+        "devon",
+        "judge",
+        "lex",
+        "librarian",
+        "maestro",
+        "prism",
+        "sage",
+        "scribe",
+        "shield",
+    }
+)
 
 # v0.6-009 FR-0030: passthrough allowlist (besides description / mode / model, which are handled separately).
 # Source: OpenCode official frontmatter fields + permission.
@@ -151,6 +166,22 @@ def agent_source(root: Path | None = None) -> Path:
     return package_root() / "agents"
 
 
+def canonical_agent_sources(root: Path | None = None) -> tuple[Path, ...]:
+    """Return source prompts eligible for canonical board generation.
+
+    Args:
+        root: Optional project root accepted for compatibility with callers.
+
+    Returns:
+        Sorted prompt paths excluding retired compatibility roles.
+    """
+    return tuple(
+        path
+        for path in sorted(agent_source(root).glob("*.md"))
+        if path.name not in SKIP and path.stem.lower() not in RETIRED_AGENT_NAMES
+    )
+
+
 def skill_source(root: Path) -> Path:
     return agent_source(root) / "_skills"
 
@@ -267,10 +298,7 @@ def cmd_opencode(args):
 
     # 1. Collect source agents
     source_files = []
-    for fp in sorted(src.glob("*.md")):
-        if fp.name in SKIP:
-            continue
-        source_files.append(fp)
+    source_files.extend(canonical_agent_sources(root))
     source_skills = [fp for fp in sorted(skill_src.glob("*/SKILL.md")) if fp.is_file()]
     if not quiet:
         print(f"      found {len(source_files)} agent prompts", flush=True)
@@ -444,6 +472,11 @@ def cmd_opencode(args):
             f"installed {len(generated_skills)} skills -> {skill_dest_dir}",
             flush=True,
         )
+    if not dry_run:
+        for retired in RETIRED_AGENT_NAMES:
+            stale_output = dest_dir / f"{retired}.md"
+            if stale_output.is_file():
+                stale_output.unlink()
     # Unbound hint
     if unbound_abstracts and not quiet:
         print(

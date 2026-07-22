@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from ._common import _read_project_info_field, git, normalize_repo_relative_roots
+from .runtime.quality import run_quality_gate, run_regression_gate
 from .stage_results import write_stage_result
 
 
@@ -225,6 +226,34 @@ def cmd_gate(args):
         )
         return 1
 
+    result = run_quality_gate(
+        commit_range=args.commit_range,
+        tests_roots=args.tests_root,
+        cwd=Path.cwd(),
+        spec_id=args.spec_id,
+        skip_ac_trace=args.skip_ac_trace,
+        skip_anti_pattern=args.skip_anti_pattern,
+        full_scan=args.full_scan,
+    )
+    print("=== Deprecated compatibility adapter ===")
+    print("Runtime quality program owns this gate; no stage result was written.")
+    status = result.status if hasattr(result, "status") else result["status"]
+    findings = result.findings if hasattr(result, "findings") else result["findings"]
+    print(f"Status: {status}")
+    for finding in findings:
+        print(f"[{finding.get('severity', '?')}] {finding.get('description', '')}")
+    if not args.skip_ac_trace:
+        trace_failed = any(
+            "AC trace" in str(item.get("description", "")) for item in findings
+        )
+        print(f"--- AC Trace: {'FAIL' if trace_failed else 'PASS'} ---")
+    if not args.skip_anti_pattern:
+        anti_failed = any(
+            "anti-pattern" in str(item.get("description", "")) for item in findings
+        )
+        print(f"--- Anti-Pattern: {'FAIL' if anti_failed else 'PASS'} ---")
+    return 0 if status == "pass" else 1
+
     cwd = Path.cwd()
     tests_roots = _resolve_tests_roots(args.tests_root)
     scan_targets = resolve_scan_targets(
@@ -359,10 +388,20 @@ def cmd_gate(args):
 def cmd_regression(args):
     """Regression check: compare baseline vs current test results."""
     cwd = Path.cwd()
-    print("=== Keeper Regression Check ===")
+    print("=== Deprecated compatibility adapter ===")
     print(f"Baseline: {args.baseline}")
     print(f"Current: {args.current}")
     print()
+
+    result = run_regression_gate(
+        baseline=args.baseline,
+        current=args.current,
+        cwd=cwd,
+    )
+    print(f"Runtime regression status: {result.status}")
+    for finding in result.findings:
+        print(f"[{finding.get('severity', '?')}] {finding.get('description', '')}")
+    return 0 if result.status == "pass" else 1
 
     rc, diff_out, _ = git("diff", "--name-only", args.baseline, args.current, cwd=cwd)
     if rc != 0:

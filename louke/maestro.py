@@ -19,18 +19,20 @@ from .stage_results import (
     write_stage_result,
     verify_stage_result_hash,
 )
+from .runtime.foundation import foundation_program_check
+from .runtime.quality import run_quality_gate, run_regression_gate
 
 
 STAGES = [
     ("M-FULL", "full", None, None),
-    ("M-FOUND", "foundation", "Scout", "Warden"),
+    ("M-FOUND", "foundation", "Runtime program", "none"),
     ("M-SPEC", "define requirements", "Sage", "Lex"),
     ("M-TESTPLAN", "define test plan", "Archer", "Prism"),
     ("M-ARCH", "architecture design", "Archer", "Prism"),
     ("M-LOCK", "requirement lock", "Maestro", "human"),
-    ("M-DEV", "development execution", "Devon", "Prism -> Keeper"),
-    ("M-E2E", "e2e development", "Shield", "Prism -> Keeper"),
-    ("M-BUGFIX", "bug fix", "Devon", "Keeper"),
+    ("M-DEV", "development execution", "Devon", "Prism -> Runtime gate"),
+    ("M-E2E", "e2e development", "Shield", "Prism -> Runtime gate"),
+    ("M-BUGFIX", "bug fix", "Devon", "Runtime regression gate"),
     ("M-SECURITY", "security audit", "Judge (S level)", "user"),
     ("M-MILESTONE", "milestone close", "Maestro", "human"),
 ]
@@ -217,9 +219,13 @@ def _holdpoint(stage, args):
     """Return (ok, message)."""
     spec = args.spec_id or _read_current_spec()
     if stage == "M-FOUND":
-        if not Path(".louke/project/project.toml").exists():
-            return False, "project.toml missing; run lk agent scout foundation first"
-        return True, "project.toml exists"
+        result = foundation_program_check(Path.cwd())
+        if result.status != "pass":
+            return (
+                False,
+                f"Runtime foundation program {result.status}: {result.details}",
+            )
+        return True, "Runtime foundation program passed"
     if stage == "M-SPEC":
         if not spec:
             return False, "spec-id required (--spec-id)"
@@ -304,23 +310,14 @@ def _holdpoint(stage, args):
         )
         if not ok:
             return False, msg
-        keeper_args = ["keeper", "gate", "--commit-range", args.commit_range]
-        if spec:
-            keeper_args.extend(["--spec-id", spec, "--stage", "M-DEV"])
-        rc = _run_lk(*keeper_args)
-        if rc != 0:
-            return False, f"keeper gate failed (rc={rc})"
-        ok, msg = _require_stage_artifact(
-            spec,
-            "M-DEV",
-            "gate-result",
-            "Keeper",
-            "pass",
-            metadata={"commit_range": args.commit_range},
+        result = run_quality_gate(
+            commit_range=args.commit_range,
+            spec_id=spec,
+            cwd=Path.cwd(),
         )
-        if not ok:
-            return False, msg
-        return True, "keeper gate exit 0"
+        if result.status != "pass":
+            return False, f"Runtime quality gate failed: {result.findings}"
+        return True, "Runtime quality gate passed"
     if stage == "M-E2E":
         if not spec:
             return False, "spec-id required (--spec-id)"
@@ -342,34 +339,25 @@ def _holdpoint(stage, args):
         )
         if not ok:
             return False, msg
-        keeper_args = ["keeper", "gate", "--commit-range", args.commit_range]
         tests_roots = _read_e2e_paths()
-        if spec:
-            keeper_args.extend(["--spec-id", spec, "--stage", "M-E2E"])
-        for test_root in tests_roots:
-            keeper_args.extend(["--tests-root", test_root])
-        rc = _run_lk(*keeper_args)
-        if rc != 0:
-            return False, f"keeper gate failed (rc={rc})"
-        ok, msg = _require_stage_artifact(
-            spec,
-            "M-E2E",
-            "gate-result",
-            "Keeper",
-            "pass",
-            metadata={
-                "commit_range": args.commit_range,
-                "tests_roots": tests_roots or ["tests/"],
-            },
+        result = run_quality_gate(
+            commit_range=args.commit_range,
+            tests_roots=tests_roots,
+            spec_id=spec,
+            cwd=Path.cwd(),
         )
-        if not ok:
-            return False, msg
-        return True, "shield run-e2e + keeper gate exit 0"
+        if result.status != "pass":
+            return False, f"Runtime quality gate failed: {result.findings}"
+        return True, "shield run-e2e + Runtime quality gate passed"
     if stage == "M-BUGFIX":
-        rc = _run_lk("keeper", "regression", "--baseline", "main", "--current", "HEAD")
-        if rc != 0:
-            return False, f"keeper regression failed (rc={rc})"
-        return True, "keeper regression exit 0"
+        result = run_regression_gate(
+            baseline="main",
+            current="HEAD",
+            cwd=Path.cwd(),
+        )
+        if result.status != "pass":
+            return False, f"Runtime regression gate failed: {result.findings}"
+        return True, "Runtime regression gate passed"
     if stage == "M-SECURITY":
         # FR-0720: skip if Security Audit disabled
         sec = _read_project_info("Security Audit").strip().lower()

@@ -51,7 +51,16 @@ include = ["louke*"]
 [tool.setuptools.package-data]
 louke = [
     "py.typed",
-    "agents/*.md",
+    "agents/Archer.md",
+    "agents/Devon.md",
+    "agents/Judge.md",
+    "agents/Lex.md",
+    "agents/Librarian.md",
+    "agents/Maestro.md",
+    "agents/Prism.md",
+    "agents/Sage.md",
+    "agents/Shield.md",
+    "agents/Scribe.md",
     "agents/_protocols/*.md",
     "agents/_skills/*/*.md",
     "templates/*.md",
