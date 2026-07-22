@@ -109,12 +109,24 @@ def test_v013_chromium_main_journey() -> None:
     workspace_raw = os.environ.get("LOUKE_E2E_CASE_CWD", "")
     assert product_python_raw, "LOUKE_E2E_SERVER_PYTHON must select a product venv"
     assert workspace_raw, "LOUKE_E2E_CASE_CWD must select the isolated workspace"
-    product_python = Path(product_python_raw).resolve()
+    product_python = Path(product_python_raw)
     workspace = Path(workspace_raw).resolve()
-    runner_python = Path(os.environ["LOUKE_PROJECT_RUNNER_PYTHON"]).resolve()
+    runner_python = Path(os.environ["LOUKE_PROJECT_RUNNER_PYTHON"])
     repo_venv = Path(__file__).parents[2] / ".venv"
-    assert product_python != runner_python
-    assert repo_venv.resolve() not in product_python.parents
+    # Compare venv *prefixes* (not resolved executables): on Linux both venv
+    # shims may resolve to the same base interpreter, so ``.resolve()``
+    # produces identical paths.  The installed-wheel guarantee is that the
+    # product venv directory differs from the runner venv and that ``louke``
+    # resolves under the product environment -- not that the Python binaries
+    # are distinct files.
+    product_venv_root = product_python.parent.parent
+    runner_venv_root = runner_python.parent.parent
+    assert product_venv_root != runner_venv_root, (
+        f"product venv {product_venv_root} must differ from runner venv {runner_venv_root}"
+    )
+    assert product_venv_root.resolve() != repo_venv.resolve(), (
+        f"product venv must not be the repo .venv: {product_venv_root}"
+    )
     _prepare_workspace(workspace)
 
     port = _free_port()

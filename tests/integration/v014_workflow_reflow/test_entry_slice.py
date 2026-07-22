@@ -538,3 +538,108 @@ class TestEntrySliceFailClosed:
         assert park["value"] == "Park"
         assert park["backlog_entry_count"] == 1
         assert park["run"]["status"] == "parked"
+
+
+# ---------------------------------------------------------------------------
+# Fixture portability: repository-local Git identity without global config
+# ---------------------------------------------------------------------------
+
+
+class TestFixtureGitIdentity:
+    """AC-FR0500-01: Foundation Story commit succeeds without global Git config.
+
+    Proves the isolated workspace's repository-local ``user.name``/``user.email``
+    config is sufficient for the Foundation adapter's controlled-worktree commit
+    even when HOME/global/system Git identity is absent (CI portability).
+    """
+
+    def test_workspace_has_local_git_identity(self, tmp_path):
+        """The fixture configures repository-local Git identity."""
+
+        from tests.fixtures.v014_workflow_reflow.harness import (
+            build_isolated_workspace,
+        )
+
+        ws = build_isolated_workspace(tmp_path)
+        name = ws.git("config", "user.name").stdout.strip()
+        email = ws.git("config", "user.email").stdout.strip()
+        assert name == "Test Human"
+        assert email == "human@test.local"
+        ws.cleanup()
+
+    def test_foundation_story_commit_under_cleared_identity(self, tmp_path):
+        """Full public flow succeeds with HOME/global Git identity cleared.
+
+        Simulates CI's isolated environment by clearing HOME and all
+        GIT_AUTHOR/GIT_COMMITTER env vars, then proving the repository-local
+        config is sufficient.
+        """
+        import os
+        import socket
+        import subprocess
+        import sys
+
+        from tests.fixtures.v014_workflow_reflow.harness import (
+            build_isolated_workspace,
+            server_command,
+            start_opencode_standin,
+            wait_for_health,
+        )
+
+        ws = build_isolated_workspace(tmp_path)
+        oc = start_opencode_standin(tmp_path)
+
+        # Clear all Git identity env vars and set HOME to a temp dir with no
+        # global Git config -- simulates the CI runner's isolated environment.
+        clean_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        clean_env["HOME"] = str(tmp_path / "empty-home")
+        Path(clean_env["HOME"]).mkdir(exist_ok=True)
+        clean_env["PATH"] = str(ws.gh_bin.parent) + ":/usr/bin:/bin"
+        clean_env["LOUKE_GH_LEDGER_PATH"] = str(ws.gh_ledger)
+        clean_env["LOUKE_GH_OWNER"] = "zillionare"
+        clean_env["LOUKE_OPENCODE_BASE_URL"] = oc.base_url
+        clean_env["LOUKE_OPENCODE_BACKEND"] = "real"
+        clean_env["LOUKE_OPENCODE_USE_SERVER_DEFAULT"] = "1"
+        clean_env["NO_PROXY"] = "127.0.0.1,localhost"
+        clean_env["no_proxy"] = "127.0.0.1,localhost"
+
+        port = 0
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = int(sock.getsockname()[1])
+        base_url = f"http://127.0.0.1:{port}"
+        cmd = server_command(
+            os.environ.get("LOUKE_E2E_SERVER_PYTHON", sys.executable),
+            str(ws.root),
+            port=port,
+        )
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=clean_env,
+        )
+        try:
+            wait_for_health(base_url, timeout=30)
+            client = _client(base_url)
+            reg = _register(client)
+            session = _session(reg)
+            csrf = _csrf(client, session)
+            headers = _mut_headers(base_url, csrf)
+
+            preview = _preview(client, session, headers)
+            confirm_body = _confirm(client, session, headers, preview)
+            status = _poll_status(client, session, confirm_body["request_id"])
+            # Foundation + Story commit must succeed despite no global Git identity.
+            assert status["status"] == "ready", status
+
+            current = _current(client, session, status["project_id"])
+            assert current["run"]["phase"] == "M-STORY"
+            assert current["artifact"], "Story artifact must exist"
+            assert current["artifact"]["revision"] == 1
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=10)
+            oc.stop()
+            ws.cleanup()

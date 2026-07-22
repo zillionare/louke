@@ -624,6 +624,26 @@ def build_isolated_workspace(
         text=True,
         check=True,
     )
+    # Configure a deterministic repository-local Git identity so that commits
+    # inside worktrees (created by the Foundation adapter in the ``lk serve``
+    # subprocess) succeed even when HOME/global/system Git config is absent
+    # (CI isolated environment).  This does NOT weaken production fail-closed
+    # behavior: the Foundation adapter's ``git commit`` still requires a valid
+    # identity; the fixture simply provides one at the repository level.
+    subprocess.run(
+        ["git", "config", "user.name", "Test Human"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "human@test.local"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     env = {
         **os.environ,
         "GIT_AUTHOR_NAME": "Test Human",
