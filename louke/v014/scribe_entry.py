@@ -599,79 +599,23 @@ class ScribeEntryService:
                     "REQUEST_CONFLICT", "story decision already has another identity"
                 )
             return self._decision_response(existing)
-        if actor_kind != "human":
-            raise ScribeTaskError(
-                "HUMAN_AUTHORITY_REQUIRED",
-                "Agent/anonymous actors cannot decide Go/Park/No-Go",
-            )
-        if value not in {"Go", "Park", "No-Go"}:
-            raise ScribeTaskError(
-                "VALIDATION_FAILED", "story decision must be Go, Park or No-Go"
-            )
-        if not reason.strip():
-            raise ScribeTaskError("VALIDATION_FAILED", "decision reason is required")
-        run = self._run_store.get_run(run_id)
-        if run.current_step != Phase.M_STORY.value:
-            raise ScribeTaskError(
-                "WORKFLOW_STATE_CONFLICT",
-                f"story decision requires M-STORY, got {run.current_step}",
-            )
-        artifact = self._current_artifact(run_id)
-        if artifact is None or artifact["revision"] != expected_artifact_revision:
-            raise ScribeTaskError(
-                "DOCUMENT_WRITE_CONFLICT", "decision targets a stale Story revision"
-            )
-        gate = self.story_gate(run_id)
-        if gate["recommendation"] is None or gate["decision"] is not None:
-            raise ScribeTaskError(
-                "WORKFLOW_STATE_CONFLICT", "a current Scribe recommendation is required"
-            )
-        state = RunState(
-            run_id=run.run_id,
-            phase=Phase.M_STORY,
-            revision=run.revision,
-            artifact_revision=artifact["revision"],
-            allowed_actions=(PhaseAction.STORY_DECISION,),
+        _validate_decision_input(value, reason, actor_kind)
+        run, artifact, state, authority = self._authorize_story_decision(
+            run_id=run_id,
+            expected_run_revision=expected_run_revision,
+            expected_artifact_revision=expected_artifact_revision,
         )
-        authority = WorkflowAuthority()
-        try:
-            authority.assert_revision_current(state, expected_run_revision)
-            authority.assert_action_allowed(state, PhaseAction.STORY_DECISION)
-        except WorkflowStateConflict as exc:
-            raise ScribeTaskError(exc.code, str(exc)) from exc
-        except ActionForbidden as exc:
-            raise ScribeTaskError(exc.code, str(exc)) from exc
-
-        backlog = None
-        cleanup = None
-        if value in {"Park", "No-Go"}:
-            backlog = _backlog_for_decision(
-                run_id=run_id,
-                story_revision=artifact["revision"],
-                story_digest=artifact["digest"],
-                value=value,
-                reason=reason.strip(),
-                actor=actor,
-            )
-            cleanup = {
-                "status": "needs_attention",
-                "blocking_reasons": [
-                    "release branch cleanup safety preconditions were not proven"
-                ],
-                "permitted_commands": [],
-            }
-            target = Phase.PARKED if value == "Park" else Phase.NO_GO
-            authority.transition(
-                state=state,
-                target=target,
-                expected_revision=expected_run_revision,
-                actor_kind=actor_kind,
-            )
-            next_run = run.with_step(
-                target.value, "parked" if value == "Park" else "no_go"
-            )
-        else:
-            next_run = run.with_status("running")
+        next_run, backlog, cleanup = self._decision_exit(
+            run=run,
+            artifact=artifact,
+            state=state,
+            authority=authority,
+            value=value,
+            reason=reason,
+            actor=actor,
+            actor_kind=actor_kind,
+            expected_run_revision=expected_run_revision,
+        )
         decision = {
             "run_id": run_id,
             "story_revision": artifact["revision"],
@@ -729,6 +673,88 @@ class ScribeEntryService:
         }
         result["backlog_entry_count"] = 1 if decision.get("backlog") else 0
         return result
+
+    def _authorize_story_decision(
+        self,
+        *,
+        run_id: str,
+        expected_run_revision: int,
+        expected_artifact_revision: int,
+    ) -> tuple[Any, dict[str, Any], RunState, WorkflowAuthority]:
+        """Validate current Story/gate identities through phase authority."""
+        run = self._run_store.get_run(run_id)
+        if run.current_step != Phase.M_STORY.value:
+            raise ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT",
+                f"story decision requires M-STORY, got {run.current_step}",
+            )
+        artifact = self._current_artifact(run_id)
+        if artifact is None or artifact["revision"] != expected_artifact_revision:
+            raise ScribeTaskError(
+                "DOCUMENT_WRITE_CONFLICT", "decision targets a stale Story revision"
+            )
+        gate = self.story_gate(run_id)
+        if gate["recommendation"] is None or gate["decision"] is not None:
+            raise ScribeTaskError(
+                "WORKFLOW_STATE_CONFLICT", "a current Scribe recommendation is required"
+            )
+        state = RunState(
+            run_id=run.run_id,
+            phase=Phase.M_STORY,
+            revision=run.revision,
+            artifact_revision=artifact["revision"],
+            allowed_actions=(PhaseAction.STORY_DECISION,),
+        )
+        authority = WorkflowAuthority()
+        try:
+            authority.assert_revision_current(state, expected_run_revision)
+            authority.assert_action_allowed(state, PhaseAction.STORY_DECISION)
+        except WorkflowStateConflict as exc:
+            raise ScribeTaskError(exc.code, str(exc)) from exc
+        except ActionForbidden as exc:
+            raise ScribeTaskError(exc.code, str(exc)) from exc
+        return run, artifact, state, authority
+
+    def _decision_exit(
+        self,
+        *,
+        run: Any,
+        artifact: dict[str, Any],
+        state: RunState,
+        authority: WorkflowAuthority,
+        value: str,
+        reason: str,
+        actor: str,
+        actor_kind: str,
+        expected_run_revision: int,
+    ) -> tuple[Any, dict[str, Any] | None, dict[str, Any] | None]:
+        """Build the safe Runtime/Backlog outcome for one Human candidate."""
+        if value == "Go":
+            return run.with_status("running"), None, None
+        backlog = _backlog_for_decision(
+            run_id=run.run_id,
+            story_revision=artifact["revision"],
+            story_digest=artifact["digest"],
+            value=value,
+            reason=reason.strip(),
+            actor=actor,
+        )
+        cleanup = {
+            "status": "needs_attention",
+            "blocking_reasons": [
+                "release branch cleanup safety preconditions were not proven"
+            ],
+            "permitted_commands": [],
+        }
+        target = Phase.PARKED if value == "Park" else Phase.NO_GO
+        authority.transition(
+            state=state,
+            target=target,
+            expected_revision=expected_run_revision,
+            actor_kind=actor_kind,
+        )
+        status = "parked" if value == "Park" else "no_go"
+        return run.with_step(target.value, status), backlog, cleanup
 
     @property
     def workspace_root(self) -> Path | None:
@@ -1171,6 +1197,21 @@ def _require_message_fields(client_id: str, correlation_id: str, body: str) -> N
         raise ScribeTaskError(
             "VALIDATION_FAILED", "message body must be 1..20000 characters"
         )
+
+
+def _validate_decision_input(value: str, reason: str, actor_kind: str) -> None:
+    """Validate Human gate fields before reading or mutating Runtime state."""
+    if actor_kind != "human":
+        raise ScribeTaskError(
+            "HUMAN_AUTHORITY_REQUIRED",
+            "Agent/anonymous actors cannot decide Go/Park/No-Go",
+        )
+    if value not in {"Go", "Park", "No-Go"}:
+        raise ScribeTaskError(
+            "VALIDATION_FAILED", "story decision must be Go, Park or No-Go"
+        )
+    if not reason.strip():
+        raise ScribeTaskError("VALIDATION_FAILED", "decision reason is required")
 
 
 def _public_message(message: dict[str, Any]) -> dict[str, Any]:
