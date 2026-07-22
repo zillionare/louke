@@ -65,7 +65,8 @@ louke.egg-info/
 .louke/wiki/**
 .louke/agents/
 .louke/templates/
-.opencode/agents/
+.opencode/
 .louke/project/stage-results
+.louke/opencode/
 .tmp_bundle
 **/*.lock
