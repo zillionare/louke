@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import secrets
 import re
 import tempfile
 from dataclasses import dataclass
@@ -14,6 +16,27 @@ from ..models import SCHEMA as MODELS_SCHEMA
 
 
 _RE_SPEC_VERSION = re.compile(r"^v(\d+)\.(\d+)(?:-(\d+))?")
+
+
+def _password_hash(password: str) -> str:
+    """Return a salted scrypt verifier without retaining the credential."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=2**14, r=8, p=1)
+    return f"scrypt${salt.hex()}${digest.hex()}"
+
+
+def _password_matches(password: str, encoded: str) -> bool:
+    """Return whether a credential matches a stored scrypt verifier."""
+    try:
+        algorithm, salt_hex, digest_hex = encoded.split("$", 2)
+        if algorithm != "scrypt":
+            return False
+        actual = hashlib.scrypt(
+            password.encode("utf-8"), salt=bytes.fromhex(salt_hex), n=2**14, r=8, p=1
+        )
+        return hmac.compare_digest(actual.hex(), digest_hex)
+    except (TypeError, ValueError):
+        return False
 
 
 def _spec_version_key(spec_id: str) -> tuple[int, int, int, str]:
@@ -102,10 +125,17 @@ class ProjectStore:
             if not isinstance(item, dict):
                 continue
             username = str(item.get("username") or "").strip()
+            password_hash = str(item.get("password_hash") or "")
             password = str(item.get("password") or "")
             if not username:
                 continue
-            result.append({"username": username, "password": password})
+            result.append(
+                {
+                    "username": username,
+                    "password": password,
+                    "password_hash": password_hash,
+                }
+            )
         return result
 
     def user_exists(self, username: str) -> bool:
@@ -115,13 +145,18 @@ class ProjectStore:
         if self.user_exists(username):
             raise ValidationError("username already exists")
         users = self.list_users()
-        users.append({"username": username, "password": password})
+        users.append({"username": username, "password_hash": _password_hash(password)})
         payload = {"version": 1, "users": users}
         self._atomic_write_text(self.users_path, self._stable_json(payload) + "\n")
 
     def verify_user(self, username: str, password: str) -> bool:
         for user in self.list_users():
-            if user["username"] == username and user["password"] == password:
+            if user["username"] != username:
+                continue
+            password_hash = user.get("password_hash", "")
+            if password_hash and _password_matches(password, password_hash):
+                return True
+            if not password_hash and hmac.compare_digest(user["password"], password):
                 return True
         return False
 
