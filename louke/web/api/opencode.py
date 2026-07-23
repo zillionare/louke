@@ -7,7 +7,8 @@ so the frontend can warn when the real adapter is not wired.
 
 Endpoints:
     GET    /instances                        - list instances.
-    POST   /instances                        - create an instance.
+    POST   /instances                        - create an instance (optional
+                                                ``{"agent": "devon"}``).
     DELETE /instances?id=X                   - stop an instance.
     GET    /instances/{id}/messages?after=X  - list messages.
     POST   /instances/{id}/messages           - send a message.
@@ -401,13 +402,23 @@ async def list_instances(request: Request) -> JSONResponse:
 async def create_instance(request: Request) -> JSONResponse:
     """AC-FR1401-01/05: create a new OpenCode instance.
 
+    Body:
+        Optional ``{"agent": str}``; the id is normalized to lowercase and
+        forwarded to the adapter for server-side Agent/model resolution.
+
     In real mode the new instance is persisted to
     :class:`OpenCodeInstanceStore` so it survives a Louke restart.
 
     Returns:
         ``201`` with ``{"adapter_kind": ..., "instance": {...}}``.
     """
-    instance, err = _adapter_call(request, "create", correlation_id="web")
+    body = await request.body()
+    payload = await json_body(request) if body else {}
+    agent = _normalize_agent_id(payload.get("agent"))
+    create_kwargs: dict[str, Any] = {"correlation_id": "web"}
+    if agent is not None:
+        create_kwargs["agent"] = agent
+    instance, err = _adapter_call(request, "create", **create_kwargs)
     if err is not None:
         return err
     adapter = _resolve_adapter_or_cached(request)
@@ -417,6 +428,38 @@ async def create_instance(request: Request) -> JSONResponse:
         _envelope(adapter, {"instance": instance.to_dict()}),
         status_code=201,
     )
+
+
+def _normalize_agent_id(value: Any) -> Optional[str]:
+    """Normalize a selected UI Agent id and reject unsafe arbitrary values.
+
+    Args:
+        value: The optional JSON ``agent`` field from the create request.
+
+    Returns:
+        A lowercase Agent id, or None when no Agent was selected.
+
+    Raises:
+        HTTPException: If the value is not a simple non-empty Agent id.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(
+            status_code=400,
+            detail=error_detail(VALIDATION_ERROR, "field 'agent' must be a string"),
+        )
+    agent = value.strip().lower()
+    if not agent or any(
+        not ("a" <= char <= "z" or "0" <= char <= "9" or char in "_-") for char in agent
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=error_detail(
+                VALIDATION_ERROR, "field 'agent' must be a valid Agent id"
+            ),
+        )
+    return agent
 
 
 def _persist_instance(request: Request, adapter: Any, instance: Instance) -> None:

@@ -124,9 +124,11 @@ class _FakeRealAdapter:
         self._instances: dict[str, Instance] = {}
         self._messages: dict[str, list[Message]] = {}
         self.cancel_calls: list[str] = []
+        self.create_agent_calls: list[Optional[str]] = []
         self.list_calls = 0
 
-    def create(self, *, correlation_id: str) -> Instance:
+    def create(self, *, correlation_id: str, agent: Optional[str] = None) -> Instance:
+        self.create_agent_calls.append(agent)
         inst = Instance(id=f"sess-{len(self._instances) + 1}", status="running")
         self._instances[inst.id] = inst
         self._messages.setdefault(inst.id, [])
@@ -224,6 +226,29 @@ def test_opencode_real_create_persists_instance(tmp_path: Path) -> None:
     persisted = next(s for s in states if s.instance_id == instance_id)
     assert persisted.status == "running"
     assert persisted.base_url == "http://test"
+
+
+def test_create_instance_passes_normalized_selected_agent() -> None:
+    """POST /instances forwards the selected Agent id to the adapter."""
+    fake = _FakeRealAdapter()
+    client = TestClient(create_app(adapter=fake))
+
+    resp = client.post("/instances", json={"agent": "Devon"})
+
+    assert resp.status_code == 201
+    assert fake.create_agent_calls == ["devon"]
+
+
+def test_create_instance_rejects_html_as_agent_id() -> None:
+    """The create API does not pass arbitrary HTML through as an Agent id."""
+    fake = _FakeRealAdapter()
+    client = TestClient(create_app(adapter=fake))
+
+    resp = client.post("/instances", json={"agent": "<script>alert(1)</script>"})
+
+    assert resp.status_code == 400
+    assert resp.json()["error_code"] == "VALIDATION_ERROR"
+    assert fake.create_agent_calls == []
 
 
 def test_opencode_recover_route_returns_running() -> None:

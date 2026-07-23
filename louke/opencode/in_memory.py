@@ -14,7 +14,8 @@ class InMemoryOpenCodeAdapter:
         self._instances: dict[str, Instance] = {}
         self._messages: dict[str, list[Message]] = {}
 
-    def create(self, *, correlation_id: str) -> Instance:
+    def create(self, *, correlation_id: str, agent: Optional[str] = None) -> Instance:
+        del agent
         with self._lock:
             inst = Instance(id=new_id(), status="running")
             self._instances[inst.id] = inst

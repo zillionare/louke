@@ -4,7 +4,7 @@ These tests exercise the HTTP adapter against a mocked httpx.Client so they
 do NOT require a running opencode serve. The L3 real smoke (B7 / B19)
 covers the end-to-end path against a live server.
 
-Discovered OpenCode HTTP API (v1.17.15, base URL http://127.0.0.1:{port}):
+Discovered OpenCode HTTP API (v1.17.15 and v1.18.1, base URL http://127.0.0.1:{port}):
   POST   /api/session               -> {id, slug, ...}                create
   GET    /api/session                -> {data:[{id,...}], cursor}     list
   DELETE /api/session/{id}           -> true                          stop/end
@@ -72,6 +72,358 @@ class _FakeTransport:
 def _make_adapter(transport: _FakeTransport) -> RealOpenCodeAdapter:
     client = httpx.Client(transport=httpx.MockTransport(transport))
     return RealOpenCodeAdapter("http://127.0.0.1:41234", client=client, timeout=2.0)
+
+
+def test_default_client_disables_environment_proxy_use(monkeypatch):
+    """Managed loopback requests must not use ambient HTTP proxy settings."""
+    created_kwargs: dict[str, Any] = {}
+    real_client = httpx.Client
+
+    def create_client(**kwargs: Any) -> httpx.Client:
+        created_kwargs.update(kwargs)
+        return real_client(**kwargs)
+
+    monkeypatch.setattr("louke.opencode.real.httpx.Client", create_client)
+
+    adapter = RealOpenCodeAdapter("http://127.0.0.1:41234", timeout=2.0)
+
+    assert created_kwargs["trust_env"] is False
+    assert adapter._client._trust_env is False
+
+
+def test_injected_client_is_preserved():
+    """An explicitly injected client remains responsible for its own settings."""
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200))
+    )
+
+    adapter = RealOpenCodeAdapter("http://127.0.0.1:41234", client=client)
+
+    assert adapter._client is client
+
+
+def _make_sse_adapter(
+    events: list[dict[str, Any]],
+    messages: list[dict[str, Any]] | None = None,
+) -> tuple[RealOpenCodeAdapter, list[httpx.Request]]:
+    payload = "\n".join(f"data: {json.dumps(event)}\n" for event in events)
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/event":
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=payload.encode(),
+                request=request,
+            )
+        if request.url.path.endswith("/message"):
+            return httpx.Response(
+                200,
+                json={"data": messages or []},
+                request=request,
+            )
+        return httpx.Response(404, request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(handle))
+    adapter = RealOpenCodeAdapter("http://127.0.0.1:41234", client=client, timeout=2.0)
+    return adapter, requests
+
+
+def _make_agent_setup_adapter(
+    agents: list[dict[str, Any]],
+) -> tuple[RealOpenCodeAdapter, list[httpx.Request]]:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "POST" and request.url.path == "/api/session":
+            return httpx.Response(
+                200,
+                json={"id": "ses-agent"},
+                request=request,
+            )
+        if request.method == "GET" and request.url.path == "/api/agent":
+            return httpx.Response(200, json={"data": agents}, request=request)
+        if request.method == "POST" and request.url.path.endswith(("/agent", "/model")):
+            return httpx.Response(204, request=request)
+        if request.method == "DELETE" and request.url.path == "/api/session/ses-agent":
+            return httpx.Response(204, request=request)
+        return httpx.Response(404, request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(handle))
+    return (
+        RealOpenCodeAdapter("http://127.0.0.1:41234", client=client),
+        requests,
+    )
+
+
+def test_create_configures_selected_agent_and_resolved_model_before_returning():
+    """Selected Agent setup resolves /api/agent before the first prompt can run."""
+    adapter, requests = _make_agent_setup_adapter(
+        [
+            {
+                "id": "devon",
+                "mode": "subagent",
+                "model": {"providerID": "codexmanager", "id": "gpt-5.6-terra"},
+            }
+        ]
+    )
+
+    instance = adapter.create(correlation_id="cid", agent="devon")
+
+    assert instance.id == "ses-agent"
+    assert [request.method + " " + request.url.path for request in requests] == [
+        "POST /api/session",
+        "GET /api/agent",
+        "POST /api/session/ses-agent/agent",
+        "POST /api/session/ses-agent/model",
+    ]
+    assert json.loads(requests[2].content) == {"agent": "devon"}
+    assert json.loads(requests[3].content) == {
+        "model": {"providerID": "codexmanager", "id": "gpt-5.6-terra"}
+    }
+
+
+def test_create_without_agent_preserves_unconfigured_session_flow():
+    """Callers omitting Agent setup do not trigger the Agent catalog request."""
+    adapter, requests = _make_agent_setup_adapter([])
+
+    adapter.create(correlation_id="cid")
+
+    assert [request.url.path for request in requests] == ["/api/session"]
+
+
+def test_create_rejects_unknown_agent_and_cleans_up_session():
+    """An unknown selected Agent fails closed and stops the new session."""
+    adapter, requests = _make_agent_setup_adapter(
+        [{"id": "build", "model": {"providerID": "opencode", "id": "build"}}]
+    )
+
+    with pytest.raises(RuntimeError, match="agent 'devon'.*not found"):
+        adapter.create(correlation_id="cid", agent="devon")
+
+    assert requests[-1].method == "DELETE"
+    assert requests[-1].url.path == "/api/session/ses-agent"
+
+
+def test_create_rejects_agent_without_concrete_model_and_cleans_up_session():
+    """An Agent without provider/id model data cannot leave a live session."""
+    adapter, requests = _make_agent_setup_adapter([{"id": "devon"}])
+
+    with pytest.raises(RuntimeError, match="agent 'devon'.*model"):
+        adapter.create(correlation_id="cid", agent="devon")
+
+    assert requests[-1].method == "DELETE"
+    assert requests[-1].url.path == "/api/session/ses-agent"
+
+
+def test_stream_events_supports_opencode_1181_success_and_filters_sessions():
+    """1.18.1 text deltas stream and stop completes only the target session."""
+    adapter, requests = _make_sse_adapter(
+        [
+            {
+                "id": "other-start",
+                "type": "session.next.text.started",
+                "properties": {
+                    "sessionID": "ses-other",
+                    "assistantMessageID": "msg-other",
+                    "textID": "text-other",
+                },
+            },
+            {
+                "id": "target-start",
+                "type": "session.next.text.started",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "textID": "text-target",
+                },
+            },
+            {
+                "id": "other-delta",
+                "type": "session.next.text.delta",
+                "properties": {
+                    "sessionID": "ses-other",
+                    "assistantMessageID": "msg-other",
+                    "textID": "text-other",
+                    "delta": "wrong session",
+                },
+            },
+            {
+                "id": "target-delta",
+                "type": "session.next.text.delta",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "textID": "text-target",
+                    "delta": "hello",
+                },
+            },
+            {
+                "id": "target-text-ended",
+                "type": "session.next.text.ended",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "textID": "text-target",
+                    "text": "not authoritative",
+                },
+            },
+            {
+                "id": "other-step-ended",
+                "type": "session.next.step.ended",
+                "properties": {
+                    "sessionID": "ses-other",
+                    "assistantMessageID": "msg-other",
+                    "finish": "stop",
+                },
+            },
+            {
+                "id": "target-tool-step-ended",
+                "type": "session.next.step.ended",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "finish": "tool-calls",
+                },
+            },
+            {
+                "id": "target-step-ended",
+                "type": "session.next.step.ended",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "finish": "stop",
+                },
+            },
+        ],
+        messages=[
+            {
+                "id": "msg-target",
+                "type": "assistant",
+                "content": [{"type": "text", "text": "authoritative reply"}],
+            }
+        ],
+    )
+
+    events = list(adapter.stream_events("ses-target"))
+
+    assert [event.type for event in events] == ["delta", "completed"]
+    assert events[0].message_id == "msg-target"
+    assert events[0].delta == "hello"
+    assert events[1].message_id == "msg-target"
+    assert events[1].content == "authoritative reply"
+    assert [request.url.path for request in requests] == [
+        "/event",
+        "/api/session/ses-target/message",
+    ]
+
+
+def test_stream_events_supports_opencode_1181_step_failure():
+    """1.18.1 failed steps become useful errors without completing the turn."""
+    adapter, _ = _make_sse_adapter(
+        [
+            {
+                "id": "target-start",
+                "type": "session.next.text.started",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "textID": "text-target",
+                },
+            },
+            {
+                "id": "other-failure",
+                "type": "session.next.step.failed",
+                "properties": {
+                    "sessionID": "ses-other",
+                    "assistantMessageID": "msg-other",
+                    "error": {
+                        "type": "ProviderError",
+                        "message": "other session failure",
+                    },
+                },
+            },
+            {
+                "id": "target-failure",
+                "type": "session.next.step.failed",
+                "properties": {
+                    "sessionID": "ses-target",
+                    "assistantMessageID": "msg-target",
+                    "error": {
+                        "type": "ProviderError",
+                        "message": "provider rate limited",
+                    },
+                },
+            },
+        ]
+    )
+
+    events = list(adapter.stream_events("ses-target"))
+
+    assert len(events) == 1
+    assert events[0].type == "error"
+    assert events[0].message_id == "msg-target"
+    assert events[0].error == "ProviderError: provider rate limited"
+
+
+def test_stream_events_preserves_legacy_11715_normalization():
+    """Legacy message/part/idle events retain their normalized behavior."""
+    adapter, _ = _make_sse_adapter(
+        [
+            {
+                "id": "legacy-updated",
+                "type": "message.updated",
+                "data": {
+                    "sessionID": "ses-target",
+                    "info": {"id": "msg-target", "role": "assistant"},
+                },
+            },
+            {
+                "id": "legacy-part",
+                "type": "message.part.updated",
+                "data": {
+                    "sessionID": "ses-target",
+                    "part": {
+                        "id": "text-target",
+                        "type": "text",
+                        "messageID": "msg-target",
+                    },
+                },
+            },
+            {
+                "id": "legacy-delta",
+                "type": "message.part.delta",
+                "data": {
+                    "sessionID": "ses-target",
+                    "field": "text",
+                    "messageID": "msg-target",
+                    "partID": "text-target",
+                    "delta": "legacy hello",
+                },
+            },
+            {
+                "id": "legacy-idle",
+                "type": "session.idle",
+                "data": {"sessionID": "ses-target"},
+            },
+        ],
+        messages=[
+            {
+                "id": "msg-target",
+                "type": "assistant",
+                "content": [{"type": "text", "text": "legacy reply"}],
+            }
+        ],
+    )
+
+    events = list(adapter.stream_events("ses-target"))
+
+    assert [event.type for event in events] == ["delta", "completed"]
+    assert events[0].delta == "legacy hello"
+    assert events[1].content == "legacy reply"
 
 
 # -- create() ----------------------------------------------------------------

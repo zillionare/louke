@@ -5,7 +5,7 @@ httpx. It implements the :class:`louke.opencode.adapter.OpenCodeAdapter`
 protocol plus a small set of lifecycle helpers (``cancel``, ``probe_version``)
 required by architecture §7.
 
-Discovered OpenCode HTTP API (verified against opencode 1.17.15, B19 fix):
+Discovered OpenCode HTTP API (verified against opencode 1.17.15 and 1.18.1):
     POST   /api/session               -> {id, slug, projectID, ...}   create
     GET    /api/session                -> {data:[{id,...}], cursor}    list
     DELETE /api/session/{id}           -> true                         stop/end
@@ -13,12 +13,20 @@ Discovered OpenCode HTTP API (verified against opencode 1.17.15, B19 fix):
     POST   /api/session/{id}/abort    -> true                         cancel
     GET    /api/session/{id}/message   -> {data:[{id,type,content,...}], cursor}
     GET    /global/health              -> {healthy, version}           probe
+    GET    /api/agent                  -> {data:[{id, model, ...}]}     Agent catalog
+    POST   /api/session/{id}/agent     -> 204                          select Agent
+    POST   /api/session/{id}/model     -> 204                          select model
 
 B19 (issue #167) corrected the endpoints to the real ``/api`` prefix and
 the response shapes to the ``{data: [...]}`` envelope actually returned
 by opencode 1.17.15. The old ``/session/{id}/prompt_async`` path returned
 an HTML catch-all (no such route), and ``/session/{id}/message?limit=N``
 returned ``[]`` because the real list endpoint ignores query params.
+
+OpenCode 1.18.1 keeps these HTTP endpoints and emits assistant streaming
+events from ``/event`` using ``session.next.text.started``,
+``session.next.text.delta``, ``session.next.text.ended``,
+``session.next.step.ended`` and ``session.next.step.failed`` event types.
 """
 
 from __future__ import annotations
@@ -42,7 +50,10 @@ from .adapter import (
 
 _HEALTH_PATH = "/global/health"
 _SESSION_PATH = "/api/session"
+_AGENT_PATH = "/api/agent"
 _ABORT_SUFFIX = "/abort"
+_AGENT_SUFFIX = "/agent"
+_MODEL_SUFFIX = "/model"
 _MESSAGE_SUFFIX = "/message"
 _PROMPT_SUFFIX = "/prompt"
 
@@ -102,7 +113,9 @@ class RealOpenCodeAdapter:
             ``http://127.0.0.1:41234``. Trailing slash is stripped.
         timeout: Per-request timeout in seconds.
         client: Optional pre-built httpx.Client (used by tests to inject a
-            mock transport). When omitted a new client is created.
+            mock transport). When omitted a new client is created with
+            environment proxy settings disabled for the managed loopback
+            service.
 
     Attributes:
         base_url: The stripped base URL.
@@ -117,7 +130,9 @@ class RealOpenCodeAdapter:
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
-        self._client = client if client is not None else httpx.Client(timeout=timeout)
+        if client is None:
+            client = httpx.Client(timeout=timeout, trust_env=False)
+        self._client = client
 
     @property
     def base_url(self) -> str:
@@ -129,6 +144,7 @@ class RealOpenCodeAdapter:
         correlation_id: str,
         model: Optional[str] = None,
         directory: Optional[str] = None,
+        agent: Optional[str] = None,
     ) -> Instance:
         """Create a new OpenCode session.
 
@@ -144,6 +160,10 @@ class RealOpenCodeAdapter:
                 ``"opencode/big-pickle"`` is used.
             directory: Optional working directory for the session. Defaults
                 to ``/tmp`` (or ``OPENCODE_DIRECTORY`` env var when set).
+        agent: Optional OpenCode Agent id. When set, the adapter resolves
+                its concrete model from ``GET /api/agent`` and configures the
+                new session with the Agent and model switch endpoints before
+                returning it. A failed setup stops the new session.
 
         Returns:
             An :class:`Instance` with ``status="running"`` and the
@@ -173,11 +193,80 @@ class RealOpenCodeAdapter:
         data = resp.json()
         inner = data.get("data", data) if isinstance(data, dict) else data
         created = _as_epoch(inner.get("time", {}).get("created"))
-        return Instance(
+        instance = Instance(
             id=inner["id"],
             status="running",
             created_at=created,
         )
+        if agent is not None:
+            self._configure_agent(instance.id, agent)
+        return instance
+
+    def _configure_agent(self, instance_id: str, agent: str) -> None:
+        """Configure a new session with a validated OpenCode Agent and model.
+
+        Args:
+            instance_id: The newly-created OpenCode session id.
+            agent: The exact lowercase Agent id from the generated roster.
+
+        Raises:
+            RuntimeError: If the Agent is unavailable, its model is invalid,
+                configuration fails, or cleanup after failure fails.
+        """
+        try:
+            model = self._resolve_agent_model(agent)
+            self._request(
+                "POST",
+                _session_path(instance_id, _AGENT_SUFFIX),
+                json={"agent": agent},
+            )
+            self._request(
+                "POST",
+                _session_path(instance_id, _MODEL_SUFFIX),
+                json={"model": model},
+            )
+        except RuntimeError as exc:
+            try:
+                self.stop(instance_id)
+            except RuntimeError as cleanup_exc:
+                raise RuntimeError(
+                    f"OpenCode agent setup failed for {agent!r}: {exc}; "
+                    f"session cleanup failed: {cleanup_exc}"
+                ) from exc
+            raise RuntimeError(
+                f"OpenCode agent setup failed for {agent!r}: {exc}"
+            ) from exc
+
+    def _resolve_agent_model(self, agent: str) -> dict[str, str]:
+        """Resolve an Agent id to its concrete provider/model pair.
+
+        Args:
+            agent: The exact Agent id requested by the caller.
+
+        Returns:
+            A model object suitable for ``POST /api/session/{id}/model``.
+
+        Raises:
+            RuntimeError: If the Agent is absent or does not expose both model
+                provider and id fields.
+        """
+        if not agent.strip():
+            raise RuntimeError("selected OpenCode agent id must not be empty")
+        response = self._request("GET", _AGENT_PATH)
+        agents = _unwrap_data_envelope(response.json())
+        selected = next((item for item in agents if item.get("id") == agent), None)
+        if selected is None:
+            raise RuntimeError(f"agent {agent!r} was not found in /api/agent")
+        raw_model = selected.get("model")
+        if not isinstance(raw_model, dict):
+            raise RuntimeError(f"agent {agent!r} has no concrete model")
+        provider_id = raw_model.get("providerID")
+        model_id = raw_model.get("id")
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise RuntimeError(f"agent {agent!r} model is missing providerID")
+        if not isinstance(model_id, str) or not model_id.strip():
+            raise RuntimeError(f"agent {agent!r} model is missing id")
+        return {"providerID": provider_id, "id": model_id}
 
     def list(self) -> List[Instance]:
         """List all known OpenCode sessions.
@@ -310,7 +399,20 @@ class RealOpenCodeAdapter:
     def stream_events(
         self, instance_id: str, last_event_id: Optional[str] = None
     ) -> Iterator[StreamEvent]:
-        """Yield normalized events from OpenCode's project-level ``/event`` SSE."""
+        """Yield normalized events from OpenCode's project-level ``/event`` SSE.
+
+        Args:
+            instance_id: Only events belonging to this OpenCode session are
+                yielded.
+            last_event_id: Optional SSE cursor sent as ``Last-Event-ID``.
+
+        Yields:
+            ``delta``, terminal ``completed``, or provider ``error`` events.
+
+        Raises:
+            RuntimeError: If the SSE endpoint or an authoritative terminal
+                message request fails.
+        """
         assistant_messages: set[str] = set()
         text_parts: set[str] = set()
         with self._client.stream(
@@ -337,6 +439,17 @@ class RealOpenCodeAdapter:
                 event_id = str(event.get("id") or new_id())
                 event_type = event.get("type")
                 data = event.get("data") or event.get("properties") or {}
+                next_event = self._normalize_next_event(
+                    event_type,
+                    data,
+                    event_id,
+                    instance_id,
+                    assistant_messages,
+                    text_parts,
+                )
+                if next_event is not None:
+                    yield next_event
+                    continue
                 if event_type == "message.updated":
                     if data.get("sessionID") != instance_id:
                         continue
@@ -397,6 +510,108 @@ class RealOpenCodeAdapter:
                         message_id=next(iter(assistant_messages), ""),
                         error=str(error),
                     )
+
+    def _normalize_next_event(
+        self,
+        event_type: str,
+        data: dict[str, Any],
+        event_id: str,
+        instance_id: str,
+        assistant_messages: set[str],
+        text_parts: set[str],
+    ) -> Optional[StreamEvent]:
+        """Normalize one OpenCode 1.18.1 ``session.next`` event.
+
+        Args:
+            event_type: The SSE event type.
+            data: The event's ``properties`` or legacy ``data`` object.
+            event_id: The SSE event id.
+            instance_id: The session whose events may be emitted.
+            assistant_messages: Known assistant message ids for the session.
+            text_parts: Known assistant text part ids for the session.
+
+        Returns:
+            A normalized event when the input is an emitting event; otherwise
+            None. State-only events update the supplied id sets in place.
+
+        Raises:
+            RuntimeError: If terminal success cannot fetch the message list.
+        """
+        if event_type in {"session.next.step.started", "session.next.text.started"}:
+            if data.get("sessionID") != instance_id:
+                return None
+            assistant_message_id = data.get("assistantMessageID")
+            if assistant_message_id:
+                assistant_messages.add(str(assistant_message_id))
+            if event_type == "session.next.text.started":
+                text_id = data.get("textID")
+                if assistant_message_id and text_id:
+                    text_parts.add(str(text_id))
+            return None
+        if data.get("sessionID") != instance_id:
+            return None
+        assistant_message_id = str(data.get("assistantMessageID") or "")
+        if event_type == "session.next.text.delta":
+            if (
+                assistant_message_id not in assistant_messages
+                or str(data.get("textID") or "") not in text_parts
+            ):
+                return None
+            return StreamEvent(
+                event_id=event_id,
+                type="delta",
+                message_id=assistant_message_id,
+                delta=str(data.get("delta") or ""),
+            )
+        if event_type == "session.next.step.ended":
+            if (
+                data.get("finish") != "stop"
+                or assistant_message_id not in assistant_messages
+            ):
+                return None
+            assistant = self._find_assistant_message(instance_id, assistant_message_id)
+            if assistant is None:
+                return None
+            return StreamEvent(
+                event_id=event_id,
+                type="completed",
+                message_id=assistant.id,
+                content=assistant.content,
+            )
+        if event_type == "session.next.step.failed":
+            return StreamEvent(
+                event_id=event_id,
+                type="error",
+                message_id=assistant_message_id,
+                error=_format_opencode_error(data.get("error")),
+            )
+        return None
+
+    def _find_assistant_message(
+        self, instance_id: str, message_id: str
+    ) -> Optional[Message]:
+        """Fetch the authoritative assistant message for a terminal step.
+
+        Args:
+            instance_id: The target OpenCode session id.
+            message_id: The assistant message id from the terminal event.
+
+        Returns:
+            The matching assistant message, or None when the server has not
+            exposed one for the terminal step.
+
+        Raises:
+            RuntimeError: If the OpenCode message endpoint fails.
+        """
+        messages = self.list_messages(instance_id, after_message_id=None)
+        return next(
+            (
+                message
+                for message in messages
+                if message.role == "assistant" and message.id == message_id
+            ),
+            None,
+        )
 
     def reconcile_session(
         self, instance_id: str, *, after_result_id: Optional[str] = None
@@ -622,6 +837,30 @@ def _concat_text_parts(parts: Any) -> str:
             if isinstance(t, str):
                 out.append(t)
     return "".join(out)
+
+
+def _format_opencode_error(error: Any) -> str:
+    """Format an OpenCode provider error into a useful stable message.
+
+    Args:
+        error: The error value from an OpenCode SSE event.
+
+    Returns:
+        A human-readable error string, including the provider error type when
+        the server supplies one.
+    """
+    if isinstance(error, dict):
+        error_type = error.get("type")
+        message = error.get("message")
+        if error_type and message:
+            return f"{error_type}: {message}"
+        if message:
+            return str(message)
+        if error_type:
+            return str(error_type)
+    if error:
+        return str(error)
+    return "OpenCode step failed"
 
 
 def _as_epoch(ms: Any) -> float:
