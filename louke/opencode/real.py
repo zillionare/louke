@@ -450,66 +450,95 @@ class RealOpenCodeAdapter:
                 if next_event is not None:
                     yield next_event
                     continue
-                if event_type == "message.updated":
-                    if data.get("sessionID") != instance_id:
-                        continue
-                    info = data.get("info") or {}
-                    if info.get("role") == "assistant" and info.get("id"):
-                        assistant_messages.add(str(info["id"]))
-                    continue
-                if event_type == "message.part.updated":
-                    if data.get("sessionID") != instance_id:
-                        continue
-                    part = data.get("part") or {}
-                    if part.get("type") == "text" and part.get("id"):
-                        message_id = part.get("messageID") or part.get("messageId")
-                        if message_id in assistant_messages:
-                            text_parts.add(str(part["id"]))
-                    continue
-                if event_type == "message.part.delta":
-                    if (
-                        data.get("sessionID") != instance_id
-                        or data.get("field") != "text"
-                    ):
-                        continue
-                    if data.get("messageID") not in assistant_messages:
-                        continue
-                    if data.get("partID") not in text_parts:
-                        continue
-                    yield StreamEvent(
-                        event_id=event_id,
-                        type="delta",
-                        message_id=str(data["messageID"]),
-                        delta=str(data.get("delta") or ""),
-                    )
-                    continue
-                if (
-                    event_type == "session.idle"
-                    and data.get("sessionID") == instance_id
-                ):
-                    messages = self.list_messages(instance_id, after_message_id=None)
-                    assistant = next(
-                        (m for m in reversed(messages) if m.role == "assistant"), None
-                    )
-                    if assistant is not None:
-                        yield StreamEvent(
-                            event_id=event_id,
-                            type="completed",
-                            message_id=assistant.id,
-                            content=assistant.content,
-                        )
-                    continue
-                if (
-                    event_type == "session.error"
-                    and data.get("sessionID") == instance_id
-                ):
-                    error = data.get("error") or "OpenCode session error"
-                    yield StreamEvent(
-                        event_id=event_id,
-                        type="error",
-                        message_id=next(iter(assistant_messages), ""),
-                        error=str(error),
-                    )
+                legacy_event = self._normalize_legacy_event(
+                    event_type,
+                    data,
+                    event_id,
+                    instance_id,
+                    assistant_messages,
+                    text_parts,
+                )
+                if legacy_event is not None:
+                    yield legacy_event
+
+    def _normalize_legacy_event(
+        self,
+        event_type: str,
+        data: dict[str, Any],
+        event_id: str,
+        instance_id: str,
+        assistant_messages: set[str],
+        text_parts: set[str],
+    ) -> Optional[StreamEvent]:
+        """Normalize one OpenCode 1.17.15-compatible event.
+
+        Args:
+            event_type: The SSE event type.
+            data: The event's ``data`` object.
+            event_id: The SSE event id.
+            instance_id: The session whose events may be emitted.
+            assistant_messages: Known assistant message ids for the session.
+            text_parts: Known assistant text part ids for the session.
+
+        Returns:
+            A normalized delta, completed, or error event, or None for
+            state-only, unrelated, and unknown events.
+
+        Raises:
+            RuntimeError: If a legacy idle event cannot fetch messages.
+        """
+        if event_type == "message.updated":
+            if data.get("sessionID") != instance_id:
+                return None
+            info = data.get("info") or {}
+            if info.get("role") == "assistant" and info.get("id"):
+                assistant_messages.add(str(info["id"]))
+            return None
+        if event_type == "message.part.updated":
+            if data.get("sessionID") != instance_id:
+                return None
+            part = data.get("part") or {}
+            if part.get("type") == "text" and part.get("id"):
+                message_id = part.get("messageID") or part.get("messageId")
+                if message_id in assistant_messages:
+                    text_parts.add(str(part["id"]))
+            return None
+        if event_type == "message.part.delta":
+            if (
+                data.get("sessionID") != instance_id
+                or data.get("field") != "text"
+                or data.get("messageID") not in assistant_messages
+                or data.get("partID") not in text_parts
+            ):
+                return None
+            return StreamEvent(
+                event_id=event_id,
+                type="delta",
+                message_id=str(data["messageID"]),
+                delta=str(data.get("delta") or ""),
+            )
+        if event_type == "session.idle" and data.get("sessionID") == instance_id:
+            messages = self.list_messages(instance_id, after_message_id=None)
+            assistant = next(
+                (m for m in reversed(messages) if m.role == "assistant"), None
+            )
+            if assistant is None:
+                return None
+            return StreamEvent(
+                event_id=event_id,
+                type="completed",
+                message_id=assistant.id,
+                content=assistant.content,
+            )
+        if event_type == "session.error" and data.get("sessionID") == instance_id:
+            error = data.get("error") or "OpenCode session error"
+            return StreamEvent(
+                event_id=event_id,
+                type="error",
+                message_id=next(iter(assistant_messages), ""),
+                error=str(error),
+            )
+        return None
 
     def _normalize_next_event(
         self,
