@@ -7,8 +7,8 @@ import subprocess
 
 import pytest
 
-from louke.v014.fr0500_story_init import StoryInitConflict
-from louke.v014.foundation_adapter import ShellFoundationAdapter
+from louke.runtime.story_init import StoryInitConflict
+from louke.runtime.foundation_adapter import ShellFoundationAdapter
 
 
 def _writer_workspace(tmp_path: Path) -> tuple[ShellFoundationAdapter, Path]:
@@ -134,7 +134,7 @@ def test_failed_git_output_cannot_be_used_as_a_ref_identity(
     adapter = ShellFoundationAdapter(tmp_path, spec_id="spec-1")
 
     monkeypatch.setattr(
-        "louke.v014.foundation_adapter.subprocess.run",
+        "louke.runtime.foundation_adapter.subprocess.run",
         lambda *args, **kwargs: subprocess.CompletedProcess(
             args, 128, stdout="refs/heads/releases/0.14.0\n", stderr="fatal: missing"
         ),

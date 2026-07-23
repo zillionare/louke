@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1700_github_ci import (
+from louke.runtime.github_ci import (
     ERROR_CODES,
     CIReport,
     GitHubCIGate,

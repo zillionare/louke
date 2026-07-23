@@ -8,13 +8,13 @@ import pytest
 
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.store import WorkflowRunStore
-from louke.v014.fr0500_story_init import (
+from louke.runtime.story_init import (
     StoryInitConflict,
     StoryInitResult,
     StoryNavigation,
     StoryRevisionEvidence,
 )
-from louke.v014.story_entry import StoryEntryService
+from louke.runtime.story_entry import StoryEntryService
 
 
 def _run_store(db_path: str | None = None) -> WorkflowRunStore:

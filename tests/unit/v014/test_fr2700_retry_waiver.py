@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2700_retry_waiver import (
+from louke.runtime.retry_waiver import (
     CancelDecision,
     RetryDecision,
     RetryWaiverError,

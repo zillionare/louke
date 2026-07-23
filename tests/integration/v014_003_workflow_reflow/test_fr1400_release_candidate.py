@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1400_release_candidate import (
+from louke.runtime.release_candidate import (
     ERROR_CODES,
     Candidate,
     CandidateFreezeError,
@@ -216,7 +216,7 @@ def test_candidate_id_deterministic_for_same_commit_and_deps():
     c1 = freeze_candidate(**_valid_freeze_kwargs(store))
     # Same inputs again won't be added (store marks prior as stale), but the
     # candidate_id derived from same commit+deps is identical.
-    from louke.v014.fr1400_release_candidate import _candidate_id
+    from louke.runtime.release_candidate import _candidate_id
 
     cid = _candidate_id("run-001", "c" * 40, _valid_deps())
     assert cid == c1.candidate_id

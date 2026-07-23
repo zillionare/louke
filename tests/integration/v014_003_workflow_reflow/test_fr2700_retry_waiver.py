@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2700_retry_waiver import (
+from louke.runtime.retry_waiver import (
     ERROR_CODES,
     CancelDecision,
     RetryDecision,
@@ -174,7 +174,7 @@ def test_non_waivable_gates_includes_all_documented_gates():
     """AC-FR2700-01: non-waivable list includes required CI, release approval,
     trace/freshness, artifact version, critical security, publish identity,
     requirement approval."""
-    from louke.v014.fr2700_retry_waiver import _NON_WAIVABLE_GATES
+    from louke.runtime.retry_waiver import _NON_WAIVABLE_GATES
 
     expected = {
         "required-ci",

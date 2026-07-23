@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0100_serve_diagnostics import (
+from louke.runtime.serve_diagnostics import (
     NON_LOOPBACK_AUTH_UNAVAILABLE,
     HardPreflightError,
     ReadinessCheck,

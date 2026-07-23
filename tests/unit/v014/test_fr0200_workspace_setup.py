@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0200_workspace_setup import (
+from louke.runtime.workspace_setup import (
     NAMESPACE_AMBIGUOUS,
     NAMESPACE_MISSING,
     NAMESPACE_PERMISSION_DENIED,

@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr0100_m_design_entry import (
+from louke.runtime.m_design_entry import (
     DesignEntryError,
     DesignRevisionRecord,
     enter_m_design,

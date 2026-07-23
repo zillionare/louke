@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1900_semantic_task import (
+from louke.runtime.semantic_task import (
     AgentResultRejected,
     AttemptStatus,
     AuthorReviewerSessionMismatchError,

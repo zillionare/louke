@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr3000_keeper_maestro import (
+from louke.runtime.keeper_maestro import (
     ERROR_CODES,
     KeeperMaestroError,
     RuntimeResponsibilityCatalog,

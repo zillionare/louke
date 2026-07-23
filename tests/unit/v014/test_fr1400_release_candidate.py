@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1400_release_candidate import (
+from louke.runtime.release_candidate import (
     Candidate,
     CandidateFreezeError,
     CandidateStore,

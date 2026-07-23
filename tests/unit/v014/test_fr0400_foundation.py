@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0400_foundation import (
+from louke.runtime.release_foundation import (
     FoundationOperationKind,
     FoundationReconciler,
     GitRefRelation,

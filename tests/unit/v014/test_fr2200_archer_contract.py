@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr2200_archer_contract import (
+from louke.runtime.archer_contract import (
     ArcherContractError,
     ArcherSemanticContract,
     parse_archer_contract,

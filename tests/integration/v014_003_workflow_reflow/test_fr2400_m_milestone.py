@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2400_m_milestone import (
+from louke.runtime.m_milestone import (
     ERROR_CODES,
     ArchiveManifest,
     ArchiveStore,

@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr2800_impl_prompts import (
+from louke.runtime.impl_prompts import (
     ImplPromptBundle,
     ImplPromptContractError,
     parse_impl_prompt,

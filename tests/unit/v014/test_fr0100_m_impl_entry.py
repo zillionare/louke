@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr0100_m_impl_entry import (
+from louke.runtime.m_impl_entry import (
     ImplEntryError,
     ImplementationBaselineRecord,
     PreCommitReadback,

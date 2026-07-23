@@ -20,7 +20,7 @@ import hashlib
 
 import pytest
 
-from louke.v014.fr0500_story_init import (
+from louke.runtime.story_init import (
     STORY_INITIALIZATION_CONFLICT,
     StoryInitConflict,
     StoryInitResult,

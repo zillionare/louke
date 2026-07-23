@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0600_red_git_checkpoint import (
+from louke.runtime.red_git_checkpoint import (
     ERROR_CODES,
     PrivateRefError,
     PrivateRefStore,

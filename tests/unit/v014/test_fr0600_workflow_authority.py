@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0600_workflow_authority import (
+from louke.runtime.workflow_authority import (
     ActionForbidden,
     Phase,
     PhaseAction,

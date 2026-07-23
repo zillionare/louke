@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2000_controlled_git import (
+from louke.runtime.controlled_git import (
     CONTROLLED_COMMIT_CONFLICT,
     ControlledCommitConflict,
     ControlledCommitEvidence,

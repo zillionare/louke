@@ -9,13 +9,13 @@ import pytest
 from louke.opencode.adapter import Instance, Message, ProviderResult, SessionReconcile
 from louke.runtime.catalog import DefinitionRegistry, Edge, Step, WorkflowDefinition
 from louke.runtime.store import WorkflowRunStore
-from louke.v014.fr0500_story_init import (
+from louke.runtime.story_init import (
     StoryInitResult,
     StoryNavigation,
     StoryRevisionEvidence,
 )
-from louke.v014.scribe_entry import ScribeEntryService, ScribeTaskError
-from louke.v014.story_entry import StoryArtifactStore
+from louke.runtime.scribe_entry import ScribeEntryService, ScribeTaskError
+from louke.runtime.story_entry import StoryArtifactStore
 
 
 def _store(db_path: str | None = None) -> WorkflowRunStore:

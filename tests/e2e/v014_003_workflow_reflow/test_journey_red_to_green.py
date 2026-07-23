@@ -26,29 +26,29 @@ def test_red_to_green_to_refactor_normal_path():
 
     Normal path through the RGR cycle.
     """
-    from louke.v014.fr0500_red_program_gate import (
+    from louke.runtime.red_program_gate import (
         FailureFingerprint,
         RedPatch,
         evaluate_red_gate,
     )
-    from louke.v014.fr0600_red_git_checkpoint import (
+    from louke.runtime.red_git_checkpoint import (
         PrivateRefStore,
         create_red_checkpoint,
     )
-    from louke.v014.fr0700_red_review import (
+    from louke.runtime.red_review import (
         PrismRedVerdict,
         RedReviewStore,
         attach_red_review,
         can_start_green,
     )
-    from louke.v014.fr0800_green_minimal import (
+    from louke.runtime.green_minimal import (
         GreenCheck,
         GreenPatch,
         build_green_attempt,
         evaluate_green_checks,
     )
-    from louke.v014.fr0900_green_commit import commit_green
-    from louke.v014.fr1000_refactor_subphase import (
+    from louke.runtime.green_commit import commit_green
+    from louke.runtime.refactor_subphase import (
         RefactorPatch,
         commit_refactor,
     )
@@ -188,7 +188,7 @@ def test_final_review_pass_completes_task():
 
     AC-FR1100-01: program gate + Prism PASS -> task completion.
     """
-    from louke.v014.fr1100_final_review_gate import (
+    from louke.runtime.final_review_gate import (
         FinalLineage,
         PrismFinalVerdict,
         TaskCompletionGate,

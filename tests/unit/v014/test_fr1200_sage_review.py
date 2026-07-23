@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1200_sage_review import (
+from louke.runtime.sage_review import (
     M_STORY_ADVANCE_REQUIRED,
     MSpecAdvanceBlocked,
     ReviewVerdict,

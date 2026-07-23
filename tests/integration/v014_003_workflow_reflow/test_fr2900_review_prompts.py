@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2900_review_prompts import (
+from louke.runtime.review_prompts import (
     ERROR_CODES,
     JudgePromptContract,
     LibrarianPromptContract,

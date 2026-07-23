@@ -20,7 +20,7 @@ AC references:
 from __future__ import annotations
 
 
-from louke.v014.fr2100_recovery import (
+from louke.runtime.process_recovery import (
     BrowserDisconnectRecovery,
     ExternalOperationOutcome,
     RunRecoverySnapshot,

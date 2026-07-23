@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-from louke.v014.fr0400_test_plan import (
+from louke.runtime.test_plan import (
     TestPlanEntry,
     TestPlanReport,
     validate_test_plan,

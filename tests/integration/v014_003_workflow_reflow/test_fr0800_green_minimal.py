@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0800_green_minimal import (
+from louke.runtime.green_minimal import (
     ERROR_CODES,
     GreenAttempt,
     GreenCheck,

@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr0600_red_git_checkpoint import (
+from louke.runtime.red_git_checkpoint import (
     PrivateRefError,
     PrivateRefStore,
     RedCheckpoint,

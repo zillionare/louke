@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.nfr0200_least_privilege import (
+from louke.runtime.least_privilege import (
     ERROR_CODES,
     LeastPrivilegeError,
     SecretScanReport,

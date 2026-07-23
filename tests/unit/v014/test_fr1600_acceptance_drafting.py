@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1600_acceptance_drafting import (
+from louke.runtime.acceptance_drafting import (
     ACCEPTANCE_COVERAGE_MISSING,
     AcceptanceCoverageError,
     SageAcceptanceTaskInput,

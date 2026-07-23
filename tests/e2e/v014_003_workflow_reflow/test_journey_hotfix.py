@@ -17,7 +17,7 @@ pytestmark = pytest.mark.v014_003_e2e
 
 def test_hotfix_quick_rgr_normal_path():
     """J-HOTFIX: implementation-deviation -> quick_rgr plan in isolated branch."""
-    from louke.v014.fr2500_bug_fix_variant import (
+    from louke.runtime.bug_fix_variant import (
         HotfixVariant,
         classify_hotfix,
         plan_hotfix,
@@ -68,7 +68,7 @@ def test_hotfix_quick_rgr_normal_path():
 
 def test_hotfix_design_required_for_design_impact():
     """J-HOTFIX variant: design impact -> design_required variant."""
-    from louke.v014.fr2500_bug_fix_variant import (
+    from louke.runtime.bug_fix_variant import (
         HotfixVariant,
         plan_hotfix,
     )

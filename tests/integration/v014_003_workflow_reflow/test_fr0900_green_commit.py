@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0900_green_commit import (
+from louke.runtime.green_commit import (
     ERROR_CODES,
     GreenCommitError,
     GreenCommitRecord,

@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
 from louke.runtime.store import RunNotFoundError
-from louke.v014.scribe_entry import ScribeEntryService, ScribeTaskError
+from louke.runtime.scribe_entry import ScribeEntryService, ScribeTaskError
 
 from louke.web.auth import (
     SESSION_COOKIE,

@@ -22,7 +22,7 @@ AC references:
 from __future__ import annotations
 
 
-from louke.v014.fr1400_spec_review import (
+from louke.runtime.spec_review import (
     LexReviewInput,
     MSpecFormatCheckResult,
     build_lex_review_input,

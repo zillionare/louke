@@ -15,7 +15,7 @@ import threading
 
 import pytest
 
-from louke.v014.nfr0100_determinism import (
+from louke.runtime.determinism import (
     DeterminismError,
     IdempotencyStore,
     acquire_lease_concurrent,

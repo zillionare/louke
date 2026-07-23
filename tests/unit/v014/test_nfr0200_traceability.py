@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.nfr0200_traceability import (
+from louke.runtime.traceability import (
     REDACTED,
     IssueTraceRecord,
     TimelineEntry,

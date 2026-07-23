@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1900_security_gates import (
+from louke.runtime.security_gates import (
     JudgeVerdict,
     ProgramScanResult,
     SecurityGateError,

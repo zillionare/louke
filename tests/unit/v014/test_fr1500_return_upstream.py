@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1500_return_upstream import (
+from louke.runtime.return_upstream import (
     UPSTREAM_RETURN_TARGET_INVALID,
     AgentReturnSuggestion,
     ReturnUpstreamDecision,

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1600_artifact_version import (
+from louke.runtime.artifact_version import (
     ERROR_CODES,
     ArtifactEvidence,
     ArtifactVerificationError,

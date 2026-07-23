@@ -33,7 +33,7 @@ def test_m_impl_entry_to_baseline_ready():
     AC-FR0100-01: design PASS + clean workspace + pre-commit in_sync ->
     Runtime can dispatch Archer/Devon.
     """
-    from louke.v014.fr0100_m_impl_entry import enter_m_impl
+    from louke.runtime.m_impl_entry import enter_m_impl
 
     inputs = {
         "run_id": "e2e-run-001",
@@ -91,7 +91,7 @@ def test_green_commit_advances_release_branch():
 
     AC-FR0900-01: formal G commit has parent=B and runs pre-commit.
     """
-    from louke.v014.fr0900_green_commit import commit_green
+    from louke.runtime.green_commit import commit_green
 
     record = commit_green(
         run_id="e2e-run-001",
@@ -115,7 +115,7 @@ def test_candidate_freeze_blocks_writes_and_advances_to_verify():
 
     AC-FR1400-01: clean workspace + lineage current -> frozen candidate.
     """
-    from louke.v014.fr1400_release_candidate import (
+    from louke.runtime.release_candidate import (
         CandidateStore,
         DependencyManifest,
         freeze_candidate,
@@ -150,7 +150,7 @@ def test_release_preview_enables_release_after_all_gates_pass():
 
     AC-FR2100-01: Release enabled only when all non-waivable gates PASS.
     """
-    from louke.v014.fr2100_m_release_preview import build_preview, submit_human_decision
+    from louke.runtime.m_release_preview import build_preview, submit_human_decision
 
     preview = build_preview(
         candidate_id="cand-1",
@@ -176,7 +176,7 @@ def test_publish_ledger_confirms_idempotent_tag_operation():
 
     AC-FR2200-01: confirmed operation not repeated after restart.
     """
-    from louke.v014.fr2200_publish_ledger import OperationLedger, OperationStatus
+    from louke.runtime.publish_ledger import OperationLedger, OperationStatus
 
     ledger = OperationLedger()
     op = ledger.plan_operation(
@@ -209,7 +209,7 @@ def test_milestone_complete_enables_next_release_eligibility():
 
     AC-FR2400-01: complete state enables next main release creation.
     """
-    from louke.v014.fr2400_m_milestone import (
+    from louke.runtime.m_milestone import (
         ArchiveManifest,
         ArchiveStore,
         CleanupDecision,

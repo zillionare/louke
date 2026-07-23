@@ -30,7 +30,7 @@ AC references:
 from __future__ import annotations
 
 
-from louke.v014.fr1800_issue_creation import (
+from louke.runtime.issue_creation import (
     GATE_NOT_APPROVED,
     IssueBodyIdentity,
     IssueIdentity,

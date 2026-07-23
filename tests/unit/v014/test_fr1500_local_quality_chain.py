@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1500_local_quality_chain import (
+from louke.runtime.local_quality_chain import (
     LocalQualityError,
     LocalQualityReport,
     QualityChainGate,

@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr2050_prompt_atomic_activation import (
+from louke.runtime.prompt_atomic_activation import (
     ActivationGate,
     ActivationResult,
     AttemptBinding,

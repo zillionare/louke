@@ -13,7 +13,7 @@ constitute a gate.
 from __future__ import annotations
 
 
-from louke.v014.fr1100_final_review_gate import (
+from louke.runtime.final_review_gate import (
     FinalGateReport,
     FinalLineage,
     PrismFinalVerdict,

@@ -13,7 +13,7 @@ is forbidden before verification.
 from __future__ import annotations
 
 
-from louke.v014.fr2300_post_publish_recovery import (
+from louke.runtime.post_publish_recovery import (
     OutletVerification,
     PostPublishReport,
     PublishFact,

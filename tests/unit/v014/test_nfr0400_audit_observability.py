@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.nfr0400_audit_observability import (
+from louke.runtime.audit_observability import (
     AuditEvent,
     AuditStore,
     EvidenceStatus,

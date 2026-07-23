@@ -14,7 +14,7 @@ from louke.runtime.program_steps import (
     StepContext,
 )
 from louke.runtime.store import WorkflowRun, WorkflowRunStore
-from louke.v014.fr0500_story_init import StoryInitResult
+from louke.runtime.story_init import StoryInitResult
 
 
 @dataclass(frozen=True)

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1100_human_review import (
+from louke.runtime.human_review import (
     DiscussionThread,
     DiscussionThreadStatus,
     HUMAN_REVIEW_EDITED,

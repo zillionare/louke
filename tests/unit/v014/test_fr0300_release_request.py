@@ -20,7 +20,7 @@ import threading
 
 import pytest
 
-from louke.v014.fr0300_release_request import (
+from louke.runtime.release_request import (
     BacklogEntry,
     BacklogStore,
     PreviewError,

@@ -18,7 +18,7 @@ pytestmark = pytest.mark.v014_003_e2e
 
 def test_security_audit_normal_path():
     """J-SECURITY: 4 scanners PASS + Judge PASS -> security gate PASS."""
-    from louke.v014.fr1900_security_gates import (
+    from louke.runtime.security_gates import (
         JudgeVerdict,
         ProgramScanResult,
         evaluate_security_gate,
@@ -44,7 +44,7 @@ def test_security_audit_normal_path():
 
 def test_security_finding_routes_to_correct_owner():
     """J-SECURITY: 4 finding categories route to 4 owners."""
-    from louke.v014.fr2000_finding_routing import (
+    from louke.runtime.finding_routing import (
         RouteDecision,
         SecurityFinding,
         route_finding,

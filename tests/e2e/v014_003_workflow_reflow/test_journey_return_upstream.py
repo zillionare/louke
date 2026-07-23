@@ -17,7 +17,7 @@ pytestmark = pytest.mark.v014_003_e2e
 
 def test_return_upstream_technical_gap_normal_path():
     """J-RETURN: technical gap -> Archer+Prism confirm -> M-DESIGN allowed."""
-    from louke.v014.fr2600_return_upstream import (
+    from louke.runtime.return_upstream_stale import (
         GapAdvisory,
         ReturnTarget,
         validate_return_target,
@@ -60,7 +60,7 @@ def test_return_upstream_technical_gap_normal_path():
 
 def test_return_upstream_product_gap_with_human_normal_path():
     """J-RETURN: product gap with Human approval -> M-SPEC/M-ACC allowed."""
-    from louke.v014.fr2600_return_upstream import (
+    from louke.runtime.return_upstream_stale import (
         GapAdvisory,
         validate_return_target,
     )

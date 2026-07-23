@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from louke.v014.fr2400_human_review import (
+from louke.runtime.design_human_review import (
     DirectDiff,
     HumanReviewError,
     InlineDiscussion,

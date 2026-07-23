@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2300_post_publish_recovery import (
+from louke.runtime.post_publish_recovery import (
     ERROR_CODES,
     OutletVerification,
     PostPublishReport,

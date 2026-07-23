@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2200_publish_ledger import (
+from louke.runtime.publish_ledger import (
     Operation,
     OperationKind,
     OperationLedger,

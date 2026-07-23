@@ -21,7 +21,7 @@ from dataclasses import replace
 
 import pytest
 
-from louke.v014.nfr0600_migration_compat import (
+from louke.runtime.migration_compat import (
     ERROR_CODES,
     LegacyRun,
     MigrationDecision,

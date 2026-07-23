@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from louke.v014.fr0200_host_facts import (
+from louke.runtime.host_facts import (
     FactsError,
     HostFactsSnapshot,
     Observation,

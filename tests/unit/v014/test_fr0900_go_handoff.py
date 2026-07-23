@@ -18,7 +18,7 @@ AC references:
 from __future__ import annotations
 
 
-from louke.v014.fr0900_go_handoff import (
+from louke.runtime.go_handoff import (
     STORY_CHANGE_REQUIRED,
     ReplyOutbox,
     ReplyResult,

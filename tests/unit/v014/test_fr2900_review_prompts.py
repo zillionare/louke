@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from louke.v014.fr2900_review_prompts import (
+from louke.runtime.review_prompts import (
     ReviewPromptBundle,
     ReviewPromptContractError,
     parse_review_prompt,

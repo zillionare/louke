@@ -27,39 +27,39 @@ pytestmark = pytest.mark.v014_003_e2e
 
 def test_release_pipeline_normal_path():
     """J-TEST-VERIFY -> J-PUBLISH-CLOSE: candidate -> release -> milestone."""
-    from louke.v014.fr1400_release_candidate import (
+    from louke.runtime.release_candidate import (
         CandidateStore,
         DependencyManifest,
         freeze_candidate,
     )
-    from louke.v014.fr1500_local_quality_chain import (
+    from louke.runtime.local_quality_chain import (
         QualityChainGate,
         QualityGateResult,
     )
-    from louke.v014.fr1600_artifact_version import ArtifactEvidence, ArtifactVerifier
-    from louke.v014.fr1700_github_ci import (
+    from louke.runtime.artifact_version import ArtifactEvidence, ArtifactVerifier
+    from louke.runtime.github_ci import (
         GitHubCIGate,
         JobResult,
         SuiteCoverage,
     )
-    from louke.v014.fr1800_candidate_prism_review import (
+    from louke.runtime.candidate_prism_review import (
         CandidatePrismVerdict,
         CandidateReviewStore,
         attach_candidate_review,
         can_enter_m_security,
     )
-    from louke.v014.fr2100_m_release_preview import (
+    from louke.runtime.m_release_preview import (
         build_preview,
         submit_human_decision,
         HumanDecision,
     )
-    from louke.v014.fr2200_publish_ledger import OperationLedger, OperationStatus
-    from louke.v014.fr2300_post_publish_recovery import (
+    from louke.runtime.publish_ledger import OperationLedger, OperationStatus
+    from louke.runtime.post_publish_recovery import (
         OutletVerification,
         PublishFact,
         verify_post_publish,
     )
-    from louke.v014.fr2400_m_milestone import (
+    from louke.runtime.m_milestone import (
         ArchiveManifest,
         ArchiveStore,
         CleanupDecision,

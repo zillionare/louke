@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0700_scribe_dispatch import (
+from louke.runtime.scribe_dispatch import (
     FOUNDATION_MANIFEST_REQUIRED,
     DecisionRejected,
     ScribeSuggestion,

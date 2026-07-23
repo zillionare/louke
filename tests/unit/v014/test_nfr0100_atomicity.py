@@ -25,7 +25,7 @@ import threading
 
 import pytest
 
-from louke.v014.nfr0100_atomicity import (
+from louke.runtime.atomicity import (
     ExternalReconcileCandidate,
     atomic_state_event_write,
     concurrent_cas_write,

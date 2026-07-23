@@ -17,7 +17,7 @@ capability issues enter ``needs_attention``.
 from __future__ import annotations
 
 
-from louke.v014.fr1700_github_ci import (
+from louke.runtime.github_ci import (
     GitHubCIGate,
     JobResult,
     RulesReconcileResult,

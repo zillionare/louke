@@ -12,7 +12,7 @@ Mode (per HANDOFF §1):
 - **Activation tests** (``test_activation_cli.py``) call the real CLI via
   ``subprocess.run`` using the ``venv_python`` fixture. They are dormant
   until Devon ships the corresponding ``louke._tools.*`` module.
-- **Real-module integration tests** call ``louke.v014.frXXXX_*`` directly
+- **Real-module integration tests** call ``louke.runtime.frXXXX_*`` directly
   and are the primary source of coverage. They are NOT mocks.
 - **Document/fixture validation tests** read candidate artifacts from
   ``.louke/project/specs/v0.14-003-workflow-reflow-impl/`` and assert
@@ -294,42 +294,42 @@ def expected_arc_anchors() -> set[str]:
 # ``mock_<short>`` fixture, which auto-skips once Devon ships the real
 # module. This mirrors the spec-002 shield's pattern.
 DEVON_MODULES: dict[str, str] = {
-    "FR-0100": "louke.v014.fr0100_m_impl_entry",
-    "FR-0200": "louke.v014.fr0200_task_graph",
-    "FR-0300": "louke.v014.fr0300_task_graph_validator",
-    "FR-0400": "louke.v014.fr0400_task_manifest",
-    "FR-0500": "louke.v014.fr0500_red_program_gate",
-    "FR-0600": "louke.v014.fr0600_red_git_checkpoint",
-    "FR-0700": "louke.v014.fr0700_red_review",
-    "FR-0800": "louke.v014.fr0800_green_minimal",
-    "FR-0900": "louke.v014.fr0900_green_commit",
-    "FR-1000": "louke.v014.fr1000_refactor_subphase",
-    "FR-1100": "louke.v014.fr1100_final_review_gate",
-    "FR-1200": "louke.v014.fr1200_m_test_assets",
-    "FR-1300": "louke.v014.fr1300_m_test_executor",
-    "FR-1400": "louke.v014.fr1400_release_candidate",
-    "FR-1500": "louke.v014.fr1500_local_quality_chain",
-    "FR-1600": "louke.v014.fr1600_artifact_version",
-    "FR-1700": "louke.v014.fr1700_github_ci",
-    "FR-1800": "louke.v014.fr1800_candidate_prism_review",
-    "FR-1900": "louke.v014.fr1900_security_gates",
-    "FR-2000": "louke.v014.fr2000_finding_routing",
-    "FR-2100": "louke.v014.fr2100_m_release_preview",
-    "FR-2200": "louke.v014.fr2200_publish_ledger",
-    "FR-2300": "louke.v014.fr2300_post_publish_recovery",
-    "FR-2400": "louke.v014.fr2400_m_milestone",
-    "FR-2500": "louke.v014.fr2500_bug_fix_variant",
-    "FR-2600": "louke.v014.fr2600_return_upstream",
-    "FR-2700": "louke.v014.fr2700_retry_waiver",
-    "FR-2800": "louke.v014.fr2800_impl_prompts",
-    "FR-2900": "louke.v014.fr2900_review_prompts",
-    "FR-3000": "louke.v014.fr3000_keeper_maestro",
-    "NFR-0100": "louke.v014.nfr0100_atomicity",  # also nfr0100_determinism
-    "NFR-0200": "louke.v014.nfr0200_least_privilege",
-    "NFR-0300": "louke.v014.nfr0300_restart_recovery",
-    "NFR-0400": "louke.v014.nfr0400_audit_observability",
-    "NFR-0500": "louke.v014.nfr0500_host_compat",
-    "NFR-0600": "louke.v014.nfr0600_migration_compat",
+    "FR-0100": "louke.runtime.m_impl_entry",
+    "FR-0200": "louke.runtime.task_graph",
+    "FR-0300": "louke.runtime.task_graph_validator",
+    "FR-0400": "louke.runtime.task_manifest",
+    "FR-0500": "louke.runtime.red_program_gate",
+    "FR-0600": "louke.runtime.red_git_checkpoint",
+    "FR-0700": "louke.runtime.red_review",
+    "FR-0800": "louke.runtime.green_minimal",
+    "FR-0900": "louke.runtime.green_commit",
+    "FR-1000": "louke.runtime.refactor_subphase",
+    "FR-1100": "louke.runtime.final_review_gate",
+    "FR-1200": "louke.runtime.m_test_assets",
+    "FR-1300": "louke.runtime.m_test_executor",
+    "FR-1400": "louke.runtime.release_candidate",
+    "FR-1500": "louke.runtime.local_quality_chain",
+    "FR-1600": "louke.runtime.artifact_version",
+    "FR-1700": "louke.runtime.github_ci",
+    "FR-1800": "louke.runtime.candidate_prism_review",
+    "FR-1900": "louke.runtime.security_gates",
+    "FR-2000": "louke.runtime.finding_routing",
+    "FR-2100": "louke.runtime.m_release_preview",
+    "FR-2200": "louke.runtime.publish_ledger",
+    "FR-2300": "louke.runtime.post_publish_recovery",
+    "FR-2400": "louke.runtime.m_milestone",
+    "FR-2500": "louke.runtime.bug_fix_variant",
+    "FR-2600": "louke.runtime.return_upstream_stale",
+    "FR-2700": "louke.runtime.retry_waiver",
+    "FR-2800": "louke.runtime.impl_prompts",
+    "FR-2900": "louke.runtime.review_prompts",
+    "FR-3000": "louke.runtime.keeper_maestro",
+    "NFR-0100": "louke.runtime.atomicity",  # also nfr0100_determinism
+    "NFR-0200": "louke.runtime.least_privilege",
+    "NFR-0300": "louke.runtime.restart_recovery",
+    "NFR-0400": "louke.runtime.audit_observability",
+    "NFR-0500": "louke.runtime.host_compat",
+    "NFR-0600": "louke.runtime.migration_compat",
 }
 
 
@@ -353,11 +353,11 @@ def pytest_configure(config):
         "markers",
         "awaiting_devon(fr): test exercises an interface whose real "
         "implementation is pending; auto-skips when Devon ships the "
-        "corresponding louke.v014.frXXXX_* module",
+        "corresponding louke.runtime.frXXXX_* module",
     )
     config.addinivalue_line(
         "markers",
-        "real_module: test calls Devon's real louke.v014.frXXXX_* "
+        "real_module: test calls Devon's real louke.runtime.frXXXX_* "
         "implementation (not a mock)",
     )
 

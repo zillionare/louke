@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.nfr0500_host_compat import (
+from louke.runtime.host_compat import (
     HostAdapter,
     HostCompatError,
     detect_adapter,

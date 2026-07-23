@@ -15,7 +15,7 @@ Interfaces covered (per interfaces.md):
 - IF-PC-01 (inherited, ARC-02/ARC-05/ARC-10)
 - IF-WFR-01 (ARC-01 context)
 
-This file calls Devon's real ``louke.v014.fr0100_m_impl_entry`` module.
+This file calls Devon's real ``louke.runtime.m_impl_entry`` module.
 """
 # AC-FR0100-01
 
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0100_m_impl_entry import (
+from louke.runtime.m_impl_entry import (
     ERROR_CODES,
     ImplEntryError,
     ImplementationBaselineRecord,

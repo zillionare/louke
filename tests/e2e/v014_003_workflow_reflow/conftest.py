@@ -3,7 +3,7 @@
 Per spec-003 test-plan.md §3.2: E2E tests cover ONLY normal paths (user
 journeys); boundary/error/exception cases belong in integration tests.
 Per §2.3: E2E runner = ``tests/e2e/run-project-venv e2e --profile all
---runtime both``. The tests below call Devon's real ``louke.v014.*``
+--runtime both``. The tests below call Devon's real ``louke.runtime.*``
 modules to exercise end-to-end user journeys (M-IMPL -> M-TEST ->
 M-VERIFY -> M-RELEASE -> M-PUBLISH -> M-MILESTONE and sub-journeys).
 

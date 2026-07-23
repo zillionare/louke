@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1200_m_test_assets import (
+from louke.runtime.m_test_assets import (
     ERROR_CODES,
     MTestAssetsError,
     ShieldPatch,

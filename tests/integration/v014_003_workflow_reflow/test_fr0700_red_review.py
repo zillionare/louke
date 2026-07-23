@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0700_red_review import (
+from louke.runtime.red_review import (
     ERROR_CODES,
     PrismRedVerdict,
     RedReviewError,

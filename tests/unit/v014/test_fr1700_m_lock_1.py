@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1700_m_lock_1 import (
+from louke.runtime.m_lock_1 import (
     GATE_CHALLENGE_REPLAYED,
     HUMAN_AUTHORITY_REQUIRED,
     MLock1Gate,

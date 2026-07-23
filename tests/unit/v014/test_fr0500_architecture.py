@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-from louke.v014.fr0500_architecture import (
+from louke.runtime.architecture import (
     ArchitectureReport,
     extract_architecture_anchors,
     extract_component_table,

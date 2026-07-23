@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1100_final_review_gate import (
+from louke.runtime.final_review_gate import (
     ERROR_CODES,
     FinalGateReport,
     FinalLineage,

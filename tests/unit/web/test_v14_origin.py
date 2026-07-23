@@ -7,13 +7,13 @@ import pytest
 from starlette.testclient import TestClient
 
 from louke.opencode.adapter import Instance, Message
-from louke.v014.fr0500_story_init import (
+from louke.runtime.story_init import (
     StoryInitResult,
     StoryNavigation,
     StoryRevisionEvidence,
 )
-from louke.v014.scribe_entry import ScribeEntryService
-from louke.v014.story_entry import StoryArtifactStore
+from louke.runtime.scribe_entry import ScribeEntryService
+from louke.runtime.story_entry import StoryArtifactStore
 from louke.web.auth import csrf_token_for_session
 from louke.web.app import create_app
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-from louke.v014.fr0600_interfaces import (
+from louke.runtime.interfaces import (
     InterfacesReport,
     extract_interface_identities,
     validate_interfaces_closure,

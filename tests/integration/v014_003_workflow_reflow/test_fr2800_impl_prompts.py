@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2800_impl_prompts import (
+from louke.runtime.impl_prompts import (
     ERROR_CODES,
     ImplPromptBundle,
     ImplPromptContractError,

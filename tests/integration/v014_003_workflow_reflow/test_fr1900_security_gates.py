@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1900_security_gates import (
+from louke.runtime.security_gates import (
     ERROR_CODES,
     JudgeFinding,
     JudgeVerdict,
@@ -181,7 +181,7 @@ def test_judge_findings_carry_required_fields():
 @pytest.mark.real_module
 def test_required_scanners_set_includes_all_four_categories():
     """AC-FR1900-01: required scanners = secret-scan + dependency-sca + sast + project-checks."""
-    from louke.v014.fr1900_security_gates import _REQUIRED_SCANNERS
+    from louke.runtime.security_gates import _REQUIRED_SCANNERS
 
     expected = {"secret-scan", "dependency-sca", "sast", "project-checks"}
     actual = set(_REQUIRED_SCANNERS)

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2600_return_upstream import (
+from louke.runtime.return_upstream_stale import (
     ERROR_CODES,
     GapAdvisory,
     ReturnTarget,

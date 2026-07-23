@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from louke.v014.fr0300_write_auth import (
+from louke.runtime.write_auth import (
     DesignWriteAuthError,
     DiffAttribution,
     WriteAuthorisationManifest,

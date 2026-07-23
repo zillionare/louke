@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2100_m_release_preview import (
+from louke.runtime.m_release_preview import (
     ERROR_CODES,
     DecisionResult,
     HumanDecision,

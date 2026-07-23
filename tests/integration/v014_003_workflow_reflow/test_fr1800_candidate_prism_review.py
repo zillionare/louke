@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1800_candidate_prism_review import (
+from louke.runtime.candidate_prism_review import (
     ERROR_CODES,
     CandidatePrismReviewError,
     CandidatePrismVerdict,

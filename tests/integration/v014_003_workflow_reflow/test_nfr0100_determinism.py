@@ -22,13 +22,13 @@ import threading
 
 import pytest
 
-from louke.v014.nfr0100_atomicity import (
+from louke.runtime.atomicity import (
     atomic_state_event_write,
     concurrent_cas_write,
     external_reconcile_decision,
     idempotent_identity_outcome,
 )
-from louke.v014.nfr0100_determinism import (
+from louke.runtime.determinism import (
     ERROR_CODES,
     acquire_lease_concurrent,
     cas_red_ref,
@@ -130,7 +130,7 @@ def test_external_reconcile_decision_zero_matches_needs_attention():
 @pytest.mark.real_module
 def test_external_reconcile_decision_multiple_matches_needs_attention():
     """AC-NFR0100-01: multiple candidates -> needs_attention (no overwrite)."""
-    from louke.v014.nfr0100_atomicity import ExternalReconcileCandidate
+    from louke.runtime.atomicity import ExternalReconcileCandidate
 
     candidates = (
         ExternalReconcileCandidate(node_id="c1", title="t1", provider_namespace="ns"),
@@ -146,7 +146,7 @@ def test_external_reconcile_decision_multiple_matches_needs_attention():
 @pytest.mark.real_module
 def test_external_reconcile_decision_exact_single_match_reuses():
     """AC-NFR0100-01: one exact match -> reuse."""
-    from louke.v014.nfr0100_atomicity import ExternalReconcileCandidate
+    from louke.runtime.atomicity import ExternalReconcileCandidate
 
     candidates = (
         ExternalReconcileCandidate(node_id="c1", title="t1", provider_namespace="ns"),

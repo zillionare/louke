@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1500_local_quality_chain import (
+from louke.runtime.local_quality_chain import (
     ERROR_CODES,
     LocalQualityError,
     LocalQualityReport,
@@ -151,7 +151,7 @@ def test_quality_chain_required_gate_set_includes_all_categories():
     """AC-FR1500-01: required gate set covers format/lint/static/type,
     pre-commit drift+all-files, RGR, history unit, integration/e2e/regression,
     AC trace, skip policy, anti-pattern, docs/migration/compat and build."""
-    from louke.v014.fr1500_local_quality_chain import _REQUIRED_GATES
+    from louke.runtime.local_quality_chain import _REQUIRED_GATES
 
     required = set(_REQUIRED_GATES)
     expected_categories = {

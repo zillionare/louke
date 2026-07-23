@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.nfr0300_restart_recovery import (
+from louke.runtime.restart_recovery import (
     ERROR_CODES,
     RecoveryDecision,
     RecoveryStore,

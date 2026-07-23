@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr2500_bug_fix_variant import (
+from louke.runtime.bug_fix_variant import (
     BugFixVariantError,
     HotfixPlan,
     HotfixVariant,

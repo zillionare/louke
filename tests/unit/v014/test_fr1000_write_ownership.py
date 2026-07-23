@@ -23,7 +23,7 @@ import threading
 
 import pytest
 
-from louke.v014.fr1000_write_ownership import (
+from louke.runtime.write_ownership import (
     DOCUMENT_WRITE_CONFLICT,
     DirtyBlocksHandoff,
     HUMAN_DIRTY_BLOCKS_HANDOFF,

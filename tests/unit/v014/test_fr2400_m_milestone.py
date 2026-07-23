@@ -16,7 +16,7 @@ close failure keeps ``closing`` idempotent retry, no re-publish.
 from __future__ import annotations
 
 
-from louke.v014.fr2400_m_milestone import (
+from louke.runtime.m_milestone import (
     ArchiveManifest,
     ArchiveStore,
     CleanupDecision,

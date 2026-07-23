@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr1300_spec_drafting import (
+from louke.runtime.spec_drafting import (
     SPEC_SCOPE_TOO_LARGE,
     SageSpecTaskInput,
     SpecStructureError,

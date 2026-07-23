@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from louke.v014.foundation_adapter import ShellFoundationAdapter
-from louke.v014.fr0500_story_init import StoryInitConflict
+from louke.runtime.foundation_adapter import ShellFoundationAdapter
+from louke.runtime.story_init import StoryInitConflict
 
 from tests.fixtures.v014_workflow_reflow.harness import build_isolated_workspace
 

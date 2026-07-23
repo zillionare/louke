@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0500_red_program_gate import (
+from louke.runtime.red_program_gate import (
     FailureCategory,
     FailureFingerprint,
     RedGateError,

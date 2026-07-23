@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from louke.v014.fr0400_task_manifest import (
+from louke.runtime.task_manifest import (
     ERROR_CODES,
     DiffClassification,
     ExternalDiff,
