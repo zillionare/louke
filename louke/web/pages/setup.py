@@ -43,8 +43,8 @@ async def _fetch_readiness(api_base: str) -> list[dict[str, str]]:
     Raises:
         httpx.HTTPError: if the upstream call fails.
     """
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{api_base}/api/readiness")
+    async with httpx.AsyncClient(trust_env=False) as client:
+        resp = await client.get(f"{api_base}/api/readiness/")
         resp.raise_for_status()
         return list(resp.json().get("items", []))
 
@@ -57,11 +57,19 @@ async def _post_first_user(
     Raises:
         httpx.HTTPError: if the upstream call fails.
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         resp = await client.post(
             f"{api_base}/api/setup/first-user",
             json={"name": name, "credential": credential},
         )
+        resp.raise_for_status()
+        return dict(resp.json())
+
+
+async def _fetch_setup_status(api_base: str) -> dict[str, Any]:
+    """Fetch the persisted first-user status from the setup API."""
+    async with httpx.AsyncClient(trust_env=False) as client:
+        resp = await client.get(f"{api_base}/api/setup/status")
         resp.raise_for_status()
         return dict(resp.json())
 
@@ -74,37 +82,52 @@ def _is_complete(items: list[dict[str, str]]) -> bool:
 async def setup_page(request: Request) -> Response:
     """GET /setup: render the setup-only wizard.
 
-    When readiness is complete, redirects to ``/``. Otherwise renders the
-    HTML page with the readiness list and the first-user form.
+    Redirects to ``/`` only after readiness is complete and the persisted
+    first user exists. Otherwise renders the readiness list and first-user
+    form.
     """
     setup_only = bool(getattr(request.app.state, "setup_only", True))
+    api_base = _api_base(request)
     try:
-        items = await _fetch_readiness(_API_BASE)
+        items = await _fetch_readiness(api_base)
     except Exception as exc:
         return HTMLResponse(_render(setup_only, [], error=str(exc)))
     if _is_complete(items):
-        return RedirectResponse(url="/", status_code=303)
+        try:
+            initialized = bool((await _fetch_setup_status(api_base)).get("initialized"))
+        except Exception as exc:
+            return HTMLResponse(_render(setup_only, items, error=str(exc)))
+        if initialized:
+            return RedirectResponse(url="/", status_code=303)
     return HTMLResponse(_render(setup_only, items, error=""))
 
 
 async def create_first_user(request: Request) -> Response:
     """POST /setup/first-user: forward the first-user form to the API.
 
-    On success, redirects to ``/setup`` so readiness re-checks. On failure,
+    On success, redirects to ``/login``. On failure,
     re-renders the wizard with an error message.
     """
     name, credential = _parse_form(await request.body())
+    api_base = _api_base(request)
     try:
-        await _post_first_user(_API_BASE, name=name, credential=credential)
+        await _post_first_user(api_base, name=name, credential=credential)
     except Exception as exc:
-        return HTMLResponse(_render(True, await _safe_readiness(), error=str(exc)))
-    return RedirectResponse(url="/setup", status_code=303)
+        return HTMLResponse(
+            _render(True, await _safe_readiness(api_base), error=str(exc))
+        )
+    return RedirectResponse(url="/login", status_code=303)
 
 
-async def _safe_readiness() -> list[dict[str, str]]:
+def _api_base(request: Request) -> str:
+    """Return the absolute origin used for same-server API forwarding."""
+    return str(request.base_url).rstrip("/")
+
+
+async def _safe_readiness(api_base: str) -> list[dict[str, str]]:
     """Return readiness items, or an empty list if the upstream call fails."""
     try:
-        return await _fetch_readiness(_API_BASE)
+        return await _fetch_readiness(api_base)
     except Exception:
         return []
 
@@ -121,7 +144,12 @@ def _parse_form(body: bytes) -> tuple[str, str]:
     )
 
 
-def _render(setup_only: bool, items: list[dict[str, str]], *, error: str) -> str:
+def _render(
+    setup_only: bool,
+    items: list[dict[str, str]],
+    *,
+    error: str,
+) -> str:
     """Return the inline HTML for the setup wizard."""
     readiness_html = "".join(_render_item(i) for i in items)
     readiness_section = (
@@ -138,10 +166,11 @@ def _render(setup_only: bool, items: list[dict[str, str]], *, error: str) -> str
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>louke setup</title>
   <style>
-    body {{ font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; }}
+    body {{ font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; color: #111; }}
+    .shell {{ max-width: 720px; margin: 0 auto; padding: 48px 24px; }}
     h1 {{ font-size: 24px; }} h2 {{ font-size: 18px; margin-top: 24px; }}
     .state {{ display: inline-block; padding: 2px 8px; border-radius: 6px; background: #f3f4f6; font-size: 12px; }}
-    form {{ margin: 16px 0; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 360px; }}
+    form {{ margin: 16px auto; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 360px; }}
     label {{ display: block; margin: 8px 0 4px; font-size: 13px; }}
     input {{ width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }}
     button {{ margin-top: 12px; padding: 8px 14px; background: #111; color: white; border: 0; border-radius: 6px; cursor: pointer; }}
@@ -150,10 +179,10 @@ def _render(setup_only: bool, items: list[dict[str, str]], *, error: str) -> str
     .status-READY {{ color: #166534; }} .status-BLOCKED {{ color: #b91c1c; }} .status-DEGRADED {{ color: #b45309; }}
   </style>
 </head>
-<body>
+<body><main class="shell">
   <h1>louke setup</h1>
   <p>Project state: <span class="state">{_esc(state)}</span> mode</p>
-  {error_html}
+   {error_html}
   <section>
     <h2>Readiness</h2>
     {readiness_section}
@@ -168,7 +197,7 @@ def _render(setup_only: bool, items: list[dict[str, str]], *, error: str) -> str
       <button type="submit">Create first user</button>
     </form>
   </section>
-</body>
+</main></body>
 </html>
 """
 

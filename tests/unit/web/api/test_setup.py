@@ -9,6 +9,8 @@ AC references covered:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -16,9 +18,12 @@ from louke.web.api.setup import create_app
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """Return a TestClient backed by a fresh in-memory setup sub-app."""
-    return TestClient(create_app())
+def client(tmp_path: Path) -> TestClient:
+    """Return a TestClient backed by a fresh persisted setup sub-app."""
+    project = tmp_path / ".louke" / "project"
+    project.mkdir(parents=True)
+    (project / "project.toml").write_text("[project]\n", encoding="utf-8")
+    return TestClient(create_app(tmp_path))
 
 
 def test_status_uninitialized(client: TestClient) -> None:
@@ -54,6 +59,17 @@ def test_status_after_first_user(client: TestClient) -> None:
     body = resp.json()
     assert body["initialized"] is True
     assert body["first_principal_id"] == principal_id
+
+
+def test_create_first_user_persists_to_workspace(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The first user is present after a fresh setup app is created."""
+    client.post("/first-user", json={"name": "alice", "credential": "secret-token"})
+    restarted = TestClient(create_app(tmp_path))
+    body = restarted.get("/status").json()
+    assert body["initialized"] is True
+    assert body["first_principal_id"].startswith("prin_")
 
 
 def test_create_first_user_missing_fields(client: TestClient) -> None:

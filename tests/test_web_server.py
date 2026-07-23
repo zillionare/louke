@@ -175,6 +175,25 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "模型绑定" not in home_fr.text
 
 
+def test_setup_only_root_exits_setup_after_first_user(tmp_path: Path) -> None:
+    """A first user created after startup can reach the login landing page."""
+    root = build_project(tmp_path)
+    client = TestClient(create_app(root, setup_only=True))
+
+    setup = client.get("/", follow_redirects=False)
+    assert setup.status_code == 303
+    assert setup.headers["location"] == "/setup"
+
+    created = client.post(
+        "/api/setup/first-user", json={"name": "Alice", "credential": "secret"}
+    )
+    assert created.status_code == 201
+
+    home = client.get("/", follow_redirects=False)
+    assert home.status_code == 200
+    assert 'data-louke-region="toolbar"' in home.text
+
+
 def test_register_login_logout_flow(tmp_path: Path) -> None:
     root = build_project(tmp_path)
     client = TestClient(create_app(root))

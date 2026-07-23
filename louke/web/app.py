@@ -99,8 +99,6 @@ runtime_app = _create_runtime_app()
 gates_app = _create_gates_app()
 bindings_app = _create_bindings_app()
 opencode_app = _create_opencode_app()
-readiness_app = _create_readiness_app()
-setup_app = _create_setup_app()
 migration_app = _create_migration_app()
 security_app = _create_security_app()
 discussions_app = _create_discussions_app()
@@ -135,6 +133,8 @@ def create_app(
     """
     if project_root is None:
         project_root = Path.cwd()
+    readiness_app = _create_readiness_app(project_root)
+    setup_app = _create_setup_app(project_root)
     store = ProjectStore(Path(project_root))
     project_runtime_store = build_run_store(
         str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3"),
@@ -429,7 +429,9 @@ async def setup_home_redirect(request: Request) -> Response:
         A setup redirect, the workbench HTML, or the legacy home HTML.
     """
     if getattr(request.app.state, "setup_only", False):
-        return RedirectResponse(url="/setup", status_code=303)
+        store: ProjectStore = request.app.state.store
+        if not store.list_users():
+            return RedirectResponse(url="/setup", status_code=303)
     if request.query_params.get("legacy") == "1":
         return await home_page(request)
     return await workbench(request)

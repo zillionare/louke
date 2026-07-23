@@ -1,9 +1,7 @@
 """``/api/setup`` Starlette sub-app: first-user setup endpoints.
 
-Exposes the v0.12 runtime :class:`~louke.runtime.workspace_init.InitWizard`
-first-principal flow and :class:`~louke.runtime.security.CredentialStore` as a
-JSON HTTP API. The sub-app owns a per-app ``InitWizard`` and
-``CredentialStore``.
+Exposes the first-principal flow as a JSON HTTP API. The first user is written
+to the workspace user store so setup state survives a server restart.
 
 Endpoints:
     GET  /status       - return initialized flag and first principal id.
@@ -17,33 +15,28 @@ Error envelope (shared across v0.12 sub-apps)::
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from louke.runtime.security import CredentialStore
-from louke.runtime.workspace_init import InitWizard, WorkspacePrincipal
+from louke.web.store import ProjectStore, ValidationError
 
 from ._common import install_error_handlers, json_body, require_str
 
-#: Attribute on ``app.state`` holding the lazily-created ``InitWizard``.
-_WIZARD_ATTR: str = "init_wizard"
 
-#: Attribute on ``app.state`` holding the lazily-created ``CredentialStore``.
-_CRED_STORE_ATTR: str = "credential_store"
-
-#: Attribute on ``app.state`` holding the first principal id (if any).
-_FIRST_PRINCIPAL_ATTR: str = "first_principal_id"
-
-
-def create_app() -> Starlette:
+def create_app(workspace_root: str | Path | None = None) -> Starlette:
     """Return a self-contained Starlette sub-app for ``/api/setup``.
 
     Returns:
         A Starlette application whose routes are relative to ``/api/setup``.
     """
     app = Starlette(routes=_routes())
+    app.state.workspace_root = Path(workspace_root or ".").resolve()
     install_error_handlers(app)
     return app
 
@@ -56,24 +49,14 @@ def _routes() -> list[Route]:
     ]
 
 
-def _wizard(request: Request) -> InitWizard:
-    """Return the per-app ``InitWizard``, creating it lazily on first use."""
-    app = request.app
-    wizard = getattr(app.state, _WIZARD_ATTR, None)
-    if wizard is None:
-        wizard = InitWizard(repo_path=".", opcodes_available=False)
-        setattr(app.state, _WIZARD_ATTR, wizard)
-    return wizard
+def _store(request: Request) -> ProjectStore:
+    """Return the workspace store shared with serve and web authentication."""
+    return ProjectStore(request.app.state.workspace_root)
 
 
-def _credential_store(request: Request) -> CredentialStore:
-    """Return the per-app ``CredentialStore``, creating it lazily on first use."""
-    app = request.app
-    store = getattr(app.state, _CRED_STORE_ATTR, None)
-    if store is None:
-        store = CredentialStore()
-        setattr(app.state, _CRED_STORE_ATTR, store)
-    return store
+def _principal_id(name: str) -> str:
+    """Return a stable local principal id derived from the username."""
+    return f"prin_{hashlib.sha256(name.encode()).hexdigest()[:12]}"
 
 
 async def get_status(request: Request) -> JSONResponse:
@@ -82,14 +65,14 @@ async def get_status(request: Request) -> JSONResponse:
     Returns:
         ``200`` with ``{"initialized": bool, "first_principal_id": str | None}``.
     """
-    wizard = _wizard(request)
-    # InitWizard has no public accessor for the principal id; track it in
-    # app state so we avoid reaching into private attributes.
-    principal_id = getattr(request.app.state, _FIRST_PRINCIPAL_ATTR, None)
+    users = _store(request).list_users()
+    first_user = users[0] if users else None
     return JSONResponse(
         {
-            "initialized": wizard.can_make_gate_decision(),
-            "first_principal_id": principal_id,
+            "initialized": first_user is not None,
+            "first_principal_id": _principal_id(first_user["username"])
+            if first_user
+            else None,
         }
     )
 
@@ -106,11 +89,14 @@ async def create_first_user(request: Request) -> JSONResponse:
     payload = await json_body(request)
     name = require_str(payload, "name")
     credential = require_str(payload, "credential")
-    principal = WorkspacePrincipal(name=name)
-    _wizard(request).create_first_principal(principal)
-    _credential_store(request).set_principal_credential(principal.id, credential)
-    setattr(request.app.state, _FIRST_PRINCIPAL_ATTR, principal.id)
+    store = _store(request)
+    if store.list_users():
+        raise HTTPException(status_code=409, detail="first user already exists")
+    try:
+        store.create_user(name, credential)
+    except ValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return JSONResponse(
-        {"principal_id": principal.id, "name": principal.name},
+        {"principal_id": _principal_id(name), "name": name},
         status_code=201,
     )

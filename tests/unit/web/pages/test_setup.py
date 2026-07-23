@@ -122,28 +122,53 @@ def test_setup_page_calls_readiness_api(client: TestClient) -> None:
     """The page issues GET /api/readiness upstream.
 
     The seam receives the api_base (same-origin when empty); internally it
-    builds ``{api_base}/api/readiness``. We patch the seam and assert it was
+    builds ``{api_base}/api/readiness/``. We patch the seam and assert it was
     awaited, then separately verify the URL the unpatched seam would build.
     """
     mock = AsyncMock(return_value=_blocked_payload())
     with patch.object(setup_page, "_fetch_readiness", new=mock):
         client.get("/")
     mock.assert_awaited_once()
-    # The seam's first positional arg is the api_base (empty = same-origin);
-    # the unpatched implementation builds "{api_base}/api/readiness".
+    # The seam receives the absolute origin so httpx can make the same-server
+    # request rather than trying to send a relative URL.
     api_base = mock.await_args.args[0]
-    assert "/api/readiness" in f"{api_base}/api/readiness"
+    assert api_base == "http://testserver"
+    assert f"{api_base}/api/readiness/" == "http://testserver/api/readiness/"
 
 
 def test_setup_page_redirects_when_readiness_complete(client: TestClient) -> None:
-    """When readiness is complete (all READY), GET / redirects to /."""
-    with patch.object(
-        setup_page, "_fetch_readiness", new=AsyncMock(return_value=_ready_payload())
+    """When readiness and first-user setup are complete, GET / redirects to /."""
+    with (
+        patch.object(
+            setup_page, "_fetch_readiness", new=AsyncMock(return_value=_ready_payload())
+        ),
+        patch.object(
+            setup_page,
+            "_fetch_setup_status",
+            new=AsyncMock(return_value={"initialized": True}),
+        ),
     ):
         # follow_redirects=False so we can inspect the redirect
         resp = client.get("/", follow_redirects=False)
     assert resp.status_code in (303, 302, 307)
     assert resp.headers["location"] == "/"
+
+
+def test_setup_page_keeps_form_when_first_user_is_missing(client: TestClient) -> None:
+    """Ready dependencies do not hide the form before a first user exists."""
+    with (
+        patch.object(
+            setup_page, "_fetch_readiness", new=AsyncMock(return_value=_ready_payload())
+        ),
+        patch.object(
+            setup_page,
+            "_fetch_setup_status",
+            new=AsyncMock(return_value={"initialized": False}),
+        ),
+    ):
+        resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 200
+    assert "Create first user" in resp.text
 
 
 def test_setup_page_shows_form_fields(client: TestClient) -> None:
@@ -171,13 +196,17 @@ def test_setup_first_user_post_calls_api(client: TestClient) -> None:
             follow_redirects=False,
         )
     mock.assert_awaited_once()
-    # The seam receives the api_base (same-origin when empty) plus kwargs.
+    # The seam receives the absolute origin plus kwargs.
     api_base = mock.await_args.args[0]
-    assert "/api/setup" in f"{api_base}/api/setup/first-user"
+    assert api_base == "http://testserver"
+    assert f"{api_base}/api/setup/first-user" == (
+        "http://testserver/api/setup/first-user"
+    )
     assert mock.await_args.kwargs["name"] == "alice"
     assert mock.await_args.kwargs["credential"] == "secret"
-    # After successful creation, redirect back to /setup (or to /).
+    # After successful creation, redirect to login with the new credentials.
     assert resp.status_code in (303, 302, 307)
+    assert resp.headers["location"] == "/login"
 
 
 def test_setup_first_user_post_shows_error_on_failure(client: TestClient) -> None:
