@@ -12,14 +12,31 @@ def _html() -> str:
 
 
 def test_chat_agent_list_default_maestro() -> None:
-    """AC-FR1305-01/02/03: Chat exposes 13 ordered, selectable agents."""
+    """AC-FR1305-01/02/03: Chat exposes the canonical ordered Agent roster."""
     html = _html()
-    assert html.count("data-chat-agent=") == 13
-    assert html.index('data-testid="chat-agent-maestro"') < html.index(
-        'data-testid="chat-agent-archer"'
-    )
+    expected_ids = [
+        "maestro",
+        "archer",
+        "devon",
+        "judge",
+        "lex",
+        "librarian",
+        "prism",
+        "sage",
+        "scribe",
+        "shield",
+    ]
+    positions = [
+        html.index(f'data-chat-agent="{agent_id}"') for agent_id in expected_ids
+    ]
+
+    assert html.count("data-chat-agent=") == len(expected_ids)
+    assert positions == sorted(positions)
     assert 'data-testid="chat-agent-maestro"' in html
-    assert 'aria-selected="true"' in html
+    assert 'data-chat-agent="maestro" aria-selected="true"' in html
+    assert 'data-chat-agent="scout"' not in html
+    assert 'data-chat-agent="warden"' not in html
+    assert 'data-chat-agent="keeper"' not in html
 
 
 def test_chat_transcript_renders_input() -> None:

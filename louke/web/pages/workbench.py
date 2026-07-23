@@ -120,7 +120,7 @@ def _agents() -> list[str]:
 
 
 def _chat_sidebar(agents: list[str]) -> str:
-    """Render the read-only agent picker."""
+    """Render the Agent picker."""
     items = "".join(
         f'<button type="button" class="chat-agent" data-testid="chat-agent-{escape(_agent_id(name))}" '
         f'data-chat-agent="{escape(_agent_id(name))}" aria-selected="{"true" if index == 0 else "false"}">'
@@ -1213,7 +1213,7 @@ function renderSidebar(activity){{const sidebar=document.querySelector('[data-lo
  const transcripts={{}}; const sessions={{}}; const renderedMessages={{}}; const chatStreams={{}}; const chatSubmissions={{}}; let activeAgent='maestro';
  document.querySelectorAll('[data-chat-agent]').forEach(button=>{{transcripts[button.dataset.chatAgent]=document.querySelector('[data-testid="chat-transcript-'+button.dataset.chatAgent.toLowerCase()+'"]');}});
  function showToast(message){{const toast=document.querySelector('[data-testid="chat-toast"]');toast.textContent=message;toast.hidden=false;}}
- function selectAgent(agent){{if(!transcripts[agent]){{showToast('未知 Agent: '+agent+'; 已回退到 Maestro');agent='maestro';}}activeAgent=agent;document.querySelectorAll('[data-chat-agent]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.chatAgent===agent)));Object.entries(transcripts).forEach(([name,node])=>node.hidden=name!==agent);const input=document.querySelector('[data-testid="chat-input"]');input.placeholder='Message '+agent+'...';}}
+ function selectAgent(agent){{if(!transcripts[agent]){{showToast('未知 Agent: '+agent+'; 已回退到 Maestro');agent='maestro';}}if(agent===activeAgent&&!transcripts[agent].hidden)return;const previous=activeAgent;if(chatStreams[previous]){{chatStreams[previous].close();delete chatStreams[previous];}}activeAgent=agent;document.querySelectorAll('[data-chat-agent]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.chatAgent===agent)));Object.entries(transcripts).forEach(([name,node])=>node.hidden=name!==agent);const input=document.querySelector('[data-testid="chat-input"]');input.placeholder='Message '+agent+'...';if(sessions[agent]){{refreshChat(agent);connectChatStream(agent,sessions[agent]);}}}}
  function openTab(activity){{ensureTab(activity);activeTab=activity;document.querySelectorAll('[data-testid="workbench-tab"]').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tabKey===activity)));document.querySelectorAll('[data-activity]').forEach(button=>button.setAttribute('aria-current',button.dataset.activity===activity?'page':'false'));if(activity!=='settings')renderSidebar(activity);showMain(activity);if(activity==='dev-docs')initDocWorkspace();if(activity==='chat')selectAgent(activeAgent);}}
   document.querySelectorAll('[data-activity]').forEach(button=>button.addEventListener('click',()=>{{const activity=button.dataset.activity;if(activity==='gears')return openTab('settings');if(activity==='accounts'){{document.querySelector('[data-testid="accounts-menu"]').hidden=false;return;}}openTab(activity);}}));
   const terminalRunStatuses=new Set(['completed','cancelled','failed','archived']);
