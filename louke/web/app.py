@@ -90,7 +90,7 @@ from .pages.runs import (
 )
 from .pages.migration import create_app as _create_migration_page_app
 from .pages.workbench import workbench
-from .pages.v14_release import release_new_page
+from .pages.release import release_new_page
 from .api.files import files as end_user_files
 from .runs.badges import status_badge
 
@@ -164,11 +164,17 @@ def create_app(
             Route(
                 "/api/v14/releases/preview", endpoint=preview_release, methods=["POST"]
             ),
+            Route("/api/releases/preview", endpoint=preview_release, methods=["POST"]),
             Route(
                 "/api/v14/releases/confirm", endpoint=confirm_release, methods=["POST"]
             ),
+            Route("/api/releases/confirm", endpoint=confirm_release, methods=["POST"]),
             Route(
                 "/api/v14/releases/requests/{request_id}/foundation",
+                endpoint=foundation_status,
+            ),
+            Route(
+                "/api/releases/requests/{request_id}/foundation",
                 endpoint=foundation_status,
             ),
             Route(
@@ -177,9 +183,15 @@ def create_app(
                 methods=["POST"],
             ),
             Route(
+                "/api/releases/requests/{request_id}/recheck",
+                endpoint=recheck_release,
+                methods=["POST"],
+            ),
+            Route(
                 "/api/v14/releases/requests/{request_id}",
                 endpoint=release_status,
             ),
+            Route("/api/releases/requests/{request_id}", endpoint=release_status),
             Route(
                 "/api/v14/projects/{project_id}/current",
                 endpoint=current_project,
