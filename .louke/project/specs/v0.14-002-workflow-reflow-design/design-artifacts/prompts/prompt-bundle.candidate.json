@@ -13,7 +13,7 @@
       "input_schema_ref": {"identity": "louke.agent-io.archer-design-task-input", "version": "1.0.0", "digest": "sha256:74686ab3811b713d941d453a39b1f2af84263f76ec2994764d46de645eb75db9", "activation_state": "candidate"}, "output_schema_ref": {"identity": "louke.agent-io.archer-design-result", "version": "1.0.0", "digest": "sha256:3b3f9801c6318d7786ffa8b461de5f65e091de345dac32c1bd913b6e4e29196b", "activation_state": "candidate"}
     },
     {
-      "path": "louke/agents/Prism.md", "digest": "sha256:1c6d1a951cd8acc59dc950963c399cea0597cfbce8e6801425d0466125283938", "role": "prism", "frontmatter": {"name": "prism", "mode": "subagent", "intelligence_quotation": "S"},
+      "path": "louke/agents/Prism.md", "digest": "sha256:dbdf099686c5659fa6cf550e2ce13cfac7250177d0c1963516da0f3f31d38aa9", "role": "prism", "frontmatter": {"name": "prism", "mode": "subagent", "intelligence_quotation": "S"},
       "permissions": {"write": "none", "forbidden": ["review artifact write", "commit", "push", "Runtime gate command", "activation", "stage progression"]}, "model_abstraction": "S", "protocol_refs": ["complete M-DESIGN independent review", "trusted prior reviewer bootstrap"], "skill_refs": ["lk-reserve-memory"],
       "input_schema_ref": {"identity": "louke.agent-io.prism-design-review-task-input", "version": "1.0.0", "digest": "sha256:6dc1bdaca5b3f4326479537edbd518f545436f193a499087bc20eb74abe50059", "activation_state": "candidate"}, "output_schema_ref": {"identity": "louke.agent-io.prism-design-review", "version": "1.0.0", "digest": "sha256:13bad822fe5f21817038ec5e27b938c8e32e135ab809292be41bd04c1cd066dc", "activation_state": "candidate"}
     }
@@ -23,7 +23,7 @@
     {"record": "design-artifacts/prompts/staging/archer.render.candidate.json", "record_digest": "sha256:752e249f68b32a505561c38926d3d918bbdaed91b586fa800dbcd34748831c38", "path": ".opencode/agents/archer.md", "rendered_digest": "sha256:6bf121dc4ca5ce3fdddeec88ea9c964bf3844880e09df0d1769f4c8a11de9318", "role": "archer", "environment_binding": "codexmanager/gpt-5.6-sol", "state": "staging-only"},
     {"record": "design-artifacts/prompts/staging/prism.render.candidate.json", "record_digest": "sha256:e607353e513e4c2f97a991e97d97147b88b12a661a03113e1050ef174ff257d9", "path": ".opencode/agents/prism.md", "rendered_digest": "sha256:264949e9006fa2c35d69e644d146b4d0235dda7fa727ff6ad11b5ea80c55f144", "role": "prism", "environment_binding": "codexmanager/gpt-5.6-sol", "state": "staging-only"}
   ],
-  "bundle_digest": "sha256:5f914a48029f186192d6cd67d5e80ce14bfb12701484a23683e7d978ab69d403",
+  "bundle_digest": "sha256:ae0c4eaec60f1017cadab72656f989d26e3b7ab30d6d0750ed6d21c9571fc1cf",
   "bundle_digest_scope": "SHA-256 of UTF-8 lines with final newline: bundle identity; one pipe-delimited line per ordered role containing role, source digest, exact input schema identity/version/digest and exact output schema identity/version/digest; transformer digest; each ordered rendered digest",
   "activation_prerequisites": ["closed set exact", "candidate Agent input and output schemas active", "prompt lint and semantic checks pass", "complete design validation pass", "trusted prior Prism PASS", "staging and clean-install deployment readback pass", "implementation baseline current", "Runtime atomic active pointer CAS"],
   "stale_if": ["source set missing or extra", "source digest changes", "transformer digest changes", "environment binding changes", "rendered digest drift", "requirements/design/contracts/base/discussion input changes"],
