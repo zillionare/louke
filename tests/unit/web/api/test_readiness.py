@@ -107,7 +107,17 @@ def test_readiness_namespace_capability_is_blocked_when_gh_missing(
     ns = next(item for item in items if item["name"] == "namespace_capability")
     assert ns["status"] == "BLOCKED"
     assert "gh" in ns["diagnosis"].lower() or "github" in ns["diagnosis"].lower()
-    assert "install" in ns["remediation"].lower()
+    remediation_lower = ns["remediation"].lower()
+    # Remediation must be platform-agnostic: no brew/apt/choco/scoop hints
+    assert "brew" not in remediation_lower
+    assert "apt-get" not in remediation_lower
+    assert "choco" not in remediation_lower
+    # Must point to the cross-platform GitHub quickstart
+    assert "docs.github.com" in ns["remediation"]
+    assert "github-cli" in ns["remediation"]
+    # Must still tell the user what to do
+    assert "install" in remediation_lower
+    assert "auth" in remediation_lower
 
 
 def test_readiness_namespace_capability_is_blocked_when_gh_not_authenticated(
@@ -132,6 +142,76 @@ def test_readiness_namespace_capability_is_blocked_when_gh_not_authenticated(
     ns = next(item for item in items if item["name"] == "namespace_capability")
     assert ns["status"] == "BLOCKED"
     assert "auth" in ns["diagnosis"].lower()
+    # Cross-platform link must be present
+    assert "docs.github.com" in ns["remediation"]
+
+
+def test_readiness_namespace_capability_not_executable_has_link(
+    client: TestClient,
+) -> None:
+    """Gh installed but fails to execute must still link to install docs."""
+
+    def run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        if args[-1] == "--version":
+            return subprocess.CompletedProcess(args, 1, "", "permission denied")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with (
+        patch.object(readiness.shutil, "which", return_value="/usr/bin/gh"),
+        patch.object(readiness, "_run_command", side_effect=run),
+    ):
+        resp = client.get("/")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ns = next(item for item in items if item["name"] == "namespace_capability")
+    assert ns["status"] == "BLOCKED"
+    # Cross-platform link must be present even for failure remediation
+    assert "docs.github.com" in ns["remediation"]
+
+
+def test_readiness_namespace_capability_not_authenticated_has_link(
+    client: TestClient,
+) -> None:
+    """Not-authenticated remediation must include the cross-platform link."""
+
+    def run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        if args[-1] == "--version":
+            return subprocess.CompletedProcess(args, 0, "gh version 2.0.0\n", "")
+        if args[-2:] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 1, "", "not logged in")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with (
+        patch.object(readiness.shutil, "which", return_value="/usr/bin/gh"),
+        patch.object(readiness, "_run_command", side_effect=run),
+    ):
+        resp = client.get("/")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ns = next(item for item in items if item["name"] == "namespace_capability")
+    assert ns["status"] == "BLOCKED"
+    assert "docs.github.com" in ns["remediation"]
+
+
+def test_readiness_namespace_capability_remediation_uses_official_docs_url() -> None:
+    """The cross-platform install link must point at the official GitHub docs.
+
+    Tools and the Workbench render ``remediation`` directly to the user.
+    We must never invite users to a non-official source.
+    """
+    from louke.web.api.readiness import _namespace_capability_check
+
+    # gh missing
+    r1 = _namespace_capability_check(None)
+    assert (
+        "https://docs.github.com/en/github-cli/github-cli/quickstart" in r1.remediation
+    )
+
+    # gh present but bad version
+    r2 = _namespace_capability_check("/usr/bin/gh")
+    assert (
+        "https://docs.github.com/en/github-cli/github-cli/quickstart" in r2.remediation
+    )
 
 
 def test_readiness_namespace_capability_ready_when_gh_authenticated(

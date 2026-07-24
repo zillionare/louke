@@ -191,12 +191,17 @@ def _namespace_capability_check(gh_bin: str | None) -> ReadinessCheck:
     user cannot create or mutate the Backlog Project, release projects, or
     release issues until they install it.
     """
+    install_link = (
+        "Install the GitHub CLI for your platform and "
+        "authenticate with `gh auth login`. "
+        "See https://docs.github.com/en/github-cli/github-cli/quickstart"
+    )
     if gh_bin is None:
         return ReadinessCheck(
             "namespace_capability",
             ReadinessStatus.BLOCKED,
             "gh CLI is not installed on PATH",
-            "Install the GitHub CLI (brew install gh) and authenticate with `gh auth login`",
+            install_link,
         )
     version = _run_command([gh_bin, "--version"])
     if version.returncode != 0:
@@ -204,7 +209,8 @@ def _namespace_capability_check(gh_bin: str | None) -> ReadinessCheck:
             "namespace_capability",
             ReadinessStatus.BLOCKED,
             "gh CLI is installed but not executable",
-            f"Verify that {gh_bin} runs `gh --version` without error",
+            f"Verify that {gh_bin} runs `gh --version` without error. "
+            f"See {install_link.split(' See ')[1]}",
         )
     auth = _run_command([gh_bin, "auth", "status"])
     if auth.returncode != 0:
@@ -212,7 +218,8 @@ def _namespace_capability_check(gh_bin: str | None) -> ReadinessCheck:
             "namespace_capability",
             ReadinessStatus.BLOCKED,
             "gh CLI is not authenticated against a GitHub host",
-            "Run `gh auth login` and verify `gh auth status` succeeds",
+            "Run `gh auth login` and verify `gh auth status` succeeds. "
+            f"See {install_link.split(' See ')[1]}",
         )
     return ReadinessCheck(
         "namespace_capability",
