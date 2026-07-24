@@ -363,8 +363,40 @@ def test_first_user_post_calls_api_and_advances(client: TestClient) -> None:
             follow_redirects=False,
         )
     mock.assert_awaited_once()
+    # Regression (maestro end-to-end at /tmp/louke, 2026-07-24): the handler
+    # must forward the *typed-in* username and credential.  An earlier bug
+    # destructured the parsed-form dict as ``name, credential = ...`` which
+    # in Python 3.7+ iterates over keys rather than values, sending the
+    # literal strings ``"name"`` / ``"credential"`` to the API every time
+    # and clobbering any real first user.
+    kwargs = mock.await_args.kwargs
+    assert kwargs.get("name") == "alice"
+    assert kwargs.get("credential") == "secret"
     assert resp.status_code in (303, 302, 307)
     assert resp.headers["location"].endswith("/setup/repository/")
+
+
+def test_first_user_post_forwards_real_form_values(client: TestClient) -> None:
+    """Regression: form values must reach the API verbatim, not the keys."""
+    captured: dict[str, str] = {}
+
+    async def _capture(api_base, *, name, credential):
+        captured["name"] = name
+        captured["credential"] = credential
+        return {"principal_id": "prin_999", "name": name}
+
+    with (
+        patch.object(setup_page, "_post_first_user", new=_capture),
+        patch.object(setup_page, "_persist_state", return_value=True),
+    ):
+        resp = client.post(
+            "/first-user",
+            content=b"name=zoe&credential=hunter2",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            follow_redirects=False,
+        )
+    assert resp.status_code in (303, 302, 307)
+    assert captured == {"name": "zoe", "credential": "hunter2"}
 
 
 def test_first_user_post_shows_error_on_failure(client: TestClient) -> None:

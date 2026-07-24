@@ -71,3 +71,4 @@ louke.egg-info/
 .louke/opencode/
 .tmp_bundle
 **/*.lock
+.louke/web-setup-state.json

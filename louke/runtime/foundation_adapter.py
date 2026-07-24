@@ -26,19 +26,63 @@ class ShellFoundationAdapter:
         self._spec_id = spec_id
 
     def preflight(self, story: str, release_version: str) -> MainCheck:
-        """Refresh origin/main and return full Git identity and relation evidence."""
+        """Refresh origin/main and return full Git identity and relation evidence.
+
+        When ``origin/main`` does not exist (e.g. the workspace was
+        cloned from an empty repository or the upstream branch has not
+        been pushed yet), the adapter auto-initialises ``refs/heads/main``
+        from the current HEAD so a first Story/Preview can run.  Network
+        or permission failures still surface as ``blocked``.
+        """
         fetched, fetch_error = self._run("git", "fetch", "origin", "main")
-        if not fetched:
-            return MainCheck(
-                status="blocked",
-                remote_main={},
-                previous_branch={},
-                remediation=f"origin/main refresh failed: {fetch_error}",
-                checked_at=_now(),
-            )
         remote_ref = "refs/remotes/origin/main"
-        remote_sha, remote_error = self._output("git", "rev-parse", remote_ref)
+        remote_sha = ""
+        remote_error = ""
+        if not fetched:
+            # Distinguish "remote ref missing" from a real fetch failure.
+            missing = self._output("git", "ls-remote", "--heads", "origin", "main")
+            if missing[1] == 0 and not missing[0].strip():
+                # Remote is empty or has no main yet -- treat as a
+                # bootstrap repository and fall through.
+                fetch_error = ""
+            else:
+                return MainCheck(
+                    status="blocked",
+                    remote_main={},
+                    previous_branch={},
+                    remediation=f"origin/main refresh failed: {fetch_error}",
+                    checked_at=_now(),
+                )
+        else:
+            remote_sha, remote_error = self._output("git", "rev-parse", remote_ref)
         local_sha, local_error = self._output("git", "rev-parse", "refs/heads/main")
+        if not local_sha:
+            # No local main yet -- bootstrap it from the current HEAD so
+            # the Story Preview has a working branch to anchor.
+            head_sha, head_err = self._output("git", "rev-parse", "HEAD")
+            if not head_sha:
+                return MainCheck(
+                    status="blocked",
+                    remote_main={"full_ref": remote_ref, "sha": remote_sha},
+                    previous_branch={"full_ref": "", "sha": "", "relation": "unknown"},
+                    local_main={"full_ref": "refs/heads/main", "sha": ""},
+                    remediation=(
+                        "cannot resolve authoritative main or HEAD: "
+                        f"{local_error or head_err or remote_error}"
+                    ),
+                    checked_at=_now(),
+                )
+            created, create_err = self._run("git", "branch", "main", head_sha)
+            if not created:
+                return MainCheck(
+                    status="blocked",
+                    remote_main={"full_ref": remote_ref, "sha": remote_sha},
+                    previous_branch={"full_ref": "", "sha": "", "relation": "unknown"},
+                    local_main={"full_ref": "refs/heads/main", "sha": head_sha},
+                    remediation=("cannot create local main from HEAD: " + create_err),
+                    checked_at=_now(),
+                )
+            local_sha = head_sha
         branch, branch_error = self._output("git", "branch", "--show-current")
         if not remote_sha or not local_sha or not branch:
             return MainCheck(
@@ -55,9 +99,14 @@ class ShellFoundationAdapter:
         previous_ref = f"refs/heads/{branch}"
         previous_sha, _ = self._output("git", "rev-parse", previous_ref)
         relation = self._relation(previous_ref, remote_ref)
+        # When the remote has no main yet, treat the local main as the
+        # authoritative reference; the bootstrap push is the next step.
+        if not remote_sha:
+            relation = "ahead"
         remediation = (
             ""
-            if relation == "merged" and local_sha == remote_sha
+            if (relation == "merged" and local_sha == remote_sha)
+            or (not remote_sha and local_sha)
             else (
                 f"current branch {previous_ref} is {relation} relative to {remote_ref}; "
                 "local main must equal authoritative remote main"
