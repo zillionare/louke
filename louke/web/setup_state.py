@@ -285,6 +285,58 @@ def read_manifest(workspace_root: Path, *, workspace_id: str) -> SetupManifest:
     )
 
 
+def try_read_manifest(workspace_root: Path) -> SetupManifest | None:
+    """Best-effort manifest read for gate checks; ``None`` on any error.
+
+    Unlike :func:`read_manifest`, this function does not require a
+    ``workspace_id`` and returns ``None`` instead of raising. Missing
+    files return a default ``pending_user`` manifest (not ``None``),
+    so callers only need to check the status.
+
+    Args:
+        workspace_root: The workspace root directory.
+
+    Returns:
+        The manifest, or ``None`` if the file is corrupt, has an
+        unknown schema, or cannot be parsed.
+    """
+    state_path = workspace_root / ".louke" / MANIFEST_FILENAME
+    if not state_path.exists():
+        return _default_manifest("")
+    try:
+        raw = json.loads(state_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("version") != MANIFEST_VERSION:
+        return None
+    status_str = raw.get("status", "pending_user")
+    try:
+        status = SetupStatus(status_str)
+    except ValueError:
+        return None
+    mc_raw = raw.get("model_check")
+    model_check = None
+    if mc_raw is not None and isinstance(mc_raw, dict):
+        model_check = ModelCheck(
+            check_id=mc_raw.get("check_id", ""),
+            revision=mc_raw.get("revision", 0),
+            state=mc_raw.get("state", ""),
+            model_id=mc_raw.get("model_id"),
+            diagnosis=mc_raw.get("diagnosis"),
+            observed_at=mc_raw.get("observed_at", ""),
+        )
+    return SetupManifest(
+        workspace_id=raw.get("workspace_id", ""),
+        revision=raw.get("revision", 0),
+        status=status,
+        first_principal_id=raw.get("first_principal_id"),
+        model_check=model_check,
+        completed_at=raw.get("completed_at"),
+    )
+
+
 def write_manifest(workspace_root: Path, manifest: SetupManifest) -> None:
     """Atomically persist the Setup manifest.
 
