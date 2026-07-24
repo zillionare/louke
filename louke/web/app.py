@@ -135,6 +135,7 @@ def create_app(
         project_root = Path.cwd()
     readiness_app = _create_readiness_app(project_root)
     setup_app = _create_setup_app(project_root)
+    setup_page_app.state.workspace_root = Path(project_root).resolve()
     store = ProjectStore(Path(project_root))
     project_runtime_store = build_run_store(
         str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3"),

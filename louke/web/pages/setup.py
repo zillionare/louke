@@ -15,7 +15,6 @@ Upstream HTTP calls go through module-level seams (``_fetch_readiness`` and
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from urllib.parse import parse_qs
 
@@ -85,33 +84,57 @@ def _routes() -> list[Route]:
 # ---------------------------------------------------------------------------
 
 
-def _read_persisted_state(api_base: str) -> dict[str, Any]:
-    """Read the persisted setup state via the API; return empty on miss."""
-    import urllib.request
+def _read_persisted_state(
+    api_base: str, request: Request | None = None
+) -> dict[str, Any]:
+    """Read the persisted setup state via the API; return empty on miss.
 
-    try:
-        with urllib.request.urlopen(f"{api_base}/api/setup/state", timeout=5) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        return payload if isinstance(payload, dict) else {}
-    except Exception:
-        return {}
+    Uses an in-process direct call to the store rather than going through
+    uvicorn.  Going through the HTTP socket would block the event loop and
+    could observe torn writes during the redirect chain.
+    """
+
+    payload = _direct_store_call(request, lambda store: store.read_setup_state())
+    return payload if isinstance(payload, dict) else {}
 
 
-def _persist_state(api_base: str, payload: dict[str, Any]) -> bool:
-    """Persist setup state via the API; return True on success."""
-    import urllib.request
+def _persist_state(
+    api_base: str, payload: dict[str, Any], request: Request | None = None
+) -> bool:
+    """Persist setup state atomically via the store; return True on success."""
+    from ..store import ProjectStore
 
-    try:
-        req = urllib.request.Request(
-            f"{api_base}/api/setup/state",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return 200 <= resp.status < 300
-    except Exception:
-        return False
+    def _write(store: ProjectStore) -> None:
+        store.write_setup_state(payload)
+
+    return bool(_direct_store_call(request, _write))
+
+
+def _direct_store_call(request: Request | None, fn):
+    """Run ``fn(project_store)`` against the workspace backing the server.
+
+    Prefers ``request.app.state.workspace_root`` so the page reads and
+    writes the same store the API uses.  Falls back to ``Path.cwd()``
+    for tests that do not bind the workspace root on the sub-app state.
+    """
+    from ..store import ProjectStore
+
+    candidates: list[Path] = []
+    if request is not None:
+        root = getattr(request.app.state, "workspace_root", None)
+        if root is not None:
+            candidates.append(Path(root))
+    candidates.append(Path.cwd())
+    for root in candidates:
+        if (root / ".louke" / "project" / "project.toml").exists():
+            try:
+                return fn(ProjectStore(root))
+            except Exception:
+                continue
+    return None
+
+
+from pathlib import Path  # noqa: E402
 
 
 def _journey_from_payload(payload: dict[str, Any]) -> SetupJourney:
@@ -166,7 +189,7 @@ async def wizard_root(request: Request) -> Response:
         status = {"initialized": False}
     if not status.get("initialized"):
         return await setup_page(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     return RedirectResponse(
         url=f"/setup/{journey.current_step.value}/", status_code=303
     )
@@ -184,16 +207,16 @@ async def wizard_return(request: Request) -> Response:
         target = SetupStep(step_name)
     except ValueError:
         return RedirectResponse(url="/setup/", status_code=303)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     updated = journey.return_to(target)
-    _persist_state(api_base, _payload_from_journey(updated))
+    _persist_state(api_base, _payload_from_journey(updated), request)
     return RedirectResponse(url=f"/setup/{target.value}/", status_code=303)
 
 
 async def wizard_reset(request: Request) -> Response:
     """POST /setup/reset: clear persisted state and return to identity."""
     api_base = _api_base(request)
-    _persist_state(api_base, _payload_from_journey(SetupJourney.new()))
+    _persist_state(api_base, _payload_from_journey(SetupJourney.new()), request)
     return RedirectResponse(url="/setup/identity/", status_code=303)
 
 
@@ -239,7 +262,7 @@ async def step_identity_get(request: Request) -> Response:
     a user exists, mark identity completed and advance to repository.
     """
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     try:
         status = await _fetch_setup_status(api_base)
     except Exception:
@@ -251,7 +274,7 @@ async def step_identity_get(request: Request) -> Response:
         return await _common_render(request, journey, body, can_advance=False)
     if SetupStep.IDENTITY not in journey.completed_steps:
         updated = journey.complete_current()
-        _persist_state(api_base, _payload_from_journey(updated))
+        _persist_state(api_base, _payload_from_journey(updated), request)
         journey = updated
     body = _identity_done_html(status)
     return await _common_render(request, journey, body, can_advance=False)
@@ -264,7 +287,7 @@ async def step_identity_complete(request: Request) -> Response:
     endpoint is hit after that submission to advance the wizard.
     """
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     try:
         status = await _fetch_setup_status(api_base)
     except Exception:
@@ -273,14 +296,14 @@ async def step_identity_complete(request: Request) -> Response:
         return RedirectResponse(url="/setup/identity/", status_code=303)
     if SetupStep.IDENTITY not in journey.completed_steps:
         journey = journey.complete_current()
-        _persist_state(api_base, _payload_from_journey(journey))
+        _persist_state(api_base, _payload_from_journey(journey), request)
     return RedirectResponse(url="/setup/repository/", status_code=303)
 
 
 async def step_repository_get(request: Request) -> Response:
     """GET /setup/repository/: render the init/clone choice form."""
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     body = _repository_form_html(journey)
     return await _common_render(request, journey, body, can_advance=False)
 
@@ -301,7 +324,7 @@ async def step_repository_complete(request: Request) -> Response:
             "Clone requires a remote URL.",
             status_code=400,
         )
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     if journey.current_step != SetupStep.REPOSITORY:
         return RedirectResponse(
             url=f"/setup/{journey.current_step.value}/", status_code=303
@@ -310,14 +333,14 @@ async def step_repository_complete(request: Request) -> Response:
     if remote_url:
         journey = journey.record_selection("remote_url", remote_url)
     journey = journey.complete_current()
-    _persist_state(api_base, _payload_from_journey(journey))
+    _persist_state(api_base, _payload_from_journey(journey), request)
     return RedirectResponse(url="/setup/dependencies/", status_code=303)
 
 
 async def step_dependencies_get(request: Request) -> Response:
     """GET /setup/dependencies/: render the runtime readiness report."""
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     try:
         items = await _fetch_readiness(api_base)
     except Exception as exc:
@@ -334,7 +357,7 @@ async def step_dependencies_get(request: Request) -> Response:
         blocking_items=blocking,
         selections=journey.selections,
     )
-    _persist_state(api_base, _payload_from_journey(journey))
+    _persist_state(api_base, _payload_from_journey(journey), request)
     can_advance = not blocked
     return await _common_render(request, journey, body, can_advance=can_advance)
 
@@ -342,20 +365,20 @@ async def step_dependencies_get(request: Request) -> Response:
 async def step_dependencies_complete(request: Request) -> Response:
     """POST /setup/dependencies/complete: advance once readiness is non-blocking."""
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     if journey.current_step != SetupStep.DEPENDENCIES:
         return RedirectResponse(
             url=f"/setup/{journey.current_step.value}/", status_code=303
         )
     journey = journey.complete_current()
-    _persist_state(api_base, _payload_from_journey(journey))
+    _persist_state(api_base, _payload_from_journey(journey), request)
     return RedirectResponse(url="/setup/review/", status_code=303)
 
 
 async def step_review_get(request: Request) -> Response:
     """GET /setup/review/: show the writable summary before Apply."""
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     body = _review_html(journey)
     return await _common_render(request, journey, body, can_advance=True)
 
@@ -363,13 +386,13 @@ async def step_review_get(request: Request) -> Response:
 async def step_review_complete(request: Request) -> Response:
     """POST /setup/review/complete: advance from review to applying."""
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     if journey.current_step != SetupStep.REVIEW:
         return RedirectResponse(
             url=f"/setup/{journey.current_step.value}/", status_code=303
         )
     journey = journey.complete_current()
-    _persist_state(api_base, _payload_from_journey(journey))
+    _persist_state(api_base, _payload_from_journey(journey), request)
     return RedirectResponse(url="/setup/applying/", status_code=303)
 
 
@@ -381,10 +404,10 @@ async def step_applying_get(request: Request) -> Response:
     the wizard skeleton only; this stub completes the step.
     """
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     if journey.current_step == SetupStep.APPLYING:
         journey = journey.complete_current()
-        _persist_state(api_base, _payload_from_journey(journey))
+        _persist_state(api_base, _payload_from_journey(journey), request)
     body = _applying_html()
     return await _common_render(request, journey, body, can_advance=True)
 
@@ -392,7 +415,7 @@ async def step_applying_get(request: Request) -> Response:
 async def step_complete_get(request: Request) -> Response:
     """GET /setup/complete/: render the setup-complete confirmation page."""
     api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base))
+    journey = _journey_from_payload(_read_persisted_state(api_base, request))
     body = _complete_html(journey)
     return await _common_render(request, journey, body, can_advance=False)
 
@@ -479,12 +502,9 @@ async def create_first_user(request: Request) -> Response:
             ),
             status_code=400,
         )
-    journey = SetupJourney(
-        current_step=SetupStep.IDENTITY,
-        completed_steps=(SetupStep.IDENTITY,),
-        blocking_items=(),
-    )
-    _persist_state(api_base, _payload_from_journey(journey))
+    # Mark identity complete and advance the journey to the next step.
+    journey = SetupJourney.new().complete_current()
+    _persist_state(api_base, _payload_from_journey(journey), request)
     return RedirectResponse(url="/setup/repository/", status_code=303)
 
 
