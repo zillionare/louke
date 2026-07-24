@@ -127,13 +127,13 @@ jobs:
             [ -f "$artifact" ] || { echo "::error::missing artifact $artifact"; exit 1; }
             metadata=$(python tools/louke_python_release_adapter.py inspect --artifact "$artifact")
             echo "$metadata"
+          done
       - name: Verify distribution identity
         run: |
           python tools/louke_python_release_adapter.py verify-dist \
             --source pyproject.toml \
             --dist dist \
             --evidence dist/verified-identity.json
-          done
       - name: Clean-venv install + lk --version
         run: |
           python -m venv /tmp/lk-venv

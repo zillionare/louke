@@ -72,6 +72,7 @@ def test_integration_discovery_is_ordered() -> None:
         "tests/integration/install_experience",
         "tests/integration/v014_design_contracts",
         "tests/integration/v014_workflow_reflow",
+        "tests/integration/v014_workspace_onboarding",
     ]
 
 
@@ -84,7 +85,10 @@ def test_install_profile_path() -> None:
 def test_v014_profile_path() -> None:
     """AC-FR0900-01: v014 resolves to the workflow reflow e2e directory."""
     paths, selection = runner._profile_paths("v014")
-    assert paths == ["tests/e2e/v014_workflow_reflow"]
+    assert paths == [
+        "tests/e2e/v014_workflow_reflow",
+        "tests/e2e/v014_workspace_onboarding",
+    ]
     assert selection == ["-m", "chromium_e2e"]
 
 

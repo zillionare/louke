@@ -502,6 +502,7 @@ _INTEGRATION_PATHS: tuple[str, ...] = (
     "tests/integration/install_experience",
     "tests/integration/v014_design_contracts",
     "tests/integration/v014_workflow_reflow",
+    "tests/integration/v014_workspace_onboarding",
 )
 
 
@@ -521,7 +522,10 @@ def _profile_paths(profile: str) -> tuple[list[str], list[str]]:
     if profile == "install":
         return ["tests/e2e/install_experience"], []
     if profile == "v014":
-        return ["tests/e2e/v014_workflow_reflow"], ["-m", "chromium_e2e"]
+        return [
+            "tests/e2e/v014_workflow_reflow",
+            "tests/e2e/v014_workspace_onboarding",
+        ], ["-m", "chromium_e2e"]
     return ["tests/e2e/test_v013_chromium_journey_e2e.py"], ["-m", "chromium_e2e"]
 
 
