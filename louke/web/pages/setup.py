@@ -15,6 +15,10 @@ Upstream HTTP calls go through module-level seams (``_fetch_readiness`` and
 
 from __future__ import annotations
 
+import secrets
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs
 
@@ -132,9 +136,6 @@ def _direct_store_call(request: Request | None, fn):
             except Exception:
                 continue
     return None
-
-
-from pathlib import Path  # noqa: E402
 
 
 def _journey_from_payload(payload: dict[str, Any]) -> SetupJourney:
@@ -395,19 +396,158 @@ async def step_review_complete(request: Request) -> Response:
 
 
 async def step_applying_get(request: Request) -> Response:
-    """GET /setup/applying/: stub apply step; immediately rolls to complete.
+    """GET /setup/applying/: run repository provisioning (git init/clone) and roll to complete.
 
-    The real Apply step in v0.14-001 / v0.14-003 owns the actual side
-    effects (git init, clone, dependency ratchet). In v0.14-004 we surface
-    the wizard skeleton only; this stub completes the step.
+    Applies the selections recorded at the repository step before the
+    journey advances.  Selections that fail to apply leave a blocking
+    item so the user can return to the repository step and retry.
     """
     api_base = _api_base(request)
     journey = _journey_from_payload(_read_persisted_state(api_base, request))
     if journey.current_step == SetupStep.APPLYING:
-        journey = journey.complete_current()
-        _persist_state(api_base, _payload_from_journey(journey), request)
+        workspace_root = _resolve_workspace_root(request)
+        apply_result = _apply_repository_selections(
+            journey, workspace_root=workspace_root
+        )
+        if apply_result.ok:
+            journey = journey.complete_current()
+            _persist_state(api_base, _payload_from_journey(journey), request)
+        else:
+            blocked = journey.blocking_items + (apply_result.message,)
+            updated = SetupJourney(
+                current_step=journey.current_step,
+                completed_steps=journey.completed_steps,
+                blocking_items=blocked,
+                selections=journey.selections,
+            )
+            _persist_state(api_base, _payload_from_journey(updated), request)
+            journey = updated
     body = _applying_html()
     return await _common_render(request, journey, body, can_advance=True)
+
+
+@dataclass
+class _ApplyResult:
+    """Outcome of running a repository provisioning command."""
+
+    ok: bool
+    message: str
+
+
+def _resolve_workspace_root(request: Request) -> Path:
+    """Return the workspace root directory for side-effect operations."""
+    workspace_root = getattr(request.app.state, "workspace_root", None)
+    if workspace_root is not None:
+        return Path(workspace_root)
+    return Path.cwd()
+
+
+def _apply_repository_selections(
+    journey: SetupJourney, *, workspace_root: Path
+) -> _ApplyResult:
+    """Execute ``git init`` or ``git clone`` recorded at the repository step.
+
+    Strategy mirrors spec §4.3: ``init`` runs in-place when the workspace
+    is empty or already a safe Git worktree; ``clone`` always runs in a
+    sibling staging directory, then merges into the workspace root.
+    Returns ``_ApplyResult(ok=True)`` on success or
+    ``_ApplyResult(ok=False, message=...)`` when the operation fails or
+    no selection was recorded.
+    """
+    import shutil
+
+    mode = journey.get_selection("mode")
+    if mode is None:
+        return _ApplyResult(ok=False, message="Repository mode is not selected")
+    if mode == "init":
+        result = subprocess.run(
+            ["git", "-C", str(workspace_root), "rev-parse", "--git-dir"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return _ApplyResult(ok=True, message="")
+        result = subprocess.run(
+            ["git", "-C", str(workspace_root), "init"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return _ApplyResult(
+                ok=False,
+                message=f"git init failed: {result.stderr.strip()}",
+            )
+        return _ApplyResult(ok=True, message="")
+    if mode == "clone":
+        remote_url = journey.get_selection("remote_url") or ""
+        if not remote_url:
+            return _ApplyResult(ok=False, message="Clone requires a remote URL")
+        # Use a sibling staging directory so a partially-populated
+        # workspace_root does not abort the clone.
+        staging_parent = workspace_root.parent
+        staging_name = f"{workspace_root.name}.louke-clone-{secrets.token_hex(4)}"
+        staging_dir = staging_parent / staging_name
+        try:
+            staging_dir.mkdir(parents=False, exist_ok=False)
+        except OSError as exc:
+            return _ApplyResult(
+                ok=False,
+                message=f"cannot create staging dir: {exc}",
+            )
+        try:
+            result = subprocess.run(
+                ["git", "clone", remote_url, str(staging_dir)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                return _ApplyResult(
+                    ok=False,
+                    message=f"git clone failed: {result.stderr.strip()}",
+                )
+            # Move staged clone contents into the workspace_root.
+            staging_git = staging_dir / ".git"
+            if not staging_git.exists():
+                return _ApplyResult(
+                    ok=False,
+                    message="cloned tree does not contain .git",
+                )
+            target_git = workspace_root / ".git"
+            if target_git.exists():
+                shutil.rmtree(target_git)
+            shutil.move(str(staging_git), str(target_git))
+            # Copy tracked files from the staging tree to workspace_root,
+            # skipping files that already exist (do not overwrite user
+            # files).
+            tracked = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(staging_dir),
+                    "ls-files",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if tracked.returncode == 0:
+                for relpath in tracked.stdout.splitlines():
+                    src = staging_dir / relpath
+                    dst = workspace_root / relpath
+                    if dst.exists() or dst.is_symlink():
+                        continue
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    if src.is_dir():
+                        continue
+                    shutil.copy2(src, dst)
+            return _ApplyResult(ok=True, message="")
+        finally:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir, ignore_errors=True)
+    return _ApplyResult(ok=False, message=f"Unknown repository mode: {mode}")
 
 
 async def step_complete_get(request: Request) -> Response:
