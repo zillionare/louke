@@ -347,7 +347,12 @@ async def step_dependencies_get(request: Request) -> Response:
         error = str(exc)
     else:
         error = ""
-    body = _dependencies_html(items, error=error)
+    # When the user has already selected init/clone at the repository
+    # step, the Git row is expected to be BLOCKED here because the
+    # side effect has not run yet.  Let them proceed to Review with a
+    # hint so they are not trapped on this page.
+    has_pending_apply = bool(journey.get_selection("mode"))
+    body = _dependencies_html(items, error=error, has_pending_apply=has_pending_apply)
     blocked = [item["name"] for item in items if item.get("status") == "BLOCKED"]
     blocking = tuple(blocked) if blocked else journey.blocking_items
     journey = SetupJourney(
@@ -357,7 +362,13 @@ async def step_dependencies_get(request: Request) -> Response:
         selections=journey.selections,
     )
     _persist_state(api_base, _payload_from_journey(journey), request)
-    can_advance = not blocked
+    # User may proceed whenever they either have all-green readiness or
+    # have a pending Apply that will resolve the Git BLOCKED.
+    git_blocked = any(
+        item.get("name") == "Git" and item.get("status") == "BLOCKED" for item in items
+    )
+    non_git_blocked = [b for b in blocked if b != "Git"]
+    can_advance = not non_git_blocked and (not git_blocked or has_pending_apply)
     return await _common_render(request, journey, body, can_advance=can_advance)
 
 
@@ -724,29 +735,76 @@ def _repository_form_html(journey: SetupJourney) -> str:
 """
 
 
-def _dependencies_html(items: list[dict[str, str]], *, error: str = "") -> str:
-    """Render the dependencies step with readiness facts and provenance."""
+def _dependencies_html(
+    items: list[dict[str, str]],
+    *,
+    error: str = "",
+    has_pending_apply: bool = False,
+) -> str:
+    """Render the dependencies step with readiness facts and provenance.
+
+    When ``has_pending_apply`` is True the user has already selected
+    repository init/clone in a prior step and the wizard has not yet
+    run the side effect.  In that case the ``Git`` BLOCKED is expected
+    and we let the user proceed to Review with an explicit warning
+    instead of trapping them on this page.
+    """
     err_html = f'<div class="error">{_esc(error)}</div>' if error else ""
     if not items:
         rows = "<li><em>No readiness items reported.</em></li>"
     else:
         rows = "".join(_render_item(i) for i in items)
     blocked = any(item.get("status") == "BLOCKED" for item in items)
-    continue_btn = (
-        '<form method="post" action="/setup/dependencies/complete"><button type="submit" disabled>Continue to Review</button></form>'
-        if blocked
-        else '<form method="post" action="/setup/dependencies/complete"><button type="submit">Continue to Review</button></form>'
+    git_blocked = any(
+        item.get("name") == "Git" and item.get("status") == "BLOCKED" for item in items
     )
+    show_continue = not blocked or (git_blocked and has_pending_apply)
+    if show_continue:
+        # Mark the Git row with a class that explains it is pending.
+        rows = _mark_git_pending(rows)
+        extra_hint = (
+            "<p><strong>Git is BLOCKED but you have a pending init/clone "
+            "selection.</strong> Review and Apply will run the operation; "
+            "continue to confirm.</p>"
+            if git_blocked and has_pending_apply
+            else ""
+        )
+        btn_label = "Continue to Review" if git_blocked else "Continue to Review"
+        continue_btn = (
+            f'<form method="post" action="/setup/dependencies/complete">'
+            f'<button type="submit">{btn_label}</button></form>'
+        )
+    else:
+        extra_hint = "<p>Resolve the BLOCKED items below, then return to this step.</p>"
+        continue_btn = (
+            '<form method="post" action="/setup/dependencies/complete">'
+            '<button type="submit" disabled>Continue to Review</button></form>'
+        )
     return f"""
 <section>
   <h2>Runtime dependencies</h2>
   <p>Each item is checked against your installation. Continue only when
      every required check is <strong>READY</strong>.</p>
+  {extra_hint}
   {err_html}
   <ul class="readiness">{rows}</ul>
   {continue_btn}
 </section>
 """
+
+
+def _mark_git_pending(rows: str) -> str:
+    """Add the ``pending-apply`` class to the Git row when it is BLOCKED.
+
+    The handler renders ``<li><strong>Git</strong> ...</li>`` for each
+    readiness item.  Tag the Git row so the page can show a hint about
+    the pending Apply side effect.
+    """
+    return rows.replace(
+        "<li><strong>Git</strong>",
+        '<li class="pending-apply"><strong>Git</strong>',
+        1,
+    )
 
 
 def _review_html(journey: SetupJourney) -> str:
