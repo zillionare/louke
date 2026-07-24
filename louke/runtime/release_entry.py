@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from louke.runtime.catalog import DefinitionNotFoundError, WorkflowDefinition
+from louke.runtime.release_request import _canonical_release_version
 from louke.runtime.store import WorkflowRunStore
 from louke.runtime.release_request import preview_release_request
 from louke.runtime.story_entry import StoryEntryService
@@ -438,11 +439,18 @@ class ReleaseEntryService:
         return f"req_{digest}"
 
     def _release_identity(self, version: str) -> dict[str, str]:
-        """Return the non-secret release identity displayed by preview."""
-        canonical = version.removeprefix("v")
+        """Return the non-secret release identity displayed by preview.
+
+        Per interfaces §IF-PREVIEW-01, the ``canonical`` form is the
+        3-segment PEP440 version padded from the input (``0.14`` ->
+        ``0.14.0``); the ``tag`` carries a single leading ``v``; the
+        ``branch`` is ``releases/<canonical>``.
+        """
+        canonical = _canonical_release_version(version) or version.removeprefix("v")
         return {
             "external": version,
             "canonical": canonical,
+            "tag": f"v{canonical}",
             "branch": f"releases/{canonical}",
         }
 

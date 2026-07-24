@@ -68,7 +68,7 @@ def test_browser_draft_payload_omits_forbidden_fields() -> None:
     draft = create_draft(
         workspace_id="ws_1",
         principal_id="prin_alpha",
-        story_input="draft story",
+        story="draft story",
     )
     forbidden = {
         "credential",

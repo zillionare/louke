@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from packaging.version import InvalidVersion, Version
+
 
 # ---------------------------------------------------------------------------
 # Identity and digest
@@ -169,6 +171,42 @@ def _is_valid_release_version(version: str) -> bool:
     return True
 
 
+def _canonical_release_version(version: str) -> Optional[str]:
+    """Return the canonical 3-segment PEP440 form of ``version``.
+
+    Per interfaces §IF-PREVIEW-01: one- or two-segment release tuples
+    are padded to a 3-tuple canonical PEP440 version; ``local`` and
+    ``dirty`` markers are rejected. Returns ``None`` when the input
+    cannot be canonicalised.
+
+    Examples::
+
+        ``0.14``       -> ``0.14.0``
+        ``v0.14``      -> ``0.14.0``
+        ``0.14.1``     -> ``0.14.1``
+        ``0.14+local`` -> ``None``
+        ``dirty``      -> ``None``
+    """
+    raw = version.strip().removeprefix("v")
+    if not raw:
+        return None
+    if "+" in raw or "dirty" in raw:
+        return None
+    try:
+        parsed = Version(raw)
+    except InvalidVersion:
+        return None
+    if parsed.local is not None:
+        return None
+    # ``Version`` normalises ``0.14`` to ``0.14`` (release segment
+    # tuple ``(0, 14)``). Pad to 3 segments per the contract.
+    segments = list(parsed.release)
+    while len(segments) < 3:
+        segments.append(0)
+    canonical = ".".join(str(s) for s in segments[:3])
+    return canonical
+
+
 def preview_release_request(
     *,
     workspace_id: str,
@@ -216,10 +254,21 @@ def preview_release_request(
             message=f"release_version is not a canonical version: {release_version!r}",
         )
 
+    canonical_version = _canonical_release_version(release_version)
+    if canonical_version is None:
+        raise PreviewError(
+            field="release_version",
+            code="RELEASE_VERSION_INVALID",
+            message=(
+                f"release_version is not a canonical PEP440 version "
+                f"(local/dirty markers are rejected): {release_version!r}"
+            ),
+        )
+
     identity = ReleaseRequestIdentity(
         workspace_id=workspace_id,
         story=story.strip(),
-        release_version=release_version.strip(),
+        release_version=canonical_version,
     )
     blocked_reason: Optional[str] = None
     if active_main_release_present:

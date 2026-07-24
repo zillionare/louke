@@ -105,14 +105,14 @@ class TestDraftStorage:
 
     def test_draft_key_binds_workspace_and_principal(self) -> None:
         key = draft_key(workspace_id="ws_1", principal_id="prin_alpha")
-        assert key.startswith("draft_")
+        assert key == "louke.new-project.v1:ws_1:prin_alpha"
 
     def test_create_draft_excludes_credentials(self) -> None:
         draft = create_draft(
-            workspace_id="ws_1", principal_id="prin_alpha", story_input="test"
+            workspace_id="ws_1", principal_id="prin_alpha", story="test"
         )
         assert "credential" not in draft
-        assert draft["story_input"] == "test"
+        assert draft["story"] == "test"
 
 
 class TestDocumentSurface:
@@ -256,12 +256,17 @@ class TestProjectIdentity:
     def test_build_identity_returns_chain(self) -> None:
         result = build_identity(
             project_id="prj_1",
-            release_identity="rel_1",
+            release_version="0.14",
             spec_id="spec_1",
         )
         assert result["project_id"] == "prj_1"
-        assert result["release_identity"] == "rel_1"
+        assert result["planned_release"]["canonical"] == "0.14.0"
         assert result["spec_id"] == "spec_1"
+        assert result["activity_state"] in {
+            "active",
+            "historical",
+            "migration_required",
+        }
 
 
 class TestAttemptDetail:

@@ -1,15 +1,20 @@
-"""Draft storage: workspace-bound draft key for release requests.
+"""Browser-local New Project draft storage.
 
 AC-FR0901-01, AC-FR0901-02
 
-The draft key binds a planned release identity to the workspace and
-principal. Drafts never include credentials or Story content.
+The draft key follows the contract shape
+``louke.new-project.v1:<workspace_id>:<principal_id>`` so browser
+storage scoping is enforceable per-browser / per-principal. The
+payload is limited to the allowed fields and MUST NOT carry
+credential / token / repository URL / preview id / project identity.
 """
 
 from __future__ import annotations
 
-import hashlib
+from datetime import datetime, timezone
 from typing import Any
+
+_DRAFT_PREFIX = "louke.new-project.v1"
 
 
 def draft_key(
@@ -17,39 +22,46 @@ def draft_key(
     workspace_id: str,
     principal_id: str,
 ) -> str:
-    """Return a stable draft key for the given workspace and principal.
+    """Return the browser-storage key for the given workspace and principal.
 
     Args:
         workspace_id: The workspace id.
         principal_id: The principal id of the user creating the draft.
 
     Returns:
-        A ``draft_`` prefixed hex string.
+        ``louke.new-project.v1:<workspace_id>:<principal_id>``.
     """
-    raw = f"{workspace_id}:{principal_id}"
-    return f"draft_{hashlib.sha256(raw.encode()).hexdigest()[:16]}"
+    return f"{_DRAFT_PREFIX}:{workspace_id}:{principal_id}"
 
 
 def create_draft(
     *,
     workspace_id: str,
     principal_id: str,
-    story_input: str = "",
+    story: str = "",
+    release_version: str = "",
+    resume_step: str = "input",
 ) -> dict[str, Any]:
-    """Create a new release request draft.
+    """Create a new release request draft payload.
 
     Args:
         workspace_id: The workspace id.
         principal_id: The principal id.
-        story_input: Optional story input text.
+        story: Story input text.
+        release_version: Release version string.
+        resume_step: ``input`` or ``preview``.
 
     Returns:
-        A draft dict with ``key``, ``workspace_id``, ``principal_id``,
-        and ``story_input``. Never includes credentials.
+        A draft dict with ``version``, ``story``, ``release_version``,
+        ``resume_step``, and ``saved_at``. Never includes credentials,
+        tokens, repository URLs, preview ids, or project identity.
     """
+    if resume_step not in ("input", "preview"):
+        resume_step = "input"
     return {
-        "key": draft_key(workspace_id=workspace_id, principal_id=principal_id),
-        "workspace_id": workspace_id,
-        "principal_id": principal_id,
-        "story_input": story_input,
+        "version": 1,
+        "story": story,
+        "release_version": release_version,
+        "resume_step": resume_step,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
     }

@@ -61,7 +61,7 @@ def test_draft_payload_matches_contract_shape() -> None:
     draft = create_draft(
         workspace_id="ws_1",
         principal_id="prin_alpha",
-        story_input="draft story text",
+        story="draft story text",
     )
     # Required contract keys.
     assert draft["version"] == 1
@@ -190,13 +190,19 @@ def test_project_identity_carries_canonical_chain_fields() -> None:
     """AC-FR1501-01: identity chain carries every locked field from interfaces §IF-IDENTITY-01."""
     # AC-FR1501-01
     identity = build_identity(
+        workspace_id="ws_1",
         project_id="prj_x",
-        release_identity="rel_1",
-        github_project_node_id="ghpn_1",
         request_id="req_1",
+        release_version="0.14",
+        github_project_node_id="ghpn_1",
+        github_project_url="https://github.com/zillionare/louke",
         run_id="run_1",
         spec_id="spec_1",
-        story_revision="latest",
+        story_path=".louke/project/specs/spec_1/story.md",
+        story_revision="r1",
+        story_digest="sha256:abc",
+        activity_state="active",
+        identity_revision=1,
     )
     # Top-level fields.
     for key in (

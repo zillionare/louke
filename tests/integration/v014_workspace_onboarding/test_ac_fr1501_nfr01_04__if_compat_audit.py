@@ -107,7 +107,7 @@ def test_audit_event_carries_locked_fields(audit_store) -> None:
         attempt_no=1,
         input_identities=("ws_1",),
         output_identity="chk_1",
-        state=EvidenceStatus.UNKNOWN.value,
+        state=EvidenceStatus.RUNNING.value,
     )
     assert isinstance(event, AuditEvent)
     assert event.run_id == "run_1"
@@ -115,21 +115,22 @@ def test_audit_event_carries_locked_fields(audit_store) -> None:
     assert event.actor == "prin_alpha"
     assert event.attempt_no == 1
     assert event.output_identity == "chk_1"
-    assert event.state == EvidenceStatus.UNKNOWN
+    assert event.state == EvidenceStatus.RUNNING
     assert event.event_id
     assert event.observed_at
 
 
 def test_audit_event_state_uses_evidence_status_enum() -> None:
-    """AC-NFR0101-01: ``EvidenceStatus`` exposes a closed status set."""
+    """AC-NFR0101-01: ``EvidenceStatus`` exposes the v0.14-004 contract vocabulary."""
     # AC-NFR0101-01
     values = {status.value for status in EvidenceStatus}
-    # The set must include both a passing and a non-passing status
-    # so the runtime can keep an honest ``uncertain``-class state
-    # until readback confirms.
-    assert "PASS" in values
-    assert "FAIL" in values
-    assert len(values) >= 3
+    # The v0.14-004 contract (interfaces §IF-AUDIT-01) requires the
+    # five canonical states. Legacy aliases map onto these.
+    assert "queued" in values
+    assert "running" in values
+    assert "passed" in values
+    assert "failed" in values
+    assert "uncertain" in values
 
 
 def test_audit_persists_event_to_store(audit_store) -> None:
@@ -143,7 +144,7 @@ def test_audit_persists_event_to_store(audit_store) -> None:
         attempt_no=2,
         input_identities=("minimax/m2",),
         output_identity="chk_2",
-        state=EvidenceStatus.PASS.value,
+        state=EvidenceStatus.PASSED.value,
     )
     # ``AuditStore.query`` is the documented read surface; using it
     # keeps the round-trip independent of any private repr.

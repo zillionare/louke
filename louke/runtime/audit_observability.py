@@ -16,13 +16,28 @@ from enum import Enum
 
 
 class EvidenceStatus(str, Enum):
-    """Stable evidence status values (AC-NFR0400-01)."""
+    """Stable evidence status values (AC-NFR0400-01, IF-AUDIT-01).
 
-    PASS = "PASS"
-    FAIL = "FAIL"
-    STALE = "STALE"
-    SKIP = "SKIP"
-    UNKNOWN = "UNKNOWN"
+    The v0.14-004 contract (interfaces §IF-AUDIT-01) requires the
+    audit envelope to use ``queued|running|passed|failed|uncertain``.
+    The legacy ``PASS``/``FAIL``/``STALE``/``SKIP``/``UNKNOWN``
+    values are retained as aliases so existing callers keep working
+    while downstream surfaces migrate to the canonical vocabulary.
+    """
+
+    # v0.14-004 canonical vocabulary (interfaces §IF-AUDIT-01).
+    QUEUED = "queued"
+    RUNNING = "running"
+    PASSED = "passed"
+    FAILED = "failed"
+    UNCERTAIN = "uncertain"
+
+    # Legacy aliases (v0.13.x) retained for backward compatibility.
+    PASS = "passed"
+    FAIL = "failed"
+    STALE = "uncertain"
+    SKIP = "failed"
+    UNKNOWN = "uncertain"
 
 
 @dataclass(frozen=True)

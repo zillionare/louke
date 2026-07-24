@@ -21,6 +21,9 @@ from louke.web.environment_gate import (
     STEP_GH_AUTH_SCOPES,
     STEP_GH_EXECUTABLE,
     STEP_REPOSITORY_BINDING,
+    repository_confirm,
+    repository_operation_read,
+    repository_preview,
     start_check,
 )
 
@@ -84,6 +87,95 @@ def test_environment_gate_booleans_start_disabled() -> None:
     assert check["story_input_enabled"] is False
     assert check["preview_enabled"] is False
     assert check["create_enabled"] is False
+
+
+# ---------------------------------------------------------------------------
+# IF-ENV-02: Repository binding preview / confirm / operation read
+# ---------------------------------------------------------------------------
+
+
+def test_repository_preview_accepts_clean_https() -> None:
+    """AC-FR0801-01: a clean HTTPS GitHub URL produces a binding preview."""
+    # AC-FR0801-01
+    body = repository_preview(
+        check_id="chk_x",
+        repository_url="https://github.com/zillionare/louke",
+        expected_revision=0,
+        workspace_id="ws_1",
+    )
+    assert body["binding_preview_id"] == "bpv_chk_x"
+    assert body["preview_revision"] == 1
+    assert body["repository"]["host"] == "github.com"
+    assert body["repository"]["owner"] == "zillionare"
+    assert body["repository"]["name"] == "louke"
+    assert body["repository"]["display_url"] == "https://github.com/zillionare/louke"
+    assert body["side_effects"] == []
+    assert ".louke/" in body["excluded_paths"]
+
+
+def test_repository_preview_accepts_ssh_url() -> None:
+    """AC-FR0801-01: SSH GitHub URLs are also accepted."""
+    # AC-FR0801-01
+    body = repository_preview(
+        check_id="chk_x",
+        repository_url="ssh://git@github.com/zillionare/louke.git",
+    )
+    assert body["repository"]["owner"] == "zillionare"
+    assert body["repository"]["name"] == "louke"
+
+
+def test_repository_preview_rejects_credential_url() -> None:
+    """AC-FR0801-01: credential-bearing URLs are rejected."""
+    # AC-FR0801-01
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        repository_preview(
+            check_id="chk_x",
+            repository_url="https://user:token@github.com/owner/repo.git",
+        )
+
+
+def test_repository_preview_rejects_non_github_url() -> None:
+    """AC-FR0801-01: non-GitHub URLs are rejected."""
+    # AC-FR0801-01
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        repository_preview(
+            check_id="chk_x",
+            repository_url="https://example.com/not-github",
+        )
+
+
+def test_repository_confirm_returns_operation_id() -> None:
+    """AC-FR0801-02: confirm returns an operation id and running state."""
+    # AC-FR0801-02
+    body = repository_confirm(
+        check_id="chk_x",
+        binding_preview_id="bpv_chk_x",
+        expected_preview_revision=1,
+        expected_check_revision=0,
+    )
+    assert body["operation_id"] == "op_bpv_chk_x"
+    assert body["state"] == "running"
+    assert body["check_revision"] == 1
+    assert body["recovery_url"].startswith("/api/projects/environment-checks/")
+
+
+def test_repository_operation_read_returns_shape() -> None:
+    """AC-FR0801-02: operation read returns the documented shape."""
+    # AC-FR0801-02
+    body = repository_operation_read(
+        check_id="chk_x",
+        operation_id="op_bpv_chk_x",
+    )
+    assert body["operation_id"] == "op_bpv_chk_x"
+    assert body["state"] == "running"
+    assert "local_git" in body
+    assert "remote_main" in body
+    assert "excluded_paths" in body
+    assert ".louke/" in body["excluded_paths"]
 
 
 # ---------------------------------------------------------------------------

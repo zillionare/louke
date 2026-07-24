@@ -13,18 +13,18 @@ from typing import Any
 
 CANONICAL_STAGES: tuple[str, ...] = (
     "M-START",
+    "M-STORY",
+    "M-SPEC",
+    "M-ACC",
+    "M-REQ-APPROVAL",
     "M-DESIGN",
     "M-IMPL",
     "M-TEST",
-    "M-E2E",
-    "M-SECURITY",
-    "M-REVIEW",
-    "M-FIX",
-    "M-MERGE",
-    "M-RELEASE",
-    "M-DEPLOY",
     "M-VERIFY",
-    "M-CLOSE",
+    "M-SECURITY",
+    "M-RELEASE",
+    "M-PUBLISH",
+    "M-MILESTONE",
 )
 
 assert len(CANONICAL_STAGES) == 13
