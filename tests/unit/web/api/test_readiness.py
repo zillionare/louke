@@ -94,3 +94,64 @@ def test_readiness_each_item_has_stable_fields(client: TestClient) -> None:
         assert item["status"] in ("READY", "DEGRADED", "BLOCKED")
         assert isinstance(item["diagnosis"], str)
         assert isinstance(item["remediation"], str)
+
+
+def test_readiness_namespace_capability_is_blocked_when_gh_missing(
+    client: TestClient,
+) -> None:
+    """AC-FR0501-01: namespace_capability is blocked when gh CLI is not installed."""
+    with patch.object(readiness.shutil, "which", return_value=None):
+        resp = client.get("/")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ns = next(item for item in items if item["name"] == "namespace_capability")
+    assert ns["status"] == "BLOCKED"
+    assert "gh" in ns["diagnosis"].lower() or "github" in ns["diagnosis"].lower()
+    assert "install" in ns["remediation"].lower()
+
+
+def test_readiness_namespace_capability_is_blocked_when_gh_not_authenticated(
+    client: TestClient,
+) -> None:
+    """AC-FR0501-01: gh installed but not authenticated is a blocker."""
+
+    def run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        if args[-1] == "--version":
+            return subprocess.CompletedProcess(args, 0, "gh version 2.0.0\n", "")
+        if args[-2:] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 1, "", "not logged in")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with (
+        patch.object(readiness.shutil, "which", return_value="/usr/bin/gh"),
+        patch.object(readiness, "_run_command", side_effect=run),
+    ):
+        resp = client.get("/")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ns = next(item for item in items if item["name"] == "namespace_capability")
+    assert ns["status"] == "BLOCKED"
+    assert "auth" in ns["diagnosis"].lower()
+
+
+def test_readiness_namespace_capability_ready_when_gh_authenticated(
+    client: TestClient,
+) -> None:
+    """AC-FR0501-01: gh installed and authenticated is ready."""
+
+    def run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        if args[-1] == "--version":
+            return subprocess.CompletedProcess(args, 0, "gh version 2.0.0\n", "")
+        if args[-2:] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 0, "logged in", "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with (
+        patch.object(readiness.shutil, "which", return_value="/usr/bin/gh"),
+        patch.object(readiness, "_run_command", side_effect=run),
+    ):
+        resp = client.get("/")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ns = next(item for item in items if item["name"] == "namespace_capability")
+    assert ns["status"] == "READY"

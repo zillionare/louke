@@ -60,9 +60,12 @@ def _build_report(workspace_root: Path) -> ReadinessReport:
 
     Checks the workspace and its installed OpenCode CLI rather than reporting
     placeholder states. Provider credentials stay local: only their count is
-    inspected and no credential values are returned.
+    inspected and no credential values are returned. ``gh`` is verified as
+    the Backlog/release-project namespace capability (interfaces.md IF-04
+    dependency list).
     """
     opencode_bin = shutil.which("opencode")
+    gh_bin = shutil.which("gh")
     return ReadinessReport(
         items=(
             _git_check(workspace_root),
@@ -70,6 +73,7 @@ def _build_report(workspace_root: Path) -> ReadinessReport:
             _catalog_check(workspace_root),
             _opencode_check(opencode_bin),
             _models_check(opencode_bin, workspace_root),
+            _namespace_capability_check(gh_bin),
         )
     )
 
@@ -174,6 +178,46 @@ def _models_check(opencode_bin: str | None, workspace_root: Path) -> ReadinessCh
         "Models",
         ReadinessStatus.READY,
         f"OpenCode model catalog available; {credential_count} provider configuration(s)",
+        "none",
+    )
+
+
+def _namespace_capability_check(gh_bin: str | None) -> ReadinessCheck:
+    """Report whether the Backlog/release-project namespace capability is available.
+
+    Per spec FR-0501-01 the wizard must verify ``Backlog/release-project
+    namespace or creation capability``. The conventional local surface for
+    this capability is the GitHub CLI (``gh``); if it is missing, the
+    user cannot create or mutate the Backlog Project, release projects, or
+    release issues until they install it.
+    """
+    if gh_bin is None:
+        return ReadinessCheck(
+            "namespace_capability",
+            ReadinessStatus.BLOCKED,
+            "gh CLI is not installed on PATH",
+            "Install the GitHub CLI (brew install gh) and authenticate with `gh auth login`",
+        )
+    version = _run_command([gh_bin, "--version"])
+    if version.returncode != 0:
+        return ReadinessCheck(
+            "namespace_capability",
+            ReadinessStatus.BLOCKED,
+            "gh CLI is installed but not executable",
+            f"Verify that {gh_bin} runs `gh --version` without error",
+        )
+    auth = _run_command([gh_bin, "auth", "status"])
+    if auth.returncode != 0:
+        return ReadinessCheck(
+            "namespace_capability",
+            ReadinessStatus.BLOCKED,
+            "gh CLI is not authenticated against a GitHub host",
+            "Run `gh auth login` and verify `gh auth status` succeeds",
+        )
+    return ReadinessCheck(
+        "namespace_capability",
+        ReadinessStatus.READY,
+        f"gh CLI available: {gh_bin}",
         "none",
     )
 
