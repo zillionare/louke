@@ -634,7 +634,9 @@ async def create_first_user(request: Request) -> Response:
 
     On success, advances the wizard to the repository step.
     """
-    name, credential = _parse_form(await request.body())
+    form = _parse_form(await request.body())
+    name = form.get("name", "")
+    credential = form.get("credential", "")
     api_base = _api_base(request)
     try:
         await _post_first_user(api_base, name=name, credential=credential)
