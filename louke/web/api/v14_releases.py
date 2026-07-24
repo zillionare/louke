@@ -7,7 +7,8 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from louke.web.auth import SESSION_COOKIE, current_user, same_origin, verify_csrf_token
+from louke.web.auth import SESSION_COOKIE, current_user, same_origin
+from louke.web.csrf_middleware import verify_token as verify_csrf_token
 from louke.runtime.release_entry import (
     ReleaseEntryService,
     ReleaseRequestConflictError,
@@ -129,9 +130,8 @@ def _require_human(request: Request, *, csrf_required: bool):
             status_code=403,
         )
     if csrf_required and not verify_csrf_token(
-        store,
-        session,
-        request.headers.get("x-louke-csrf"),
+        token=request.headers.get("x-louke-csrf", ""),
+        session_id=session,
     ):
         return JSONResponse(
             _error("CSRF_INVALID", "valid session-bound CSRF token required"),

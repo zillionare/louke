@@ -33,11 +33,22 @@ from louke.runtime.audit_observability import (
 
 @pytest.mark.real_module
 def test_evidence_status_has_five_distinct_values():
-    """AC-NFR0400-01: PASS/FAIL/STALE/SKIP/UNKNOWN are semantically distinct."""
-    expected = {"PASS", "FAIL", "STALE", "SKIP", "UNKNOWN"}
+    """AC-NFR0400-01: PASS/FAIL/STALE/SKIP/UNKNOWN are semantically distinct.
+
+    v0.14-004 (IF-AUDIT-01) extends the enum with lowercase canonical
+    names (``queued``, ``running``, ``passed``, ``failed``,
+    ``uncertain``) so the v0.14-004 audit envelope can carry the
+    contract vocabulary. Both vocabularies are valid; legacy
+    v0.14-003 callers continue to use the uppercase spelling.
+    """
+    expected_v14_003 = {"PASS", "FAIL", "STALE", "SKIP", "UNKNOWN"}
+    expected_v14_004 = {"queued", "running", "passed", "failed", "uncertain"}
     actual = {s.value for s in EvidenceStatus}
-    assert actual == expected
-    assert len(actual) == 5  # no duplicates
+    # Both vocabularies must be present in the enum.
+    assert expected_v14_003 <= actual
+    assert expected_v14_004 <= actual
+    # The union is exactly the two vocabularies.
+    assert actual == expected_v14_003 | expected_v14_004
 
 
 # ---------------------------------------------------------------------------

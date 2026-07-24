@@ -131,10 +131,38 @@ def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClien
     ``client.portal.call`` for orchestration steps that have no HTTP endpoint.
     """
     from louke.web.app import create_app
+    from louke.web.setup_state import (
+        SetupManifest,
+        SetupStatus,
+        write_manifest,
+    )
 
     _write_project_toml(tmp_path)
     monkeypatch.setenv("LOUKE_E2E_STATE", str(tmp_path / ".louke" / "server"))
     _reset_subapp_state()
+    # Write a v2 complete Setup manifest so the gate does not block
+    # any non-allowlist endpoint the lifecycle tests exercise.
+    manifest = (
+        SetupManifest(
+            workspace_id="ws_test",
+            revision=0,
+            status=SetupStatus.PENDING_USER,
+        )
+        .advance_to_pending_model(
+            first_principal_id="prin_test",
+            expected_revision=0,
+        )
+        .complete(
+            model_check_state="passed",
+            model_check_id="chk_test",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=1,
+        )
+    )
+    write_manifest(tmp_path, manifest)
     app = create_app(tmp_path)
     with TestClient(app) as c:
         _inject_shared_store(c)

@@ -94,6 +94,33 @@ print("hello")
         + "\n",
         encoding="utf-8",
     )
+
+    # Write a v2 Setup manifest so the SetupGateMiddleware (v0.14-004)
+    # does not block the running app for tests that pre-date the gate.
+    from louke.web.setup_state import SetupManifest, SetupStatus, write_manifest
+
+    manifest = (
+        SetupManifest(
+            workspace_id="ws_test",
+            revision=0,
+            status=SetupStatus.PENDING_USER,
+        )
+        .advance_to_pending_model(
+            first_principal_id="prin_test",
+            expected_revision=0,
+        )
+        .complete(
+            model_check_state="passed",
+            model_check_id="chk_test",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=1,
+        )
+    )
+    write_manifest(root, manifest)
+
     return root
 
 
@@ -124,11 +151,14 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     asset = client.get("/assets/min-square_97-snk-X32c8tE-unsplash.jpg")
     assert asset.status_code == 200
     guest = client.get("/", follow_redirects=False)
-    # v0.14 workspace surfaces the workbench chrome to anonymous visitors;
-    # ?legacy=1 still requires login (it falls through to home_page which
-    # is gated).
-    assert guest.status_code == 200
-    assert 'data-louke-region="toolbar"' in guest.text
+    # v0.14: Setup-complete workspace redirects anonymous visitors to
+    # ``/workbench?activity=projects``; following the redirect lands on
+    # the workbench chrome.
+    assert guest.status_code == 303
+    assert guest.headers["location"].startswith("/workbench?activity=projects")
+    guest_chrome = client.get("/")
+    assert guest_chrome.status_code == 200
+    assert 'data-louke-region="toolbar"' in guest_chrome.text
     legacy_guest = client.get("/?legacy=1", follow_redirects=False)
     assert legacy_guest.status_code == 303
     assert legacy_guest.headers["location"].startswith("/login")
@@ -177,21 +207,46 @@ def test_health_and_home_page(tmp_path: Path) -> None:
 
 def test_setup_only_root_exits_setup_after_first_user(tmp_path: Path) -> None:
     """A first user created after startup can reach the login landing page."""
-    root = build_project(tmp_path)
+    root = tmp_path
+    (root / ".louke" / "project" / "specs" / "demo").mkdir(parents=True)
+    (root / ".louke" / "wiki" / "pages").mkdir(parents=True)
+    (root / ".louke" / "wiki" / "pages" / "guides").mkdir(parents=True)
+    (root / ".louke" / "project" / "project.toml").write_text(
+        """
+[project]
+version = "0.8"
+spec_id = "demo"
+release_branch = "releases/v0.8"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
     client = TestClient(create_app(root, setup_only=True))
 
     setup = client.get("/", follow_redirects=False)
     assert setup.status_code == 303
     assert setup.headers["location"] == "/setup"
 
+    # Fetch a CSRF token from the v2 status endpoint, then use it
+    # when posting the first user.
+    status_resp = client.get("/api/setup/status")
+    assert status_resp.status_code == 200
+    csrf_token = status_resp.json()["csrf_token"]
+
     created = client.post(
-        "/api/setup/first-user", json={"name": "Alice", "credential": "secret"}
+        "/api/setup/first-user",
+        json={"name": "Alice", "credential": "secret"},
+        headers={"X-Louke-CSRF": csrf_token},
     )
     assert created.status_code == 201
 
+    # After first-user creation, the manifest advances to
+    # ``pending_model``. The gate still blocks ``/`` because Setup
+    # is not yet complete; the user is sent back to ``/setup`` to
+    # finish the model-probe step.
     home = client.get("/", follow_redirects=False)
-    assert home.status_code == 200
-    assert 'data-louke-region="toolbar"' in home.text
+    assert home.status_code == 303
+    assert home.headers["location"] == "/setup"
 
 
 def test_register_login_logout_flow(tmp_path: Path) -> None:

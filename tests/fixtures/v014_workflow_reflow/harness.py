@@ -594,6 +594,39 @@ def build_isolated_workspace(
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
+    # v0.14-004: write a v2 complete Setup manifest so the Setup
+    # gate (added in v0.14-004) does not block the v0.14-001
+    # entry-slice endpoints under test. The v0.14-001 flow itself
+    # does not include Setup; the manifest here represents a
+    # workspace that has already completed Setup.
+    from louke.web.setup_state import (
+        SetupManifest,
+        SetupStatus,
+        write_manifest,
+    )
+
+    manifest = (
+        SetupManifest(
+            workspace_id="ws_entry_slice",
+            revision=0,
+            status=SetupStatus.PENDING_USER,
+        )
+        .advance_to_pending_model(
+            first_principal_id="prin_entry_slice",
+            expected_revision=0,
+        )
+        .complete(
+            model_check_state="passed",
+            model_check_id="chk_entry_slice",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=1,
+        )
+    )
+    write_manifest(root, manifest)
+
     if include_story:
         story_template_path = REPO_ROOT / "louke" / "templates" / "story.md"
         story_template_body = story_template_path.read_text(encoding="utf-8")

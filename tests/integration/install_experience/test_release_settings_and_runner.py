@@ -18,11 +18,40 @@ ROOT = Path(__file__).parents[3]
 
 def _workspace(tmp_path: Path) -> Path:
     project = tmp_path / ".louke" / "project"
-    project.mkdir(parents=True)
+    project.mkdir(parents=True, exist_ok=True)
     (project / "project.toml").write_text(
         '[project]\nversion="0.13.1"\nspec_id="fixture"\n[meta]\ncurrent_stage="M-E2E"\n',
         encoding="utf-8",
     )
+    # v2 complete Setup manifest so the gate does not block
+    # the endpoints under test.
+    from louke.web.setup_state import (
+        SetupManifest,
+        SetupStatus,
+        write_manifest,
+    )
+
+    manifest = (
+        SetupManifest(
+            workspace_id="ws_test",
+            revision=0,
+            status=SetupStatus.PENDING_USER,
+        )
+        .advance_to_pending_model(
+            first_principal_id="prin_test",
+            expected_revision=0,
+        )
+        .complete(
+            model_check_state="passed",
+            model_check_id="chk_test",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=1,
+        )
+    )
+    write_manifest(tmp_path, manifest)
     return tmp_path
 
 

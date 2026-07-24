@@ -44,6 +44,7 @@ from .documents import (
 )
 from .events import EventBroker
 from .store import ConflictError, ProjectStore, ValidationError
+from .setup_gate import SetupGateMiddleware
 
 from .api.projects import create_app as _create_projects_app
 from .api.runtime import create_app as _create_runtime_app
@@ -331,6 +332,8 @@ def create_app(
     app.state.v14_allowed_origin = allowed_origin or os.environ.get(
         "LOUKE_ALLOWED_ORIGIN", ""
     )
+    app.state.workspace_root = Path(project_root).resolve()
+    app.add_middleware(SetupGateMiddleware, workspace_root=Path(project_root).resolve())
     from louke.runtime.foundation_adapter import ShellFoundationAdapter
     from louke.runtime.release_entry import ReleaseEntryService
     from louke.runtime.scribe_entry import ScribeEntryService
@@ -415,46 +418,63 @@ async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
 
 
 async def setup_home_redirect(request: Request) -> Response:
-    """GET /: show setup, the v0.13 workbench, or the legacy home page.
+    """GET /: redirect to Setup, active Project, or Projects activity.
 
-    v0.13 makes the workbench chrome the product entry point. Older project
-    workspaces retain the previous home page so their compatibility surface is
-    not silently changed. v0.14 defaults to the workbench chrome regardless of
-    the project version; ``?legacy=1`` opts back into the v0.12 home page
-    while the legacy surface is being cleaned up.
+    v0.14-004: uses the v2 Setup manifest and ``entry_resolver`` to
+    pick the canonical destination. When Setup is incomplete, the
+    user is redirected to ``/setup``. When Setup is complete, the
+    user lands on the active Project Status (if one exists) or the
+    Projects activity (empty).
+
+    The legacy ``?legacy=1`` query parameter is retained for
+    backward compatibility with older workspaces that have a v2
+    ``complete`` manifest but still want the v0.12 home page.
 
     Args:
         request: The incoming Starlette request.
 
     Returns:
-        A setup redirect, the workbench HTML, or the legacy home HTML.
+        A 303 redirect to ``/setup``, an active Project URL, or
+        ``/workbench?activity=projects``.
     """
-    if getattr(request.app.state, "setup_only", False):
-        store: ProjectStore = request.app.state.store
-        if not store.list_users():
-            return RedirectResponse(url="/setup", status_code=303)
-    # v0.14-004: the Setup Wizard also redirects users to the wizard when
-    # the persisted state shows the Setup journey is incomplete.  Without
-    # this check a user who landed in /setup/identity/ but did not finish
-    # would jump straight into the Workbench and lose context.
+    from .entry_resolver import EntryFacts, resolve_entry
+    from .setup_state import try_read_manifest
+
+    workspace_root = Path(getattr(request.app.state, "workspace_root", ".")).resolve()
+    manifest = try_read_manifest(workspace_root)
+    setup_complete = manifest is not None and manifest.is_complete
+
+    if not setup_complete:
+        return RedirectResponse(url="/setup", status_code=303)
+
+    # Setup is complete -- resolve the active project URL.
+    active_project_url: str | None = None
     store = getattr(request.app.state, "store", None)
-    if store is not None and store.list_users():
+    if store is not None:
         try:
-            wizard_state = store.read_setup_state() or {}
+            project_info = store.project_info().get("project", {})
+            project_id = project_info.get("project_id") or project_info.get("project")
+            if project_id:
+                active_project_url = (
+                    f"/workbench?activity=projects&project={project_id}"
+                )
         except Exception:
-            wizard_state = {}
-        current_step = str(wizard_state.get("current_step") or "identity")
-        completed = wizard_state.get("completed_steps") or []
-        if current_step != "complete" and (
-            len(completed) < 5
-            or "applying" not in completed
-            or "review" not in completed
-        ):
-            target = current_step if current_step != "complete" else "identity"
-            return RedirectResponse(url=f"/setup/{target}/", status_code=303)
-    if request.query_params.get("legacy") == "1":
+            pass
+
+    facts = EntryFacts(
+        setup_complete=True,
+        active_project_url=active_project_url,
+    )
+    resolution = resolve_entry(facts)
+
+    if request.query_params.get("legacy") == "1" and resolution.destination != "setup":
         return await home_page(request)
-    return await workbench(request)
+
+    if resolution.destination == "active_project":
+        return RedirectResponse(url=resolution.url, status_code=303)
+    if resolution.destination == "projects":
+        return RedirectResponse(url=resolution.url, status_code=303)
+    return RedirectResponse(url=resolution.url, status_code=303)
 
 
 async def home_page(request: Request) -> HTMLResponse:

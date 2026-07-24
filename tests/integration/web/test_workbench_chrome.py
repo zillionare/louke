@@ -26,16 +26,49 @@ class _ButtonParser(HTMLParser):
             self.buttons.append(attributes)
 
 
-def _workbench_html() -> str:
-    response = TestClient(create_app()).get("/workbench")
+def _workbench_html(tmp_path) -> str:
+    from louke.web.setup_state import (
+        SetupManifest,
+        SetupStatus,
+        write_manifest,
+    )
+
+    project_dir = tmp_path / ".louke" / "project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "project.toml").write_text(
+        '[project]\nversion = "0.8"\nspec_id = "demo"\n',
+        encoding="utf-8",
+    )
+    manifest = (
+        SetupManifest(
+            workspace_id="ws_test",
+            revision=0,
+            status=SetupStatus.PENDING_USER,
+        )
+        .advance_to_pending_model(
+            first_principal_id="prin_test",
+            expected_revision=0,
+        )
+        .complete(
+            model_check_state="passed",
+            model_check_id="chk_test",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=1,
+        )
+    )
+    write_manifest(tmp_path, manifest)
+    response = TestClient(create_app(tmp_path)).get("/workbench")
     assert response.status_code == 200
     return response.text
 
 
-def test_toolbar_item_order() -> None:
+def test_toolbar_item_order(tmp_path) -> None:
     """AC-FR1302-01, AC-FR1302-02: toolbar buttons use the contract order."""
     parser = _ButtonParser()
-    parser.feed(_workbench_html())
+    parser.feed(_workbench_html(tmp_path))
     assert [button["aria-label"] for button in parser.buttons] == [
         "Chat",
         "Dev Docs",
@@ -47,10 +80,10 @@ def test_toolbar_item_order() -> None:
     ]
 
 
-def test_toolbar_tooltip() -> None:
+def test_toolbar_tooltip(tmp_path) -> None:
     """AC-FR1301-02: every toolbar button exposes its readable title."""
     parser = _ButtonParser()
-    parser.feed(_workbench_html())
+    parser.feed(_workbench_html(tmp_path))
     assert [button["title"] for button in parser.buttons] == [
         "Chat",
         "Dev Docs",
@@ -62,9 +95,9 @@ def test_toolbar_tooltip() -> None:
     ]
 
 
-def test_tab_can_coexist() -> None:
+def test_tab_can_coexist(tmp_path) -> None:
     """AC-FR1301-03/05: client contract preserves existing tabs on activation."""
-    html = _workbench_html()
+    html = _workbench_html(tmp_path)
     assert 'data-tab-key="dev-docs"' in html
     assert 'data-tab-key="runs"' in html
     assert "openTab(activity)" in html
@@ -72,19 +105,19 @@ def test_tab_can_coexist() -> None:
     assert "tabs.has(tabKey)" in html
 
 
-def test_sidebar_switches_with_toolbar() -> None:
+def test_sidebar_switches_with_toolbar(tmp_path) -> None:
     """AC-FR1301-03: toolbar activation changes the sidebar kind and tree."""
-    html = _workbench_html()
+    html = _workbench_html(tmp_path)
     assert 'data-sidebar-kind="chat"' in html
     assert 'data-sidebar-kind="wiki"' in html
     assert 'data-sidebar-kind="dev-docs"' in html
     assert "renderSidebar(activity)" in html
 
 
-def test_data_testid_present() -> None:
+def test_data_testid_present(tmp_path) -> None:
     """AC-FR1301-01: all three workbench landmarks have stable test IDs."""
     parser = _ButtonParser()
-    parser.feed(_workbench_html())
+    parser.feed(_workbench_html(tmp_path))
     assert parser.markers == {
         "workbench-toolbar",
         "workbench-sidebar",
@@ -92,10 +125,10 @@ def test_data_testid_present() -> None:
     }
 
 
-def test_settings_shows_current_runtime_identity(monkeypatch) -> None:
+def test_settings_shows_current_runtime_identity(monkeypatch, tmp_path) -> None:
     """AC-FR1512-01@v0.13.1: Settings exposes the active version and mode."""
     monkeypatch.setenv("LOUKE_RUNTIME_MODE", "global")
-    html = _workbench_html()
+    html = _workbench_html(tmp_path)
     assert 'data-testid="settings-runtime-identity"' in html
     assert "(global)" in html
     assert 'data-testid="settings-project-root"' in html
@@ -121,8 +154,12 @@ def _authenticated_root_html(tmp_path) -> tuple[str, str]:
 
     client = TestClient(create_app(root))
     authenticate(client)
-    home = client.get("/", follow_redirects=False)
-    legacy = client.get("/?legacy=1", follow_redirects=False)
+    # v0.14: ``/`` 303s to the workbench activity; follow the
+    # redirect so the workbench chrome is rendered. The legacy
+    # surface still requires an explicit ``?legacy=1`` query and
+    # is gated behind authentication.
+    home = client.get("/", follow_redirects=True)
+    legacy = client.get("/?legacy=1", follow_redirects=True)
     return home.text, legacy.text
 
 
@@ -156,10 +193,14 @@ def test_legacy_query_param_keeps_v012_shell(tmp_path) -> None:
     assert 'data-louke-region="toolbar"' not in legacy
 
 
-def test_settings_runtime_read_model_is_public(monkeypatch) -> None:
+def test_settings_runtime_read_model_is_public(monkeypatch, tmp_path) -> None:
     """AC-FR1512-01@v0.13.1: the runtime read model is JSON and uncached."""
+    from tests.test_web_server import build_project
+
     monkeypatch.setenv("LOUKE_RUNTIME_MODE", "global")
-    response = TestClient(create_app()).get("/api/ui/settings/runtime")
+    response = TestClient(create_app(build_project(tmp_path))).get(
+        "/api/ui/settings/runtime"
+    )
 
     assert response.status_code == 200
     payload = response.json()

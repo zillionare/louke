@@ -11,7 +11,7 @@ from louke.web.app import create_app
 
 def _client(tmp_path: Path) -> TestClient:
     project = tmp_path / ".louke" / "project"
-    project.mkdir(parents=True)
+    project.mkdir(parents=True, exist_ok=True)
     (project / "project.toml").write_text(
         "[project]\nspec_id='fixture'\n", encoding="utf-8"
     )
@@ -28,7 +28,7 @@ def _create_run(client: TestClient) -> dict[str, object]:
     return response.json()
 
 
-def test_runs_sidebar_lists_projects(tmp_path: Path) -> None:
+def test_runs_sidebar_lists_projects(tmp_path: Path, setup_complete: Path) -> None:
     """AC-FR1313-01: Runtime-created projects appear in the Runs projection."""
     client = _client(tmp_path)
     run = _create_run(client)
@@ -40,7 +40,7 @@ def test_runs_sidebar_lists_projects(tmp_path: Path) -> None:
     assert "/api/runtime/runs" in response.text
 
 
-def test_runs_workflow_graph_renders(tmp_path: Path) -> None:
+def test_runs_workflow_graph_renders(tmp_path: Path, setup_complete: Path) -> None:
     """AC-FR1313-02/04: graph nodes are derived from the bound Runtime definition."""
     client = _client(tmp_path)
     run = _create_run(client)
@@ -60,7 +60,9 @@ def test_runs_workflow_graph_renders(tmp_path: Path) -> None:
     assert "/api/ui/runs/" in html
 
 
-def test_stage_node_click_opens_artifact_detail(tmp_path: Path) -> None:
+def test_stage_node_click_opens_artifact_detail(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """AC-FR1315-01/02/03: Runtime stage detail is read-only and explicit."""
     client = _client(tmp_path)
     run = _create_run(client)
@@ -74,7 +76,7 @@ def test_stage_node_click_opens_artifact_detail(tmp_path: Path) -> None:
     assert "Save" not in client.get("/workbench").text
 
 
-def test_stage_unknown_kind_fallback(tmp_path: Path) -> None:
+def test_stage_unknown_kind_fallback(tmp_path: Path, setup_complete: Path) -> None:
     """AC-FR1316-01/03/04: unknown Runtime statuses are explicit fallbacks."""
     client = _client(tmp_path)
     run = _create_run(client)

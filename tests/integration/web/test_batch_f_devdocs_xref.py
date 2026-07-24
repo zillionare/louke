@@ -11,7 +11,7 @@ from louke.web.app import create_app
 
 def _client(tmp_path: Path) -> TestClient:
     specs = tmp_path / ".louke" / "project" / "specs" / "v0.13-001"
-    specs.mkdir(parents=True)
+    specs.mkdir(parents=True, exist_ok=True)
     (specs.parents[1] / "project.toml").write_text("[project]\n", encoding="utf-8")
     (specs / "spec.md").write_text(
         '# Foundation\n\nSee FR-1301.\n\n<a id="fr-1301"></a>\n### FR-1301 Main chrome\n',
@@ -24,7 +24,7 @@ def _client(tmp_path: Path) -> TestClient:
     return TestClient(create_app(tmp_path))
 
 
-def test_devdocs_render_markdown(tmp_path: Path) -> None:
+def test_devdocs_render_markdown(tmp_path: Path, setup_complete: Path) -> None:
     """AC-FR1309-01/04: a selected document has rendered preview and source, without Save."""
     html = _client(tmp_path).get("/workbench").text
 
@@ -34,7 +34,7 @@ def test_devdocs_render_markdown(tmp_path: Path) -> None:
     assert 'data-testid="devdocs-save"' not in html
 
 
-def test_devdocs_cross_ref_fr_to_anchor(tmp_path: Path) -> None:
+def test_devdocs_cross_ref_fr_to_anchor(tmp_path: Path, setup_complete: Path) -> None:
     """AC-FR1309-03: an in-document FR reference is rendered as an anchor link."""
     html = _client(tmp_path).get("/workbench").text
 
@@ -42,7 +42,9 @@ def test_devdocs_cross_ref_fr_to_anchor(tmp_path: Path) -> None:
     assert 'href="#fr-1301"' in html
 
 
-def test_devdocs_cross_ref_to_sibling_spec(tmp_path: Path) -> None:
+def test_devdocs_cross_ref_to_sibling_spec(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """AC-FR1309-03: unresolved same-document refs link to the sibling acceptance document."""
     client = _client(tmp_path)
     specs = tmp_path / ".louke" / "project" / "specs" / "v0.13-001"

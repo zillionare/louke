@@ -74,15 +74,31 @@ def test_preview_rejects_empty_or_invalid_inputs_without_side_effects(
 
 
 def test_preview_preserves_host_legal_prerelease_and_build_metadata() -> None:
-    """AC-FR0300-01: IF-WEB-03 versions are not narrowed to PEP 440."""
-    preview = preview_release_request(
-        workspace_id="ws_1",
-        story="Ship the reflow",
-        release_version="v2026-preview+linux",
-        active_main_release_present=False,
-    )
+    """AC-FR0300-01: v0.14-004 canonicalises to 3-segment PEP440, dropping local labels.
 
-    assert preview.release_version == "v2026-preview+linux"
+    The v0.13.x suite did not narrow the release_version to PEP440;
+    v0.14-004 (interfaces §IF-PREVIEW-01) requires the canonical
+    3-segment form and rejects local/dirty markers. This test
+    exercises the v0.14-004 behaviour.
+    """
+    import pytest
+    from louke.runtime.release_request import PreviewError
+
+    raw = "v2026-preview+linux"
+    # ``+linux`` is parsed as a local version label by PEP440; the
+    # v0.14-004 contract rejects it as a local marker. The preview
+    # therefore surfaces a ``RELEASE_VERSION_INVALID`` error rather
+    # than the v0.13.x behaviour of preserving the input as-is.
+
+    with pytest.raises(PreviewError) as exc_info:
+        preview_release_request(
+            workspace_id="ws_1",
+            story="Ship the reflow",
+            release_version=raw,
+            active_main_release_present=False,
+        )
+    assert exc_info.value.field == "release_version"
+    assert exc_info.value.code == "RELEASE_VERSION_INVALID"
 
 
 def test_preview_with_no_active_main_release_has_zero_side_effects() -> None:

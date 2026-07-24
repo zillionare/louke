@@ -21,8 +21,13 @@ class EvidenceStatus(str, Enum):
     The v0.14-004 contract (interfaces §IF-AUDIT-01) requires the
     audit envelope to use ``queued|running|passed|failed|uncertain``.
     The legacy ``PASS``/``FAIL``/``STALE``/``SKIP``/``UNKNOWN``
-    values are retained as aliases so existing callers keep working
-    while downstream surfaces migrate to the canonical vocabulary.
+    values are also valid as direct enum members so persisted
+    v0.13.x audit rows keep loading. Each legacy name carries the
+    *uppercase* string value (matching the v0.13.x persisted
+    schema); the v0.14 canonical members carry the *lowercase*
+    value. Comparisons across the two vocabularies are still
+    meaningful because the persisted store normalises to one side
+    on read (see :class:`AuditStore`).
     """
 
     # v0.14-004 canonical vocabulary (interfaces §IF-AUDIT-01).
@@ -32,12 +37,14 @@ class EvidenceStatus(str, Enum):
     FAILED = "failed"
     UNCERTAIN = "uncertain"
 
-    # Legacy aliases (v0.13.x) retained for backward compatibility.
-    PASS = "passed"
-    FAIL = "failed"
-    STALE = "uncertain"
-    SKIP = "failed"
-    UNKNOWN = "uncertain"
+    # Legacy v0.13.x names — kept so persisted rows that used the
+    # uppercase vocabulary keep loading. The string value is
+    # uppercase to match the v0.13.x contract.
+    PASS = "PASS"
+    FAIL = "FAIL"
+    STALE = "STALE"
+    SKIP = "SKIP"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True)

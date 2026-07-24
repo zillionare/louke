@@ -17,8 +17,8 @@ from louke.web.auth import (
     csrf_token_for_session,
     current_user,
     same_origin,
-    verify_csrf_token,
 )
+from louke.web.csrf_middleware import verify_token as verify_csrf_token
 
 
 async def story_page(request: Request) -> HTMLResponse | JSONResponse:
@@ -317,7 +317,8 @@ def _require_human(request: Request, *, csrf_required: bool):
             403,
         )
     if csrf_required and not verify_csrf_token(
-        request.app.state.store, session, request.headers.get("x-louke-csrf")
+        token=request.headers.get("x-louke-csrf", ""),
+        session_id=session,
     ):
         return _error("CSRF_INVALID", "valid session-bound CSRF token required", 403)
     return user

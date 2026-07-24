@@ -1,20 +1,16 @@
 """``/api/setup`` Starlette sub-app: first-user setup endpoints.
 
 Exposes the first-principal flow as a JSON HTTP API. The first user is written
-to the workspace user store so setup state survives a server restart. The
-Setup Wizard state is also persisted here so the user-visible step
-indicator (current step, completed steps, blocking items) survives reloads.
+to the workspace user store so setup state survives a server restart. The v2
+Setup manifest (``.louke/web-setup-state.json``) is the single source of truth
+for Setup status; the legacy wizard-state endpoints remain for backward
+compatibility.
 
 Endpoints:
-    GET  /status       - return initialized flag and first principal id.
+    GET  /status       - return the v2 Setup manifest projection.
     POST /first-user   - create the first local human principal.
-    GET  /state        - return the persisted Setup Wizard state.
-    POST /state        - overwrite the persisted Setup Wizard state.
-
-Error envelope (shared across v0.12 sub-apps)::
-
-    HTTPException(status_code=4xx/5xx,
-                   detail={"error_code": "...", "message": "..."})
+    GET  /state        - return the persisted Setup Wizard state (legacy).
+    POST /state        - overwrite the persisted Setup Wizard state (legacy).
 """
 
 from __future__ import annotations
@@ -29,6 +25,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from louke.web.csrf_middleware import issue_for_session, verify_token
+from louke.web.setup_projection import read as read_projection
+from louke.web.setup_state import SetupStatus, try_read_manifest
 from louke.web.store import ProjectStore, ValidationError
 
 from ._common import install_error_handlers, json_body, require_str
@@ -61,50 +60,122 @@ def _store(request: Request) -> ProjectStore:
     return ProjectStore(request.app.state.workspace_root)
 
 
+def _workspace_root(request: Request) -> Path:
+    """Return the workspace root path from the app state."""
+    return Path(request.app.state.workspace_root)
+
+
 def _principal_id(name: str) -> str:
     """Return a stable local principal id derived from the username."""
     return f"prin_{hashlib.sha256(name.encode()).hexdigest()[:12]}"
 
 
+def _session_id(request: Request) -> str:
+    """Extract a stable session identifier from the request.
+
+    Uses the session cookie value if present, otherwise falls back
+    to the request's remote address+port combination so pre-auth
+    sessions still get a stable id for CSRF token issuance.
+    """
+    from louke.web.auth import SESSION_COOKIE
+
+    cookie = request.cookies.get(SESSION_COOKIE, "")
+    if cookie:
+        return cookie
+    client = request.client
+    if client is not None:
+        return f"preauth:{client.host}:{client.port}"
+    return "preauth:anonymous"
+
+
 async def get_status(request: Request) -> JSONResponse:
-    """AC-FR1801-03: return the workspace setup status.
+    """AC-FR0301-01: return the v2 Setup manifest projection.
 
     Returns:
-        ``200`` with ``{"initialized": bool, "first_principal_id": str | None}``.
+        ``200`` with the v2 manifest shape per interfaces §IF-SETUP-01:
+        ``{workspace_id, revision, status, first_user, model_check,
+        available_actions, continue_url, csrf_token}``.
     """
-    users = _store(request).list_users()
-    first_user = users[0] if users else None
-    return JSONResponse(
-        {
-            "initialized": first_user is not None,
-            "first_principal_id": _principal_id(first_user["username"])
-            if first_user
-            else None,
-        }
+    workspace_root = _workspace_root(request)
+    manifest = try_read_manifest(workspace_root)
+    workspace_id = manifest.workspace_id if manifest else ""
+    body = read_projection(workspace_root, workspace_id=workspace_id)
+
+    # Resolve ``first_user.name`` from the user store when a first
+    # principal is recorded in the manifest.
+    first_user = body.get("first_user")
+    if first_user and first_user.get("principal_id"):
+        users = _store(request).list_users()
+        if users:
+            first_user["name"] = users[0]["username"]
+
+    # Issue a CSRF token bound to the current session + revision.
+    revision = body.get("revision", 0)
+    body["csrf_token"] = issue_for_session(
+        session_id=_session_id(request),
+        revision=revision,
     )
+    return JSONResponse(body)
 
 
 async def create_first_user(request: Request) -> JSONResponse:
-    """AC-FR1801-03: create the first local human principal.
+    """AC-FR0201-01: create the first local human principal.
 
     Body:
-        ``{"name": str, "credential": str}``.
+        ``{"name": str, "credential": str, "expected_revision": int}``.
 
     Returns:
-        ``201`` with ``{"principal_id": str, "name": str}``.
+        ``201`` with ``{principal_id, name, setup_revision, status,
+        continue_url}``.
+
+    Raises:
+        HTTPException 403: If the CSRF token is missing or invalid.
+        HTTPException 409: If a first user already exists.
     """
+    csrf_token = request.headers.get("X-Louke-CSRF", "")
+    if not csrf_token or not verify_token(
+        token=csrf_token,
+        session_id=_session_id(request),
+    ):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
+
     payload = await json_body(request)
     name = require_str(payload, "name")
     credential = require_str(payload, "credential")
+    expected_revision = payload.get("expected_revision", 0)
     store = _store(request)
+    workspace_root = _workspace_root(request)
     if store.list_users():
         raise HTTPException(status_code=409, detail="first user already exists")
     try:
         store.create_user(name, credential)
     except ValidationError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    from louke.web.first_user import principal_id_for
+    from louke.web.setup_state import (
+        SetupManifest,
+        write_manifest,
+    )
+
+    manifest = SetupManifest(
+        workspace_id="",
+        revision=expected_revision,
+        status=SetupStatus.PENDING_USER,
+    )
+    advanced = manifest.advance_to_pending_model(
+        first_principal_id=principal_id_for(name),
+        expected_revision=expected_revision,
+    )
+    write_manifest(workspace_root, advanced)
     return JSONResponse(
-        {"principal_id": _principal_id(name), "name": name},
+        {
+            "principal_id": _principal_id(name),
+            "name": name,
+            "setup_revision": advanced.revision,
+            "status": advanced.status.value,
+            "continue_url": "/setup",
+        },
         status_code=201,
     )
 

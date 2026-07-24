@@ -14,7 +14,6 @@ from louke.runtime.story_init import (
 )
 from louke.runtime.scribe_entry import ScribeEntryService
 from louke.runtime.story_entry import StoryArtifactStore
-from louke.web.auth import csrf_token_for_session
 from louke.web.app import create_app
 
 from tests.test_web_server import build_project
@@ -35,9 +34,17 @@ def _client(tmp_path: Path) -> TestClient:
 
 
 def _csrf(client: TestClient) -> str:
-    """Return the header token derived from the HttpOnly session cookie."""
-    session = client.cookies.get("louke_session").strip('"')
-    return csrf_token_for_session(client.app.state.store, session)
+    """Return a fresh CSRF token bound to the client's session cookie.
+
+    The token is issued via the in-memory CSRF store used by the
+    v0.14-004 gate, so the verify_token call on the API side
+    accepts it.
+    """
+    from louke.web.csrf_middleware import issue_for_session
+
+    cookie = client.cookies.get("louke_session", "")
+    session = cookie.strip('"') if cookie else "preauth"
+    return issue_for_session(session_id=session, revision=0)
 
 
 def _release_request_count(client: TestClient) -> int:
@@ -151,6 +158,7 @@ def _gate_fixture(
 
 def test_cross_origin_release_mutation_is_rejected_before_preview(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0600-03: foreign Origin cannot create or mutate a release request."""
     client = _client(tmp_path)
@@ -177,7 +185,7 @@ def test_cross_origin_release_mutation_is_rejected_before_preview(
     ],
 )
 def test_preview_invalid_release_values_fail_closed_without_advancement(
-    tmp_path: Path, payload: dict[str, str], error_code: str
+    tmp_path: Path, setup_complete: Path, payload: dict[str, str], error_code: str
 ) -> None:
     """AC-FR0300-01: invalid preview values return stable 400 without persistence."""
     client = _client(tmp_path)
@@ -196,6 +204,7 @@ def test_preview_invalid_release_values_fail_closed_without_advancement(
 
 def test_preview_non_object_payload_fails_closed_without_advancement(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0300-01: malformed preview structure returns stable 400 without state changes."""
     client = _client(tmp_path)
@@ -235,6 +244,7 @@ def _story_action_payload(
 
 def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0700-03: invalid Human gate requests leave the decision empty."""
     client, facts, _ = _gate_fixture(tmp_path)
@@ -301,6 +311,7 @@ def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate
 
 def test_story_gate_http_accepts_authenticated_human_go_and_renders_gate_read_model(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0700-03: valid Human Go is persisted and exposed without M-SPEC."""
     client, facts, _ = _gate_fixture(tmp_path)
@@ -341,6 +352,7 @@ def test_story_gate_http_accepts_authenticated_human_go_and_renders_gate_read_mo
 
 def test_story_gate_http_park_creates_terminal_backlog_and_needs_attention(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0800-01: valid Human Park creates one Backlog entry and no M-SPEC task."""
     client, facts, _ = _gate_fixture(tmp_path)
@@ -393,7 +405,7 @@ def test_story_gate_http_park_creates_terminal_backlog_and_needs_attention(
     ],
 )
 def test_confirm_malformed_fields_fail_closed_without_advancement(
-    tmp_path: Path, payload: dict[str, object]
+    tmp_path: Path, setup_complete: Path, payload: dict[str, object]
 ) -> None:
     """AC-FR0300-01: malformed confirm fields return stable 400 and keep preview state."""
     client = _client(tmp_path)
@@ -415,6 +427,7 @@ def test_confirm_malformed_fields_fail_closed_without_advancement(
 
 def test_confirm_non_object_payload_fails_closed_without_advancement(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0300-01: malformed confirm structure returns stable 400 without advancement."""
     client = _client(tmp_path)
@@ -434,6 +447,7 @@ def test_confirm_non_object_payload_fails_closed_without_advancement(
 
 def test_cross_origin_scribe_mutation_is_rejected_before_task_access(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0600-03: foreign Origin cannot reply to a Scribe task."""
     client = _client(tmp_path)
@@ -454,7 +468,9 @@ def test_cross_origin_scribe_mutation_is_rejected_before_task_access(
     assert response.json()["error_code"] == "ORIGIN_FORBIDDEN"
 
 
-def test_story_page_renders_task_bound_chat_over_live_http(tmp_path: Path) -> None:
+def test_story_page_renders_task_bound_chat_over_live_http(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """AC-FR0700-01: Story page exposes persisted Scribe facts and Chat controls."""
     client = _client(tmp_path)
     app = client.app
@@ -491,6 +507,7 @@ def test_story_page_renders_task_bound_chat_over_live_http(tmp_path: Path) -> No
 
 def test_project_path_cannot_borrow_another_project_or_wrong_run(
     tmp_path: Path,
+    setup_complete: Path,
 ) -> None:
     """AC-FR0600-01: project current lookup requires exact project/run binding."""
     client = _client(tmp_path)
@@ -507,7 +524,9 @@ def test_project_path_cannot_borrow_another_project_or_wrong_run(
     assert wrong_run.status_code == 404
 
 
-def test_logout_deletes_strict_session_cookie(tmp_path: Path) -> None:
+def test_logout_deletes_strict_session_cookie(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """AC-NFR0100-01: logout deletion preserves the Strict cookie contract."""
     client = _client(tmp_path)
 

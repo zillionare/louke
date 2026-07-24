@@ -7,7 +7,8 @@ from html import escape
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse
 
-from louke.web.auth import SESSION_COOKIE, csrf_token_for_session, current_user
+from louke.web.auth import SESSION_COOKIE, current_user
+from louke.web.csrf_middleware import issue_for_session
 
 
 async def release_new_page(request: Request) -> HTMLResponse | RedirectResponse:
@@ -26,10 +27,18 @@ async def release_new_page(request: Request) -> HTMLResponse | RedirectResponse:
     if user is None:
         return RedirectResponse(url="/login?next=/projects/new", status_code=303)
     session_cookie = request.cookies.get(SESSION_COOKIE, "")
+    revision = 0
+    if hasattr(request.app.state, "workspace_root"):
+        from louke.web.setup_state import try_read_manifest
+
+        manifest = try_read_manifest(request.app.state.workspace_root)
+        if manifest is not None:
+            revision = manifest.revision
+    csrf = issue_for_session(session_id=session_cookie or "preauth", revision=revision)
     release_version = _default_release_version(request.app.state.store.project_info())
     return HTMLResponse(
         _render_page(
-            csrf_token_for_session(request.app.state.store, session_cookie),
+            csrf,
             release_version,
         )
     )

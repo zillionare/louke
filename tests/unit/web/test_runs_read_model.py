@@ -12,7 +12,7 @@ from louke.web.app import create_app
 def _workspace(root: Path) -> None:
     """Create the minimum project metadata required by the web application."""
     project_dir = root / ".louke" / "project"
-    project_dir.mkdir(parents=True)
+    project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / "project.toml").write_text(
         '[project]\nspec_id = "fixture"\n', encoding="utf-8"
     )
@@ -28,7 +28,9 @@ def _create_runtime_run(client: TestClient) -> dict[str, object]:
     return response.json()
 
 
-def test_runtime_run_is_visible_in_ui_projection_and_workbench(tmp_path: Path) -> None:
+def test_runtime_run_is_visible_in_ui_projection_and_workbench(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """A Runtime-created run is visible without a legacy runs.json file."""
     _workspace(tmp_path)
     client = TestClient(create_app(tmp_path))
@@ -44,7 +46,9 @@ def test_runtime_run_is_visible_in_ui_projection_and_workbench(tmp_path: Path) -
     assert "runs.json" not in workbench.text
 
 
-def test_runtime_runs_persist_across_app_rebuild(tmp_path: Path) -> None:
+def test_runtime_runs_persist_across_app_rebuild(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """Rebuilding the service for one project root retains its Runtime runs."""
     _workspace(tmp_path)
     first_app = create_app(tmp_path)
@@ -60,7 +64,7 @@ def test_runtime_runs_persist_across_app_rebuild(tmp_path: Path) -> None:
 
 
 def test_runs_read_model_has_an_explicit_empty_state_without_legacy_file(
-    tmp_path: Path,
+    tmp_path: Path, setup_complete: Path
 ) -> None:
     """An empty Runtime store is safe when the legacy read-model file is absent."""
     _workspace(tmp_path)
@@ -72,7 +76,9 @@ def test_runs_read_model_has_an_explicit_empty_state_without_legacy_file(
     assert 'data-testid="runs-empty-state"' in client.get("/workbench").text
 
 
-def test_run_detail_events_gates_and_ui_share_runtime_store(tmp_path: Path) -> None:
+def test_run_detail_events_gates_and_ui_share_runtime_store(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """All Runs read surfaces resolve a run from the same project Runtime store."""
     _workspace(tmp_path)
     client = TestClient(create_app(tmp_path))
@@ -92,7 +98,9 @@ def test_run_detail_events_gates_and_ui_share_runtime_store(tmp_path: Path) -> N
     assert projection.json()["current"][0]["run_id"] == run_id
 
 
-def test_unknown_runtime_status_is_retained_in_current_group(tmp_path: Path) -> None:
+def test_unknown_runtime_status_is_retained_in_current_group(
+    tmp_path: Path, setup_complete: Path
+) -> None:
     """Unknown Runtime statuses fail safe without dropping the run from the UI."""
     _workspace(tmp_path)
     app = create_app(tmp_path)
