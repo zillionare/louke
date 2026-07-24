@@ -8,13 +8,30 @@ Cross-module:
 * Guide session + auto advice (Guide Session × Project Context ×
   Runtime Projection × Environment Gate × Workbench Presentation ×
   Fact Stores).
+
+Tests drive the real ``louke.web.projects_context`` and
+``louke.web.guide_session`` modules. External bindings come from
+explicit inputs; no fixture stubs the modules under test.
 """
 
 from __future__ import annotations
 
-
-from ._mode_b import (
-    assert_contract_shape,
+from louke.web.guide_session import (
+    AUTHORITY_GUIDE,
+    AUTHORITY_HUMAN,
+    AUTHORITY_RUNTIME,
+    KIND_GUIDE_ADVICE,
+    KIND_GUIDE_ERROR,
+    KIND_GUIDE_REPLY,
+    KIND_RUNTIME_STATUS,
+    KIND_USER,
+    create_session,
+)
+from louke.web.projects_context import (
+    STATE_ACTIVE,
+    STATE_CONFLICT,
+    STATE_EMPTY,
+    resolve,
 )
 
 
@@ -23,220 +40,159 @@ from ._mode_b import (
 # ---------------------------------------------------------------------------
 
 
-def test_projects_context_empty_state_exposes_new_project_action(
-    stub_projects_context,
-):
-    """AC-FR0401-01: empty Project renders only ``New Project``.
-
-    Independent truth (per test-plan §3.1): ``interfaces §IF-PROJECT-01``
-    declares that ``state == empty`` MUST expose a single ``New
-    Project`` primary action with ``enabled=True`` and ``primary_action
-    != None``. The stub supplies the call; the assertion verifies
-    the gate was queried with the right workspace context.
-    """
+def test_projects_context_empty_disables_secondary_actions() -> None:
+    """AC-FR0401-01: empty context exposes only the New Project primary action."""
     # AC-FR0401-01
-    stub_projects_context.current(workspace_id="ws_demo")
-    call = stub_projects_context.current.call_args
-    # Independent expected: the gate must be invoked with the
-    # current workspace_id; the runtime picks the ``state`` from
-    # the fact store and renders accordingly.
-    assert call.kwargs.get("workspace_id") == "ws_demo"
-    # ``stub_projects_context.STATE_EMPTY`` is the contract value
-    # exposed by the stub; its materialisation is the runtime's
-    # responsibility. The independent expected string is spelt
-    # out from the spec below.
-    assert stub_projects_context.STATE_EMPTY == "empty"
-    assert stub_projects_context.STATE_ACTIVE == "active"
-    assert stub_projects_context.STATE_CONFLICT == "conflict"
+    body = resolve(workspace_id="ws_1", bindings=[])
+    assert body["state"] == STATE_EMPTY
+    assert body["project"] is None
+    assert body["conflicts"] == []
+    # AC-FR0401-01: empty Project exposes a New Project primary action
+    assert body["primary_action"] is not None
+    assert body["primary_action"]["kind"] == "new_project"
+    assert body["primary_action"]["enabled"] is True
 
 
-def test_projects_context_active_state_loads_status(stub_projects_context):
-    """AC-FR0401-01: active Project routes the main panel to Project Status."""
+def test_projects_context_active_loads_the_single_project() -> None:
+    """AC-FR0401-01: one binding → ``active`` with that project as the surface."""
     # AC-FR0401-01
-    # Independent expected: the ``current`` entry-point MUST be
-    # invoked with the active project id; the runtime surfaces
-    # the Project Status surface when state == active.
-    stub_projects_context.current(workspace_id="ws_1", expected_project_id="prj_x")
-    call = stub_projects_context.current.call_args
-    assert call.kwargs.get("workspace_id") == "ws_1"
-    assert call.kwargs.get("expected_project_id") == "prj_x", (
-        "current() must accept the active project_id so the "
-        "runtime can confirm the fact-store binding (interfaces "
-        "§IF-PROJECT-01)"
-    )
+    binding = {
+        "project_id": "prj_x",
+        "spec_id": "spec_1",
+        "run_id": "run_1",
+    }
+    body = resolve(workspace_id="ws_1", bindings=[binding])
+    assert body["state"] == STATE_ACTIVE
+    assert body["project"] == binding
+    assert body["conflicts"] == []
+    assert body["primary_action"] is None
 
 
-def test_projects_context_conflict_blocks_create_and_select(
-    stub_projects_context,
-):
-    """AC-FR0401-02: conflict disables create & select; fact-store wins.
+def test_projects_context_conflict_disables_create_and_select() -> None:
+    """AC-FR0401-02: conflict surfaces all bindings and disables actions."""
+    # AC-FR0401-02
+    bindings = [
+        {"project_id": "prj_a", "spec_id": "spec_1"},
+        {"project_id": "prj_b", "spec_id": "spec_2"},
+    ]
+    body = resolve(workspace_id="ws_1", bindings=bindings)
+    assert body["state"] == STATE_CONFLICT
+    assert body["project"] is None
+    assert body["conflicts"] == bindings
+    # AC-FR0401-02: conflict disables the New Project primary action
+    assert body["primary_action"] is not None
+    assert body["primary_action"]["enabled"] is False
+    assert body["primary_action"]["kind"] == "new_project"
 
-    Independent truth (per test-plan §3.1): ``interfaces §IF-PROJECT-01``
-    declares that ``state == conflict`` MUST disable ``primary_action``
-    and surface the conflicting project list. The stub supplies
-    the call; the assertion verifies the gate was queried with
-    the right context.
+
+def test_projects_context_does_not_depend_on_list_order_or_recent() -> None:
+    """AC-FR0401-02: resolution is based purely on binding count, not order.
+
+    Reversing the order of the same bindings must yield the same state.
+    No 'most recent' or 'first in list' shortcut is allowed.
     """
     # AC-FR0401-02
-    stub_projects_context.current(
-        workspace_id="ws_1",
-        expect_conflict=True,
-    )
-    call = stub_projects_context.current.call_args
-    assert call.kwargs.get("workspace_id") == "ws_1"
-    assert call.kwargs.get("expect_conflict") is True, (
-        "current() must accept the conflict flag so the runtime "
-        "can surface the conflicting bindings (interfaces §IF-PROJECT-01)"
-    )
-
-
-# ---------------------------------------------------------------------------
-# IF-GUIDE-01: context-bound Guide session + auto advice
-# ---------------------------------------------------------------------------
-
-
-def test_guide_session_keys_on_workspace_and_project(stub_guide_session):
-    """AC-FR0501-01: Guide session key reflects workspace + project context.
-
-    Independent truth (per test-plan §3.1): ``interfaces §IF-GUIDE-01``
-    fixes the session key composition at ``(workspace_id, kind,
-    optional project_id)``. The stub supplies the call; the
-    assertion verifies each documented fetch shape was issued.
-    """
-    # AC-FR0501-01
-    independent_cases = (
-        # (kwargs, expected_key_part)
-        ({"context": "empty", "workspace_id": "ws_1"}, "ws_1_empty"),
-        (
-            {"context": "project", "workspace_id": "ws_1", "project_id": "prj_x"},
-            "prj_x",
-        ),
-    )
-    for kwargs, _ in independent_cases:
-        stub_guide_session.fetch(**kwargs)
-    # Independent expected: the gate was invoked exactly once per
-    # documented case, and each call carries the right keys.
-    assert stub_guide_session.fetch.call_count == len(independent_cases)
-    actual_kwargs = [c.kwargs for c in stub_guide_session.fetch.call_args_list]
-    for i, (want, _) in enumerate(independent_cases):
-        assert actual_kwargs[i]["workspace_id"] == want["workspace_id"]
-        if want.get("project_id"):
-            assert actual_kwargs[i]["project_id"] == want["project_id"]
-        assert actual_kwargs[i]["context"] == want["context"], (
-            f"fetch must carry the document ``context`` tag; "
-            f"got {actual_kwargs[i]['context']!r}"
-        )
-
-
-def test_environment_ordering_runtime_status_then_advice(stub_guide_session):
-    """AC-FR0501-02: blocking errors emit Runtime status first, advice second.
-
-    Independent truth (per test-plan §3.1): ``interfaces §IF-GUIDE-01``
-    ``Environment ordering`` requires runtime_status to be appended
-    first, deduped, then a guide_advice is appended. The stub
-    supplies the call; the assertion verifies the gate accepts an
-    ``append_blocking_error`` invocation with the documented args.
-    """
-    # AC-FR0501-02
-    stub_guide_session.append_blocking_error(
-        check_revision="chk_1",
-        error_code="GIST_SCOPE_MISSING",
-        message="gh auth missing scope repo",
-        session_id="sess_ws_1_empty",
-        owning_surface="/setup/env",
-    )
-    call = stub_guide_session.append_blocking_error.call_args
-    # Independent expected from interfaces §IF-GUIDE-01.
-    assert call.kwargs["check_revision"] == "chk_1"
-    assert call.kwargs["session_id"] == "sess_ws_1_empty"
-    assert call.kwargs["owning_surface"] == "/setup/env", (
-        "blocking errors must carry an ``owning_surface`` so the "
-        "Wizard can surface the recovery URL"
+    bindings = [
+        {"project_id": "prj_a", "spec_id": "spec_1"},
+        {"project_id": "prj_b", "spec_id": "spec_2"},
+    ]
+    forward = resolve(workspace_id="ws_1", bindings=bindings)
+    backward = resolve(workspace_id="ws_1", bindings=list(reversed(bindings)))
+    assert forward["state"] == STATE_CONFLICT
+    assert backward["state"] == STATE_CONFLICT
+    assert set(c["project_id"] for c in forward["conflicts"]) == set(
+        c["project_id"] for c in backward["conflicts"]
     )
 
 
-def test_dedupe_blocks_replaying_same_advice(stub_guide_session):
-    """AC-FR0501-02: dedupe key stops the same advice being repeated.
-
-    Independent truth (per test-plan §3.1): ``interfaces §IF-GUIDE-01``
-    fixes the dedupe key at ``(session_id, check_revision,
-    error_code)``. The stub supplies the call; the assertion
-    verifies the gate accepts the ``check_dedupe`` invocation
-    with the documented key tuple.
-    """
-    # AC-FR0501-02
-    dedupe_key = ("sess_ws_1_empty", "chk_1", "GIST_SCOPE_MISSING")
-    stub_guide_session.append_or_skip_advice(
-        dedupe_key=dedupe_key,
-        session_id="sess_ws_1_empty",
-        check_revision="chk_1",
-        error_code="GIST_SCOPE_MISSING",
-    )
-    call = stub_guide_session.append_or_skip_advice.call_args
-    assert call.kwargs["dedupe_key"] == dedupe_key
-    assert call.kwargs["session_id"] == "sess_ws_1_empty"
-    assert call.kwargs["error_code"] == "GIST_SCOPE_MISSING"
-
-
-def test_guide_chat_cannot_execute_runtime_actions(stub_guide_session):
-    """AC-FR0501-03: Guide chat responses do not carry action capability.
-
-    Independent truth (per test-plan §3.1): ``interfaces §IF-GUIDE-01``
-    mandates that Guide replies MUST NOT carry ``install_action``,
-    ``auth_action``, ``create_action``, ``return_action``,
-    ``select_action``, ``advance_action``. The stub supplies the
-    call; the assertion verifies the gate accepts only documented
-    fields on the message.
-    """
-    # AC-FR0501-03
-    stub_guide_session.append_user_message(
-        session_id="sess_x",
-        user_content="install gh for me",
-    )
-    call = stub_guide_session.append_user_message.call_args
-    # Independent expected: only ``user_content`` is allowed; the
-    # runtime MUST strip any ``*_action`` capability tokens.
-    assert call.kwargs["session_id"] == "sess_x"
-    assert call.kwargs["user_content"] == "install gh for me"
-    # No capability keys must be supplied by the caller; assert
-    # that ``append_user_message`` only accepts the documented
-    # arguments.
-    forbidden_kwargs = {
-        "install_action",
-        "auth_action",
-        "create_action",
-        "return_action",
-        "select_action",
-        "advance_action",
-    }
-    leaked = forbidden_kwargs & set(call.kwargs)
-    assert not leaked, f"Guide chat MUST NOT carry capability tokens; got {leaked!r}"
-
-
-# ---------------------------------------------------------------------------
-# Activation: real Devon artifacts
-# ---------------------------------------------------------------------------
-
-
-def test_real_projects_context_states(projects_context_artifact):
-    """AC-FR0401-01: live artifact exposes empty/active/conflict states."""
+def test_projects_context_does_not_start_environment_check_on_empty() -> None:
+    """AC-FR0401-01: empty context exposes no Environment side-effect."""
     # AC-FR0401-01
-    assert_contract_shape(
-        projects_context_artifact,
-        required=("STATE_EMPTY", "STATE_ACTIVE", "STATE_CONFLICT"),
-        context="louke.web.projects_context",
-    )
+    body = resolve(workspace_id="ws_1", bindings=[])
+    # ``primary_action`` is the only exposed action; there is no
+    # hidden ``start_environment_check`` flag in the response.
+    assert "start_environment_check" not in body
+    assert "environment_check" not in body
 
 
-def test_real_guide_session_authority(guide_session_artifact):
-    """AC-FR0501-03: live Guide authority values are runtime/guide/human."""
+# ---------------------------------------------------------------------------
+# IF-GUIDE-01: context-bound Guide session
+# ---------------------------------------------------------------------------
+
+
+def test_guide_session_authority_values_match_contract() -> None:
+    """AC-FR0501-03: authority values are runtime / guide / human."""
     # AC-FR0501-03
-    assert_contract_shape(
-        guide_session_artifact,
-        required=(
-            "AUTHORITY_RUNTIME",
-            "AUTHORITY_GUIDE",
-            "AUTHORITY_HUMAN",
-        ),
-        context="louke.web.guide_session",
-    )
+    assert AUTHORITY_RUNTIME == "runtime"
+    assert AUTHORITY_GUIDE == "guide"
+    assert AUTHORITY_HUMAN == "human"
+
+
+def test_guide_session_kind_values_match_contract() -> None:
+    """AC-FR0501-02: message kinds are the documented five."""
+    # AC-FR0501-02
+    assert KIND_RUNTIME_STATUS == "runtime_status"
+    assert KIND_GUIDE_ADVICE == "guide_advice"
+    assert KIND_GUIDE_ERROR == "guide_error"
+    assert KIND_USER == "user"
+    assert KIND_GUIDE_REPLY == "guide_reply"
+
+
+def test_guide_session_create_empty_context() -> None:
+    """AC-FR0501-01: empty-context session is bound to the workspace."""
+    # AC-FR0501-01
+    session = create_session(workspace_id="ws_1", kind="empty")
+    assert session["context"]["workspace_id"] == "ws_1"
+    assert session["context"]["kind"] == "empty"
+    assert session["context"]["project_id"] is None
+    assert session["context"]["runtime_revision"] is None
+    assert session["messages"] == []
+    assert session["composer_enabled"] is True
+    assert session["owning_links"] == []
+
+
+def test_guide_session_create_project_context() -> None:
+    """AC-FR0501-01: project-context session carries project_id."""
+    # AC-FR0501-01
+    session = create_session(workspace_id="ws_1", project_id="prj_x", kind="project")
+    assert session["context"]["project_id"] == "prj_x"
+    assert session["context"]["kind"] == "project"
+
+
+def test_guide_session_keys_on_workspace_and_optional_project() -> None:
+    """AC-FR0501-01: a session id depends on workspace + project context."""
+    # AC-FR0501-01
+    empty = create_session(workspace_id="ws_1", kind="empty")
+    project = create_session(workspace_id="ws_1", project_id="prj_x", kind="project")
+    other_workspace = create_session(workspace_id="ws_2", kind="empty")
+    assert empty["session_id"] != other_workspace["session_id"]
+    # The empty context and the project context within the same
+    # workspace must produce distinct sessions.
+    assert empty["session_id"] != project["session_id"]
+
+
+# ---------------------------------------------------------------------------
+# Activation: real artifact surface
+# ---------------------------------------------------------------------------
+
+
+def test_real_projects_context_states() -> None:
+    """AC-FR0401-01: real ``projects_context`` exposes empty/active/conflict."""
+    # AC-FR0401-01
+    import louke.web.projects_context as mod
+
+    assert mod.STATE_EMPTY == "empty"
+    assert mod.STATE_ACTIVE == "active"
+    assert mod.STATE_CONFLICT == "conflict"
+    assert callable(mod.resolve)
+
+
+def test_real_guide_session_authority() -> None:
+    """AC-FR0501-03: real ``guide_session`` exposes the authority values."""
+    # AC-FR0501-03
+    import louke.web.guide_session as mod
+
+    assert mod.AUTHORITY_RUNTIME == "runtime"
+    assert mod.AUTHORITY_GUIDE == "guide"
+    assert mod.AUTHORITY_HUMAN == "human"
+    assert callable(mod.create_session)

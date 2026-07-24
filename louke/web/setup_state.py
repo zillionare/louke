@@ -180,6 +180,8 @@ class SetupManifest:
             raise SetupStateMismatch(
                 f"stale revision: expected {expected_revision}, current {self.revision}"
             )
+        if self.status == SetupStatus.COMPLETE:
+            raise SetupStateError("Setup is already complete")
         if self.first_principal_id is None:
             raise SetupStateError("cannot complete without a first principal")
         if model_check_state != "passed":

@@ -39,8 +39,9 @@ def create_session(
         A session dict with ``session_id``, ``context``, ``messages``,
         ``composer_enabled``, and ``owning_links``.
     """
+    suffix = project_id if project_id else kind
     return {
-        "session_id": f"guide_{workspace_id}",
+        "session_id": f"guide_{workspace_id}_{suffix}",
         "context": {
             "workspace_id": workspace_id,
             "project_id": project_id,

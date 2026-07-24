@@ -1,8 +1,9 @@
 """AC-NFR0001-01 / AC-NFR0001-02 / AC-NFR0201-01 — Persistence, idempotency, freshness.
 
 These ACs belong to *every* cross-module interface and are exercised
-here against the synthetic host project fixture and the stub-first
-contract surface.
+against the real ``louke.web.setup_state`` module (CAS transitions,
+manifest persistence) and the real ``louke.web.opencode_probe``
+(timeout/uncertain classification).
 
 Cross-module: every Fact Stores × Runtime Projection × Guide Session ×
 Environment Gate × Release Entry × Return Application path.
@@ -10,12 +11,23 @@ Environment Gate × Release Entry × Return Application path.
 
 from __future__ import annotations
 
-from pathlib import Path
+import json
+import subprocess
 
+import pytest
 
-from ._mode_b import (
-    synthetic_host_project,
+from louke.web.draft_storage import create_draft
+from louke.web.setup_state import (
+    SetupManifest,
+    SetupStateError,
+    SetupStateMismatch,
+    SetupStatus,
+    read_manifest,
+    write_manifest,
 )
+
+
+WORKSPACE_ID = "ws_persistence"
 
 
 # ---------------------------------------------------------------------------
@@ -23,54 +35,41 @@ from ._mode_b import (
 # ---------------------------------------------------------------------------
 
 
-def test_setup_manifest_persists_across_restart(stub_setup_v2):
-    """AC-NFR0001-01: setup manifest is the durable reset point.
-
-    Independent truth (per test-plan §3.1): the v2 manifest contract
-    requires ``completed_at == None`` while ``status != "complete"``.
-    The stub supplies the call; the assertion verifies the gate was
-    *invoked* with the right context, not what the stub returned.
-    """
+def test_setup_manifest_survives_restart(synthetic_host) -> None:
+    """AC-NFR0001-01: manifest round-trips through real file persistence."""
     # AC-NFR0001-01
-    stub_setup_v2.persist(
-        workspace_id="ws_demo",
-        first_principal_id="prin_alpha",
-        model_check={"state": "running"},
-        expected_revision=0,
+    manifest = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
     )
-    # Independent expected from interfaces §IF-SETUP-01: every persist
-    # call must carry the schema version and the workspace_id; the
-    # stub has no say in this contract.
-    assert stub_setup_v2.persist.call_count == 1
-    call = stub_setup_v2.persist.call_args
-    assert call.kwargs.get("workspace_id") == "ws_demo"
-    assert call.kwargs.get("first_principal_id") == "prin_alpha"
-    # The v2 manifest contract forbids persisting ``completed_at``
-    # when the manifest is not ``complete``. The call MUST NOT have
-    # an explicit ``completed_at`` override.
-    assert "completed_at" not in call.kwargs or call.kwargs["completed_at"] is None, (
-        "v2 manifest must not persist completed_at while the manifest "
-        "is not complete (interfaces §IF-SETUP-01)"
-    )
+    write_manifest(synthetic_host, manifest)
+    reread = read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
+    assert reread == manifest
 
 
-def test_browser_draft_is_not_workspace_canonical_state(stub_release_entry):
-    """AC-NFR0001-01: browser draft must never appear as Project state.
-
-    Independent truth: ``interfaces §IF-DRAFT-01`` enumerates the
-    allowed payload keys. Forbidden keys are derived from the spec
-    table, not from the stub.
-    """
+def test_setup_manifest_rejects_completed_at_until_complete(synthetic_host) -> None:
+    """AC-NFR0001-01: ``completed_at`` is only set when status == complete."""
     # AC-NFR0001-01
-    stub_release_entry.draft_payload(
-        workspace_id="ws_demo",
+    manifest = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
+    )
+    write_manifest(synthetic_host, manifest)
+    reread = read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
+    assert reread.completed_at is None
+    assert reread.status == SetupStatus.PENDING_USER
+
+
+def test_browser_draft_payload_omits_forbidden_fields() -> None:
+    """AC-NFR0001-01: draft payload MUST NOT carry credential / token / URL."""
+    # AC-NFR0001-01
+    draft = create_draft(
+        workspace_id="ws_1",
         principal_id="prin_alpha",
-        story="draft story",
-        release_version="0.14",
+        story_input="draft story",
     )
-    call = stub_release_entry.draft_payload.call_args
-    payload_keys = set(call.kwargs.keys())
-    # Independent forbidden-keys table from interfaces §IF-DRAFT-01.
     forbidden = {
         "credential",
         "password",
@@ -80,10 +79,8 @@ def test_browser_draft_is_not_workspace_canonical_state(stub_release_entry):
         "preview_token",
         "project_identity",
     }
-    leaked = payload_keys & forbidden
-    assert not leaked, (
-        f"draft payload leaked forbidden keys: {leaked!r} "
-        f"(interfaces §IF-DRAFT-01 forbids these)"
+    assert not (forbidden & set(draft.keys())), (
+        f"draft leaked forbidden keys: {forbidden & set(draft.keys())}"
     )
 
 
@@ -92,80 +89,134 @@ def test_browser_draft_is_not_workspace_canonical_state(stub_release_entry):
 # ---------------------------------------------------------------------------
 
 
-def test_first_user_concurrent_only_creates_one(stub_first_user):
-    """AC-NFR0001-02: concurrent first-user requests yield one principal.
+def test_concurrent_first_user_calls_resolve_to_one_principal(synthetic_host) -> None:
+    """AC-NFR0001-02: repeated identical ``advance_to_pending_model`` is idempotent."""
+    # AC-NFR0001-02
+    manifest = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
+    )
+    write_manifest(synthetic_host, manifest)
+    # First advance with the same principal twice: second is a no-op.
+    advanced = manifest.advance_to_pending_model(
+        first_principal_id="prin_alpha", expected_revision=0
+    )
+    write_manifest(synthetic_host, advanced)
+    reread = read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
+    repeated = reread.advance_to_pending_model(
+        first_principal_id="prin_alpha",
+        expected_revision=reread.revision,
+    )
+    # Same principal => no double advance.
+    assert repeated.revision == reread.revision
+    assert repeated.first_principal_id == reread.first_principal_id
 
-    Independent truth: the contract requires that repeated
-    ``create`` calls with the same idempotency_key and payload
-    resolve to the same principal, and that a *different* payload
-    produces ``CONFLICT``. The stub supplies the call chain; the
-    assertion inspects the recorded call arguments.
+
+def test_setup_complete_rejects_stale_expected_revision(synthetic_host) -> None:
+    """AC-NFR0001-02: ``complete`` with a stale ``expected_revision`` raises.
+
+    The CAS check is enforced in-memory: a caller who has not seen
+    the current revision must be refused.
     """
     # AC-NFR0001-02
-    payload_a = {"name": "demo_owner", "expected_revision": 0}
-    payload_b = {"name": "demo_owner", "expected_revision": 0}
-    payload_c = {
-        "name": "demo_owner",
-        "expected_revision": 0,
-        "different_field": True,
-    }
-    stub_first_user.create(payload_a, idempotency_key="k")
-    stub_first_user.create(payload_b, idempotency_key="k")
-    stub_first_user.create(payload_c, idempotency_key="k")
-
-    # The first two calls carry the same payload + same key; the
-    # third carries a different payload with the same key. Independent
-    # expected from interfaces §IF-SETUP-02.
-    assert stub_first_user.create.call_count == 3
-    first_two_same = (
-        stub_first_user.create.call_args_list[0].args[0]
-        == stub_first_user.create.call_args_list[1].args[0]
+    base = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
     )
-    assert first_two_same, (
-        "calls 0 and 1 must carry the same payload; "
-        f"got {stub_first_user.create.call_args_list[:2]}"
+    advanced = base.advance_to_pending_model(
+        first_principal_id="prin_alpha", expected_revision=0
     )
-    third_differs = (
-        stub_first_user.create.call_args_list[2].args[0]
-        != stub_first_user.create.call_args_list[0].args[0]
-    )
-    assert third_differs, (
-        "call 2 must differ from calls 0/1 to exercise the "
-        "different-payload / same-key conflict path"
-    )
+    write_manifest(synthetic_host, advanced)
+    reread = read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
+    assert reread.revision == 1
+    # Caller still thinks the revision is 0; ``complete`` MUST reject.
+    with pytest.raises(SetupStateMismatch):
+        reread.complete(
+            model_check_state="passed",
+            model_check_id="chk_x",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=0,
+        )
 
 
-def test_setup_complete_concurrent_only_one_record(stub_setup_v2):
-    """AC-NFR0001-02: racing ``complete`` calls cannot emit two complete records.
-
-    Independent truth (per test-plan §3.1): ``complete`` carries an
-    ``expected_revision`` that gates a CAS-style swap. Three calls
-    with the same ``expected_revision`` must therefore be deduped /
-    rejected, not echoed.
-    """
+def test_setup_complete_refuses_when_status_already_complete(synthetic_host) -> None:
+    """AC-NFR0001-02: re-completing an already-complete manifest is refused."""
     # AC-NFR0001-02
-    expected_revision = 4
-    stub_setup_v2.complete({"expected_revision": expected_revision})
-    stub_setup_v2.complete({"expected_revision": expected_revision})
-    stub_setup_v2.complete({"expected_revision": expected_revision})
-
-    # Independent expected: every call carries the same
-    # ``expected_revision`` value, so the runtime must surface a
-    # conflict / stale-revision for any call after the first
-    # committed one.
-    call_revs = []
-    for c in stub_setup_v2.complete.call_args_list:
-        # ``c.args == ({"expected_revision": 4},)`` for kwargs-only
-        # dict args — ``MagicMock`` keeps the dict as a positional
-        # arg, not in ``c.kwargs``. Walk both possibilities.
-        if c.args and isinstance(c.args[0], dict):
-            call_revs.append(c.args[0].get("expected_revision"))
-        else:
-            call_revs.append(c.kwargs.get("expected_revision"))
-    assert call_revs == [expected_revision] * 3, (
-        f"all three calls must carry expected_revision={expected_revision}; "
-        f"got {call_revs}"
+    base = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
     )
+    advanced = base.advance_to_pending_model(
+        first_principal_id="prin_alpha", expected_revision=0
+    )
+    completed = advanced.complete(
+        model_check_state="passed",
+        model_check_id="chk_x",
+        model_check_revision=1,
+        model_id="minimax/m2",
+        diagnosis=None,
+        observed_at="2026-07-24T00:00:00Z",
+        expected_revision=advanced.revision,
+    )
+    write_manifest(synthetic_host, completed)
+    reread = read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
+    with pytest.raises(SetupStateError):
+        reread.complete(
+            model_check_state="passed",
+            model_check_id="chk_x",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=reread.revision,
+        )
+
+
+def test_setup_rejects_workspace_id_mismatch(synthetic_host) -> None:
+    """AC-NFR0001-02: read with the wrong workspace_id fails closed."""
+    # AC-NFR0001-02
+    manifest = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
+    )
+    write_manifest(synthetic_host, manifest)
+    with pytest.raises(SetupStateError):
+        read_manifest(synthetic_host, workspace_id="other_workspace")
+
+
+def test_setup_rejects_corrupt_manifest(synthetic_host) -> None:
+    """AC-NFR0001-02: a corrupt manifest raises on read."""
+    # AC-NFR0001-02
+    manifest_path = synthetic_host / ".louke" / "web-setup-state.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text("{ this is not valid json")
+    with pytest.raises(SetupStateError):
+        read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
+
+
+def test_setup_rejects_unknown_schema_version(synthetic_host) -> None:
+    """AC-NFR0001-02: a v1 / unknown schema is refused by the v2 reader."""
+    # AC-NFR0001-02
+    manifest_path = synthetic_host / ".louke" / "web-setup-state.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "current_step": "complete",
+                "completed_steps": [],
+            }
+        )
+    )
+    with pytest.raises(SetupStateError):
+        read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
 
 
 # ---------------------------------------------------------------------------
@@ -173,150 +224,58 @@ def test_setup_complete_concurrent_only_one_record(stub_setup_v2):
 # ---------------------------------------------------------------------------
 
 
-def test_opencode_probe_timeout_returns_uncertain(stub_opencode_probe):
-    """AC-NFR0201-01: a timeout is ``uncertain``; never ``passed``.
-
-    Independent truth (per test-plan §3.1): the v2 model probe
-    contract forbids transitioning to ``passed`` without a real
-    ``opencode run`` exit 0. Timeout, malformed, or partial output
-    must be classified as ``uncertain``. The stub supplies the call;
-    the assertion verifies the *call shape* and inspects the return
-    only after deriving the expected outcome from the spec.
-    """
+def test_opencode_probe_timeout_classifies_uncertain(monkeypatch) -> None:
+    """AC-NFR0201-01: timeout returns ``uncertain`` (never ``passed``)."""
     # AC-NFR0201-01
-    stub_opencode_probe.run_minimal(
-        model_id="minimax/m2", prompt="please echo hi", deadline_seconds=15
-    )
-    call = stub_opencode_probe.run_minimal.call_args
-    # Independent expected: the call must use the v0.14-004 minimal
-    # prompt and an idempotent model id, with a bounded deadline.
-    assert call.kwargs.get("prompt") == "please echo hi", (
-        f"expected minimal prompt from interfaces §IF-SETUP-03, "
-        f"got {call.kwargs.get('prompt')!r}"
-    )
-    assert call.kwargs.get("model_id") == "minimax/m2", (
-        f"expected deterministic model id, got {call.kwargs.get('model_id')!r}"
-    )
-    assert call.kwargs.get("deadline_seconds") == 15, (
-        f"expected 15s deadline per interfaces §IF-SETUP-03, "
-        f"got {call.kwargs.get('deadline_seconds')!r}"
-    )
+    from louke.web.opencode_probe import run_minimal
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = run_minimal(model_id="minimax/m2", deadline_seconds=15)
+    assert result.state == "uncertain"
+    assert result.diagnosis is not None
 
 
-def test_environment_retry_promotes_revision_after_freshness(stub_environment_gate):
-    """AC-NFR0201-01: a retry advances revision based on the new external facts.
-
-    Independent truth: the retry path takes a *previous* revision and
-    must observe the new fingerprint before promoting. The stub
-    supplies the call; the assertion verifies the gate is invoked
-    with the right context.
-    """
+def test_opencode_probe_executable_missing_is_failed(monkeypatch) -> None:
+    """AC-NFR0201-01: missing executable is ``failed`` with a diagnosis."""
     # AC-NFR0201-01
-    stub_environment_gate.retry(
-        check_id="chk_x", expected_revision=2, fresh_external_facts=True
-    )
-    call = stub_environment_gate.retry.call_args
-    assert call.kwargs.get("check_id") == "chk_x", (
-        f"expected check_id=chk_x, got {call.kwargs.get('check_id')!r}"
-    )
-    assert call.kwargs.get("expected_revision") == 2, (
-        f"expected expected_revision=2, got {call.kwargs.get('expected_revision')!r}"
-    )
-    # Independent expected: the retry MUST observe fresh facts; a
-    # retry without fresh_external_facts must be rejected by the
-    # runtime, not silently allowed.
-    assert call.kwargs.get("fresh_external_facts") is True, (
-        "retry must observe fresh external facts before promoting "
-        "revision (interfaces §IF-ENV-01)"
-    )
+    from louke.web.opencode_probe import run_minimal
 
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("no such executable")
 
-def test_stale_environment_blocks_preview(stub_environment_gate):
-    """AC-NFR0201-01: a stale Environment check returns ``STALE_PREVIEW``.
-
-    Independent truth: the freshness contract forbids using a check
-    that has aged past ``fresh_until`` (interfaces §IF-ENV-01). The
-    stub supplies the call; the assertion verifies the gate saw the
-    stale context and refuses the preview.
-    """
-    # AC-NFR0201-01
-    stub_environment_gate.preview_with_environment(
-        check_id="chk_x", expired=True, fresh_until="2026-07-24T00:00:00Z"
-    )
-    call = stub_environment_gate.preview_with_environment.call_args
-    assert call.kwargs.get("check_id") == "chk_x"
-    assert call.kwargs.get("expired") is True, (
-        "stale preview call must carry expired=True so the gate can "
-        "refuse; got expired=False"
-    )
-    # The independent expected error code comes from interfaces §IF-ENV-01
-    # (which documents ``STALE_PREVIEW`` as the refused-with-stale-readiness
-    # error code); we don't read it from the stub.
-    # Verify the gate was at least invoked with the stale signal:
-    assert "fresh_until" in call.kwargs
-
-
-def test_audit_event_for_timeout_records_uncertainty(stub_audit_observability):
-    """AC-NFR0201-01: timeout events never record ``passed`` until confirmed.
-
-    Independent truth (per interfaces §IF-AUDIT-01): audit events
-    are only updated to ``passed/completed`` after the runtime
-    readback confirms. ``uncertain`` operations must keep the
-    recovery URL and the diagnosis object intact.
-    """
-    # AC-NFR0201-01
-    stub_audit_observability.emit(
-        kind="opencode_probe_finished",
-        status="uncertain",
-        result="uncertain",
-        diagnosis_object="opencode_probe",
-        recovery_url="/setup#model-check",
-    )
-    call = stub_audit_observability.emit.call_args
-    # Independent expected: the emitted event's status/result are
-    # both ``uncertain`` and the diagnosis object is non-empty.
-    assert call.kwargs.get("status") == "uncertain", (
-        f"timeout event must keep status=uncertain; got {call.kwargs.get('status')!r}"
-    )
-    assert call.kwargs.get("result") == "uncertain", (
-        f"timeout event must keep result=uncertain; got {call.kwargs.get('result')!r}"
-    )
-    assert call.kwargs.get("diagnosis_object"), (
-        "audit event for uncertain operation must include a "
-        "non-empty diagnosis_object for reconciliation"
-    )
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = run_minimal(model_id="minimax/m2", deadline_seconds=15)
+    assert result.state == "failed"
+    # AC-NFR0201-01: missing executable carries a non-null diagnosis
+    assert result.diagnosis is not None
 
 
 # ---------------------------------------------------------------------------
-# Synthetic host project: leak / staleness / no-side-effect
+# Synthetic host project: leak / no-side-effect
 # ---------------------------------------------------------------------------
 
 
-def test_synthetic_host_setup_state_does_not_persist_real_secret(tmp_path):
-    """AC-NFR0101-01: secret canary is absent from synthetic host's state files.
-
-    Mode B requires every test run to use a synthetic host project; the
-    canary proves the host ``.louke/project/project.toml`` is the only
-    touched file and never holds a real secret string.
-    """
+def test_synthetic_host_setup_state_does_not_persist_real_secret(tmp_path) -> None:
+    """AC-NFR0101-01: secret canary is absent from the synthetic host layout."""
     # AC-NFR0101-01
-    canary = f"SECRET_V014004_{__import__('os').urandom(8).hex()}"
+    canary = "SECRET_V014004_TEST"
+    # Build a synthetic host and write a known canary into a real,
+    # but isolated, file under it. The test ensures the host's own
+    # ``.louke/project/project.toml`` (which the runtime reads) is
+    # free of the canary.
+    from tests.integration.v014_workspace_onboarding._mode_b import (
+        synthetic_host_project,
+    )
+
     with synthetic_host_project(marker="canary") as synth:
-        # ``project.toml`` we wrote (no canary in it).
-        before = (synth / ".louke" / "project" / "project.toml").read_text(
-            encoding="utf-8"
-        )
+        project_toml = synth / ".louke" / "project" / "project.toml"
+        before = project_toml.read_text(encoding="utf-8")
         assert canary not in before
-        # Scan the entire directory tree for the canary: no fixture may leak.
-        for path in _iter_files(synth):
-            try:
-                text = path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                continue
-            assert canary not in text, f"canary leaked at {path}"
-
-
-def _iter_files(root: Path):
-    for path in root.rglob("*"):
-        if path.is_file():
-            yield path
+        # Write a canary somewhere the host MUST NOT touch.
+        (synth / "canary.txt").write_text(canary, encoding="utf-8")
+        after = project_toml.read_text(encoding="utf-8")
+        assert before == after, "synthetic host file was unexpectedly mutated"
+        assert canary in (synth / "canary.txt").read_text(encoding="utf-8")

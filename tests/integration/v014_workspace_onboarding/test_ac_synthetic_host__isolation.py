@@ -7,15 +7,10 @@ invariant that v0.14-004 tooling runs against a host project's own
 ``.louke/`` directory and never leaks Louke's own registry schema into
 that workspace (Mode B requirement per Shield §3.3 and test-plan §3.2
 Ground Truth isolation).
-
-They run with both the synthetic host project fixture (always) and the
-Devon artifact path (real-or-skip) so they double as Mode B activation
-tests.
 """
 
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -24,16 +19,16 @@ import pytest
 
 from ._mode_b import (
     DEVON_MODULES,
-    make_stub,
-    synthetic_host_project,
-    synthetic_bare_remote,
     devon_module_available,
+    synthetic_bare_remote,
+    synthetic_host_project,
 )
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_synthetic_host_project_does_not_leak_louke_registry():
+def test_synthetic_host_project_does_not_leak_louke_registry() -> None:
     """AC-FR0001-01 / AC-NFR0401-02: host project keeps its own ``.louke/``.
 
     The synthetic host project is created via ``synthetic_host_project``;
@@ -44,6 +39,8 @@ def test_synthetic_host_project_does_not_leak_louke_registry():
     """
     # AC-FR0001-01 / AC-NFR0401-02
     with synthetic_host_project(marker="leak") as synth:
+        import json
+
         project_toml = synth / ".louke" / "project" / "project.toml"
         assert project_toml.is_file()
         payload = json.loads(project_toml.read_text(encoding="utf-8"))
@@ -69,34 +66,24 @@ def test_synthetic_host_project_does_not_leak_louke_registry():
             )
 
 
-def test_setup_status_endpoint_runs_against_synthetic_host(tmp_path):
-    """AC-FR0001-01: ``GET /api/setup/status`` runs under the synthetic host.
+def test_setup_state_api_does_not_mutate_synthetic_host() -> None:
+    """AC-FR0001-01: reading the Setup manifest does not touch the host ``.louke/``.
 
-    Without Devon artifacts we use the stub-first contract check via
-    ``make_stub``; the goal is that invocation does not require
-    Louke's own ``.louke/`` and does not write back into the synthetic
-    host's project file.
+    The ``.louke/project/project.toml`` is the only file the runtime
+    reads; calling the Setup projection must not write back into it.
     """
     # AC-FR0001-01
+    from louke.web.setup_projection import read as read_projection
+
     with synthetic_host_project(marker="status") as synth:
         before = (synth / ".louke" / "project" / "project.toml").read_bytes()
-        stub_status = make_stub(
-            "IF-WEB-01",
-            SCHEMA_VERSION=2,
-            STATUS_PENDING_USER="pending_user",
-        )
-        stub_status.read.side_effect = lambda: {
-            "workspace_id": "synthetic",
-            "revision": 0,
-            "status": stub_status.STATUS_PENDING_USER,
-        }
-        body = stub_status.read()
+        body = read_projection(synth, workspace_id="synthetic")
         assert body["status"] == "pending_user"
         after = (synth / ".louke" / "project" / "project.toml").read_bytes()
         assert before == after, "synthetic host file was unexpectedly mutated"
 
 
-def test_canonical_path_uses_semantic_namespace_not_release_number():
+def test_canonical_path_uses_semantic_namespace_not_release_number() -> None:
     """AC-NFR0401-01: API paths must not embed release/Spec/workflow version.
 
     Interfaces.md §1 mandates that canonical routes use semantic
@@ -121,20 +108,17 @@ def test_canonical_path_uses_semantic_namespace_not_release_number():
         )
 
 
-def test_artifact_path_lookup_round_trip():
-    """AC-NFR0401-02: Mode B stub registry exposes canonical artifact names.
+def test_devon_module_registry_maps_to_real_artifacts() -> None:
+    """AC-NFR0401-02: every entry in ``DEVON_MODULES`` points to an importable path.
 
-    The artifact registry in ``DEVON_MODULES`` must map every
-    interface to exactly one canonical module path (with ``IF-ENV-01``
-    and ``IF-ENV-02`` sharing the same module); each name must also
-    round-trip through ``find_spec``.
+    The artifact registry must map every interface to a canonical
+    module path; each name must round-trip through ``devon_module_available``.
     """
     # AC-NFR0401-02
     names = list(DEVON_MODULES.keys())
     assert len(names) == len(set(names)), "duplicate artifact names"
     # ``IF-ENV-01`` and ``IF-ENV-02`` intentionally share the
-    # ``louke.web.environment_gate`` module; reflect that grouping
-    # in the test by collapsing the two keys onto one canonical path.
+    # ``louke.web.environment_gate`` module; collapse before dedup.
     canonical_paths = {
         name: path
         for name, path in DEVON_MODULES.items()
@@ -148,15 +132,13 @@ def test_artifact_path_lookup_round_trip():
         "duplicate canonical paths beyond the IF-ENV-01/-02 grouping"
     )
     for name in names:
-        # ``devon_module_available`` must never raise even if the canonical
-        # module does not exist yet — that's the whole point of Mode B.
         result = devon_module_available(name)
         assert isinstance(result, bool)
     with pytest.raises(KeyError):
         devon_module_available("does_not_exist")
 
 
-def test_synthetic_bare_remote_does_not_require_credentials(tmp_path):
+def test_synthetic_bare_remote_does_not_require_credentials(tmp_path: Path) -> None:
     """AC-NFR0101-02: synthetic Git remotes use only the filesystem URL.
 
     No real GitHub or SSH is contacted; no credential helpers fire.
@@ -165,9 +147,6 @@ def test_synthetic_bare_remote_does_not_require_credentials(tmp_path):
     remote = synthetic_bare_remote(tmp_path)
     try:
         assert (remote / "HEAD").exists()
-        # ``git ls-remote`` is allowed against a loopback path because we
-        # only want to verify the remote is reachable without secrets;
-        # ``-h`` disables global config loading.
         result = subprocess.run(
             [
                 "git",
@@ -182,7 +161,6 @@ def test_synthetic_bare_remote_does_not_require_credentials(tmp_path):
             capture_output=True,
             text=True,
         )
-        # Empty remotes return no refs; the command itself must succeed.
         assert result.returncode == 0
     finally:
         shutil.rmtree(remote, ignore_errors=True)

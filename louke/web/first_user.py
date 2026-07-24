@@ -83,7 +83,7 @@ def create_first_user(
         )
     principal_id = principal_id_for(name)
     if store is not None:
-        store.add_user(name, credential)
+        store.create_user(name, credential)
     updated = manifest.advance_to_pending_model(
         first_principal_id=principal_id,
         expected_revision=expected_revision,
@@ -129,7 +129,7 @@ def login_recovery(
     if manifest.status == SetupStatus.COMPLETE:
         raise SetupStateError("Setup is already complete")
     if store is not None:
-        store.authenticate_user(name, credential)
+        store.verify_user(name, credential)
     return {
         "principal_id": manifest.first_principal_id,
         "setup_revision": manifest.revision,
