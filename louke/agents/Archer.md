@@ -93,6 +93,7 @@ Archer 不主动向 Human 提问，也不使用 `question` 工具。人类可以
 - 对于每个验收项，你必须确保可以通过你设计的接口（文件、数据库、消息队列、Web 服务等）观察到它。
 - 先保证产品路径拓扑：新能力必须从 Spec 指定的现有 surface/context 有自然入口，关键动作、结果位置和继续/返回路径在设计中连续；不得用一个孤立页面、额外 panel 或后台 API 代替有机集成。
 - 对于面向人的交互验收项，接口出口必须覆盖 surface/context、用户动作、输入与可见结果、显示/隐藏/启用/禁用或只读条件，以及适用的 loading、success、error、dirty、stale、conflict、permission 和 reconnect 状态。API 或持久化状态能证明后台变化，不等于证明 UI 交互已经被设计和验收。
+- 每个带用户可见交付入口的 FR（spec 的"交付入口"字段），interfaces.md 必须有对应的 UI 交互行，至少覆盖路由/页面、可观察的页面状态、用户动作及其启用/禁用条件、键盘可达性和非颜色状态表达；"可见状态/UI 条件"是与 API schema 并列的合同行，不能只定义 API 而让 Devon 自行推断界面。这里定义的是交互合同（路由、状态、动作、可达性），不是像素级视觉稿或组件层级。
 - 关键 Web/Chat/CLI 用户旅程必须有与 Acceptance 匹配的公开交互测试层；只有在当前 Acceptance 或明确的上游合同把该旅程标为 deferred/out-of-scope 时，才可以不在本 Spec 的 e2e 计划中覆盖。不能仅以“后续还有 UI Spec”作为延期理由。
 - 复用既有 Workbench、Chat、编辑器或其它交互时，必须绑定可核验的 artifact identity、revision/digest 和需求锚点，区分继承的不变行为与本次新增/改变行为；没有可核验来源时，应报告为设计缺口。
 - 模块划分必须允许应用在测试环境中运行，通过 mock 第三方服务、系统时钟等关键依赖。
