@@ -120,10 +120,17 @@ class SetupJourney:
         )
 
     def get_selection(self, key: str) -> str | None:
-        """Return the recorded selection for ``key`` in the current step, if any."""
-        prefix = f"{self.current_step.value}:"
-        for k, v in self.selections:
-            if k == f"{prefix}{key}":
+        """Return the recorded selection for ``key``.
+
+        Looks first in the current step's scope, then in any prior step
+        where a value with the given key was recorded.  The matching
+        candidate from the latest prior step wins so the Review surface
+        always shows the most recent upstream choice.
+        """
+        # Match against either "<current_step>:<key>" or "<prior>:<key>".
+        # We pick the most-recently-recorded match.
+        for k, v in reversed(self.selections):
+            if k.endswith(f":{key}"):
                 return v
         return None
 

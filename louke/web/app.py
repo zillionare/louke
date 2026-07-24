@@ -433,6 +433,25 @@ async def setup_home_redirect(request: Request) -> Response:
         store: ProjectStore = request.app.state.store
         if not store.list_users():
             return RedirectResponse(url="/setup", status_code=303)
+    # v0.14-004: the Setup Wizard also redirects users to the wizard when
+    # the persisted state shows the Setup journey is incomplete.  Without
+    # this check a user who landed in /setup/identity/ but did not finish
+    # would jump straight into the Workbench and lose context.
+    store = getattr(request.app.state, "store", None)
+    if store is not None and store.list_users():
+        try:
+            wizard_state = store.read_setup_state() or {}
+        except Exception:
+            wizard_state = {}
+        current_step = str(wizard_state.get("current_step") or "identity")
+        completed = wizard_state.get("completed_steps") or []
+        if current_step != "complete" and (
+            len(completed) < 5
+            or "applying" not in completed
+            or "review" not in completed
+        ):
+            target = current_step if current_step != "complete" else "identity"
+            return RedirectResponse(url=f"/setup/{target}/", status_code=303)
     if request.query_params.get("legacy") == "1":
         return await home_page(request)
     return await workbench(request)
