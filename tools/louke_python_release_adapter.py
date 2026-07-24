@@ -148,6 +148,28 @@ def inspect_artifact(artifact: Path) -> dict[str, str]:
     }
 
 
+def verify_dist(source: Path, dist: Path, evidence: Path) -> dict[str, object]:
+    """Verify exactly one wheel and sdist match the canonical source version."""
+    source_version = inspect_source(source)["version"]
+    wheels = sorted(dist.glob("*.whl"))
+    sdists = sorted(dist.glob("*.tar.gz"))
+    if len(wheels) != 1 or len(sdists) != 1:
+        raise ValueError("dist must contain exactly one wheel and one sdist")
+    artifacts = [inspect_artifact(path) for path in (*wheels, *sdists)]
+    if any(item["version"] != source_version for item in artifacts):
+        raise ValueError("artifact version does not match source version")
+    result: dict[str, object] = {
+        "source": str(source.resolve()),
+        "version": source_version,
+        "artifacts": artifacts,
+    }
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    evidence.write_text(
+        json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="louke_python_release_adapter")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -161,12 +183,18 @@ def main(argv: list[str] | None = None) -> int:
         "--source", type=Path, default=Path("pyproject.toml")
     )
     inspect_source_parser.add_argument("--tag", default=None)
+    verify_parser = sub.add_parser("verify-dist")
+    verify_parser.add_argument("--source", type=Path, default=Path("pyproject.toml"))
+    verify_parser.add_argument("--dist", type=Path, required=True)
+    verify_parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
             result = prepare(args.tag, args.source)
         elif args.command == "inspect-source":
             result = inspect_source(args.source, args.tag)
+        elif args.command == "verify-dist":
+            result = verify_dist(args.source, args.dist, args.evidence)
         else:
             result = inspect_artifact(args.artifact)
     except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile) as exc:
