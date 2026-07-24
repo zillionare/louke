@@ -1,355 +1,354 @@
-# Workspace Setup Wizard、Guide 与 Workflow Status 驾驶舱 — 需求规格
+u# 最小首次设置、Project 创建引导与 Project Status — 需求规格
 
 - **规格 ID**：`v0.14-004-workspace-onboarding-workflow-status`
 - **关联 Story**：`STR-1405`
-- **创建日期**：2026-07-23
+- **Story SHA-256**：`f2595e5aa1c71ca829fcc2d27458aa599381d2ca51bf6e25e85df422000475af`
+- **创建日期**：2026-07-24
 - **状态**：草稿
 - **有效 FR 数量**：16（上限 30）
 
-> **职责边界**：本文是 v0.14 四个 Spec 的产品集成合同，规定空白 workspace 的 Setup Wizard、登录落点、Start Story、Workbench 驾驶舱和 Guide。它不重写 `001` 的需求工作流、`002` 的 M-DESIGN 或 `003` 的实现到发布状态机；重叠处按下表锁定唯一用户可见行为。
+> **职责边界**：本文只描述需求本身。Story 的产品叙事与主路径保留在 `story.md`；可观察断言写入 `acceptance.md`。本文取代本 Spec 先前基于连续多步骤 Setup Wizard 的草稿，不改变 `v0.14-001` 至 `v0.14-003` 未在下表明确接入或裁决的工作流合同。
 
-## Release 合同继承与冲突裁决
+## 产品集成与继承边界
 
-| 重叠主题 | v0.14 唯一真实行为 | 继承与替代边界 |
-| :--- | :--- | :--- |
-| 启动与 Setup | Web 服务可建立后，完全空白或 Setup 失效的 workspace 进入 Workbench 中的连续 Setup Wizard；Web 服务本体无法建立仍在终端失败 | 继承 `001 FR-0100/0200` 的 readiness、preview/confirm、Manifest 和零未授权副作用语义；本文替代独立启动诊断页或平面 Setup 页面作为完成路径，并增加首用户、init/clone 和 Wizard 顺序 |
-| 开始产品工作 | Setup 完成后，用户主动作是“开始 Story”；没有 active release 时，系统同时 preview/confirm 承载该 Story 的 release identity | 继承 `001 FR-0300/0400/0500` 的单活跃 release、零副作用 Preview、Foundation 和 Story 初始化；本文替代“创建首个 Release”这一用户心智和孤立 `/projects/new` 页面 |
-| 需求、设计与实现 | Runtime 是 M-STORY 至 M-MILESTONE 的唯一状态、责任方、合法转移和 evidence authority | `001 FR-0600/2100`、`002` 全部有效需求及 `003` 除下述 Maestro 重叠外的全部有效需求保持权威；本文只提供统一读模型和导航，不创建第二状态机 |
-| 当前工作与发布结果 | Project/驾驶舱在同一对象上下文展示 Ready、Current Work、attention、Released 和历史，不另建平行对象身份 | 继承 `001` 的 Project/run identity 与 `003 FR-2100—FR-2400` 的 release/publish/milestone 事实；本文替代分散的 Project current、Run 和发布结果作为默认用户落点 |
-| Guide 与 Agent Chat | Guide 是始终可见的解释/导航层；专业 Agent Chat 仍绑定具体 Runtime task | 本文替代 `003 FR-3000` 中“Maestro 若保留可作 advisory”的新运行行为；`001 FR-0700` 等 Scribe/Sage/专业 Agent 对话继续有效，Guide 不参与 author/review 或 dispatch |
-| 路由与版本 | 用户使用稳定 Workbench/Project/Story 入口；版本化协议可作为兼容边界，但不得产生版本专属页面或重复产品事实 | 现有 `/projects`、`/projects/new`、Project/Run 深链必须解析到同一 Workbench 对象上下文；通用 Create Release 能力不得复制为 `v15_release.py`、`v16_release.py` 等页面 |
+| 主题 | 本次接入的宿主产品 surface / 合同 | 唯一产品结果 |
+|---|---|---|
+| Setup | 现有 `/setup`、首用户身份和 Setup 状态 | `/setup` 只承担首用户创建与真实 OpenCode 模型验证；Git、GitHub、repository、release 和 Project 不属于首次 Setup |
+| 登录落点 | 现有 Workbench、`/projects` 与 authenticated entry resolver | 登录后在 Workbench 的 Projects 上下文显示活跃 Project Status；没有活跃 Project 时显示空 Project 与 `New Project` |
+| New Project | 现有 `/projects/new` preview/confirm、`v0.14-001 FR-0300—FR-0500` | `New Project` 先执行按需环境门禁，再预览 Story/版本；确认后沿用同一 Project/release/WorkflowRun 身份并由 Scribe 形成 `story.md` |
+| Project Status | 现有 Runtime workflow read model、`v0.14-001 FR-0600/FR-1700`、`v0.14-002` 与 `v0.14-003` 阶段合同 | Workbench main panel 突出当前节点，并以可导航的线性时间线展示 Runtime 权威的完整尝试历史、选中节点详情和合法回拨；新 Project 使用 `M-REQ-APPROVAL`，历史 `M-LOCK-1` 只作为同一节点的兼容别名，不建立第二节点或第二状态机 |
+| Guide | 现有 Guide projection 与 session | Guide 在 Projects sidebar 中解释当前 Project 或空 Project 及环境检查；Runtime、Scribe 和各阶段 owning Agent 仍是事实与工件 authority |
+| Dev Docs | 现有 Story 文档编辑/查看 surface 与稳定文档深链 | 创建成功后直接加载新 Project 的最新 `story.md`；兼容路由解析到同一对象，不创建孤立结果页 |
 
-若四个 Spec 的文字在上述重叠主题上仍可解释为两个用户结果，以本表和本文对应 FR 为准；未列入的阶段政策继续由原 owning Spec 负责。任何实现不得双写两个 Setup、Project、workflow 或 Guide/Maestro 权威状态来“兼容”冲突。
+---
 
 ## 功能需求
 
-<a id="fr-0001"></a>
-### FR-0001 空白 Workspace 的稳定产品入口与状态解析
+### FR-0001 Setup 未完成时的全局用户入口保护
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1、§2.4；BS-03、BS-07；继承 `001 FR-0100/0600`
+- **来源**：`BS-01`、`BS-03`、Story §3.1 / §4.1
+- **交付入口**：`/setup`；任一用户功能地址
 
-用户在完全空白或已有 workspace 执行 `lk serve` 时，只要 Web 服务本体能够建立，就必须能到达同一个 Workbench shell。未认证用户先完成首用户建立或登录；认证后，系统必须按以下优先顺序解析主视图：Setup 缺失/失效进入 Setup Wizard；存在需要 Human attention 的 active work 进入其 Current Work；存在其它 active work 进入 Current Work；无 active work 且最近 Milestone 已发布进入 Released；Setup 有效且无工作进入 Ready/Empty。
+当当前 workspace 没有持久化的 Setup 完成状态时，系统必须将登录页、Workbench、Projects、Project/Run/文档深链及其他用户功能地址统一带到 `/setup`。呈现或提交 Setup 所必需的静态资源和内部接口可以工作，但不得形成绕过 Setup 的用户路径。
 
-历史发布与新 active work 同时存在时以 active work 为主，历史发布可从同一对象上下文访问。登录不得自动切换到独立聊天页，也不得仅依据账号新旧、cookie 或 Guide 对话推断落点。Web 服务无法建立的硬前置失败继续遵循 `001 FR-0100`，不得伪装成 Wizard 内可修复状态。
+Setup 已完成时不得继续以首次设置为由拦截用户；Setup gate 只读取当前 workspace 的持久化状态，不得由 cookie、Guide 对话、OpenCode executable 存在或首用户单项完成来替代。
 
 ---
 
-<a id="fr-0101"></a>
-### FR-0101 连续 Setup Wizard 与进度边界
+### FR-0101 首用户创建与可恢复连续性
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1；BS-01、BS-02；Human 明确要求 Setup 为 Wizard
+- **来源**：`BS-01`、Story §3.1
+- **交付入口**：`/setup`
 
-Setup 必须作为一个连续 Wizard，按“本地身份 → Repository → 运行依赖 → Review → Apply/Complete”的任务顺序呈现。Wizard 必须显示当前步骤、已完成步骤、剩余步骤和阻塞项；用户在 Confirm 前可返回修改选择，已验证且未受上游修改影响的结果不得要求重复填写。
+当 workspace 尚无用户时，`/setup` 必须允许访问者创建唯一首个本地用户。创建成功后，该身份必须立即持久化并用于继续同一次 Setup；后续模型检查失败、页面刷新或服务重启均不得要求重新创建首用户。
 
-Wizard 每一步只收集当前仍缺失、冲突或需要授权的信息，能够从 workspace、Git/provider 身份及既有配置稳定推导的值直接展示其 provenance。用户离开 Wizard 不得开放 Story/release 动作，也不得把局部完成误报为 Setup 完成。
+首用户已存在时不得再次提供创建另一个“首用户”的成功路径。重复提交必须解析为同一已发生结果或明确冲突，不得产生重复身份；首用户建立本身不得把 Setup 标记为完成。
 
 ---
 
-<a id="fr-0201"></a>
-### FR-0201 首用户建立、登录与 Setup 连续性
+### FR-0201 OpenCode 与至少一个模型的真实运行验证
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Step 1；BS-01
+- **来源**：`BS-02`、Story §3.1、`D-02`；宿主能力 `louke.models.probe_model`
+- **交付入口**：`/setup`
 
-没有本地用户时，Wizard 必须先让用户建立唯一首个 Workspace Owner/Human。创建成功后系统必须持久化该身份并进入登录；登录成功后返回同一 workspace 的 Repository 步骤，而不是把“首用户已存在”视为 Setup 完成或重新开始 Wizard。
+首用户建立后，Runtime 必须在当前 workspace 中执行一次无 Louke 产品副作用的最小 OpenCode 请求，并只在至少一个已配置模型真实成功响应时判定验证通过。仅发现 executable、读取 provider credential、列出模型或读取静态配置均不得判定通过。
 
-首用户已存在时不得再次展示可创建第二个首用户的成功路径。身份建立失败、重复提交或服务重启必须产生稳定结果，且 credential 不得回显到页面、日志、Manifest 或 Guide。
+若 OpenCode 不可调用、所有候选模型均失败、认证或网络失败、调用超时或结果无法确认，用户必须留在 `/setup`，看到可定位到 OpenCode/模型验证的非秘密原因和重试入口。重试不得创建 Project、Git/GitHub 资源、release 或 workflow。
 
 ---
 
-<a id="fr-0301"></a>
-### FR-0301 Repository 来源选择与明确副作用
+### FR-0301 Setup 完成记录与 Workbench 交接
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Steps 2—3；BS-02；D-01
+- **来源**：`BS-01`、`BS-03`、Story §3.1 / §4.1
+- **交付入口**：`/setup` → Workbench Projects
 
-Repository 步骤必须检查当前 workspace 的 Git 事实。当前 workspace 已是 Git repository 时，系统读取可验证的 repository、remote 和默认分支候选；不是 Git repository 时，Wizard 必须让 Human 明确选择“在当前 workspace 初始化 repository”或“克隆已有 repository”，并在执行前展示目标、会改变的本地内容和适用 remote/provider 影响。
+系统只有在首用户已持久化且 FR-0201 的真实模型验证成功后，才可原子写入当前 workspace 的 Setup 完成状态。完成后，当前用户必须能够直接继续到 Workbench 的 Projects 上下文；不得再要求 Git、GitHub CLI、repository、release 或 Project 配置作为 Setup 完成条件。
 
-选择 init/clone 只形成当前 Setup revision 的拟议操作，Review/Confirm 前不得执行。目录非空、目标冲突、clone 来源不可访问、权限不足或操作结果无法确认时，系统必须停在 Repository/Apply 上显示证据和 remediation，不得覆盖现有文件、猜测目标或把文件操作成功等同于 binding 已确认。
+刷新、重启和后续登录必须复用该完成状态，不重复首次 Wizard 或模型调用。Setup 状态写入失败或结果不确定时仍视为未完成，并从已成功的首用户步骤恢复，而不得伪报成功或产生两个完成记录。
 
 ---
 
-<a id="fr-0401"></a>
-### FR-0401 Workspace/Repository Binding、候选与 Provenance
+### FR-0401 登录后的 Projects 状态落点
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Step 3；BS-02；D-01；继承 `001 FR-0200`
+- **来源**：`BS-04`、Story §3.2；宿主 `entry_resolver`、`/projects`
+- **交付入口**：登录成功 → Workbench Projects
 
-Wizard 必须为 workspace/repository identity、owner/provider namespace、declared remote 和权威默认分支展示推导值及 provenance。零个候选、多个候选、身份字段不一致或无法验证时保持 waiting Human；系统不得按名称相似、列表顺序或 Guide 建议静默选择。
+Setup 已完成的用户登录后，系统必须在 Workbench 中进入 Projects 上下文。若 Runtime 存在唯一活跃 Project，main panel 必须显示该 Project 的 Project Status；若不存在活跃 Project，main panel 必须显示空 Project 状态、用途提示和 `New Project` 主动作。
 
-Human 的选择必须绑定当前 Setup revision。只有 init/clone 的实际结果、repository identity、remote/provider 身份和所选 binding 可共同验证时，该步骤才完成；后续 Story/release/Foundation 只消费这个已确认 binding。
+活跃 Project 存在时不得同时把创建第二个主 Project 作为成功主路径。若持久事实无法安全确定唯一活跃 Project，系统必须显示需要处理的冲突并阻止选择或创建，而不得按列表顺序、最近访问记录或 Guide 推断一个 Project。
 
 ---
 
-<a id="fr-0501"></a>
-### FR-0501 运行依赖与 Workspace 能力检查
+### FR-0501 Projects Sidebar 的 Guide 上下文
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Step 4；继承 `001 FR-0100/0200`
+- **来源**：`BS-05`、Story §3.2—§3.3、`D-05`；Human 2026-07-24 澄清；宿主 Guide projection
+- **交付入口**：Workbench Projects sidebar
 
-Runtime 步骤必须在同一 Wizard 中检查 Louke store/catalog、OpenCode 可执行性、provider 认证、至少一个可用模型，以及 Backlog/release-project namespace 或创建能力。每项必须显示 READY、需要用户操作或阻塞的非秘密诊断；已就绪项不得以 placeholder 或固定默认值冒充真实检查。
+Projects 上下文必须在 sidebar 提供 Guide session。存在活跃 Project 时，会话必须绑定该 Project 身份和当前 Runtime 状态；空 Project 时，会话必须明确处于空 Project 上下文，并能够解释 `New Project`、环境门禁及其修复位置。
 
-用户完成认证或外部修复后可以 Recheck 当前事实。未通过的必要项必须阻止 Review/Confirm 或 Setup Complete；检查不得展示 credential/token 值，也不得把无法连接、超时或结果不确定解释为 READY。
+Runtime 在环境检查期间必须把当前步骤和结果投影给同一 Guide session。每当检查产生阻断错误，chat window 必须先把 Runtime 的失败步骤与结果呈现为可与建议区分的权威状态，再由 Guide 无需用户输入即自动生成针对该错误的建议；建议可以渐进呈现，并必须说明失败影响、修复方法和 owning surface。用户仍可继续追问，但主动建议不得以用户先发送消息为前提。
+
+Guide 可以解释影响、提供帮助并导航到 owning surface，但不得自行把检查标为通过、未经授权安装工具或改变认证、创建 Project、生成 Story、选择活跃节点、执行回拨或改写 workflow 状态。相同检查 revision 的重复投影不得反复产生同一主动建议；新的失败结果或重试结果可以产生对应的新状态与建议。
 
 ---
 
-<a id="fr-0601"></a>
-### FR-0601 Setup Review、Preview Revision 与 Human Confirm
+### FR-0601 New Project 的按需环境门禁编排
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Step 5；BS-02；继承 `001 FR-0200`
+- **来源**：`BS-06`、Story §3.3、`D-01`、`D-04`
+- **交付入口**：空 Project 的 `New Project` → Environment Wizard
 
-必要候选可确定后，Review 步骤必须一次展示拟采用的 workspace Manifest、各字段 provenance、readiness 结论，以及 Confirm 后将执行的 init/clone、binding 或 workspace 级外部配置操作及其影响。Preview 本身不得执行所列操作，也不得创建具体 Story/release 的 Project、run、branch、GitHub Project 或 Spec 目录。
+只有用户从空 Project 点击 `New Project` 后，Runtime 才可启动模态 Environment Wizard；空 Workbench 和首次 Setup 不得预先强制执行该门禁。Runtime 必须在后台依次确认 GitHub CLI 可执行、GitHub 认证与必需 scopes，以及当前 workspace 的 Git repository/binding。
 
-Confirm 必须由已认证 Human 明确触发并绑定当前 preview revision、actor 和选择。任一影响 preview 的事实或选择变化都使旧 preview stale；重复、并发或 stale Confirm 不得执行两次或套用旧选择。
+通过的步骤不得展开成要求用户逐项确认的页面；UI 只需在检查进行时说明正在检查，并在某一步未通过时显示该失败步骤、影响和重试/修复入口。任一必要检查失败或结果不确定均必须停留在 Wizard 并阻止 Story/版本输入与 Project 创建；重新检查通过后才可继续。
 
 ---
 
-<a id="fr-0701"></a>
-### FR-0701 Setup Apply、Reconcile 与 Manifest 完成条件
+### FR-0701 GitHub CLI、认证与 Scope Readiness
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Steps 6—7；BS-01、BS-02；继承 `001 FR-0200/2100`
+- **来源**：`BS-06`、Story §3.3 / §4.1、`D-06`；宿主 readiness surface
+- **交付入口**：同 FR-0601
 
-Confirm 后，系统只执行 Preview 中由 Human 授权的 workspace 级操作，并逐项显示 pending、applying、completed、failed、conflict 或结果不确定。每项操作必须在重试前查询实际结果；身份精确匹配的既有结果复用，未发生才可安全重试，冲突或不确定保持 attention。
+Runtime 必须先确认 `gh` 已安装且可执行，再依据 `gh auth status` 的实际结果确认目标 GitHub host 已登录，并验证当前认证的 token scopes 同时包含 `gist`、`project`、`repo` 和 `workflow`。未安装、不可执行、未登录、host/身份无法确定或缺少任一 scope 均不得通过门禁。
 
-只有 repository binding、运行依赖、namespace/capability 和全部必要操作均已验证时，系统才可写入持久化 Setup Manifest 并显示 Setup Complete。完成结果必须进入 Workbench Ready/Empty；任何局部成功不得开放 Start Story，也不得以回滚无关用户文件来制造“干净”结果。
+失败结果必须明确指出未满足的项及其对新 Project 的阻断影响，并可由 Guide 提供安装、登录或补齐权限的帮助；系统不得未经 Human 授权自动安装工具或改变认证。四项 scope 齐全只表示本门禁通过，后续 GitHub 资源、push、workflow 或 release 操作仍须以各自真实结果为准。
 
 ---
 
-<a id="fr-0801"></a>
-### FR-0801 Setup 与 Story 启动的中断恢复
+### FR-0801 Git Repository 初始化、绑定与可用主分支
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.2；D-02；继承 `001 FR-2100`、`003 NFR-0300`
+- **来源**：`BS-06`、`BS-07`、Story §3.3、`D-01`；继承 `v0.14-001 FR-0400`
+- **交付入口**：同 FR-0601；失败时的 repository URL 输入
 
-浏览器关闭、服务/设备重启或网络中断后，系统必须从持久化的 Setup revision、Human 决定、operation identity/result 和当前外部事实恢复最后一个可证明步骤。Confirm 前恢复有效候选与选择并重查易变事实；Confirm 后先 reconcile 已授权操作，不重复 init、clone、remote 或外部资源副作用。
+Runtime 必须确认当前 workspace 是已初始化的 Git repository，并具有可验证且与当前 workspace 一致的 GitHub repository binding。workspace 尚非 Git repository，或已初始化但缺少可验证 binding 时，Wizard 必须请求 repository URL；只有用户提交并继续后，Runtime 才可在当前 workspace 范围内执行初始化/绑定，并在重新检查实际结果通过后继续。
 
-Setup 已完成且 Manifest 有效时不得重播 onboarding。Manifest 或必要 binding 后来失效时，用户进入可恢复的 Setup attention 状态，同时保留已有 Story/release 身份。Story 启动中断时恢复同一 delivery request；不得重复 Confirm、创建第二 Story/release container 或把未知结果标为成功。
+Repository binding 只有在 remote 身份可确认且后续 Foundation 能取得可用的权威主分支时才算通过。对用户提供的新建空 repository，获确认的初始化/绑定动作必须安全建立并验证一个可供 Foundation 使用的 canonical `main`；对已有 remote 的缺失、冲突、歧义或 divergent 主分支不得覆盖或猜测。任何部分成功或结果不确定必须保留可恢复事实并继续阻断，不得提交 Louke secret、运行状态或无法归属的用户文件来制造可用分支。
 
 ---
 
-<a id="fr-0901"></a>
-### FR-0901 Start Story 与交付容器 Preview
+### FR-0901 Story 与 Release Version 的浏览器草稿
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1 Steps 7—9；BS-03、BS-04；D-07；继承 `001 FR-0300/0400/0500`
+- **来源**：`BS-08`、Story §3.3、`D-07`
+- **交付入口**：Environment Wizard 通过后的 New Project 输入步骤
 
-Setup 有效且无 active work 时，Project/驾驶舱的主动作必须是“开始 Story”，让 Human 输入一个要解决的问题或交付设想。Story 是用户表达交付意图的单位，并对应一个 release 中的 `story.md`；当前合同不引入 feature set 的集合管理心智。
+环境门禁通过后，用户必须能输入非空 Story 设想和 release version。系统必须在进入预览前将未确认输入保存为当前浏览器中的草稿；刷新、关闭后返回或创建前中断时，同一浏览器应恢复草稿与可继续位置。
 
-没有 active release 时，系统必须同时提出承载该 Story 的 release identity/目标版本，并在 Confirm 前展示 workspace identity、原始 Story 输入、external/canonical version、拟创建 branch、preview revision/request digest 和零 release 副作用。Confirm 后的单活跃 release 检查、权威 `main`/Foundation、资源创建与 Story 初始化严格继承 `001 FR-0300/0400/0500`。已有 active release 时，主视图必须回到 Current Work 且不得提供创建第二个主容器的成功路径；用户经 stale 或兼容入口提交的新请求按 `001 FR-0300` 幂等保存到 Backlog并显示阻塞结果。
+草稿不得创建 workspace 级正式文档、Project、WorkflowRun、GitHub Project、release branch 或阶段状态。跨浏览器/设备或浏览器数据被清除后的恢复不属于承诺；恢复时易变的环境结果必须重新确认，浏览器草稿本身不得绕过 FR-0601 门禁。
 
 ---
 
-<a id="fr-1001"></a>
-### FR-1001 Workflow Status 驾驶舱与对象连续性
+### FR-1001 Story/版本预览与无副作用取消
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.3；BS-05；继承 `001 FR-0600`、`003 FR-2400`
+- **来源**：`BS-08`、Story §3.3；继承 `v0.14-001 FR-0300`
+- **交付入口**：New Project 预览
 
-Project activity 必须将驾驶舱作为当前工作的默认主视图，并始终延续同一 workspace、Story、release Project 和 WorkflowRun identity。Ready/Empty 显示 workspace readiness 与 Start Story；Current Work 显示 active work；Released 显示最近完成的 Milestone/release、发布时间/结果、可访问 artifacts、历史和开始下一个 Story 的入口。
+对通过基础校验的 Story 与 release version，系统必须在任何 Project/release 副作用前展示本次 Story、规范化后的版本身份、workspace/repository 身份及 `Create`、`Cancel` 动作，使用户能核对将要创建的 Project。
 
-若 Released 之后已有新 active work，Current Work 必须成为主视图，已发布结果保留为历史上下文。驾驶舱不得创建与 Project/Run 页面平行的对象、状态副本或需要用户离开当前对象重新寻找功能的孤立页面。
+Preview 必须绑定当前输入、环境事实与 preview revision，且不得创建 Project、Story 文件、WorkflowRun、GitHub Project、branch 或 Spec 目录。用户取消时返回空 Project，且不得产生上述副作用；显式取消或普通中断后，浏览器草稿仍可用于再次进入创建流程。影响 Preview 的输入或 readiness 变化必须使旧 Preview stale，不能被继续确认。
 
 ---
 
-<a id="fr-1101"></a>
-### FR-1101 阶段进度、责任方、Evidence 与合法动作
+### FR-1101 确认创建、Scribe Story 与 Dev Docs 结果
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.3；BS-05、BS-06；继承 `001 FR-0600`、`002`/`003` 各阶段合同
+- **来源**：`BS-08`、Story §3.3 / §4.1；继承 `v0.14-001 FR-0300—FR-0500`
+- **交付入口**：New Project Preview 的 `Create` → Dev Docs 最新 `story.md`
 
-驾驶舱必须从 Runtime read model 显示当前 release/project、阶段序列与当前阶段、canonical 状态、当前责任方、适用 artifact/revision、最近状态变化/evidence 摘要、最近错误和 required action。阶段进度只表示 Runtime 已完成、当前、待处理和 attention 事实，不得显示客户端或 Guide 估算的百分比。
+已认证 Human 只能确认当前、未过期且环境门禁仍通过的 Preview。确认后，Runtime 必须按 `v0.14-001` 的单活跃 Project、权威 `main` 和 Foundation 合同创建或 reconcile 同一组 Project、规划 release、WorkflowRun、GitHub Project、release branch 与 Spec 目录身份，并进入 `M-STORY`；不得建立第二个平行 Project/Run 身份。
 
-`waiting_human`、`blocked`、`conflict`、`interrupted`、`needs_attention`、`closing` 等影响用户任务的状态必须突出原因、后果与恢复位置。每个状态至多呈现一个 Runtime 指定的主要下一动作；修复后 Recheck、Human 决定、继续到 artifact 等动作必须作用于当前 revision/attempt。没有合法用户动作时明确显示正在等待的责任方，普通导航不得伪装成流程推进。
+Foundation 可确认后，系统必须以当前确认的 Story 输入和 release version dispatch Scribe 生成该 Project 的 canonical `story.md` revision。最新 Story revision 持久化成功后，用户必须被导航到 Dev Docs，并在同一 Project 上下文中直接加载该 `story.md` 作为可见结果和继续工作的位置。
+
+重复、并发或恢复 Confirm 必须复用同一 request/Project/Story 身份。若外部资源或 Scribe 只完成一部分、失败或结果不确定，系统不得伪报创建完成或跳到错误文档；它必须显示同一 Project 的可恢复状态，先 reconcile 已发生结果，再重试未完成步骤，不得重复创建资源或覆盖冲突的 Story。
 
 ---
 
-<a id="fr-1201"></a>
-### FR-1201 Workbench 导航挂载与稳定深链
+### FR-1201 Project Status 的完整 Workflow 与活跃节点
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.3—§2.4；D-04；当前 Workbench toolbar/sidebar 与 `/projects`、`/runs` 公开入口
+- **来源**：`BS-09`、Story §3.4（含布局参考）；继承 `v0.14-001 FR-0600/FR-1700`、`v0.14-002 NFR-0600`、`v0.14-003`
+- **交付入口**：活跃 Project 的 Workbench main panel
 
-Workbench 必须提供 Project activity，与 Docs、End User Docs、Wiki、Runs、Settings 等现有 activities 共享同一 shell。状态 resolver 选择 Project/Setup 主视图后，用户仍可切换其它 activity，并能从其公开入口返回同一 Project 当前上下文。
+Project Status 必须使用 Runtime 持久化 read model，在同一 main panel 中突出当前活跃节点并展示可导航的线性时间线。时间线必须覆盖当前 Project 从 `M-START`、`M-STORY`、`M-SPEC`、`M-ACC`、`M-REQ-APPROVAL`、`M-DESIGN`、`M-IMPL`、`M-TEST`、`M-VERIFY`、`M-SECURITY`、`M-RELEASE`、`M-PUBLISH` 到 `M-MILESTONE` 的完整 canonical workflow，并区分已完成、活跃、待处理、需要处理及失效状态。新 Project 及新状态写入统一使用 `M-REQ-APPROVAL`；读取历史 `M-LOCK-1` 时必须映射为同一批准节点并可标识兼容别名，不得将两者展示为连续的两个阶段。批准后创建或关联 Issues 是该节点的结果/evidence，不是额外 workflow 节点。
 
-现有 `/projects`、`/projects/new`、Project detail、Story、Gate 和 Run 深链可以作为兼容入口，但必须打开或导航到同一 Workbench 对象与状态，不得维护独立的 release 页面状态或版本专属页面。返回、刷新和书签必须保留可解析的 workspace/project/run/artifact 身份；不存在或无权访问的目标显示可定位结果而非静默落到错误 Project。
+活跃节点处于 running 类状态时，突出区域必须显示当前责任方、attempt/轮次与已运行时长；处于 `waiting_human`、`blocked`、`conflict` 等 attention 状态时，必须显示原因、影响与 Runtime 指定的唯一主要动作入口。两种模式均须保留 canonical 状态、当前 artifact/revision 或 operation、最近 evidence/错误和 owning surface，使用户无需从时间线中重新寻找当前任务。
+
+时间线必须按实际发生顺序把每次阶段 attempt（包括被打回后的重做轮次）作为独立节点保留，以方向连接表达推进，并以可辨认的回边表达从哪个节点回到哪个节点；历史 attempt 不得折叠成一个阶段节点、被新轮次覆盖或被重写为从未发生。节点多到无法同时呈现时，初始视图必须聚焦活跃节点并保留其邻近上下文，同时让用户能导航到全部历史；横向滚动、缩放或等效交互由 M-DESIGN 决定。Guide、浏览器缓存和前端不得根据聊天内容、文件存在或估算百分比推进或改写节点状态。
 
 ---
 
-<a id="fr-1301"></a>
-### FR-1301 Sidebar 的 Guide 固定挂载与用户空间控制
+### FR-1301 选中节点详情与上下文返回
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.4 Guide 挂载合同；BS-07；D-04、D-05
+- **来源**：`BS-09`、Story §3.4（含布局参考）；Product Integration Pass
+- **交付入口**：Project Status workflow 节点
 
-Workbench sidebar 必须垂直分为两个持续可见区域：上方默认约 `2/3` 显示当前 activity 的既有导航/功能，下方默认约 `1/3` 显示 Guide 对话。Guide 在 Project、Docs、End User Docs、Wiki、Runs、Settings 及 Setup 中保持同一挂载位置；切换 activity 时上方内容切换，Guide 更新上下文但不取代主内容。
+用户选择时间线中任一可查看节点时，Project Status 必须在不丢失时间线上下文的详情 surface 中显示该 attempt 的开始/结束时间、状态、责任方、关联 artifact/revision、关键 evidence/错误、状态转移原因（特别是打回或阻塞原因）、当前是否允许回拨及适用动作，并明确区分“选中查看的节点”与“当前活跃节点”。选择历史或未来节点只改变查看上下文，不得改变 Runtime 状态或 active pointer；浮层、相邻区域或等效组件由 M-DESIGN 决定。
 
-用户必须能折叠 Guide、调整分隔位置并恢复默认比例；Workbench 记住该用户的选择。小窗口或无障碍缩放时必须优先保证主功能可操作，且折叠 Guide 不改变 Runtime 状态或阻止合法流程动作。
+节点详情必须提供到其 owning artifact/operation surface 的稳定入口；用户完成查看或从 owning surface 返回时，必须回到同一 Project Status 与可识别的节点上下文，而无需重新寻找 Project。不存在、stale 或无权访问的目标必须显示可定位结果，不得静默切换到另一 Project 或 revision。
 
 ---
 
-<a id="fr-1401"></a>
-### FR-1401 Guide 的上下文说明、对话与非干扰行为
+### FR-1401 Runtime 允许的回拨指针与安全执行
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.4；BS-06、BS-07；D-03—D-05
+- **来源**：`BS-09`、Story §3.4（含布局参考）、`D-08`；继承 `v0.14-001 FR-1500/FR-2100`、`v0.14-003 FR-2600/FR-2700`
+- **交付入口**：Project Status 的回拨指针
 
-Guide 必须基于当前 workspace、activity、所选 Story/release/artifact 和 Runtime read model，先简洁说明“用户在哪里、这里能做什么、当前状态意味着什么、应到哪里执行下一步”，再允许用户追问。它可以解释 evidence、选项影响并导航到正式功能，但正式输入、编辑、Confirm、Human decision 和 Runtime action 必须在 owning surface 完成。
+Project Status 只能为 Runtime 对当前 Project/revision 明确允许的先前 attempt 展示回拨指针，并在线性时间线中显示既有回拨的来源、目标与方向。选中节点详情必须显示其当前回拨合法性；仅当允许时才提供回拨主动作。用户发起回拨时，系统必须先说明目标节点、将失效或需要重做的后续 artifact/review/evidence，以及不能自动逆转的外部后果；只有 Human 明确确认且 Runtime 再次验证该回拨仍合法后才可执行。
 
-首次 Setup、首次 Story、首次查看 Released，以及新进入 Human attention 状态时，Guide 可以更新并突出对应说明；它不得自动切换 activity、夺取键盘焦点、滚动或遮蔽主功能、清除未发送输入，也不得要求用户先回复才能继续。状态未变化时不得在每次登录重复追加欢迎或提醒消息。
-
-Guide 会话必须按 workspace 与任务上下文区分；切换对象/activity 时可保留历史供回看，但必须标明上下文变化，不得把旧解释呈现为当前事实。Guide 内容和 last-seen 只能决定说明是否突出，不能决定 workflow 状态或登录落点。
+回拨必须更新同一 Project 的 canonical active pointer，保留历史与审计，并按 owning 阶段合同将受影响的下游结果标记 stale、superseded 或待 reconcile，而不得静默删除历史或伪装撤销外部副作用。并发推进、旧页面、目标已失效或 Runtime 不支持时不得修改状态；界面必须刷新当前事实并显示合法继续位置。
 
 ---
 
-<a id="fr-1501"></a>
-### FR-1501 Guide、专业 Agent Chat 与 Maestro 退役边界
+### FR-1501 Project 用户概念、对象身份与兼容入口
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.1、§3.1；BS-06；D-03；Human 决定退休 Maestro；冲突裁决 `003 FR-3000`
+- **来源**：Story §3.2—§3.3、`D-03`、Story §4.3；宿主 `/projects`、`/runs` 与 Workbench 路由
+- **交付入口**：Workbench Projects、`/projects`、Project/Run/Story 兼容深链
 
-Guide 不得作为可选 Agent 出现在 Agent picker，不得 author/review artifact、选择或 dispatch 专业 Agent、提交 Human decision、调用阶段转移、伪造 evidence 或改变 Runtime 状态。责任方和合法 action 完全由 Runtime 决定，Guide 只解释并导航。
+本旅程的用户可见主对象必须统一称为 Project；一个 Project 承载一次规划中的 release，并与其 GitHub Project、Runtime WorkflowRun 和 Story 工件保持可追溯的一对一上下文关系。Projects landing、New Project、Project Status、Guide 和 Dev Docs 不得为同一工作创建或展示互不关联的对象身份。
 
-Scribe、Sage、Archer、Devon 等专业 Agent Chat 必须继续绑定 Runtime 指定的 task/session、artifact 和 write/review scope，并与 Guide 对话明确区分。新运行和新用户旅程不得依赖、展示或 dispatch Maestro；历史 Maestro session/evidence 仅按 `003 NFR-0600` 只读展示或迁移，不得形成 Guide 与 Maestro 双重 advisory authority。
+现有 `/projects`、`/projects/new`、Project detail、Run 与 Story 深链可以保留或转发，但必须解析到同一 Workbench Project 上下文和 Runtime 事实。历史 `Workflow Runs` 数据无需因本 Story 全量重命名或复制；历史读取可保留兼容标签，新旅程和新写入必须使用 canonical Project 身份且只维护一份可写真相。
 
 ---
 
 ## 非功能需求
 
-<a id="nfr-0001"></a>
 ### NFR-0001 持久化恢复、幂等与并发安全
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §2.2；继承 `001 FR-2100/NFR-0100`、`003 NFR-0300`
+- **来源**：`BS-01`、`BS-03`、`BS-08`、`D-07`、Story §4.1；继承 `v0.14-001 FR-2100/NFR-0100`
+- **交付入口**：无独立入口，依附 FR-0101、FR-0301、FR-0901、FR-1101、FR-1401
 
-Setup revision、Human 选择、Manifest、operation identity/result、onboarding/last-seen、Workbench 当前对象和适用 Runtime state 必须持久化。刷新、重启、重复/并发 Confirm 与重试不得重复外部副作用、创建平行对象或接受 stale revision；无法确认结果时 fail closed 并保留可恢复 evidence。
+首用户、Setup 完成状态、Project/request/revision identity、Runtime 状态和外部 operation 结果必须按各自持久化边界恢复；浏览器草稿按 FR-0901 保存在当前浏览器。刷新、服务重启、重复提交、并发 Confirm/回拨和不确定外部结果不得重复身份或副作用、接受 stale revision、丢失可证明进度或把未知结果标为成功。
 
 ---
 
-<a id="nfr-0101"></a>
-### NFR-0101 Secret、权限与本地副作用保护
+### NFR-0101 Secret、权限与外部副作用保护
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story §3.1、风险；继承 `001 NFR-0200`、`002/003 NFR-0200`
+- **来源**：Story §4.1 / 风险、`D-06`；继承 `v0.14-001 NFR-0200`、`v0.14-002/003 NFR-0200`
+- **交付入口**：无独立入口，适用于 `/setup`、Environment Wizard、Guide、Project Status 与 Dev Docs
 
-Credential、token、cookie、provider secret 和完整认证材料不得进入 Setup Manifest、Guide/Agent 输入、event、日志、错误详情、文档或提交；产品只展示非秘密 identity、计数、redacted diagnosis 和 digest。init/clone、remote/binding 及外部 namespace 操作必须受当前 Human 明确授权和 workspace 范围约束，不得覆盖或删除无法归属的用户内容。
+Credential、password、session secret、GitHub token、repository URL 中的 credential 和 OpenCode/provider secret 不得进入 Setup 完成记录、browser draft、Guide/Agent 对话、Runtime event、日志、错误详情、Story 文档或 Git 提交。产品只展示完成判断所需的 redacted identity、scope 名称和非秘密诊断。
+
+模型探测必须使用最小请求并不得携带 Louke 工件或用户 Story；Git 初始化/binding、GitHub 认证变更、Project 资源和回拨相关外部操作必须限制在当前 workspace/Project 与 Human 已确认的范围内，不得覆盖或删除无法归属的用户数据。
 
 ---
 
-<a id="nfr-0201"></a>
-### NFR-0201 单一状态权威与可验证新鲜度
+### NFR-0201 外部检查的新鲜度、超时与可操作诊断
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story BS-05、BS-06；D-03；四 Spec Runtime authority 合同
+- **来源**：`BS-02`、`BS-06`、Story §3.1—§3.3 / 风险；成熟恢复惯例
+- **交付入口**：`/setup`、Environment Wizard、Guide
 
-Setup、驾驶舱、Guide、兼容深链和专业 Agent Chat 必须消费同一 Runtime/Manifest 事实及可识别 revision。客户端缓存、聊天摘要或历史页面不得覆盖较新的 canonical 状态；读取 stale、对象不匹配或 revision 冲突时必须刷新并显示当前可继续位置，不能双写兼容状态。
+OpenCode/model、`gh`、认证/scopes、Git repository/binding 和 remote 主分支等外部检查必须具有有界等待，且在进入依赖其结果的动作前使用足够新鲜的事实。超时、输出无法解析、命令不可执行、网络错误或结果不确定必须 fail closed，不得沿用过期成功状态继续创建。
+
+失败诊断必须指出失败对象、已知事实、对当前任务的影响和可执行恢复位置，同时避免只暴露内部异常或秘密。Guide 收到检查投影或生成主动建议失败不得阻塞 owning Wizard 显示权威结果，也不得把投影/建议失败解释为环境检查失败或通过；chat window 已显示的 Runtime 结果必须保持可见并提供 Wizard 的修复入口。
 
 ---
 
-<a id="nfr-0301"></a>
-### NFR-0301 可访问、响应式且非侵入的 Workbench
+### NFR-0301 可访问且不丢失输入的操作路径
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Story D-05；Guide 挂载合同
+- **来源**：Story §3.1—§3.4、`D-04`、`D-07`；宿主产品质量基线
+- **交付入口**：`/setup`、Workbench Projects、Environment Wizard、Project Status
 
-Wizard 的步骤、错误、完成状态和操作必须可通过键盘及可访问名称理解；状态不得只依赖颜色。Sidebar 在受支持窗口尺寸和文本缩放下必须保持主功能、Guide 折叠/恢复及合法下一动作可达。Guide 更新应通过非侵入的状态提示表达，不得无请求抢焦点或造成用户输入丢失。
+Setup、模态 Wizard、Story/版本输入、Preview、workflow 节点与回拨动作必须可通过键盘和可访问名称完成，状态和失败不得只依赖颜色。后台检查或 Guide 更新不得夺取焦点、清除用户输入或遮断取消/返回；在受支持窗口尺寸和文本缩放下，关键动作、失败原因和继续位置必须保持可达。
 
 ---
 
-<a id="nfr-0401"></a>
-### NFR-0401 四 Spec 升级与历史兼容
+### NFR-0401 单一状态权威与升级兼容
 
 | 有效需求 | 可测性 | 是否已决定 |
 |---|---|---|
 | ✅ | ✅ | ✅ |
 
-- **来源**：Human 要求四 Spec 统筹；Story D-06；继承 `002 NFR-0600`、`003 NFR-0600`
+- **来源**：Story §4.1 / §4.3、`D-03`、`D-05`、`D-08`；继承 `v0.14-002/003 NFR-0600`
+- **交付入口**：无独立入口，适用于所有 FR
 
-升级必须将现有 Setup、Project、Run、release request、artifact 和 milestone identity 映射到本文 Workbench 视图，不得要求有效 workspace 重新 Setup 或把历史工作复制成新对象。旧路由和版本化协议在兼容期可读取/转发到 canonical 行为，但新写入只产生一份权威状态；无法安全映射的历史 Maestro/run 状态必须显式只读或标记需要迁移，不得静默解释为当前 Guide/Runtime 状态。
+Setup、Projects landing、Environment Wizard、Project Status、Guide、Dev Docs 和兼容路由必须消费同一可识别 workspace/Project/Runtime revision。浏览器缓存、旧 `Workflow Runs` 页面、Guide 摘要或历史 artifact 不得覆盖较新的 canonical 状态，也不得形成第二套可写 Project、workflow 或回拨事实。
 
----
-
-<a id="nfr-0501"></a>
-### NFR-0501 可操作诊断与用户可理解性
-
-| 有效需求 | 可测性 | 是否已决定 |
-|---|---|---|
-| ✅ | ✅ | ✅ |
-
-- **来源**：Story §2.1—§2.4、风险；继承 `002 NFR-0500`
-
-Wizard 与驾驶舱的失败结果必须指出失败对象、当前已知事实、对用户任务的影响、责任方和可执行恢复位置；不得只显示内部异常、run ID 或“失败/重试”。普通成功路径保持渐进披露：新用户无需先理解 Runtime stage、release container 或 Agent 编排即可开始 Story，但需要诊断时可展开 evidence 和 artifact 入口。
+升级必须保留可映射的用户、Setup、Project、Run、release、Story、artifact、evidence 和 milestone 身份；已有符合本合同完成条件的 workspace 不得被无故要求重新 Setup。无法安全映射的旧状态必须明确只读或需要迁移，不得静默复制、丢弃或解释为当前状态。
 
 ---
 
 ## 澄清记录
 
-- 2026-07-23：Human 决定 Setup 必须是 Wizard；主路径先完整描述完全空白 workspace，再单独描述中断恢复。
-- 2026-07-23：Human 决定空白 workspace 完成 Setup 后以“首个 Story”作为用户目标，不使用“首个 Release”或 feature set；Story 是比 feature 更大的交付意图单位，release 是承载 Story 的交付容器。
-- 2026-07-23：Story 登录矩阵中遗留的 `Create Next Release` 与其后 Human 决定 D-07 冲突；本文统一为“开始下一个 Story”，需要新 delivery container 时由同一预览一并提出 release identity。
-- 2026-07-23：Human 决定 Guide 固定挂载于每个 Workbench activity 的 sidebar 下方约 `1/3`，上方约 `2/3` 保留现有功能。
-- 2026-07-23：Human 决定不使用 Maestro 并准备将其退休；流程控制完全由 Runtime 决定，Guide 只解释与导航。
-- 2026-07-23：四个 v0.14 Spec 共同组成一个 release；本文已明确重叠主题的 owning contract 和替代边界，不保留双重真实行为。
+- 2026-07-24：Human 审核后的 `STR-1405` 明确取代本 Spec 先前的多步骤首次 Setup Wizard。首次 Setup 现在只包含首用户创建与真实 OpenCode 模型运行；Git/GitHub/repository readiness 只在点击 `New Project` 后执行。
+- 2026-07-24：用户可见对象统一为 Project；现有 WorkflowRun 作为同一 Project 的 Runtime 身份继续兼容，不建立平行产品对象。
+- 2026-07-24：基于 `BS-07`、其“避免后续缺失 remote/main”说明及 `v0.14-001 FR-0400`，空 remote 的初始化/binding 必须形成可供 Foundation 使用的 canonical `main`；具体 Git 实现方式留给设计。
+- 2026-07-24：Human 澄清 Environment 检查出现阻断错误时，Guide 必须在无需用户输入的情况下主动给出建议；chat window 先呈现 Runtime 权威结果，再呈现可区分的 Guide 建议。
+- 2026-07-24：Human 为 Project Status 增加“突出当前节点 + 线性尝试时间线 + 节点详情”的视觉参考。本文锁定其用户可观察的信息层次、每轮独立历史、回边和可导航性；GitLab/GitHub 参考、卡片/浮层、横向滚动/缩放及像素布局只作为 M-DESIGN 输入，不锁定具体组件。
+- 2026-07-24：按 `v0.14-001 FR-1700` 的等价关系与 `v0.14-002 NFR-0600` 的新写入规则，Project Status 对新 Project 使用 `M-REQ-APPROVAL`；历史 `M-LOCK-1` 仅映射为同一节点的兼容别名，不显示成第二阶段。
+- 2026-07-24：无开放产品决定。
