@@ -5,7 +5,7 @@ name: Louke CI
 # This workflow is the canonical CI for v0.14-001-workflow-reflow-spec per
 # architecture §9 and IF-CI-01. It aggregates:
 #   - quality (pre-commit + mypy)
-#   - build-artifacts (PyPI-first isolated build with Aliyun network fallback)
+#   - build-artifacts (isolated build with PyPI-first network fallback to Aliyun)
 #   - artifact-verify (release adapter prepare/inspect/install outlets)
 #   - unit matrix (Python 3.11..3.14, coverage >=95%)
 #   - integration (tests/e2e/run-project-venv integration, manifest-driven)
@@ -90,7 +90,47 @@ jobs:
           cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
           cp -r .github/workflows louke/.github/workflows
       - name: Build wheel + sdist
-        run: python tools/build_with_index_fallback.py --wheel --sdist
+        shell: bash
+        run: |
+          set -o pipefail
+          primary_log="${RUNNER_TEMP}/louke-build-primary.log"
+          set +e
+          PIP_INDEX_URL=https://pypi.org/simple \
+            python -m build --wheel --sdist 2>&1 | tee "$primary_log"
+          primary_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$primary_status" -eq 0 ]; then
+            exit 0
+          fi
+          if python - "$primary_log" <<'PY'
+          from pathlib import Path
+          import sys
+
+          output = Path(sys.argv[1]).read_text(encoding="utf-8").lower()
+          markers = (
+              "could not fetch url",
+              "connectionerror",
+              "failed to establish a new connection",
+              "max retries exceeded",
+              "network is unreachable",
+              "name or service not known",
+              "remote end closed connection",
+              "sslerror",
+              "ssleoferror",
+              "temporary failure",
+              "timed out",
+              "timeout",
+          )
+          raise SystemExit(0 if any(marker in output for marker in markers) else 1)
+          PY
+          then
+            echo "PyPI network failure detected; retrying through Aliyun."
+            PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple \
+              python -m build --wheel --sdist
+          else
+            echo "Primary build failed for a non-network reason; refusing fallback." >&2
+            exit "$primary_status"
+          fi
       - name: Upload wheel + sdist
         uses: actions/upload-artifact@v4
         with:
