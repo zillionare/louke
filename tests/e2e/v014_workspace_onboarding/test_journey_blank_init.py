@@ -1,10 +1,10 @@
 """E2E journey: blank workspace init happy path.
 
-AC-FR0001-01, AC-FR0101-01, AC-FR0201-01, AC-FR0301-01, AC-FR0701-02,
-AC-FR0901-01, AC-NFR0501-01
+AC-FR0001-01, AC-FR0201-01, AC-FR0201-02, AC-FR0901-01, AC-NFR0501-01
 
 User opens a blank workspace, registers, logs in, and reaches the
 Workbench shell. This is the main success path for a first-time user.
+FR-0101 Setup Wizard progress is covered in test_journey_setup_wizard.py.
 """
 
 from __future__ import annotations
@@ -44,27 +44,6 @@ def test_blank_workspace_reaches_workbench_shell(live_server, browser_page):
 
     # Should be in Workbench shell (not a standalone chat page)
     assert "/login" not in page.url
-
-
-def test_setup_wizard_shows_steps(live_server, browser_page):
-    """AC-FR0101-01: Setup Wizard shows current and remaining steps."""
-    # AC-FR0101-01
-    page, base_url = browser_page
-
-    page.request.post(
-        f"{base_url}/api/auth/register",
-        data={"username": "human", "password": "secret"},
-    )
-    page.goto(f"{base_url}/login", wait_until="domcontentloaded")
-    page.fill('input[name="username"]', "human")
-    page.fill('input[name="password"]', "secret")
-    page.click('button[type="submit"]')
-    page.wait_for_load_state("domcontentloaded")
-
-    # After login, user should see the Workbench or setup surface
-    # The page content should indicate setup or workbench context
-    body_text = page.inner_text("body")
-    assert len(body_text) > 0
 
 
 def test_first_user_creation_then_login_continuity(live_server, browser_page):
