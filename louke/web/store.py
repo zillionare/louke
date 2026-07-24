@@ -126,14 +126,14 @@ class ProjectStore:
                 continue
             username = str(item.get("username") or "").strip()
             password_hash = str(item.get("password_hash") or "")
-            password = str(item.get("password") or "")
+            legacy_password = str(item.get("password") or "")
             if not username:
                 continue
             result.append(
                 {
                     "username": username,
-                    "password": password,
                     "password_hash": password_hash,
+                    "legacy_password": legacy_password,
                 }
             )
         return result
@@ -156,7 +156,9 @@ class ProjectStore:
             password_hash = user.get("password_hash", "")
             if password_hash and _password_matches(password, password_hash):
                 return True
-            if not password_hash and hmac.compare_digest(user["password"], password):
+            if not password_hash and hmac.compare_digest(
+                user.get("legacy_password", ""), password
+            ):
                 return True
         return False
 
