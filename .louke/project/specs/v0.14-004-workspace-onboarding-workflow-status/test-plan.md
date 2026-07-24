@@ -1,306 +1,347 @@
-# v0.14-004 Workspace Onboarding 与 Workflow Status 测试计划
+# 最小首次设置、Project 创建引导与 Project Status — Test Plan
 
-## 1. 概述
+- **Spec ID**：`v0.14-004-workspace-onboarding-workflow-status`
+- **Created**：2026-07-24
+- **Related acceptance**：`.louke/project/specs/v0.14-004-workspace-onboarding-workflow-status/acceptance.md`
+- **Related interfaces**：`.louke/project/specs/v0.14-004-workspace-onboarding-workflow-status/interfaces.md`（唯一断言依据，见 §6.5）
+- **Acceptance identity**：`sha256:19bf2d0d9f4dc8d3cd27baa126a3a5fd92cc3e153e51c40f4180babbeabaaa81`（44 个唯一 AC）
 
-### 1.1 目标
+## 1. 立场与边界（Stance and Boundaries）
 
-验证空白和既有 workspace 均能通过统一 Workbench shell 完成身份、Repository、依赖、Review/Apply，并在登录、刷新、服务重启、冲突或断线后解析到正确的 Setup/Current Work/Released/Ready 状态；同时验证 Workflow Status 与 Guide 只呈现 Runtime/program 的 canonical facts，不成为第二 authority。
+### 1.1 黑盒声明（Black-box Statement）
 
-计划覆盖 `acceptance.md` 的全部 43 项 AC、`interfaces.md` 的 IF-01 至 IF-15，以及兼容、安全、恢复、幂等、可访问和 CI/artifact 门禁。Acceptance 当前以 section anchor 加局部 `AC-1/AC-2` 表达；traceability gate 使用规范化 ID `AC-FRxxxx-yy` / `AC-NFRxxxx-yy`，例如 `ac-fr-0101` 下 `AC-2` 记作 `AC-FR0101-02`。
+本计划只使用系统外部可观察结果：
 
-### 1.2 测试范围
+- `interfaces.md` 定义的 HTTP API、redirect、错误 envelope 与浏览器 URL；
+- 通过可访问名称、文本、状态、focus 和动作可用性观察的 Web UI；
+- `.louke/web-users.json`、`.louke/web-setup-state.json`、Runtime SQLite、Git refs/commits、Foundation/operation evidence 和结构化日志；
+- 真实构建 wheel/sdist 的 metadata、SHA-256，以及 clean install 后 `lk --version` / `importlib.metadata.version("louke")`；
+- 外部 OpenCode、`gh`、`git` stand-in 的协议调用记录，或 protected L3 sandbox 的真实结果。
 
-**包含：**
+浏览器 E2E 只通过安装后产品的页面/API产生状态，不直接导入 Louke 内部对象，不预写 Runtime 状态来伪造用户成功旅程。integration 可以预置公开持久化 schema 所声明的历史 fixture，但必须通过公开 HTTP/readback断言接线结果。
 
-- Workbench shell、首用户/Login、Entry Resolver 和稳定 Project/Story/Run 导航。
-- 连续 Setup Wizard 的 init/clone 两个 Repository 分支、binding/provenance、依赖 Recheck、Review/Apply/Reconcile 和持久恢复。
-- Ready/Empty、Current Work、Released 驾驶舱，Start Story Preview/Confirm 的有机入口。
-- Workflow Status 全字段、新鲜度、合法动作和 Guide 挂载/偏好/解释/非干扰边界。
-- stale、并发、重复提交、部分成功、结果不确定、权限、路径逃逸、秘密脱敏和旧 route/API 兼容。
-- Python unit、安装态 integration、真实 Chromium e2e、真实 wheel/sdist 构建与安装验证、AC traceability 和 Louke CI required aggregation。
+### 1.2 不可观察对象（Non-observable Objects）
 
-**不包含：**
+测试不得直接依赖：
 
-- `v0.14-002` 的 M-DESIGN 领域逻辑和 `v0.14-003` 的 M-IMPL 至 M-MILESTONE 状态机内部正确性；本计划只验证其公开 projection/深链接线。
-- 新的 release version、tag 或 publish 行为。本 Spec 不改变 artifact 身份；只回归既有 build/version gate。
-- 视觉品牌、像素级布局和未承诺的小于支持范围的 viewport；仍验证接口规定的布局不遮挡和可访问语义。
-- 真实第三方服务作为默认 PR 证据；默认使用可控 stand-in，protected/manual smoke 只作既有发布合同要求的补充，不能替代 required suite。
+- 内部类层次、私有函数、协程/线程名称、路由 handler 实例；
+- 内部缓存、队列、未公开状态变量和客户端组件树/CSS selector结构；
+- Runtime 调度算法、Guide prompt/session transport metadata；
+- 通过 monkeypatch Louke application核心来替代真实 HTTP/store/projection 行为。
+
+若 AC 需要的结果不能从 `interfaces.md` 出口观察，先修订 interfaces；不得从测试侧窥探私有字段补洞。
+
+### 1.3 作弊模式（CI enforced interception）
+
+| # | 作弊模式 | 本项目症状 | 门禁 |
+|---|---|---|---|
+| 1 | 为实现改断言 | 旧六步 Setup 仍通过，于是把新 AC 改回旧 step | PR review + AC digest |
+| 2 | skip 逃避 | Chromium/`gh`/OpenCode不可用时无 issue地 skip | static scan；required suite零收集/skip失败 |
+| 3 | 断言降级 | 只断言HTTP 200，不断言无副作用、identity或可见结果 | Shield review |
+| 4 | `try/except: pass` | 吞掉 timeout/conflict | static scan |
+| 5 | 过度 mock | mock `Environment Gate` 自己，只验证mock返回passed | boundary review |
+| 6 | Ground truth引用实现 | expected timeline由`project_status()`输出生成 | import taboo |
+| 7 | 旧 evidence冒充current | 沿用旧43 AC/六步Wizard PASS | traceability count=44 + locked digest |
+| 8 | trivial pass | `assert True`或只有`is not None` | static scan |
+
+### 1.4 防护（Safeguards）
+
+1. **AC强制追踪**
+   - 每个测试函数首行 docstring/comment 至少含一个当前 `AC-FRXXXX-YY` 或 `AC-NFRXXXX-YY`。
+   - `tools/check_ac_traceability.py` 对本 Acceptance 使用 `--expected-count 44`；每个 AC至少被引用一次，测试不得引用未知AC。
+   - 同一 AC 如本计划要求多层，runner evidence的`ac_layers`必须出现全部必需层；低层不能替代integration/e2e。
+2. **反作弊静态检查**
+   - 禁止 sole `assert True/assert 1/is not None`、吞异常、无Issue skip、`tests/ground_truth`导入`louke.*`。
+   - integration/e2e零收集、浏览器未启动、stand-in未收到预期真实调用均失败。
+3. **测试变更分类**
+   - PR必须标识New AC、Spec change或flake/environment issue；“实现不符合Spec所以改测试”禁止。
+4. **身份绑定**
+   - runner evidence记录 source SHA、wheel digest、Story/Spec/Acceptance digest、profile/runtime和44 AC集合；旧digest evidence不是current。
+5. **可测性 fallback**
+   - 缺公开出口时记录testability gap并回到 M-DESIGN；不以内部mock让测试先绿。
+
+### 1.5 测试分工（Test Division of Labor）
+
+- **Unit**：Devon；覆盖 manifest/version/identity/redaction/freshness、Project projection、alias、return eligibility、幂等与错误映射的确定性规则。
+- **Integration**：Shield；覆盖所有 `modules` ≥2 的接口接线、真实Starlette + 临时事实源 + 外部stand-in，以及失败/边界/恢复。
+- **E2E**：Shield；覆盖公开用户主旅程和一个代表性失败修复旅程：首次Setup、empty→Environment→Preview/Create→Dev Docs→Status、节点详情/回拨、兼容返回与升级恢复。
+- **Ground Truth**：独立实现者或标准/第三方工具；不得复用被测 Louke projection/adapter。
+- **Review**：Shield审查所有测试；Ground Truth和stand-in协议变化需专项审查。
 
 ---
 
-## 2. 测试策略
+## 2. 测试环境（Test Environment）
 
-### 2.1 测试层级
+### 2.1 目录布局
 
-| 层级 | 负责人 | 资产/入口 | 边界 |
+```text
+tests/
+├── unit/                                      # Devon；现有结构
+├── integration/
+│   └── v014_workspace_onboarding/            # Shield；本Spec跨模块合同
+├── e2e/
+│   ├── run-project-venv
+│   ├── run_e2e.py
+│   ├── playwright-requirements.txt
+│   └── v014_workspace_onboarding/            # Shield；安装态Chromium旅程
+├── fixtures/
+│   └── v014_workspace_onboarding/            # 无秘密固定输入/stand-in脚本/历史快照
+└── ground_truth/                              # 不得import louke.*
+```
+
+旧 `v014_workspace_onboarding` 路径可以复用 harness、live server与fixture装配，但旧 `identity→repository→dependencies→review→applying` 行为断言必须删除或改写；它们不能作为当前 evidence。
+
+### 2.2 命名约定
+
+- 文件：`test_<surface>__<scenario>.py`。
+- 函数：`test_ac_<fr-or-nfr>_<number>_<scenario>`；首行同时写完整 AC token。
+- fixture identity使用 `ws_`、`prj_`、`run_`、`att_`、`chk_`、`op_` 前缀；secret使用可检索哨兵 `SECRET_V014004_*`，禁止真实credential。
+- 浏览器定位优先 role/name/label/live-region，不依赖DOM层次或生成class。
+
+### 2.3 执行
+
+| 层 | 本地/CI命令 | 隔离与结果 |
+|---|---|---|
+| Unit | `/tmp/lk-venv/bin/python -m pytest -q tests/unit --cov=louke.runtime --cov-report=xml --cov-report=term-missing --cov-fail-under=95` | clean wheel venv；Runtime coverage≥95% |
+| Integration | `tests/e2e/run-project-venv integration` | 必须发现`tests/integration/v014_workspace_onboarding`且非零；默认禁公网 |
+| E2E | `tests/e2e/run-project-venv e2e --profile all --runtime both` | local/global安装态，真实Chromium，临时HOME/workspace；runner负责start/readiness/finally teardown |
+| L3 smoke | `tests/e2e/run-project-venv real-smoke --profile v014 --runtime local` | protected tag/manual environment；真实OpenCode/GitHub sandbox；不在PR运行 |
+
+执行顺序：quality/trace → build → unit → integration → e2e。所有 push/PR运行L1/L2和stand-in E2E；L3只在受保护release触发。测试不得依赖执行顺序共享状态。
+
+### 2.4 测试数据
+
+| 数据集 | 内容 | 来源/复现 | 用途 |
 |---|---|---|---|
-| 单元测试 | Devon | 现有 unit 目录与 pytest unit 入口 | 纯 resolver/projection、URL 校验、revision/idempotency 决策、脱敏、layout preference 规则；使用固定时钟、临时目录和 adapter fake |
-| 集成测试 | Shield | `tests/integration/v014_workspace_onboarding/`；`tests/e2e/run-project-venv integration` | 通过真实 HTTP/application/store 与受控 Git/provider adapter 接线验证 IF-01..IF-15；不得 mock 被断言的公开 HTTP 出口 |
-| E2E 测试 | Shield | `tests/e2e/v014_workspace_onboarding/`；`tests/e2e/run-project-venv e2e --profile all --runtime both` | 安装 wheel、隔离 HOME/workspace、真实 Web server + Chromium，模拟主用户旅程、恢复、响应式/键盘和兼容深链 |
+| `setup-empty` | project.toml存在、无user/manifest | fixture复制到临时目录 | gate、首用户、真实probe |
+| `setup-user-pending` | scrypt测试用户 + v2 pending_model | 固定schema生成；password仅测试进程知道 | refresh/restart/重复用户 |
+| `setup-complete-empty` | valid complete + no active Project | fixture builder + fixed clock | Projects empty/New Project |
+| `project-active-history` | pinned definition、run/events/attempts、artifact/evidence、回边 | 直接按interfaces公开SQLite/event schema装载；expected sequence独立维护 | Status/attempt/return |
+| `project-multi-active` | 两条互相冲突的Project chain | 固定SQLite fixture | fail-closed conflict |
+| `legacy-lock` | historical `M-LOCK-1` event与旧身份链 | versioned upgrade fixture | alias/migration/read-only |
+| `git-empty-remote` | workspace未init + 可控空remote | 外部Git stand-in/临时bare remote | init/bind/main |
+| `git-conflicts` | wrong origin、non-empty no-main、diverged、timeout、partial push | 独立外部fixture | 阻断/reconcile/无覆盖 |
+| `gh-matrix` | missing executable、auth fail、unknown host、每个缺scope、全scope | 可执行stand-in固定JSON/text transcript | Environment Gate |
+| `opencode-matrix` | list成功/run失败、单模型成功、全失败、timeout、malformed | executable/protocol stand-in，记录argv/prompt | Setup model真实性 |
+| `browser-draft` | 同浏览器、第二context、cleared storage、quota error | Playwright browser contexts | draft边界 |
+| `secret-canary` | password/token/URL userinfo/provider secret哨兵 | 每run随机后缀 | 全出口扫描 |
+| `untrusted-inputs` | HTML/script、控制字符、shell metacharacter、外部/协议相对/跨workspace return URL、跨session CSRF | 固定allowlist边界表 | 文本转义、argv调用、open-redirect/CSRF阻断 |
 
-所有 `interfaces.md` 条目跨至少两个模块，因此均有 integration 覆盖。面向用户的主成功旅程及关键恢复旅程有 e2e；unit 不能替代 integration/e2e evidence。
+Unit与E2E使用不同identity/story/version值，避免为固定样本过拟合。所有fixture无真实secret；默认CI不读取开发者`~/.gitconfig`、credential helper、SSH agent、OpenCode/GitHub真实认证。
 
-### 2.2 AC → 接口 → 必需层 → CI 分配
+---
 
-缩写：`U`=unit、`I`=integration、`E`=e2e。`unit`、`integration`、`e2e-standin` 均为 `Louke CI` job；`T` 表示 `traceability` 同时校验映射。每行均为强制分配。
+## 3. Ground Truth 方法
 
-| Acceptance ID | 可观察接口 | 必需层 | CI gate/job | 分配理由 |
+### 3.1 原则
+
+| 规则 | 独立真值 |
+|---|---|
+| 完整workflow stage顺序 | locked `.louke/project/release-contract-bundle.json` 的definition + Acceptance明确13阶段；测试解析原始JSON，不调用Louke projection |
+| attempt实际顺序/回边 | fixture中的append-only `sequence/from/to/attempt_id` 数据本身；独立小脚本按sequence排序，不导入Louke |
+| Git relation/main | 系统Git的`rev-parse`、`ls-remote`、`merge-base --is-ancestor`直接结果；不使用Louke adapter输出作expected |
+| planned/package版本 | PEP 440固定valid/invalid数据表 + artifact标准METADATA/PKG-INFO独立zip/tar提取；不调用被测release adapter提取expected |
+| 无重复identity/副作用 | before/after公开文件、SQLite rows、Git refs和stand-in operation ids集合差分 |
+| secret不泄漏 | 测试哨兵对workspace、日志、Guide/API body、Story/Git blob、trace/download全量字节搜索 |
+
+本项目不是数值算法产品；不引入额外计算库。简单规则真值来自锁定contract和fixture本身。
+
+### 3.2 Ground Truth 隔离
+
+1. 独立脚本只放 `tests/ground_truth/`，不得 `import louke` 或从Louke读取expected。
+2. 只允许stdlib、fixture文件、系统`git`及本计划固定的标准第三方工具。
+3. artifact提取脚本直接读取zip/tar metadata，不调用 `tools/louke_python_release_adapter.py`。
+4. 变更需Shield专项review；CI static scan阻断import taboo。
+
+---
+
+## 4. 测试范围（Test Scope）
+
+本计划覆盖同目录 `spec.md` 中全部16个FR、5个NFR以及 `acceptance.md` 的44个唯一AC；均为 Valid/Testable/Decided。
+
+| Valid | Testable | Decided |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
+范围包含四条连续公开旅程：全局Setup gate与最小Setup、登录后的Projects落点、按需New Project创建到Dev Docs、Project Status/attempt详情/回拨。也覆盖旧入口和旧状态升级兼容。精确视觉样式、非Chromium浏览器、操作系统包管理器安装命令、真实生产credential不在范围；其不影响已承诺的可访问状态与动作语义。
+
+---
+
+## 5. 验收门槛（Acceptance Criteria）
+
+1. Runtime unit coverage `>=95%`；新增确定性规则必须有unit证据。
+2. `interfaces.md` 每个 `modules`≥2 接口至少有integration happy +关键error/edge覆盖。
+3. 所有面向人的主旅程和本计划指定的代表性失败修复旅程有安装态Chromium E2E。
+4. 44/44 AC trace closure；未知AC、已删除的旧`NFR-0501`验收项、少层证据或零收集失败。
+5. 默认CI L1/L2及stand-in E2E通过；protected L3可运行并在publish前通过。
+6. wheel/sdist、wheel安装态、sdist重建安装态版本均与planned/tag/package source canonical identity一致。
+7. Setup/Project/return重复、并发、restart和uncertain场景不产生重复身份/副作用，不接受stale revision。
+8. 所有secret canary出口扫描为零命中。
+
+---
+
+## 6. 外部依赖分层测试（External Dependency Layered Testing）
+
+### 6.1 三项不可避免约束
+
+| # | 约束 | 结果 |
+|---|---|---|
+| C1 | PR不能连接生产OpenCode/GitHub | 默认用协议stand-in；真实smoke独立protected |
+| C2 | 不能等待真实长超时/运行时长 | 注入外部clock/timeout结果，但通过公开projection观察 |
+| C3 | 不能mock Louke核心 | 只替换系统外的OpenCode/gh/git/Guide generator/clock；HTTP、store、projection、gate仍为真实产品 |
+
+### 6.2 Controllable 与 Mock 边界
+
+- 可控替身：`opencode`/`gh`/`git` executable或loopback endpoint、Guide外部生成器、wall clock、GitHub sandbox。
+- 不可替换：Setup Gate、Setup Application、Environment Gate、Release Entry、Foundation reconcile、Runtime Projection、Return Application、Guide消息排序/去重、Fact Stores、页面状态绑定。
+- 替身只能实现外部协议和记录调用，不能代替Louke判定passed、创建Project、推进run或生成expected projection。
+
+### 6.3 三层金字塔
+
+| Layer | 名称 | 时间/环境 | 证据职责 | Default |
 |---|---|---|---|---|
-| AC-FR0001-01 | IF-01、IF-02、IF-03 | U+I+E | unit/integration/e2e-standin/T | resolver 优先级需纯边界验证；空白/既有 workspace 登录落点需浏览器证明 |
-| AC-FR0001-02 | IF-01、IF-03 | U+I+E | unit/integration/e2e-standin/T | cookie/Guide 不改变事实；硬启动失败在公共启动出口验证 |
-| AC-FR0101-01 | IF-04、IF-05、IF-06、IF-07 | U+I+E | unit/integration/e2e-standin/T | 连续步骤、失效传播和可见进度是主 Wizard 旅程 |
-| AC-FR0101-02 | IF-04、IF-07、IF-11 | I+E | integration/e2e-standin/T | provenance、局部离开和 Story action 禁用必须经公开 UI/API |
-| AC-FR0201-01 | IF-02、IF-03、IF-04 | U+I+E | unit/integration/e2e-standin/T | 唯一首用户、持久化和重启后连续性 |
-| AC-FR0201-02 | IF-02、IF-12 | U+I+E | unit/integration/e2e-standin/T | 错误定位和 credential 不泄漏覆盖 projection、日志与页面 |
-| AC-FR0301-01 | IF-04、IF-05 | U+I+E | unit/integration/e2e-standin/T | init/clone 是两个关键用户分支；Preview 必须零副作用 |
-| AC-FR0301-02 | IF-05、IF-07、IF-12 | U+I+E | unit/integration/e2e-standin/T | 冲突/权限/不确定需真实文件 readback 和浏览器恢复出口 |
-| AC-FR0401-01 | IF-04、IF-05 | U+I+E | unit/integration/e2e-standin/T | 候选/provenance 与 waiting Human 展示 |
-| AC-FR0401-02 | IF-05、IF-07、IF-11 | U+I+E | unit/integration/e2e-standin/T | revision binding、真实 Git identity 与后续对象一致性 |
-| AC-FR0501-01 | IF-04、IF-06 | U+I+E | unit/integration/e2e-standin/T | 多项 readiness 分离和 Review 阻断 |
-| AC-FR0501-02 | IF-06、IF-12 | U+I+E | unit/integration/e2e-standin/T | Recheck 当前事实、placeholder 禁止和 token 脱敏 |
-| AC-FR0601-01 | IF-04、IF-05、IF-07、IF-11 | U+I+E | unit/integration/e2e-standin/T | Review 的完整可见影响与零 release 副作用 |
-| AC-FR0601-02 | IF-07、IF-12 | U+I+E | unit/integration/e2e-standin/T | auth、actor/revision evidence、stale 与并发幂等 |
-| AC-FR0701-01 | IF-07、IF-12 | U+I+E | unit/integration/e2e-standin/T | operation 状态、重复 Apply 和不确定 readback |
-| AC-FR0701-02 | IF-03、IF-04、IF-07、IF-11 | U+I+E | unit/integration/e2e-standin/T | Complete gate 与 Start Story 启用是 Wizard happy path 终点 |
-| AC-FR0801-01 | IF-02、IF-04、IF-07 | U+I+E | unit/integration/e2e-standin/T | Confirm 前后浏览器/服务重启恢复是关键用户旅程 |
-| AC-FR0801-02 | IF-03、IF-08、IF-11 | U+I+E | unit/integration/e2e-standin/T | manifest attention 与 Story delivery idempotent 恢复 |
-| AC-FR0901-01 | IF-03、IF-11 | I+E | integration/e2e-standin/T | Ready/Empty 到 Story Preview 主成功旅程及零副作用 |
-| AC-FR0901-02 | IF-08、IF-10、IF-11 | U+I+E | unit/integration/e2e-standin/T | Confirm、blocked recovery 与单 active container |
-| AC-FR1001-01 | IF-03、IF-08、IF-11 | U+I+E | unit/integration/e2e-standin/T | 三种驾驶舱和对象链可见一致性 |
-| AC-FR1001-02 | IF-01、IF-03、IF-11 | I+E | integration/e2e-standin/T | Released→Current Work、进入/返回不丢 context |
-| AC-FR1101-01 | IF-08、IF-09 | U+I+E | unit/integration/e2e-standin/T | projection 全字段与禁止百分比需 API/UI 双层证明 |
-| AC-FR1101-02 | IF-08、IF-10 | U+I+E | unit/integration/e2e-standin/T | attention 原因、单主动作、无动作等待责任方 |
-| AC-FR1201-01 | IF-01、IF-08、IF-14 | I+E | integration/e2e-standin/T | 同 shell activities 与兼容深链对象一致性 |
-| AC-FR1201-02 | IF-01、IF-14 | U+I+E | unit/integration/e2e-standin/T | bookmark/history 与安全 not-found/permission |
-| AC-FR1301-01 | IF-01、IF-09、IF-13 | I+E | integration/e2e-standin/T | Guide 固定挂载和 activity context 是浏览器合同 |
-| AC-FR1301-02 | IF-09、IF-13 | U+I+E | unit/integration/e2e-standin/T | 折叠/分隔/恢复、持久偏好和缩放可用性 |
-| AC-FR1401-01 | IF-08、IF-09、IF-10 | U+I+E | unit/integration/e2e-standin/T | Guide 解释与 owning surface action 边界 |
-| AC-FR1401-02 | IF-09、IF-13 | U+I+E | unit/integration/e2e-standin/T | 显著说明去重、焦点/输入非干扰、resolver 不变 |
-| AC-FR1501-01 | IF-08、IF-09、IF-10 | U+I+E | unit/integration/e2e-standin/T | Maestro/Guide 不可 dispatch 和越权不改变 Runtime |
-| AC-FR1501-02 | IF-01、IF-08、IF-09、IF-14 | I+E | integration/e2e-standin/T | 专业 Agent/Guide/历史会话在 UI 明确分界 |
-| AC-NFR0001-01 | IF-04、IF-07、IF-10、IF-12 | U+I+E | unit/integration/e2e-standin/T | 各中断点恢复、同 revision at-most-once |
-| AC-NFR0001-02 | IF-07、IF-08、IF-12 | U+I+E | unit/integration/e2e-standin/T | uncertain fail-closed 与 reconcile evidence |
-| AC-NFR0101-01 | IF-02、IF-05、IF-07、IF-12 | U+I+E | unit/integration/e2e-standin/T | secret 扫描和授权前零副作用需多出口验证 |
-| AC-NFR0101-02 | IF-05、IF-07、IF-12 | U+I | unit/integration/T | 路径范围/权限保护由临时文件与真实 adapter readback 证明 |
-| AC-NFR0201-01 | IF-03、IF-08、IF-09、IF-14 | U+I+E | unit/integration/e2e-standin/T | 多 surface 同 revision 与旧缓存不可回退 |
-| AC-NFR0201-02 | IF-08、IF-10、IF-14 | U+I+E | unit/integration/e2e-standin/T | identity/revision conflict 不产生平行状态并有恢复出口 |
-| AC-NFR0301-01 | IF-01、IF-04、IF-09、IF-10、IF-13 | I+E | integration/e2e-standin/T | 键盘与支持 viewport/zoom 必须真实浏览器验证 |
-| AC-NFR0301-02 | IF-09、IF-13 | I+E | integration/e2e-standin/T | 状态更新不抢焦点/丢输入与 live region |
-| AC-NFR0401-01 | IF-03、IF-08、IF-11、IF-14 | U+I+E | unit/integration/e2e-standin/T | 历史 workspace 升级、旧协议单写权威 |
-| AC-NFR0401-02 | IF-09、IF-14 | I+E | integration/e2e-standin/T | Maestro 历史只读/迁移态可见语义 |
-| AC-NFR0501-01 | IF-04、IF-05、IF-07、IF-08、IF-09、IF-11、IF-12 | U+I+E | unit/integration/e2e-standin/T | 可操作诊断和无内部编排术语的端到端主路径 |
+| L1 | Deterministic | fixed clock、temp store、纯规则/HTTP | 边界、状态映射、幂等、stale、redaction | ✅ |
+| L2 | Contract stand-in | real app + executable/service stand-ins | 外部调用真实性、跨模块接线、故障/reconcile | ✅ |
+| L3 | Real env smoke | real time + protected OpenCode/GitHub sandbox | 最小真实model、auth/scopes、repo/main、Project/Story artifact | release only |
 
-`traceability` gate 还必须证明 IF-01..IF-15 至少被一个 collected node id 覆盖；IF-15 由 CI contract integration 和 required aggregation 自测覆盖。
+同一AC可以因职责不同同时要求L1/L2/E2E；较低层不替代本计划明确要求的integration或E2E。
 
-### 2.3 测试框架与依赖
+### 6.4 测试基础设施责任合同
 
-- 测试框架：pytest、pytest-asyncio、现有 Starlette HTTP 测试支持和 Python Playwright；精确版本继承 `pyproject.toml` 当前 lock/constraints，不新增框架。
-- Browser：CI 安装与当前 Playwright package 匹配的 Chromium；不得用系统随机版本。
-- Git：测试 runner 的受支持 Git 版本；clone 使用 loopback HTTP remote 和无 credential 的 seed repository。
-- 静态质量：ruff format/check 与 mypy，配置和版本以 `pyproject.toml` 为准。
-- 构建：`python -m build` 真实产生 wheel/sdist；e2e 只能导入安装 wheel，不得从 checkout 源树导入。
-
-### 2.4 Mock/Stub 策略
-
-| 依赖 | unit | integration/e2e-standin | 禁止做法 |
-|---|---|---|---|
-| 时钟 | fixed fake clock | runner-controlled clock/可等待公开时间 | 修改生产全局时间造成竞态 |
-| Git filesystem | adapter fake + temp tree | 真实 Git、临时 workspace、loopback bare remote | 读取开发者 repo config/credential |
-| GitHub/provider namespace | typed fake result | 本地 HTTP stand-in，支持 ready/permission/timeout/uncertain | 默认 CI 访问生产或使用 secret |
-| OpenCode/model | deterministic fake | `--opencode-backend mock`，覆盖 ready/error | 用模型自由输出证明 canonical 状态 |
-| Runtime/program | 固定 read-model fixture | 真实 projection adapter 接 fixture store；action dispatcher 记录受权调用 | 在 UI test 直接修改 DOM 当作 Runtime 推进 |
-| 网络 | adapter error/timeout | Browser→真实本地 server；外部仅 loopback | 隐式公网访问 |
-
-### 2.5 测试环境
-
-- CI：GitHub-hosted Ubuntu 负责完整 quality/unit/integration/e2e；现有 macOS/Windows 和 Python 支持矩阵负责安装/adapter 兼容。PR 无 secret。
-- 每个 case 创建独立 `HOME`、workspace、store、ports、Git config、browser context 和 operation ledger；case 结束无论成功失败都 teardown server/remote/temp resources。
-- `run-project-venv` 构建 wheelhouse，分别安装 local/global runtime，校验 product Python 与 repo `.venv` 不同，再启动 `python -m louke serve --project-root <case> --host 127.0.0.1 --opencode-backend mock`。
-- server readiness 最长 60 秒；未 ready 直接失败，不执行假浏览器断言。integration/e2e job 分别 20/30 分钟超时。
-
----
-
-## 3. 功能测试
-
-### 3.1 正常流程
-
-Shield 按公开 surface 组合以下用户旅程，不以具体测试函数作为合同：
-
-1. **空白 workspace/init 主旅程**：打开 `/` → 创建首用户 → Login → Repository 选择 init → Preview → Confirm → dependencies 全项 Recheck/ready → Review/Apply → Ready/Empty → Start Story Preview。逐步断言 IF-02/04/05/06/07/11 的可见步骤、零副作用边界、Git readback、complete gate 和对象 identity。
-2. **空白 workspace/clone 主旅程**：使用 loopback Git remote，选择 clone → 预览脱敏 remote/目标/影响 → Confirm → 完成 Setup；断言 workspace HEAD/origin、seed 文件、Setup binding 和 UI identity 一致。
-3. **已有 workspace 入口矩阵**：分别准备 setup attention、active work、released only、ready empty、active+released，登录/刷新后验证 IF-03 优先级，历史 Released 从 current context 仍可访问。
-4. **驾驶舱/Guide 旅程**：在 Ready、Current、Released、attention 之间切换 fixture revision；断言 IF-08 全字段、无百分比、单 required action、Guide 同 context、activity 切换、偏好持久化及 owning surface 边界。
-5. **兼容/深链旅程**：从旧 `/workbench`、`/setup`、`/projects`、versioned release API 和 bookmarked Story/Run 进入，断言与 canonical object/revision 相同；返回/前进/刷新不生成平行对象。
-
-### 3.2 异常与恢复流程
-
-- 首用户 validation/store 失败：不进入 Repository，不回显 credential；retry 成功只创建一个 owner。
-- remote invalid/unreachable、目标非空冲突、路径范围外、permission denied：Preview/Confirm 停留 Repository/attention，现有文件 digest 不变。
-- clone/init 在 operation 已发生但响应丢失：重启后 Reconcile 从 Git readback 返回 completed/already applied，不重复创建；无法确认则 uncertain，Start Story disabled。
-- dependency ready→timeout/missing：本轮结果不沿用旧 ready；Review disabled；修复后 Recheck 恢复。
-- preview 后文件树、selection 或 revision 变化：旧 Confirm `409`；并发两个 Confirm 仅一个产生 side effect。
-- Apply 期间关闭浏览器/杀 server：重启后显示 completed/pending/failed/uncertain item，保持同 revision；只继续未完成项。
-- status 网络断开/超过 freshness：标 stale、mutation disabled；重连 readback revision 变化时更新并提示，不回退。
-- owning surface action timeout：先 readback；已接受则显示新状态，未接受才可 Retry。Guide 仅导航，越权/过期 action 不 dispatch。
-- 不存在/无权 deep link：安全 not-found/只读 permission 反馈，不落入其他 Project。
-
-### 3.3 边界值与状态组合
-
-- URL：最大允许长度、Unicode host 的规范化、SCP-like SSH；空、控制字符、userinfo/password、`file://`、相对/绝对本地路径、未知 scheme 拒绝。
-- workspace：完全空、仅 `.louke`、已有 Git/无 remote、已有 Git/多 remote、detached HEAD、同名相同文件、同名不同文件、只读目录、symlink 逃逸。
-- revision/idempotency：当前、旧、未知、空；同 key 同 payload、同 key 异 payload、两 session 并发。
-- dependencies：全 ready、逐项 missing、error、timeout、ready 后变化、非必需项失败。
-- Workflow Status：每种 phase display state；每种 attention canonical state；artifact/evidence/error/action 各自 null 和完整；未知字段/schema fail closed。
-- Guide：首次/重复提示、context 变化、未发送输入、collapsed/expanded、divider 最小/最大/默认、解释 backend failure。
-
----
-
-## 4. 页面与交互测试
-
-### 4.1 Surface/动作/反馈矩阵
-
-| Surface/context | 关键动作与输入 | 可见/可用条件 | 必测状态与恢复出口 |
-|---|---|---|---|
-| Identity/Login | name/credential、提交、重试 | 首用户只在未初始化显示；pending 禁止重复 | field error、store failure、success→Login、restart persistence；credential 不回显 |
-| Repository | init/clone、remote URL、Preview/Confirm/Back | Confirm 仅对当前无冲突 preview 启用 | loading、invalid、unreachable、conflict、stale、uncertain、Re-preview/Reconcile |
-| Dependencies | 单项/全部 Recheck、Continue | required 全 ready 才能 Review | ready/missing/error/timeout、修复后重查、非秘密诊断 |
-| Review/Apply | Back、Confirm、Cancel、Apply | authenticated、current revision、无 blocker | zero-side-effect preview、pending、partial、success、failed、uncertain、reconcile |
-| Ready/Empty | Start Story、导航 | Setup valid 且无 active work | readiness、Story input、Preview、blocked 返回路径 |
-| Current Work | 打开 Story/Run/artifact/Released history | stable object identity | attention、waiting party、required action、返回 context |
-| Released | 历史 artifact、开始下一个 Story | 无 active work 才提供开始入口 | 新 active work 后 resolver 切 Current，历史仍可达 |
-| Workflow Status | Retry、合法 action、导航 | mutation 只在 fresh/authorized | loading、empty、fresh、stale、conflict、permission、reconnect、error |
-| Guide | 折叠、调整、追问、导航 | action 只来自 Runtime；formal decision 仅 owning surface | context change、首次提示、去重、解释失败、未发送输入、只读历史 |
-
-### 4.2 导航与对象连续性
-
-- sidebar 所有承诺 activity：Project、Docs、End User Docs、Wiki、Runs、Settings、Setup；Guide 保持挂载，主内容和 URL 更新。
-- Project/Story/Run 深链、browser back/forward、refresh、new context/bookmark 均核对同一 workspace/project/release/story/run identity。
-- Setup 未完成访问深链时保存安全同源 continue URL；完成后返回目标。外部/协议相对 `next` 被拒绝，防止 open redirect。
-- `/api/releases/...` 与 `/api/v14/releases/...` 对同一请求返回同一 object/revision；写操作仅一次。
-
-### 4.3 可访问性与响应式
-
-- 真实 Chromium 只用键盘完成 init 主旅程；验证 skip link、focus order、dialog focus return、Enter/Space 和错误摘要聚焦。
-- 状态、错误、pending、stale、conflict、permission、Guide 更新由 role/name/description/live region 可观测且不只依赖颜色。
-- viewport/zoom 强制组合：`1024x768 @ 100%`、`1280x720 @ 100%`、`1280x720 @ 200%`；断言无主操作遮挡、Guide 恢复入口和 required action 可达。
-- Guide 在主表单有焦点和未发送输入时收到 status revision 更新：active element 和输入值不变，辅助技术能获知非侵入更新。
-- reduced-motion 模式下状态信息完整；自动临时折叠不覆盖持久 preference。
-
----
-
-## 5. 非功能测试
-
-### 5.1 安全
-
-- 使用 canary credential/token/remote userinfo 字符串跑身份、provider、clone 和失败路径；递归检查 HTTP body、页面文本、Setup facts、Guide/Agent 输入、structured events、server log、JUnit、Playwright trace/screenshot、runner evidence 与 git-visible files，原文匹配即失败。
-- 未认证访问 Runtime/Project/Guide/action；低权限访问其他 workspace；CSRF/同源和 stale action 均不得产生 state/side effect。
-- Git URL/路径输入覆盖 shell metacharacter、控制字符、path traversal、symlink escape 和 malicious repository filename；subprocess evidence 不应显示 shell 解释结果。
-- Preview/未 Confirm 前以及 permission/conflict 后，对 workspace tree、Git refs/remotes 和 stand-in provider resource 做前后 digest/count 比较。
-
-### 5.2 可靠性、恢复与并发
-
-- 在每个 Wizard step、Repository Confirm 前后、Apply 每类 operation 结果、Story Confirm 后注入 browser close/server termination；重启后从 IF-03/04/08/11 readback 验证同 revision/object。
-- 两 browser context 对同 revision Confirm/Apply/action：精确一个获准，另一 stale/conflict；Git/provider/object count 至多一份。
-- adapter timeout、进程返回非零、响应丢失、store 写失败、manifest 未知 schema：均 fail closed，无 complete/success/next action。
-- 默认 CI 不以 sleep 猜测完成；使用 readiness、公开 projection revision 和 bounded polling。
-
-### 5.3 性能与新鲜度
-
-Spec 未承诺吞吐/绝对延迟，不设置产品性能 SLO。防回归预算：本地 stand-in 下 Entry/Status/Guide read p95 <= 500ms，纯本地 Setup projection <= 500ms；外部 dependency probe 单项 <= 10s 且总检查有界。预算失败作为 integration 诊断门禁，环境明显抖动必须记录而不能自动 retry 冒充通过。
-
-Workflow Status 连续 30 秒无成功 readback 必须进入 stale；网络恢复后的下一次成功 readback 更新 revision/observed time。测试以公开 freshness 字段和 UI stale label 断言，不读取内部 timer。
-
-### 5.4 兼容与构建物
-
-- 用 fixture 升级含有效 Setup、Project、Run、release request、artifact、milestone 和历史 Maestro evidence 的 workspace；对象 count/identity/digest 前后相同。
-- wheel 与 sdist 均从 metadata 提取版本并与 `pyproject.toml` 比较；隔离安装 wheel 后核对 import metadata、CLI 版本出口（若已有）和新 Workbench 静态资产。
-- local/global runtime、Linux 完整 suite；现有 macOS/Windows 安装矩阵验证路径、subprocess argv 和静态资产可用性。
-
----
-
-## 6. 测试数据与 Fixtures
-
-### 6.1 数据位置
-
-- `tests/fixtures/v014_workspace_onboarding/`
-  - 最小 Git seed 内容与生成说明（CI 运行时创建 bare remote，不提交真实 credential）。
-  - Setup manifest：缺失、各 step、complete、blocked、unknown schema、corrupt、operation uncertain。
-  - Runtime projection：Ready/Current/Released、各 attention 状态、artifact/evidence/allowed action 组合。
-  - 历史 workspace：v0.14 前 Setup/Project/Run/release/artifact/Maestro read-only 样本。
-- 动态数据全部在 runner temp root 创建；固定 ID 使用明显 `fixture_*` 前缀，时间由固定 clock 提供。
-
-### 6.2 隔离与清理
-
-- 每个 case 使用唯一 workspace/home/port/browser context/idempotency namespace；禁止 case 顺序依赖。
-- fixture 只读复制后运行；测试不修改仓库内 fixture。
-- server、loopback Git HTTP、provider stand-in 均由 fixture context 管理，在 `finally` 终止并验证无残留进程/锁。
-- 测试环境清除 `PYTHONPATH`，隔离 `HOME`、Git config 与 credential helper；不继承 SSH agent、GitHub/OpenCode token。
-- 失败保留的 trace/log 先脱敏再上传；临时 workspace 不作为 artifact 整体上传。
-
-### 6.3 关键数据组合
-
-| 数据集 | 用途 | 关键断言 |
+| Component | 必须提供的外部行为 | 不实现的行为 |
 |---|---|---|
-| `blank-init` | 空目录 init happy path | Preview 零副作用、Confirm 后一个 `.git`、Setup complete |
-| `blank-clone` | loopback remote clone happy path | HEAD/origin/seed/binding 一致，URL 脱敏 |
-| `nonempty-conflict` | 同名不同内容 | 目标 digest 不变，attention + Reconcile |
-| `partial-operation` | clone/apply 响应丢失 | restart readback，不重复 side effect |
-| `entry-matrix` | Setup/current/released/empty | resolver 优先级和历史可达 |
-| `status-matrix` | waiting/blocked/conflict/interrupted/closing | 单主动作、责任方、错误、无百分比 |
-| `legacy-workspace` | 兼容升级 | object identity/count 不变，Maestro 只读 |
-| `secret-canary` | 泄漏扫描 | 所有用户/evidence 出口零原文匹配 |
+| OpenCode stand-in | `models`/`run --model`结果矩阵、延迟、malformed、argv/prompt记录 | 不判定Setup complete，不读取Louke workspace内容 |
+| `gh` stand-in | version、auth host/identity/scopes、Project操作结果与稳定resource id | 不判定Environment passed，不创建Louke Project |
+| Git stand-in/fixture | init/remote/fetch/push/ls-remote/ref relation和部分失败 | 不替Louke选择remote/main或覆盖策略 |
+| Guide generator stand-in | advice success/stream/fail/delay | 不写Runtime状态，不执行正式action |
+| Fixed clock | now/advance、触发freshness/elapsed边界 | 不映射workflow status |
+| Browser orchestrator | 安装wheel、临时HOME、启动/readiness/teardown、保存trace | 不调用内部对象推进 |
 
----
+### 6.5 Assertion basis — 与 interfaces.md 闭合
 
-## 7. CI 执行与质量门禁
-
-### 7.1 触发与 gate
-
-| 事件 | 必跑 gate | 外部服务/secret |
+| Interface出口 | 必需覆盖层 | 主要观察 |
 |---|---|---|
-| pull request（含 fork） | quality、unit、traceability、build-artifacts、artifact-verify、integration、e2e-standin、install-matrix、required | 仅 stand-in；无 production secret |
-| 默认分支 push | 与 PR 相同 | 仅 stand-in |
-| release/tag | 同一 source/artifact identity 的全部 required gate；再按现有发布合同运行 protected real-smoke/publish | environment secret 最小权限；publish 不得绕过 required/artifact verify |
-| manual smoke | 选择性真实 GitHub/OpenCode smoke，明确 target/source/artifact/AC identity | protected environment；结果不能替代默认 required |
-
-稳定聚合 check 唯一名称为 `Louke CI / required`。它以 `if: always()` fail closed 汇总所有 needs；任一失败、取消、超时、skipped、缺失或未知时不得 success。
-
-### 7.2 Job 输入与 evidence
-
-- `quality`：ruff format/check、mypy、现有合同检查。
-- `unit`：JUnit、collected/failed counts 和 AC markers。
-- `traceability`：43 个规范 AC ID、IF-01..15、required layers、CI job 与 collected node ids 闭合；未知/缺失/只用低层替代均失败。
-- `build-artifacts`/`artifact-verify`：真实 wheel/sdist、SHA-256、source SHA、每 artifact metadata version、隔离安装 readback。
-- `integration`：必须发现 `tests/integration/v014_workspace_onboarding/`，上传 JUnit、脱敏 operation evidence；zero collection 失败。
-- `e2e-standin`：必须发现 `tests/e2e/v014_workspace_onboarding/` 并在 local/global 两 runtime 运行；上传 runner evidence，失败时上传脱敏 Playwright trace/screenshot/log。
-- `install-matrix`：继承现有 OS/runtime 安装覆盖，验证 shell/static 进入 artifact。
-
-JUnit/traceability/runner evidence 保留 30 天；失败浏览器 evidence 14 天；artifact retention 沿用 release workflow。所有 evidence 带 source SHA、runtime/OS/Python、suite、node ids、AC IDs、结果和时间。
-
-### 7.3 失败语义
-
-- 测试不自动 rerun；flaky 视为失败并修复。timeout、零收集、evidence schema/identity 不确定均失败。
-- artifact 构建失败、wheel/sdist 缺失或多余、版本无法提取/不一致、安装态公开版本不一致均阻断 required/publish。
-- secret canary 发现、外部公网意外调用、清理失败、残留服务或测试读取真实 HOME/credential 均阻断。
-- runner discovery、`project.toml` 契约、workflow 或本文路径漂移时 contract gate 失败，不允许 Shield 临时改命令绕过。
-- `tools/check_ac_traceability.py` 当前对 v0.14-001 acceptance 已 82/82 covered。Sage 于 2026-07-24 完成 v0.14-004 的 43 项标题规范化后，scanner 报告 `42/43 covered`：`AC-NFR0501-01`（NFR-0501 可操作诊断与用户可理解性，主路径）尚无 `tests/` 资产引用。Devon 必须在新增 `tests/integration/v014_workspace_onboarding/`（或同等 e2e 资产）写入 `AC-NFR0501-01` token，覆盖诊断暴露、术语抑制与 Start Story 主路径。
-- `Louke CI` 的 `ac-trace` job 当前仅扫描 v0.14-001 acceptance；Devon 必须扩展使其同时扫描 v0.14-004 acceptance 并以 `--expected-count 43` 失败闭锁。本计划默认该 job 已同步扩展，未扩展前 required check 不得宣称激活。
+| `IF-WEB-01` | integration + e2e | 全路由redirect/API 428、无handler副作用、gate解除 |
+| `IF-SETUP-01` | unit + integration + e2e | v2 manifest、迁移、可见状态、restart |
+| `IF-SETUP-02` | unit + integration + e2e | pre-auth cookie属性、跨session CSRF阻断/session旋转、唯一用户、重复/并发 |
+| `IF-SETUP-03` | unit + integration + e2e + L3 | 真实run调用、timeout、passed→complete、无产品副作用 |
+| `IF-PROJECT-01` | unit + integration + e2e | empty/active/conflict及动作可用性 |
+| `IF-GUIDE-01` | unit + integration + e2e | context、authority顺序、自动建议、去重、无副作用 |
+| `IF-ENV-01` | unit + integration + e2e + L3 | click后启动、全step、scope集合、freshness |
+| `IF-ENV-02` | unit + integration + e2e + L3 | URL、preview/confirm、main、partial/reconcile/不覆盖 |
+| `IF-DRAFT-01` | integration + e2e | same-browser恢复、storage边界、saved/error/clear |
+| `IF-PREVIEW-01` | unit + integration + e2e | canonical identity、无副作用、stale/cancel |
+| `IF-CREATE-01` | unit + integration + e2e + L3 | 单identity Foundation/Scribe、partial recovery、Dev Docs |
+| `IF-IDENTITY-01` | unit + integration + e2e | 全surface同链、migration readonly |
+| `IF-STATUS-01` | unit + integration + e2e | 13阶段、attempt历史、active/attention、stale/reconnect |
+| `IF-ATTEMPT-01` | unit + integration + e2e | selected≠active、详情/owning/return context |
+| `IF-RETURN-01` | unit + integration + e2e | eligibility、影响Preview、Human Confirm、atomic edge |
+| `IF-DOC-01` | integration + e2e | latest Story identity、文本安全渲染、return URL allowlist、错误定位/返回上下文 |
+| `IF-COMPAT-01` | integration + e2e | 所有alias解析同Project，无第二写面 |
+| `IF-AUDIT-01` | unit + integration + e2e | identity/revision/uncertain evidence与secret scan |
+| `IF-REL-01` | unit + integration + CI | prepare→build→extract→install identity及全部阻断条件 |
+| `IF-TEST-01` | integration + e2e + CI | discovery、installed runtime、service lifecycle/evidence |
+| `IF-CI-01` | CI contract integration | DAG、权限、required fail-closed、artifact identity |
 
 ---
 
-## 8. 完成标准
+## 7. CI Gate 与需求级分配
 
-- [ ] 43 个 Acceptance ID 全部映射到 `interfaces.md` 出口、必需测试层、CI job 与 collected evidence。
-- [ ] IF-01 至 IF-15 每项至少有 integration 覆盖；所有跨模块接口未被 unit 替代。
-- [ ] init 与 clone 两个 Setup 主分支、重启恢复、Ready→Start Story、驾驶舱/Guide 和稳定深链均有安装态 Chromium e2e。
-- [ ] loading、success、failure、empty、dirty/输入保留、stale、conflict、permission、uncertain 和 reconnect 的适用交互状态均由公开接口断言。
-- [ ] 支持 viewport/zoom、键盘、focus、live region 和 Guide 非侵入行为通过 e2e。
-- [ ] secret/权限/路径/授权前零副作用、并发 at-most-once 与 reconcile fail-closed 通过。
-- [ ] `run-project-venv` 确定性发现本 Spec integration/e2e 资产，安装态产品不从 checkout 导入。
-- [ ] GitHub Actions 完成 quality、unit、traceability、真实 build/artifact verify、integration、e2e、install matrix，并由唯一 `Louke CI / required` fail closed 聚合。
-- [x] `project.toml` 的 `[meta].test_framework`、`[integration]` 与 `[e2e]` 已按当前授权写入，并与 `architecture.md` 第 9 节一致；这只是 author revision，Runtime 仍负责 program validation/result persistence/activation。
-- [x] `spec.md` 已补充 22 个 `<a id="fr-/nfr-XXXX">` 锚点以满足 `louke/_tools/verify_issue_schema.py` 的 L5/L6 合同；`acceptance.md` 的 `<a id="ac-fr-/ac-nfr-XXXX">` 锚点已在 T-001 修订时就位。
-- [x] 本 Spec 的 22 个 issue (`#322—#343`) 已在 `zillionare/louke` 创建，并通过 `gh project item-add 20 --owner quantclaws` 全部加入 Project #20；`louke/_tools/verify_issue_schema.py --offline` 报告 22/22 PASS（L1—L8 + 双向覆盖）。已建立 `spec:v0.14-004-onboarding-status` label（GitHub 50 字符上限截断）。`issues.md` 持久化 22 条 URL，inline discussion `T-002` 由 Sage 标 RESOLVED。
-- [ ] required machine-contract instance 尚缺 program-owned exact active schema reference、instance output path 与逐路径授权；不得从旧 candidate 自证或标记 activated；Runtime 在 M-LOCK-1 阶段负责。
-- [x] Devon 已接管 M-IMPL（Human 2026-07-24 选项 1）：补 `AC-NFR0501-01` 引用与断言、扩 `louke-ci.yml ac-trace` 双扫 + `--expected-count 43`、扩 `tests/e2e/run_e2e.py` discovery、`tools/check_ac_traceability.py --expected-count` 参数、`tools/louke_python_release_adapter.py verify-dist` 子命令。具体取舍与执行由 Devon 在本 Spec 锁定的 interface/layer/CI 框架内落地。
-- [ ] Devon 无需重新选择模块、endpoint、runner、CI DAG、required check、依赖、Git adapter 或版本验证方案；Shield 无需发明环境、数据路径或测试入口。
+### 7.1 AC traceability命令
+
+```bash
+python tools/check_ac_traceability.py \
+  --acceptance .louke/project/specs/v0.14-004-workspace-onboarding-workflow-status/acceptance.md \
+  --tests tests \
+  --expected-count 44
+```
+
+该命令是宿主已有入口；Devon只需把workflow中的旧`43`改为`44`。`ac-trace`同时保留 v0.14-001 的独立扫描。
+
+### 7.2 AC → observable interface → required layer(s) → CI job
+
+以下是需求责任分配，不是测试函数清单。
+
+| AC | Observable interface | Required layer(s) | CI gate/job | 分配理由 |
+|---|---|---|---|---|
+| `AC-FR0001-01` | IF-WEB-01、IF-AUDIT-01 | integration + e2e | integration、e2e-standin、ac-trace | 必须证明多页面/API不能绕过且handler无副作用 |
+| `AC-FR0001-02` | IF-WEB-01、IF-SETUP-01 | unit + integration + e2e | unit、integration、e2e-standin | gate完整条件和成功后页面连续性 |
+| `AC-FR0101-01` | IF-SETUP-01、IF-SETUP-02 | unit + integration + e2e | unit、integration、e2e-standin | 唯一首用户与refresh/restart是公开主旅程 |
+| `AC-FR0101-02` | IF-SETUP-02、IF-AUDIT-01 | unit + integration | unit、integration | 重复/冲突/计数由持久readback证明 |
+| `AC-FR0201-01` | IF-SETUP-03、IF-AUDIT-01 | unit + integration + e2e + L3 | unit、integration、e2e-standin、real-smoke | 成功必须走真实run；stand-in与release smoke分别证明协议/真实provider |
+| `AC-FR0201-02` | IF-SETUP-01、IF-SETUP-03 | unit + integration + e2e | unit、integration、e2e-standin | 代表性失败→修复→Retry是关键恢复旅程 |
+| `AC-FR0301-01` | IF-SETUP-01、IF-SETUP-03、IF-PROJECT-01 | integration + e2e | integration、e2e-standin | complete原子readback和Projects handoff跨模块 |
+| `AC-FR0301-02` | IF-SETUP-01、IF-WEB-01 | unit + integration + e2e | unit、integration、e2e-standin | restart复用及写入不确定fail-closed |
+| `AC-FR0401-01` | IF-PROJECT-01、IF-STATUS-01 | unit + integration + e2e | unit、integration、e2e-standin | 登录主落点必须浏览器证明 |
+| `AC-FR0401-02` | IF-PROJECT-01、IF-IDENTITY-01 | unit + integration | unit、integration | 多active conflict和禁止第二Project属于接线边界 |
+| `AC-FR0501-01` | IF-GUIDE-01、IF-PROJECT-01 | unit + integration + e2e | unit、integration、e2e-standin | sidebar context是面向人出口 |
+| `AC-FR0501-02` | IF-GUIDE-01、IF-ENV-01 | unit + integration + e2e | unit、integration、e2e-standin | runtime先于自动建议及代表性修复旅程必须真实UI观察 |
+| `AC-FR0501-03` | IF-GUIDE-01、IF-AUDIT-01 | unit + integration | unit、integration | chat无authority/副作用由事件与资源差分证明 |
+| `AC-FR0601-01` | IF-PROJECT-01、IF-ENV-01 | unit + integration + e2e | unit、integration、e2e-standin | click前后启动边界与通过项折叠为关键UI旅程 |
+| `AC-FR0601-02` | IF-ENV-01、IF-GUIDE-01 | unit + integration + e2e | unit、integration、e2e-standin | 一项失败阻断并修复继续需跨模块和代表性UI恢复 |
+| `AC-FR0701-01` | IF-ENV-01、IF-AUDIT-01 | unit + integration | unit、integration | executable/auth/每个scope矩阵适合确定性协议测试 |
+| `AC-FR0701-02` | IF-ENV-01、IF-GUIDE-01 | integration + e2e + L3 | integration、e2e-standin、real-smoke | 用户诊断/自动建议及真实auth smoke；后续失败不被readiness掩盖 |
+| `AC-FR0801-01` | IF-ENV-02、IF-ENV-01 | unit + integration + e2e + L3 | unit、integration、e2e-standin、real-smoke | URL→Human Confirm→readback是关键公开路径 |
+| `AC-FR0801-02` | IF-ENV-02、IF-AUDIT-01 | unit + integration + L3 | unit、integration、real-smoke | main/ref冲突、partial与无覆盖需要真实Git边界 |
+| `AC-FR0901-01` | IF-DRAFT-01、IF-ENV-01 | integration + e2e | integration、e2e-standin | 浏览器refresh/新context与readiness重验只能从公开浏览器证明 |
+| `AC-FR0901-02` | IF-DRAFT-01、IF-AUDIT-01 | integration + e2e | integration、e2e-standin | draft无workspace副作用和跨浏览器边界 |
+| `AC-FR1001-01` | IF-PREVIEW-01、IF-AUDIT-01 | unit + integration + e2e | unit、integration、e2e-standin | canonical预览可见且资源差分为空 |
+| `AC-FR1001-02` | IF-PREVIEW-01、IF-DRAFT-01 | unit + integration + e2e | unit、integration、e2e-standin | Cancel/stale/re-preview与draft连续性 |
+| `AC-FR1101-01` | IF-CREATE-01、IF-IDENTITY-01、IF-DOC-01 | integration + e2e + L3 | integration、e2e-standin、real-smoke | Foundation/Scribe/Dev Docs是核心跨系统主成功旅程 |
+| `AC-FR1101-02` | IF-CREATE-01、IF-AUDIT-01 | unit + integration | unit、integration | 重复/并发/partial/unknown由identity及operation差分证明 |
+| `AC-FR1201-01` | IF-STATUS-01 | unit + integration + e2e | unit、integration、e2e-standin | 完整13阶段、alias、Issues evidence必须UI可见 |
+| `AC-FR1201-02` | IF-STATUS-01、IF-GUIDE-01 | unit + integration + e2e | unit、integration、e2e-standin | running/attention card与authority一致需projection+UI |
+| `AC-FR1201-03` | IF-STATUS-01 | unit + integration + e2e | unit、integration、e2e-standin | 独立attempt/回边/全历史导航是核心交互 |
+| `AC-FR1301-01` | IF-ATTEMPT-01、IF-STATUS-01 | unit + integration + e2e | unit、integration、e2e-standin | 选中详情与active不变需API及浏览器证明 |
+| `AC-FR1301-02` | IF-ATTEMPT-01、IF-DOC-01 | integration + e2e | integration、e2e-standin | owning navigation/return context为公开旅程 |
+| `AC-FR1401-01` | IF-RETURN-01、IF-STATUS-01 | unit + integration + e2e | unit、integration、e2e-standin | 只有Runtime允许目标可操作，旧页面不能执行 |
+| `AC-FR1401-02` | IF-RETURN-01、IF-AUDIT-01 | unit + integration + e2e | unit、integration、e2e-standin | 危险动作Preview/Cancel/Confirm及原子历史保留必须UI闭合 |
+| `AC-FR1501-01` | IF-IDENTITY-01、IF-CREATE-01、IF-DOC-01 | unit + integration + e2e | unit、integration、e2e-standin | New Project→Docs→Status全程同对象 |
+| `AC-FR1501-02` | IF-COMPAT-01、IF-IDENTITY-01 | unit + integration + e2e | unit、integration、e2e-standin | 兼容深链不能形成平行页面/写事实 |
+| `AC-NFR0001-01` | IF-SETUP-01、IF-CREATE-01、IF-RETURN-01、IF-AUDIT-01 | unit + integration + e2e | unit、integration、e2e-standin | 四个restart checkpoint中至少主journey浏览器重启，全部integration覆盖 |
+| `AC-NFR0001-02` | IF-SETUP-02、IF-CREATE-01、IF-RETURN-01、IF-AUDIT-01 | unit + integration | unit、integration | 并发/stale/uncertain应在可控层穷举 |
+| `AC-NFR0101-01` | IF-AUDIT-01、IF-DRAFT-01、IF-GUIDE-01、IF-DOC-01 | unit + integration + e2e | unit、integration、e2e-standin | secret canary需扫描所有公开/持久/浏览器artifact |
+| `AC-NFR0101-02` | IF-SETUP-03、IF-ENV-02、IF-RETURN-01 | unit + integration | unit、integration | 最小prompt与Human确认前资源差分 |
+| `AC-NFR0201-01` | IF-SETUP-03、IF-ENV-01、IF-ENV-02、IF-PREVIEW-01 | unit + integration | unit、integration | timeout/freshness/fingerprint变化矩阵 |
+| `AC-NFR0201-02` | IF-GUIDE-01、IF-ENV-01、IF-SETUP-03 | unit + integration + e2e | unit、integration、e2e-standin | 诊断质量及Guide故障不遮Runtime结果需代表性UI观察 |
+| `AC-NFR0301-01` | IF-SETUP-01、IF-ENV-01、IF-PREVIEW-01、IF-STATUS-01、IF-RETURN-01 | integration + e2e | integration、e2e-standin | keyboard和非颜色状态只能从浏览器可访问树证明 |
+| `AC-NFR0301-02` | IF-DRAFT-01、IF-GUIDE-01、IF-STATUS-01 | integration + e2e | integration、e2e-standin | focus/input/layout/全历史可达需支持viewport/zoom组合 |
+| `AC-NFR0401-01` | IF-IDENTITY-01、IF-STATUS-01、IF-GUIDE-01、IF-COMPAT-01 | unit + integration + e2e | unit、integration、e2e-standin | 同revision跨surface一致与旧缓存readback |
+| `AC-NFR0401-02` | IF-SETUP-01、IF-IDENTITY-01、IF-STATUS-01、IF-COMPAT-01 | unit + integration + e2e | unit、integration、e2e-standin | v1/历史run/M-LOCK升级、只读迁移及无重复对象 |
+
+### 7.3 GitHub Actions gate合同
+
+| Trigger | Mandatory jobs | 附加job |
+|---|---|---|
+| pull request | quality、ac-trace、build-artifacts、artifact-verify、unit matrix、integration、e2e-standin、install-matrix、required | 无secret；无real smoke/publish |
+| push `main`/`releases/**` | 同PR | 无publish，除非另有合法tag |
+| tag `v*` | 全部required | protected real-smoke；通过后publish |
+| manual CI | 全部required | 只有提供合法release tag且protected审批后才real-smoke/publish |
+
+稳定 required check为唯一 `Louke CI / required`。`required` 使用 `if: always()`，任何mandatory job的failed/cancelled/timed_out/skipped/missing/unknown都不能成功。publish不得重建artifact，不得消费不同source SHA或未验证digest。
+
+### 7.4 Release/version验证顺序
+
+1. 从 `.louke/project/project.toml:[project].version` 读取Human planned canonical identity；tag是`v<canonical>`表示。
+2. release event调用 `IF-REL-01 prepare`，先比较planned/tag，再准备`pyproject.toml:[project].version`；非release build只校验当前source。
+3. `python -m build --wheel --sdist`真实构建，要求恰好一个wheel和一个sdist。
+4. 独立从每个artifact提取version/SHA-256，与planned/tag/package source逐一比较。
+5. 从wheel clean install和sdist重建wheel clean install，复核`lk --version`及metadata。
+6. 只有`artifact_versions_verified` evidence current且`Louke CI / required`与real-smoke通过才允许publish。
+
+缺/非法identity、prepare/source写入失败、build失败、artifact缺失/多余/无法提取、任一不匹配、安装/运行出口不匹配或结果不确定均阻断。
+
+---
+
+## 8. Judge Review Checklist
+
+- [x] 测试策略覆盖Setup绕过、虚假模型通过、stale readiness、重复外部资源、Project authority、历史丢失、危险回拨、secret和版本漂移。
+- [x] 44个AC均有`interface → required layer(s) → CI job`分配。
+- [x] 本计划不列测试函数清单；§7.2仅是需求级责任分配。
+- [x] 反作弊、零收集、AC count和ground-truth import gate已定义。
+- [x] fixture/stand-in可离线复现，真实credential仅用于protected L3。
+- [x] 目录、命令、local/global安装态和runner生命周期已确定。
+- [x] Ground Truth来源独立，不引用Louke输出生成expected。
+- [x] `interfaces.md`全部21个出口都有至少一种覆盖，跨模块接口均含integration。
+- [x] 用户主旅程和关键恢复/回拨旅程有E2E；错误矩阵主要下沉integration。
+- [x] wheel/sdist及全部适用安装/运行版本出口均纳入publish阻断门禁。

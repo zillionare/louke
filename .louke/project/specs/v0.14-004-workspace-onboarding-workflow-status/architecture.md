@@ -1,240 +1,286 @@
-# v0.14-004 Workspace Onboarding 与 Workflow Status 架构
+# 最小首次设置、Project 创建引导与 Project Status — Architecture
 
-## 1. 范围与事实基线
+- **Spec ID**：`v0.14-004-workspace-onboarding-workflow-status`
+- **设计日期**：2026-07-24
+- **Story identity**：`sha256:f2595e5aa1c71ca829fcc2d27458aa599381d2ca51bf6e25e85df422000475af`
+- **Spec identity**：`sha256:4d9aec6c0073a225b0aaeff2a530671f5b6ea233775c1a167beadf716508e5cd`
+- **Acceptance identity**：`sha256:19bf2d0d9f4dc8d3cd27baa126a3a5fd92cc3e153e51c40f4180babbeabaaa81`
 
-本文落实 `STR-1405`、本目录 `spec.md` 与 `acceptance.md` 的 Workspace 集成、Setup Wizard、登录落点、驾驶舱和 Guide 合同。`v0.14-001` 仍拥有 Setup、release、Foundation、M-STORY 的领域语义；`v0.14-002` 与 `v0.14-003` 分别拥有后续设计和实现阶段语义。本 Spec 只提供连续的人机入口与只读状态投影，不复制 Runtime 状态机。
+## 1. 范围与宿主事实
 
-宿主项目为现有 Python 包，而非新项目：
+本设计取代本目录旧版“连续多步骤 Setup Wizard”设计。首次 Setup 只创建首用户并真实验证至少一个 OpenCode 模型；Git/GitHub/repository 检查只在空 Project 中点击 `New Project` 后运行。本文接入既有 `v0.14-001` 的 Release/Foundation/Scribe 合同和 `v0.14-002`、`v0.14-003` 的后续阶段合同，不复制 Runtime 状态机。
 
-- Python `>=3.11`，构建源和版本源均为 `pyproject.toml`；构建物为 wheel 与 sdist。
-- Web 服务使用 Starlette，服务入口为 `python -m louke serve`。
-- 持久化沿用项目 SQLite/文件事实源；测试使用 pytest、pytest-asyncio、Playwright、ruff、mypy。
-- `tests/e2e/run-project-venv` 与 `tests/e2e/run_e2e.py` 是安装态 integration/e2e runner；当前 runner 尚未发现本 Spec 的资产，Devon 必须按本文扩充，不另造入口。
-- `.github/workflows/louke-ci.yml` 是 Louke 托管 workflow；本文锁定其本轮更新合同。
-- 2026-07-24 当前调用明确授权 `.louke/project/project.toml` 的 `[meta].test_framework`、`[integration]` 与 `[e2e]` schema/write scope；第 9 节记录已写入的 project-local runner contract。
-- 当前调用虽提及 machine-contract schema 授权，但未给出 program-owned exact active schema reference、instance output path 或逐路径 write scope；本 Spec也未将 Agent prompt 列为规范性工件。因此本 revision 不从旧 candidate/prompt/instance 推断 schema，不生成或自称激活 machine-contract instance。Runtime 未补齐 exact reference 时必须 fail closed。
+已核对的宿主事实如下：
 
-本 Spec 不改变产品版本、tag、artifact 身份或发布清单，因此无需新的版本同步 adapter。现有 `pyproject.toml` 权威版本、`python -m build`、wheel/sdist metadata 提取和安装态 `importlib.metadata.version("louke")` 验证合同保持不变；CI 仍必须真实构建和复核两种 artifact。
+- 宿主是 MIT License 的 Python 包，`pyproject.toml` 要求 Python `>=3.11`，公开 CLI 为 `lk`，Web 入口为 `lk serve` / `python -m louke serve`。
+- Web 使用 Starlette；运行时依赖约束以 `pyproject.toml` 为准：`pre-commit>=3,<5`、`markdown>=3.6,<4`、`pyyaml>=6,<7`、`starlette>=0.38,<1`、`uvicorn>=0.30,<1`、`httpx>=0.27,<1`、`jsonschema>=4,<5`。
+- `pyproject.toml:[project].version` 是 Python wheel/sdist 的权威版本源；当前值为 `0.14.0`。构建物为恰好一个 wheel 和一个 sdist，公开安装态版本出口是 `lk --version` 与 `importlib.metadata.version("louke")`。
+- Runtime 已有 SQLite `workflow_runs`、append-only `workflow_events`、`step_attempts` 和 gate facts；这些是 Project Status 的事实基础。现有 `workflow_status.py` 只投影单一 phase 列表，不足以证明完整 attempt 历史。
+- `ReleaseEntryService`、Foundation/Scribe/Story 服务、Dev Docs 深链、session/CSRF 和幂等基础可复用；旧内存 `ProjectStore` Project API 不能成为新 Project 的写 authority。
+- `tests/e2e/run-project-venv` 与 `tests/e2e/run_e2e.py` 已发现 `tests/integration/v014_workspace_onboarding` 与 `tests/e2e/v014_workspace_onboarding`；Playwright 由 `tests/e2e/playwright-requirements.txt` 固定为 `1.54.0`。
+- `.github/workflows/louke-ci.yml` 是唯一 Louke 托管 CI，但当前 AC gate 仍写死 `--expected-count 43`；本 revision 的事实是 44 个唯一 AC，必须更新。
+- 仓库没有依赖 lockfile；CI 当前对 pytest、build、mypy 等使用无上界安装。这不是 `N/A`，第 10 节要求 Devon 补一个 CI 专用、完全解析且固定版本的 constraints 文件。
 
 ## 2. 模块边界
 
 | 模块 | 职责 | 不拥有的职责 | 公开观察边界 |
 |---|---|---|---|
-| `Workbench Presentation` | 呈现统一 shell、Setup、Project/Story/Run 页面、驾驶舱、Workflow Status 与 Guide；表达可见/禁用/只读/反馈状态 | 不推导 canonical workflow，不直接执行 Git、依赖检查或 dispatch | HTTP 页面、浏览器可访问名称/状态、稳定 URL |
-| `Entry Resolver` | 根据身份、session、Setup manifest、active project/release 和 Runtime projection 选择唯一落点 | 不写 Setup/Runtime，不以浏览器缓存决定落点 | `EntryProjection` API 与 redirect URL |
-| `Setup Application` | 驱动连续 Wizard，校验 step action，保存恢复点，组织 Preview/Confirm/Recheck/Reconcile | 不直接调用 shell，不重定义 v0.14-001 Setup 语义 | Setup projection 与 command API |
-| `Repository Adapter` | 校验 remote URL，执行安全的 init/clone staging、冲突检测与 reconcile；返回脱敏结果 | 不接触认证页面或保存 URL credential | Repository preview/result projection |
-| `Dependency Adapter` | 探测 Python、Git、GitHub CLI、OpenCode 等运行依赖，给出可重试的逐项结果 | 不把 provider metadata 变成流程事实 | Dependency check projection |
-| `Runtime Projection` | 从 Runtime/program 和 artifact facts 生成只读 Workflow Status、合法 actions、evidence、错误与更新时间 | 不 dispatch、不推进阶段、不估算百分比 | Workflow status API |
-| `Guide Application` | 将当前 projection 转成责任方、下一步、风险与导航，维护 Guide 对话与用户偏好 | 不拥有流程状态；不把模型文本当事实；不 dispatch、不执行正式输入/决定/action | Guide projection、对话、导航与偏好 API |
-| `Release Entry` | 复用 release/Story Preview/Confirm 和打开 Story/Run 的稳定合同 | 不改变 release 作为交付容器的语义 | 稳定 release API 与深链 |
-| `Workspace Fact Store` | 原子保存 Setup manifest、operation ledger、Guide 用户偏好及既有项目/release/runtime facts | 不保存明文秘密，不成为浏览器私有状态 | 版本化 JSON/SQLite 事实及 readback API |
-| `External Adapters` | 隔离 Git/GitHub/OpenCode/subprocess 与系统时钟；允许测试替身 | 不向 UI 暴露 transport/session metadata | 结构化 adapter result |
+| `Setup Gate` | 在每个页面/API 请求前读取当前 workspace 的 Setup manifest；只放行 Setup 必需入口 | 不通过 cookie、首用户存在或 executable 存在推断完成 | redirect、`SETUP_REQUIRED` 错误、Setup projection |
+| `Setup Application` | 创建/恢复首用户、发起模型验证、原子完成 Setup | 不检查 Git/GitHub，不创建 Project/release/workflow | `/setup`、Setup HTTP API、Setup manifest |
+| `OpenCode Adapter` | 枚举已配置候选并执行最小真实模型请求，提供超时和脱敏结果 | 不携带 Story/Louke artifact，不把静态配置当成功 | model-check result、stand-in invocation record |
+| `Workbench Presentation` | 呈现 Projects activity、空 Project/New Project、Environment Wizard、Project Status、Guide 与 Dev Docs 导航 | 不推导 Runtime 状态或执行外部命令 | 浏览器 URL、可访问名称、可见状态和动作 |
+| `Project Context` | 从持久 Release/Project/Run 绑定选择零个或唯一活跃 Project | 不按列表顺序、最近访问或 Guide 猜测 | Projects context read model |
+| `Environment Gate` | 仅在 `New Project` 后编排 `gh`、auth/scopes、repository/binding/main 检查及重试 | 不修改认证；不把 readiness 当后续外部操作成功 | Environment check API/Wizard projection |
+| `GitHub/Git Adapters` | 以 argv 调用 `gh`/`git`，验证 scope、remote identity 和 canonical `main`；在 Human 确认范围内初始化/绑定 | 不覆盖不明 remote/文件，不自动安装 `gh` | redacted check/binding operation evidence |
+| `Release Entry` | 规范化 planned release identity，生成无副作用 Preview，幂等 Confirm/恢复 | 不绕过 Environment Gate，不建立第二 Project/Run | Preview/Confirm/status API |
+| `Foundation/Scribe` | reconcile 同一 Project/release/Run/GitHub Project/branch/spec identity，dispatch Scribe 并持久化 canonical `story.md` | 不创建平行身份，不覆盖冲突 Story | Foundation status、Story artifact、Dev Docs URL |
+| `Runtime Projection` | 从 pinned workflow definition、run、events、attempts、artifacts/evidence/actions 生成 Project Status | 不 dispatch、不估算百分比、不让客户端改 active pointer | Project Status 和 attempt detail API |
+| `Return Application` | 由 Runtime 计算合法历史 attempt、预览影响并在 Human Confirm 后复核执行回拨 | 不自动撤销外部副作用，不删除历史 | return preview/confirm/status API、return edge evidence |
+| `Guide Session` | 绑定 empty/project context，先记录 Runtime 状态消息，再异步追加去重的 Guide 建议和普通对话 | 不拥有检查、Project、artifact、action 或 workflow authority | Guide session/messages API、sidebar chat |
+| `Document Surface` | 打开绑定 Project/spec/revision 的最新 `story.md`，保留返回 Project Status 的上下文 | 不静默切换 Project/revision | Dev Docs 页面、document API、稳定深链 |
+| `Fact Stores` | 原子保存 users、Setup manifest、release request、Project/Run binding、Runtime event/attempt、Guide ledger 和 operation evidence | 不保存明文 secret；浏览器 draft 不写入 workspace | 版本化文件/SQLite与各 read model |
+| `Compatibility Router` | 将旧 `/projects`、Project/Run/Story 深链解析到同一 Workbench Project 事实 | 不保留第二套可写 Project/Run | 303 redirect 或 canonical read-only projection |
 
 ## 3. 依赖方向与 authority
 
 ```text
 Browser
+  -> Setup Gate -> Setup Application -> OpenCode Adapter
   -> Workbench Presentation
-      -> Entry Resolver -------------> Workspace Fact Store
-      -> Setup Application ----------> Repository/Dependency Adapters
-      -> Runtime Projection ---------> Runtime/program + artifact facts
-      -> Guide Application ----------> Runtime Projection
-      -> owning-surface actions -----> Runtime-authorized action dispatcher
-      -> Release Entry --------------> existing release/Story contracts
-
-Repository/Dependency Adapters -> controlled subprocess/external stand-ins
+       -> Project Context -> Fact Stores
+       -> Environment Gate -> GitHub/Git Adapters
+       -> Release Entry -> Foundation/Scribe -> Document Surface
+       -> Runtime Projection -> Runtime/program + Fact Stores
+       -> Return Application -> Runtime/program
+       -> Guide Session -> Runtime/Environment projections
+       -> Compatibility Router -> Project Context
 ```
 
-规则：
+1. Runtime/program 是 workflow state、revision、attempt、合法 action、dispatch、回拨和阶段推进的唯一 authority。Presentation 与 Guide 只消费带 identity/revision 的 projection。
+2. `Setup Gate` 在路由分派前运行。Setup 未完成时，页面请求以 `303 /setup` 收敛；非 Setup API 返回 `428 SETUP_REQUIRED`，不能执行被请求 handler 后再重定向。
+3. 所有 mutation 都需要 same-origin CSRF、`expected_revision` 与 `Idempotency-Key`；除首次首用户创建外还需要authenticated Human。`GET /setup`为零用户场景建立workspace/revision-bound pre-auth Setup session及CSRF token，首用户成功后立即旋转为authenticated session；该pre-auth capability不能调用其它API。同 key/同 payload返回同一结果；同 key/异 payload或stale revision返回稳定`409`并携带当前readback URL/revision。
+4. 外部 operation 必须先记录稳定 operation identity，再执行，再 readback。结果未知保持 `uncertain` 并阻断后续；重试先 reconcile，只有确认未发生时才重放。
+5. Guide message 不能携带 Runtime action token。Guide 只返回 owning surface URL；正式 surface 再从 Runtime 取得当前 action capability。
 
-1. `Runtime/program` 是 canonical 状态、责任方、合法 action、dispatch 和推进的唯一 authority。Guide 与 Presentation 只消费 projection。
-2. `Entry Resolver` 是纯读决策；每次认证、刷新、重连和服务器重启后都从持久事实重新计算，绝不信任浏览器缓存中的阶段。
-3. Setup command 只可由 `Setup Application` 调用 adapter。每个写操作采用 operation id、预览摘要和事实 readback，重复提交返回相同结果或明确冲突。
-4. Runtime 发放的 opaque action id 只在对应 owning surface 呈现和提交；服务端在执行前重新校验当前 revision。Guide 只能链接到该 surface。stale action 返回冲突，不 dispatch。
-5. provider/session metadata 仅为 transport metadata，不写入 Workflow Status，也不改变责任方。
+## 4. 首次 Setup 与全局保护
 
-## 4. Setup、Repository 与恢复设计
+### 4.1 Setup manifest
 
-### 4.1 连续 Wizard 与持久恢复
+沿用 `.louke/web-setup-state.json` 路径但升级到 schema version `2`。它只包含 workspace identity、`status=pending_user|pending_model|complete`、首用户非秘密 identity、最近 model-check 的 revision/status/redacted diagnosis、完成时间和单调 revision。有效 `complete` 必须同时引用已持久首用户和一次 `passed` 的真实 model-check evidence；字段缺失、未知 schema、损坏或 workspace identity 不匹配均 fail closed。
 
-Setup 只有一个 shell 内旅程，固定阶段为 `identity -> repository -> dependencies -> review -> applying -> complete`。每一步的 projection 同时给出当前步骤、已完成步骤、可用动作、阻塞项和安全返回路径。服务端只在成功 readback 后推进；页面刷新或服务重启后按 manifest 继续。
+旧 version `1` 的 `identity/repository/dependencies/review/applying/complete` 不能按旧 step 数直接视为完成。升级 adapter 只在可核对到“首用户已存在 + 真实 model probe passed evidence”时映射为 v2 complete；否则保留首用户并迁移为 `pending_model`。因此已有真正符合新完成条件的 workspace 不重做 Setup，无法证明者得到明确迁移原因。
 
-Setup manifest 采用带 schema version 的原子事实，记录 workspace identity、step、选择、非秘密 remote display URL、preview digest、operation ledger、dependency results、时间戳和完成状态。写入使用临时文件/事务后原子替换；损坏、未知 schema 或与 workspace identity 不匹配时 fail closed，显示可定位错误和 Recheck/Reconcile，而不猜测完成。
+首用户继续使用 `.louke/web-users.json` 的 scrypt verifier。创建命令验证pre-auth Setup session/CSRF后，在同一临界区检查“零用户”；写成功后作废pre-auth capability、签发当前用户authenticated session/CSRF，并把 Setup manifest 推进到 `pending_model`。重复同 identity/idempotency key返回同一 principal；不同 identity 或并发输家返回冲突，不增加用户数。
 
-### 4.2 Git init
+### 4.2 真实模型验证
 
-非 Git workspace 选择 `init` 后，Preview 列出目标根目录、将创建的 `.git`、保留的现有文件和冲突。Confirm 只在 preview digest 与当前文件树摘要一致时执行 `git init`。若期间事实变化，返回 stale conflict 并要求重新 Preview。已有 Git repository 的重复 Confirm 通过 readback 返回 completed，不重复破坏。
+`OpenCode Adapter` 复用 `louke.models.probe_model` 的真实 `opencode run --model <id> <minimal-prompt>` 能力，但把 executable、候选发现和真实调用分开记录。最小 prompt 固定为 `please echo hi`，stdin 为空，不包含 workspace 文件、Story、artifact、credential 或 Runtime event。候选来自当前 workspace 可见的已配置模型，按稳定 model id 排序逐一尝试；单次 15 秒、整次检查 60 秒，首个确认成功即通过。到总 deadline 仍无成功属于 `failed` 或 `uncertain`，绝不沿用旧成功。
 
-### 4.3 Remote clone/binding
+模型成功后，Setup Application 以原子 compare-and-swap 写 v2 `complete`。写入失败/结果未知时仍由 gate 视为未完成并停在模型验证；不得先开放 Workbench。完成后不在普通登录/刷新时重复模型调用。
 
-允许 `https://` 与 `ssh://`/SCP-like Git URL；拒绝控制字符、URL userinfo/password、`file://`、本地路径和非 Git scheme。UI 与日志只保留脱敏 display URL；credential 必须由受控 Git credential/SSH 环境提供，不写 manifest、日志或 evidence。
+### 4.3 页面连续性
 
-clone 采用同一文件系统中的 sibling staging directory：
+`/setup` 只有两个可见上下文：`Create first user` 与 `Verify OpenCode model`。首用户成功后立即切换后者；模型检查有 idle/running/passed/failed/uncertain 状态，失败显示对象、已知事实、影响、非秘密原因和 Retry。后台结果不夺取焦点。Setup 完成后 `continue_url=/workbench?activity=projects`；Setup 外功能在完成前均不可见/不可操作。
 
-1. Preview 校验 URL、目标 workspace、是否为空、现有 `.louke` facts 和冲突；只做只读 remote probe。
-2. Confirm 将 remote clone 到随机 staging，验证它是 Git worktree、HEAD 可解析且路径不含逃逸。
-3. 对目标逐路径比较。目标为空时使用原子 rename；目标只含当前 `.louke` 时，将 clone tree 与 Louke facts 做封闭 merge，任何同名不同内容均成为 conflict。
-4. 写 operation ledger 后执行 rename/merge，再 readback HEAD、origin 的脱敏 URL 和 Setup facts。成功前不删除可恢复 staging；失败时保留目标原状并暴露 reconcile token。
-5. Reconcile 根据 ledger 和 readback 选择“已完成”“可安全回滚 staging”“需用户解决冲突”之一，不自动覆盖或删除用户文件。
+## 5. Projects 与 New Project
 
-不采用“直接在非空 cwd 执行 `git clone .`”，因为部分失败会污染 workspace；不采用下载 archive，因为会丢失 Git identity 与 remote binding。staging 增加磁盘占用和跨设备 rename 风险，因此 staging 必须与目标同一父目录，并在空间不足/跨设备时在写入前失败。
+### 5.1 登录落点与单活跃 Project
 
-### 4.4 依赖检查
+认证成功总是进入 Workbench 的 Projects activity。`Project Context` 只接受三种结果：`empty`、`active`、`conflict`。一个 active binding 显示其 Project Status；零个显示说明和唯一主动作 `New Project`；多个或身份链不一致显示 conflict，隐藏/禁用 `New Project` 和 Project 选择。已发布历史不再作为登录默认落点。
 
-依赖探测通过 adapter 返回 `ready|missing|error`、非秘密版本摘要、修复说明和 `recheck` 能力。单项检查相互隔离；一个外部工具超时不应把其他项标成通过。默认每项 10 秒并有总超时；超时结果是可重试 error。Review 仅在必要依赖 ready 且 Repository readback 成功后启用 Apply。
-
-## 5. Workbench、Workflow Status 与 Guide
-
-### 5.1 入口拓扑
-
-`/` 是 canonical shell：无首用户时打开 Setup Identity；有用户无 session 时显示 Login；认证后由 `Entry Resolver` 返回：
-
-- Setup 未完成：打开对应 Wizard step；
-- 有 active project/current work：打开 Current Work；
-- 无 current work 但有 released item：打开 Released；
-- Setup 完成且为空：打开 Project 驾驶舱 Ready/Empty，主动作是 Start Story。
-
-旧 `/workbench`、`/setup`、`/projects` 及现有 v0.14 API 别名保留为兼容入口，但最终进入同一 shell/context；不得复制状态实现。
-
-### 5.2 Workflow Status
-
-状态投影同时包含 release/project、阶段序列和当前阶段、canonical 状态、责任方、artifact/revision、evidence、最近错误、required action、更新时间与 stale 标识。展示仅使用 `completed|current|pending|attention`，不显示百分比。缺失/未知 canonical 字段必须显示 `Unavailable/Attention`，不能推测成功。
-
-当 projection revision 变化、网络断开或超过 30 秒未成功刷新时，Presentation 标为 stale 并禁用 mutating action；只读导航保留。重连后自动 readback：revision 相同恢复动作，revision 不同刷新内容并提示状态已更新。冲突保留用户输入并提供 Refresh/Retry；权限不足隐藏无意义的危险动作并显示只读原因。
-
-### 5.3 Guide
-
-Guide 固定在 Workbench sidebar 下方约 `1/3` 高度，可折叠；折叠偏好按用户持久化。窄高/200% zoom 下可自动临时折叠，但不覆盖用户偏好。支持范围锁定为：`>=1024x768`、100% zoom；以及 `>=1280x720`、最高 200% zoom。主内容、sidebar 导航与 Guide 均不得互相遮挡；键盘可到达折叠、导航和 action 控件。
-
-Guide 摘要由 deterministic projection 生成，包含当前阶段/状态、责任方、下一步、阻塞/错误和导航。若使用 Agent 生成解释，只能补充非规范说明，服务端仍从 projection 渲染 canonical facts；模型失败时 deterministic 内容完整可用。
-
-Guide 只提供到 owning surface 的导航。Workflow Status 的 `allowed_actions` 由对应正式 surface 呈现；单击后立即显示 pending 并禁用重复提交，成功显示新的 revision/导航，失败显示错误、未推进声明与 Retry。危险或不可逆 action 使用 Preview/Confirm；取消回到当前上下文且不产生 dispatch。
-
-## 6. 持久化、并发与安全
-
-- Setup manifest 和 operation ledger 随 workspace 持久化；Guide 的 collapsed、divider ratio 与 last-seen preference 绑定 authenticated user。浏览器 `localStorage` 只可作为展示缓存，不可作为事实源。
-- 所有 command 接收 `expected_revision` 和 `Idempotency-Key`。revision 不匹配返回 `409 stale_revision`；同 key 同 payload 返回原结果，同 key 异 payload 返回 `409 idempotency_conflict`。
-- CSRF、session、同源与权限沿用现有 Web 安全边界。认证前只允许读取首次 Setup 必需事实并提交首用户；其他项目/runtime 数据不可见。
-- remote、subprocess 参数使用 argv 传递，不拼 shell；环境变量采用 allowlist。输出需去除 token、userinfo、home path credential helper 内容。
-- Setup 与 owning-surface Runtime command 的 structured audit 记录 action、actor、workspace、revision、result/error code 和时间，不记录 password、token、完整 credential URL 或 provider session metadata。Guide message/preference/last-seen 不写 Runtime evidence，访问日志也不记录对话正文。
-- 两个浏览器并发操作时只允许首个匹配 revision 的 command 成功；后续返回冲突并要求刷新。
-
-## 7. 技术选型、依赖与取舍
-
-| 选择 | 解决的问题 | 放弃的替代 | 主要风险/缓解 |
-|---|---|---|---|
-| 继承 Python 3.11+、Starlette 与现有原生 Web 资产 | 避免为单一集成 Spec 引入第二套 runtime/front-end build | React/Vue SPA 重写 | 手写交互状态复杂；以 typed projection、可访问语义和 Playwright 合同约束 |
-| 继承现有 SQLite/版本化 JSON 事实源 | 可恢复、可 readback，复用项目事务边界 | 浏览器状态、Redis、新数据库 | schema 演进；未知版本 fail closed，并保持 migration/readback 测试 |
-| Python stdlib `subprocess` + project-local adapters | 精确控制 Git/tool argv、超时和脱敏；无需新 runtime 包 | GitPython、直接 shell command | subprocess 平台差异；argv allowlist、Windows/POSIX integration matrix |
-| Git sibling staging + atomic merge ledger | clone 失败不污染当前 workspace | 直接 clone 到 cwd、archive 下载 | 双倍磁盘与清理；预检空间、同父目录、reconcile ledger |
-| deterministic Workflow/Guide projection | 保证 Runtime authority 和无模型降级 | 由 Agent 自由推理状态 | 文案较机械；允许非规范解释但 canonical facts 永远由 projection 渲染 |
-| pytest + pytest-asyncio + Playwright，版本继承 `pyproject.toml` lock/constraints | 与现有测试和安装态 runner 一致 | 新增 Cypress/Jest | 浏览器 suite 时间；仅关键旅程 e2e，边界下沉 integration/unit |
-
-本 Spec不引入新的 runtime 或 test 第三方库。Devon 必须使用 `pyproject.toml` 当前锁定/约束版本；若实现发现必须增加依赖，须先修订本设计并记录 license、版本与取舍，不能自行选择。
-
-文档保持 Markdown；Python 代码风格、ruff、mypy、pytest markers 沿用 `pyproject.toml`。实现配置包括扩充 runner discovery、traceability manifest 和 workflow；Archer 不创建业务脚手架。
-
-## 8. 测试可替换性与资产边界
-
-- `SystemClock`、Git/remote probe、GitHub/OpenCode/provider、filesystem operation 和 action dispatcher 均通过 adapter 边界注入。
-- unit 使用临时目录、固定时钟和纯 adapter fake；不得 mock 公开 HTTP 出口来证明 integration。
-- integration 资产：`tests/integration/v014_workspace_onboarding/`，覆盖 HTTP/application/store/adapters 真实接线；remote clone 使用 loopback Git HTTP fixture，不访问公网。
-- e2e 资产：`tests/e2e/v014_workspace_onboarding/`，通过安装 wheel 的产品 Python 启动真实 Web 服务；使用 mock OpenCode backend、临时 HOME/workspace、loopback Git remote 和真实 Chromium。
-- fixtures：`tests/fixtures/v014_workspace_onboarding/`，只含无秘密的 bare Git seed、manifest revisions 和 Runtime projection 样本。
-- 测试进程拥有临时 workspace 和 HOME；不得读取开发者真实 `~/.gitconfig`、credential helper、SSH agent 或生产 secret。
-
-## 9. `project.toml` 运行合同（author revision）
-
-2026-07-24 当前调用已授权 `.louke/project/project.toml` 的 `[meta].test_framework`、`[integration]` 与 `[e2e]` schema/write scope。配置保留既有项目资产并加入本 Spec 的确定路径；这只是 project-local runner contract 的 author 写入，不代表 Runtime candidate activation：
-
-```toml
-[meta]
-test_framework = "pytest"
-
-[integration]
-cwd = "."
-paths = ["tests/e2e", "tests/integration", "tests/fixtures", "tests/ground_truth", "tests/integration/v014_design_contracts", "tests/integration/v014_workspace_onboarding", "tests/fixtures/v014_workspace_onboarding"]
-run = "tests/e2e/run-project-venv integration"
-
-[e2e]
-cwd = "."
-paths = ["tests/e2e", "tests/fixtures", "tests/ground_truth", "tests/e2e/v014_design_contracts", "tests/e2e/v014_workspace_onboarding", "tests/fixtures/v014_workspace_onboarding"]
-run = "tests/e2e/run-project-venv e2e --profile all --runtime both"
-ready_timeout_seconds = 60
-```
-
-`start`/`ready`/`teardown` 省略：现有 runner 按 case 启动安装态产品服务、做 readiness 并在 `finally` 清理；Devon 必须扩充 `v014` profile discovery 包含本目录，不能要求 Shield 手工启动服务。`[meta].test_framework = "pytest"` 已与设计一致，无需重复改值。
-
-## 10. GitHub Actions CI 合同
-
-### 10.1 触发、runner 与权限
-
-Devon 更新而不替换 `.github/workflows/louke-ci.yml`。触发保持 `pull_request`、默认分支 push、release/tag workflow dispatch；默认 `permissions: contents: read`。PR，尤其 fork PR，不使用 production secret、不运行 `pull_request_target`、不执行真实 provider smoke。Python 主验证版本为 3.11；安装/平台兼容矩阵继承现有 Ubuntu/macOS/Windows 与项目支持版本，不能缩小当前支持面。
-
-actions 版本策略继承现有受审 major pin（`actions/checkout@v4`、`actions/setup-python@v5` 等）；任何新增 action 必须固定到完整 commit SHA。Python 依赖使用仓库 lock/constraints 和 wheel cache key（OS、Python、lock digest），不得缓存 workspace facts、credentials 或测试结果。
-
-### 10.2 必需 job DAG
+Project 的 canonical object chain 是：
 
 ```text
-quality ───────────────┐
-unit ─────────────────┤
-traceability ─────────┤
-build-artifacts -> artifact-verify ─┤
-integration ──────────┤
-e2e-standin ──────────┤
-install-matrix ────────┤
-                       -> required
+project_id -> planned_release_identity -> github_project_node_id
+           -> request_id -> run_id -> spec_id -> latest_story_revision
 ```
 
-- `quality`：执行 `pre-commit run --all-files`（其中包含仓库 ruff/文档 hooks），再执行 `python -m mypy louke`。
-- `unit`：沿用安装态命令 `/tmp/lk-venv/bin/python -m pytest -q tests/unit --cov=louke.runtime --cov-report=xml --cov-report=term-missing --cov-fail-under=95`；上传 coverage/JUnit evidence。
-- `traceability`：保留现有 v0.14-001 scan，并对本 Spec 执行 `python tools/check_ac_traceability.py --acceptance .louke/project/specs/v0.14-004-workspace-onboarding-workflow-status/acceptance.md --tests tests --expected-count 43`。Devon 必须为现有 project-local tool 增加 `--expected-count` 并令零声明/数量不符失败；缺 AC、未知 AC或层级 evidence 不足均失败。
-- `build-artifacts`：`python -m build`，上传唯一 wheel、sdist、SHA-256 manifest 和 source commit。
-- `artifact-verify`：Devon 扩充现有 project-local adapter，执行 `python tools/louke_python_release_adapter.py verify-dist --source pyproject.toml --dist dist --evidence dist/verified-identity.json`，精确验证一个 wheel、一个 sdist 及两者 metadata 与 source version；再在隔离 venv 安装该 wheel并执行 `lk --version` 与 `python -c "import importlib.metadata as m; print(m.version('louke'))"`。artifact 缺失、多余、无法提取或不匹配均失败。
-- `integration`：调用 `tests/e2e/run-project-venv integration`，必须发现本 Spec integration 路径；零收集失败。上传 JUnit、脱敏 adapter/audit evidence。
-- `e2e-standin`：调用 `tests/e2e/run-project-venv e2e --profile all --runtime both`，必须发现本 Spec e2e 路径；真实 Chromium、安装态 wheel、mock provider、loopback Git。上传 Playwright trace/screenshot（仅失败）、runner evidence 与服务日志。
-- `install-matrix`：保持现有 local/global 与受支持 OS 安装验证，证明新 shell/静态资产进入 wheel。
-- `required`：job 展示名固定 `required`，workflow 名固定 `Louke CI`，形成唯一稳定 check `Louke CI / required`。使用 `if: always()` 检查每个 required need；任何失败、取消、超时、skipped、缺失或未知均非成功。
+该链由 release request/Foundation evidence 持久化。旧内存 `/api/projects/create` 不参与新写入；历史 Workflow Runs 可只读映射到链中的 `run_id`。
 
-job timeout：quality/unit/traceability 15 分钟，build/artifact-verify 15 分钟，integration 20 分钟，e2e/install matrix 每 shard 30 分钟，required 5 分钟。测试失败不自动 rerun；flaky 必须修复，不能用 retry 伪造通过。
+### 5.2 按需 Environment Gate
 
-### 10.3 外部服务、evidence 与发布门禁
+只有 `New Project` click 创建 Environment check revision。检查顺序固定为：
 
-默认 required CI 的 Git remote 和 provider 均为可控替身，无 secret。真实 GitHub/OpenCode smoke 保持独立 protected/manual job，只接受环境级最小权限 secret，记录 target identity、source commit、artifact digest、非秘密 endpoint、AC 集合和 teardown；不记录 token。真实 smoke 不能在 fork PR 运行。
+1. `gh_executable`：PATH 中可执行且 `gh --version` 成功；
+2. `gh_auth_scopes`：`gh auth status` 能唯一确定 GitHub host/identity，scopes 完整包含 `gist, project, repo, workflow`；
+3. `repository_binding`：当前根目录是 Git worktree，remote 可唯一映射为当前 GitHub repository；
+4. `canonical_main`：refresh/readback 能确认非歧义 `refs/remotes/<remote>/main`，Foundation 可使用其 SHA。
 
-若现有 release/publish 合同要求真实 smoke，则 publish 必须依赖 `Louke CI / required`、artifact-verify 及匹配同一 source/artifact identity 的 real-smoke evidence；否则本 Spec 不新增 publish 行为。任何 evidence 身份不一致或不确定都阻断 publish。
+检查进行中 Wizard 显示“正在检查”和当前 step；通过的 step 收起，不要求点击。第一个失败/uncertain step 停止继续，显示诊断、影响、Retry 和适用的 repository binding action。结果 revision 投影到同一 Guide session。进入 Story 输入、Preview 和 Confirm 前都重新验证结果没有超过 60 秒且相关事实 fingerprint 未变化；否则自动回到检查。
 
-artifact retention：JUnit/traceability/runner evidence 30 天，失败 Playwright trace 与脱敏日志 14 天，wheel/sdist及 digest 按现有 release retention。所有 evidence 包含 source SHA、Python/runtime、安装模式、suite、AC IDs 和结果。
+### 5.3 Repository 初始化/binding
 
-### 10.4 演进规则
+repository URL 只接受可规范化为 `github.com/<owner>/<repo>` 的 HTTPS 或 SSH Git URL；拒绝 userinfo/password、控制字符、本地路径、`file://` 与身份歧义。Preview 显示 workspace、redacted repository identity、将新增的 Git metadata/remote/main 以及不会纳入提交的工作树文件。Human Confirm 后才执行：
 
-`.github/workflows/louke-ci.yml`、`tests/e2e/run_e2e.py` discovery、`project.toml` 运行合同和三份设计文档必须同步。改变入口、资产路径、artifact、默认分支、required gate 或外部 adapter 均需新 design revision；Devon 不得在实现阶段重新选择 CI 架构。
+- 非 Git workspace：`git init -b main`，只创建一个无内容 bootstrap commit；使用命令级 Louke author 参数，不修改用户全局 Git config，不 stage 工作树文件。
+- 已有 Git、无 binding：保留现有 commits/worktree；若已有 `origin` 指向不同 identity 则冲突，不覆盖。绑定使用可用 remote 名称并 readback canonical identity。
+- 新建且确认为空的 remote：从已确认本地 main 推送 `refs/heads/main`；若已有 HEAD，则 main 指向该已归属 commit；无 HEAD 时只推送上述空 commit。
+- 非空 remote 缺少 main、main 歧义/diverged、push 后 identity/SHA 不匹配、部分成功或未知：保持 blocked，保存 operation evidence 并提供 Reconcile/Retry，不 force push、不删除文件。
 
-## 11. 风险与失败策略
+`ShellFoundationAdapter.preflight` 必须改为只读 refresh/compare；它不得再在 Preview/Confirm 阶段偷偷创建 local main。Environment Gate 已成功建立/验证 main 后，Foundation仍再次读取最新 remote/main，防止 readiness 与创建之间变化。
 
-| 风险 | 失败策略 |
+### 5.4 浏览器 draft、Preview 与 Confirm
+
+浏览器 draft 使用 `localStorage`，key 为 `louke.new-project.v1:<workspace_id>:<principal_id>`；只保存 Story、原始 release version、`resume_step=input|preview` 和保存时间。恢复时总先重新跑/复核 Environment Gate；`resume_step=preview` 只表示重新生成 Preview，不复用旧 preview token。quota/写失败显示 `Draft not saved`，不能伪报恢复能力。Cancel 保留 draft；只有 canonical Story 成功加载后清除。
+
+planned release version 使用现有 Python 技术基线的 `packaging.version.Version` 规范化为 PEP 440 canonical identity；只有一段或两段 release tuple 时补齐到三段，因此 Human 输入 `0.14`/`v0.14` 都映射为 canonical `0.14.0`、tag `v0.14.0`、branch `releases/0.14.0`。已有三段及合法 prerelease/postrelease 标识按 PEP 440 保留；非法/本地版本被拒绝。Preview 绑定 Story digest、canonical release、workspace/repository fingerprint、environment revision 与 preview revision，只读且无 Foundation/Project/Story 副作用。
+
+Confirm 复用并扩充 `ReleaseEntryService`：先复核 preview、readiness freshness 和单活跃 Project，再以 request digest/idempotency key reconcile Foundation。Foundation manifest 固定 `project_id/request_id/run_id/github_project/release_branch/spec_id`，并在受控 release worktree 中把 `.louke/project/project.toml:[project].version` 与 `release_branch` 原子写为上述 planned identity；任一步 uncertain 都返回同一 Project 的 recovery status。Scribe 只在 Foundation ready 后以确认输入初始化 Story；Story revision readback 成功才返回 Dev Docs continue URL。
+
+## 6. Project Status、节点详情与回拨
+
+### 6.1 Read model
+
+`Runtime Projection` 读取 run pinned definition，而不是硬编码客户端列表。对新 definition，批准节点 canonical id 是 `M-REQ-APPROVAL`；读取历史 `M-LOCK-1` 时 projection 的 `canonical_step_id` 映射为 `M-REQ-APPROVAL` 并保留 `source_alias=M-LOCK-1`。Issues 只出现在批准 attempt 的 evidence。
+
+时间线由两类节点组成：
+
+- `attempt`：按 append-only event/attempt 的实际 sequence 排列，每一轮独立，带稳定 `attempt_id`；回拨后的重做产生新节点，旧节点不覆盖；
+- `pending_placeholder`：来自 pinned definition、尚无 attempt 的后续 canonical stage，只为完整展示 `M-START` 至 `M-MILESTONE`，不可选为已发生 evidence 或回拨目标。
+
+服务端明确返回 `display_state=completed|active|pending|attention|invalidated`、active pointer、return edges 和选中状态，客户端不从文件存在、聊天或百分比推导。初始视口把 active attempt 置中并至少保留前后各三个节点；全历史通过水平滚动和 Home/End/方向键可达，不要求缩放。
+
+active card 在 running 时显示 owner、attempt ordinal、`started_at/observed_at/elapsed_seconds`；在 `waiting_human|blocked|conflict|uncertain` 时显示 reason、impact 和 Runtime 提供的唯一 primary action。共同显示 canonical state、run revision、artifact/operation、最近 evidence/error 和 owning surface。每 5 秒 readback；一次网络失败立即标 stale，或最后成功 readback 超过 15 秒也标 stale。stale 时所有 mutation 禁用，只读导航保留；重连自动刷新，revision 改变时提示并保留可安全恢复的输入。
+
+### 6.2 节点详情
+
+详情由稳定 `attempt_id` 查询，显示开始/结束、status、owner、artifact/revision、关键 evidence/error、transition reason、与 active attempt 的区别、当前 return eligibility 和 owning URL。选中仅写 URL query/history state，不写 Runtime。返回 URL携带 `selected_attempt`；目标 missing/stale/forbidden 显示对应结果，不回退到其他 Project。
+
+### 6.3 回拨
+
+只有 Runtime projection 当前返回 `return_allowed=true` 的历史 attempt 显示动作。Preview 是无副作用操作，返回 target、当前 active、会 invalidated/reworked 的下游 artifact/review/evidence、不可自动逆转的外部后果和 bound revision。Human Confirm 后 Runtime 再次验证相同 Project、target attempt、definition 和 revision；成功以一个原子 transition 更新 active pointer、append return edge/audit，并按 owning 合同标记下游 stale/superseded/reconcile。取消、stale、并发推进、Agent/Guide 调用或不支持 target 均不改变状态。
+
+## 7. Guide session
+
+Projects sidebar 始终有 Guide：空 Project session key 为 workspace + principal + `empty`；活跃 Project key 增加 `project_id`。切换 context 时旧消息可作为明确标识的历史查看，但不能投影为当前事实。
+
+每个 Environment check revision 的消息顺序由 server sequence 保证：先 append `runtime_status`（权威 step/result），再异步产生 `guide_advice`（解释/建议）。去重键为 `(session_id, check_revision, error_code)`。建议必须包含影响、修复方法和 owning Wizard URL；确定性 error-code 模板是 Agent 不可用时的完整 fallback。Guide 生成失败追加可区分的 `guide_error`，不移除 Runtime 消息、不改变 check 结果，也不阻塞 Wizard。
+
+普通用户 message 只追加对话。服务端不解析对话为 install/auth/bind/create/return command；这些动作只能在 owning surface 使用 Runtime capability。
+
+## 8. 资产复用、替代与退役
+
+| 资产 | 处置 | 理由/实现边界 |
+|---|---|---|
+| `louke/web/store.py` user/session persistence | 复用并迁移 | 保留 scrypt 首用户；Setup state 升级为 v2 CAS manifest |
+| `louke/models.py::probe_model` | 复用 adapter 能力 | 必须增加结构化结果、候选/总超时和调用记录；静态 list 不算成功 |
+| `louke/web/pages/setup.py` 旧六步 Wizard | 替代并退役旧路径 | 改为首用户/模型两上下文；删除 repository/dependencies/review/applying 产品路径 |
+| `louke/web/api/readiness.py` 一体化 readiness | 拆分替代 | OpenCode probe归 Setup；gh/Git归按需 Environment Gate；Store/Catalog 不成为用户门禁 |
+| `louke/web/api/projects.py` 内存 Project create | 新写入退役、历史只读兼容 | 新 Project 必须走持久 `ReleaseEntryService`/Runtime；不得双写 |
+| `louke/runtime/release_entry.py`、Foundation、Story/Scribe | 复用并收紧 | 加 Environment revision、canonical version、单 Project identity 与 recovery；Foundation preflight只读 |
+| `louke/runtime/store.py` runs/events/attempts | 复用 | Project Status新增 projection，不另建 workflow store |
+| `louke/web/workflow_status.py` | 替代 projection | 增完整 definition、attempt、return edge、artifact/action/readback 字段 |
+| `louke/web/entry_resolver.py` | 替代规则 | 移除 `released` 默认落点；只返回 Setup、Projects active/empty/conflict |
+| `guide_projection.py` / `guide_context.py` | 复用 authority边界并持久化扩充 | 增 context、ordered runtime/advice message 和 dedupe ledger |
+| 旧 v0.14-004 integration/e2e | fixture/harness 可复用，断言重写 | 旧 Setup Wizard 行为不计入当前 44 AC evidence，不允许保留相反断言 |
+| Issue `#322`—`#342` | `reconcile-required` | Requirement ID 仍存在，但本调用没有可信 remote body/readback；Runtime/Sage必须按当前三份 digest逐条比较后复用或 supersede，Devon不得把旧 PASS 当实现证据 |
+| Issue `#343` (`NFR-0501`) | `removed/superseded` | 当前 locked Spec/Acceptance 没有该 requirement；不得为它发明实现或 AC |
+
+## 9. 技术选型、版本与取舍
+
+| 选择 | 解决的问题 | 放弃的替代 | 主要风险与缓解 |
+|---|---|---|---|
+| Python `>=3.11` + Starlette 原生页面 | 继承现有包、session、路由和安装态服务 | 引入 React/Vue/Node build | 原生交互复杂；用 typed read model、可访问语义和 Playwright约束 |
+| SQLite Runtime facts + versioned JSON Setup/users | 复用真实持久化、事务和 append-only history | 浏览器/Guide 状态、Redis、新数据库 | 跨文件原子性；Setup 单 manifest CAS，Project/Runtime统一 SQLite，外部操作用 ledger/readback |
+| stdlib `subprocess` argv adapters | 隔离真实 `git`/`gh`/`opencode` 并支持 stand-in | shell string、GitPython | 平台输出差异；JSON/稳定 command、timeout、redaction、Windows/POSIX contract tests |
+| `packaging.version`（CI tooling pin `26.2`） | PEP 440 planned/package identity canonicalization | 自写 regex、SemVer-only 库 | PEP 440 normalization可能改变显示；Preview同时显示原始与 canonical，Confirm绑定 canonical |
+| pytest `9.1.1`、pytest-asyncio `1.4.0`、pytest-cov `7.0.0`、Playwright `1.54.0`、build `1.5.0` | 与 Python 3.11+ 和现有 runner匹配，固定 CI 直接工具 | Cypress/Jest、新 runner | 当前仓库无 lock；Devon生成 `tests/requirements-ci.txt` 完全解析 constraints，所有 CI install使用它 |
+| pre-commit hooks `pre-commit-hooks v6.0.0`、ruff `v0.15.20`、mypy `v2.1.0` | 继承既有质量栈和固定 hook环境 | CI临时安装 latest mypy/ruff | hook环境首次下载；以 hook rev和cache key固定，不再额外运行未固定 latest mypy |
+| 5 秒 poll + 15 秒 stale、外部单调用15秒/检查总60秒 | 让状态及时且失败有界 | WebSocket-only、无限等待 | poll负载；仅活跃 Projects surface轮询，ETag/revision无变化可返回轻量结果 |
+
+本 Spec新增唯一运行时直接依赖 `packaging>=24.2,<27`，用于 planned release canonicalization；Devon必须把它加入 `pyproject.toml`，CI constraints固定 `26.2`。不得继续依赖构建后端偶然提供的transitive `packaging`。
+
+## 10. 测试可替换性与数据边界
+
+- `OpenCode Adapter`、`GitHub/Git Adapters`、Guide generator、clock 和 Runtime action dispatcher均从应用装配边界注入；默认 CI替换外部进程/服务，不替换 Louke application、projection或store。
+- unit 使用纯 projection、临时 SQLite/目录、固定 clock；integration 启动真实 Starlette app并通过公开 HTTP、持久文件/SQLite和外部 stand-in观察。
+- e2e 从构建 wheel安装 `lk serve`，使用真实 Chromium、临时 HOME/workspace、外部 executable stand-ins；必须从页面动作走完，不调用内部对象推进。
+- L3 protected smoke 使用真实 OpenCode最小模型与 GitHub sandbox repository，只在 tag/manual release运行；identity和teardown evidence与 source SHA/artifact digest绑定。
+- 支持布局：`1024x768` 100% zoom；`1280x720` 在 100% 与 200% text zoom。Project Status全历史入口、Guide、错误和主要动作在这些组合下可达。
+
+## 11. Planned release 与宿主 artifact 版本同步
+
+> **继承范围说明**：本节锁定的是宿主项目已有 release identity、Python wheel/sdist、project-local adapter 与公开版本出口的接线合同，**不是 STR-1405 新增的用户功能范围**。本 Story 的新增交点仅是 §5.4 `New Project` 产生并持久化 planned release identity；其后 prepare/build/extract/install/publish 继续继承宿主机制。Devon审阅和实现本 Story时应优先关注 §4—§7，只按本节修复该 identity 接线与既有adapter验证缺口，不重建release系统。
+
+### 11.1 Identity 与 artifact 范围
+
+Human 输入经 `packaging.version.Version` 得到 canonical planned release，例如 `0.15.0`。外部表示固定为 tag `v0.15.0`、release branch `releases/0.15.0`、`.louke/project/project.toml:[project].version = "0.15.0"`。New Project Confirm 持久化 planned identity和Foundation资源，但**不在规划阶段改写** `pyproject.toml`；Python package version只在同一 release进入真实构建前由 adapter准备。
+
+必须验证的宿主 artifacts：
+
+| Artifact | 版本提取 | 安装/运行公开出口 |
+|---|---|---|
+| wheel `dist/louke-<version>-py3-none-any.whl` | `.dist-info/METADATA: Version` | clean venv `lk --version`、`importlib.metadata.version("louke")` |
+| sdist `dist/louke-<version>.tar.gz` | top-level `PKG-INFO: Version` | 从 sdist 构建 wheel后同上 |
+| GitHub Release/tag | tag去单个前导 `v` 后 PEP 440 canonical | GitHub release tag/name；不是 package版本的替代证据 |
+
+### 11.2 Project-local adapter
+
+继续选用 `tools/louke_python_release_adapter.py`，Devon扩充而不另选工具：
+
+1. `prepare --tag TAG --source pyproject.toml --planned-source .louke/project/project.toml --evidence PATH`：先验证 TAG canonical等于 planned source，再原子写/验证 package source；失败不构建。
+2. `verify-dist --source pyproject.toml --planned-source ... --tag TAG --dist dist --evidence PATH`：要求恰好一个 wheel/sdist，逐个提取版本并同时比较 planned、tag、package source。
+3. `verify-installed --expected VERSION --wheel PATH --sdist PATH --evidence PATH`：在隔离 venv分别验证 wheel安装态和由 sdist构建的安装态 `lk --version` / metadata。
+
+退出码 `0` 只表示所有确定比较通过；缺失/非法 identity、prepare失败、build失败、artifact缺失/多余、提取失败、任何不匹配、安装/运行出口不匹配或结果不确定均非零并阻断 publish。evidence分别标识 `identity_prepared`、`source_prepared`、`artifacts_built`、`artifact_versions_verified`；只有最后一类允许 publish，不新增 Runtime 状态字段。
+
+## 12. GitHub Actions CI 合同
+
+> **继承范围说明**：本节是 Louke 托管的宿主 CI 基线，**不是 STR-1405 新增的产品旅程**。本 revision 对CI的增量仅为承接 §4—§7 的新测试资产、把本 Spec traceability更新为44个AC、固定新增`packaging`依赖，并验证 §11 的同一 planned/artifact identity；其余runner、build、install matrix、权限、evidence和publish DAG均继承现有 `.github/workflows/louke-ci.yml`，不得借本 Story另建一套workflow。
+
+### 12.1 Runner、触发、权限与可复现性
+
+Devon更新现有 `.github/workflows/louke-ci.yml`，不得创建名称冲突的第二聚合 workflow。触发：PR到 `main`/`releases/**`、这些分支push、`v*` tag、manual。主验证 runner `ubuntu-22.04/Python 3.12`；unit矩阵 Python `3.11,3.12,3.13,3.14`；安装矩阵保留 Ubuntu/macOS/Windows和现有支持版本。
+
+默认权限 `contents: read`；fork PR无 secret、无 `pull_request_target`。real-smoke只在 protected `release-smoke` environment，publish只在 `release` environment并单独授予 `contents: write`/PyPI secret。Devon把现有floating major refs一起迁移为2026-07-24回读的完整commit SHA（YAML保留版本注释），不得自行选择floating ref：
+
+| Action | 完整SHA |
 |---|---|
-| Setup manifest 损坏/未知 | fail closed；显示错误位置与 Recheck/Reconcile，不进入 Complete |
-| clone 中断或目标变化 | 不覆盖；保留 ledger/staging，返回 conflict/reconcile |
-| credential 泄漏 | URL userinfo 输入即拒绝；日志/evidence 脱敏 gate 失败即阻断 CI |
-| Runtime projection 缺失/断连 | UI 标 stale/attention，禁用 mutation，保留只读导航并重连 readback |
-| 重复点击/并发 tab | idempotency key + expected revision；一个成功，其余 stale conflict |
-| Agent/provider 故障 | deterministic Guide 仍工作；绝不推测 workflow 状态 |
-| 旧 URL/API 调用方 | 兼容 redirect/alias 到同一 application service；contract test 防止语义漂移 |
-| 浏览器缩放遮挡 | 支持视口组合 Playwright 截图/可访问断言；自动临时折叠 Guide |
+| `actions/checkout` | `11d5960a326750d5838078e36cf38b85af677262` |
+| `actions/setup-python` | `a26af69be951a213d495a4c3e4e4022e16d87065` |
+| `actions/upload-artifact` | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
+| `actions/download-artifact` | `d3f86a106a0bac45b974a628896c90dbdf5c8093` |
+| `actions/cache` | `0057852bfaa89a56745cba8c7296529d2fc39830` |
+| `softprops/action-gh-release` | `3bb12739c298aeb8a4eeaf626c5b8d85266b0e65` |
 
-## 12. 实现交接结论
+未来升级必须经dependency PR同时更新此CI合同和workflow；未知或未批准action禁止执行。
 
-接口、模块、runner、数据与 CI 技术方案已经确定，Devon/Shield 无需补做技术选择。Sage 已按 inline discussion `T-001` 在 2026-07-24 把 43 项 Acceptance ID 统一改为全局 `AC-FRXXXX-YY` / `AC-NFRXXXX-YY`，scanner 由原 `0/0 covered` 变为 `42/43 covered`，`AC-NFR0501-01` 尚无 `tests/` 资产引用，由 Devon 在新增 `tests/integration/v014_workspace_onboarding/` 或同等 e2e 资产中加入相应 token 后闭合（见 `test-plan.md` §7.3）；CI 仍需扩展 `louke-ci.yml` 的 `ac-trace` job 同时跑 v0.14-001 与 v0.14-004 acceptance，并增加 `--expected-count 43` 失败闭锁。第 9 节的 `project.toml` runner contract 已写入 author revision；Runtime 仍负责 program validation、result persistence 和 activation。machine-contract instance 因缺 exact active schema reference 与逐路径 output authorization 继续 fail closed。
+Devon创建 `tests/requirements-ci.txt`，固定完全解析的 CI Python依赖，至少锁定第9节测试工具；所有 cache key包含 OS、Python、该文件 digest、`pyproject.toml` 和 Playwright requirements digest。缓存不得含 workspace facts、credential、浏览器 draft或测试结果。
 
-Sage 临时接管本 Spec 的 GitHub Issue 生成（在 v0.14 阶段 Runtime 不可用），并已落实：
+### 12.2 Job DAG 与命令
 
-- `spec.md` 之前没有 `<a id="fr-/nfr-XXXX">` 锚点，与现有 `louke/_tools/verify_issue_schema.py` 的 L5/L6 合同不兼容。Sage 在不动现有产品合同的前提下，向 `spec.md` 的 22 个 FR/NFR heading 前各插入一行 `<a id="...">` 锚点；该修改影响 GitHub 渲染和 PR review，但不改需求语义，不引入新需求。`acceptance.md` 的 `ac-fr-/ac-nfr-XXXX` 锚点已于 Sage T-001 修订时就位。
-- 22 条 issue 已通过 `gh issue create --repo zillionare/louke` 创建，编号 `#322`—`#343`，标题 `[FR-XXXX] ...` / `[NFR-XXXX] ...`；body 三段（Requirement ID / Spec Link / Acceptance Criteria）符合 `.github/ISSUE_TEMPLATE/feature.yml`。
-- 创建新 label `spec:v0.14-004-onboarding-status`（完整名 `spec:v0.14-004-workspace-onboarding-workflow-status` 超出 GitHub 50 字符标签上限，已在 issues.md 记录长度原因）；其余 labels 沿用既有 `Feature`、`v0.14`、`FR-1800`。
-- 22 条 issue 已通过 `gh project item-add 20 --owner quantclaws --url <issue>` 全部加入 Project `#20 louke-0.14.0`，由 GraphQL 复核 22/22 命中。Human 在本轮明确选择「沿用 #20」：`gh project view 12 --owner quantclaws` 仍不可解析，但已不再阻塞。
-- `python louke/_tools/verify_issue_schema.py --offline --spec-file ... --acceptance-file ... --issues-json <gh export>` 报告 22/22 PASS，覆盖 L1—L8 全字段与双向覆盖。
-- raw session：`.louke/raw/26-07-24/sage-v0.14-004-issues.md` 与 `.louke/raw/26-07-24/sage-v0.14-004-devon-handover.md` 含创建序列、label 选择和 Devon M-IMPL 交接清单。
+```text
+quality ───────────────────────────────┐
+ac-trace ──────────────────────────────┤
+build-artifacts -> artifact-verify ────┤
+                 -> unit matrix ───────┤
+                 -> integration ───────┤
+                 -> e2e-standin ───────┤
+                 -> install-matrix ────┤
+                                       -> required
+required + artifact-verify -> real-smoke -> publish   (tag/manual protected only)
+```
 
-Devon 2026-07-24 已接管 M-IMPL（Human 选项 1）：补 `AC-NFR0501-01` 引用与断言、扩 `louke-ci.yml` 的 `ac-trace` job 同时跑两个 Spec acceptance + `--expected-count 43`、扩 `tests/e2e/run_e2e.py` discovery、`tools/check_ac_traceability.py --expected-count` 参数、`tools/louke_python_release_adapter.py verify-dist` 子命令。Machine-contract instance 仍然 fail closed，等 Runtime 提供 active contract schema reference 与 write scope。
+| Job | 必须执行的宿主入口 | 失败语义/证据 |
+|---|---|---|
+| `quality` | `python -m pip install -c tests/requirements-ci.txt -e .`；`pre-commit run --all-files` | 任一 hook失败阻断；不再另装latest mypy |
+| `ac-trace` | 两次 `python tools/check_ac_traceability.py ...`；本 Spec使用 `--expected-count 44` | 缺失/未知AC、数量不等、零测试或反作弊违规失败 |
+| `build-artifacts` | branch/PR先 inspect source；release先执行第11节 prepare；随后 `python -m build --wheel --sdist` | 上传 prepared identity、source snapshot、wheel/sdist、SHA-256/source SHA；任何fallback后结果不确定失败 |
+| `artifact-verify` | 第11节 `verify-dist` 与 `verify-installed` | wheel、sdist和两种安装态全部匹配；上传 verified identity JSON |
+| `unit` | `/tmp/lk-venv/bin/python -m pytest -q tests/unit --cov=louke.runtime --cov-report=xml --cov-report=term-missing --cov-fail-under=95` | 每个matrix shard成功；JUnit/coverage |
+| `integration` | `tests/e2e/run-project-venv integration` | 必须收集本 Spec路径且非零；JUnit、redacted adapter evidence |
+| `e2e-standin` | `tests/e2e/run-project-venv e2e --profile all --runtime both` | wheel安装态、真实Chromium；失败trace/screenshot、runner evidence |
+| `install-matrix` | 复用 `install.sh`/`install.ps1` 并从 verified wheel安装 | local/global公开CLI与version匹配 |
+| `required` | `if: always()`聚合全部必需 needs | workflow名 `Louke CI`、job名 `required`，稳定 check `Louke CI / required`；失败/取消/超时/skipped/缺失/未知均失败 |
+| `real-smoke` | `tests/e2e/run-project-venv real-smoke --profile v014 --runtime local` | 真实OpenCode/GitHub sandbox，identity/teardown report；不属于PR required secrets |
+| `publish` | 只上传 build-artifacts job产生且 artifact-verify验证的相同digest | 不重新prepare/rebuild；required、real-smoke、artifact identity任一不current即阻断 |
+
+Timeout：quality/ac-trace 15分钟；build/artifact/unit 20分钟；integration 25分钟；e2e/install 35分钟；required 5分钟；real-smoke 60分钟。测试失败不自动 rerun。
+
+`artifact-verify`、`ac-trace`、integration/e2e evidence保留30天；失败浏览器trace和脱敏日志14天；release artifact按发布保留策略。每份 evidence至少含 source SHA、planned/package version、artifact SHA-256、Python/OS、suite/profile、AC集合和结果。
+
+## 13. Machine-contract、prompt 与实现交接
+
+当前任务输入未提供 program-owned exact active machine-contract schema reference、instance路径或对应逐路径授权；本 Spec也未把 Agent prompt列为规范性工件。因此本 design revision不生成、自证或激活 machine-contract/prompt candidate。Runtime必须在缺少 exact active reference时 fail closed，不能从旧 instance或本设计文档推断 schema。
+
+在上述 program输入缺口之外，产品模块、公开接口、测试资产、数据、版本 adapter 和 CI方案均已确定：Devon可以按 `interfaces.md` 实现，Shield可以按 `test-plan.md` 独立准备 integration/e2e。实现不得保留旧连续 Setup Wizard作为平行成功路径，也不得把旧 Issue/test PASS当当前 44 AC evidence。
