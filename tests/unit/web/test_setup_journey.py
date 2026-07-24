@@ -20,6 +20,7 @@ def test_setup_journey_keeps_verified_unaffected_steps_when_returning() -> None:
         SetupStep.DEPENDENCIES,
         SetupStep.REVIEW,
         SetupStep.APPLYING,
+        SetupStep.COMPLETE,
     )
 
 
