@@ -33,16 +33,15 @@ def _stepper_state(stepper: list[tuple[str, str]], label: str) -> str | None:
 
 
 def test_wizard_root_redirects_to_identity(live_server, browser_page):
-    """AC-FR0101-01: blank workspace redirects to the identity step.
+    """AC-FR0101-01: blank workspace renders the wizard shell with identity current.
 
-    On a fresh workspace the user is taken to /setup/identity/ where the
-    stepper shows identity as the current step.
+    On a fresh workspace /setup/ renders the first-user form inside the
+    wizard shell, with the stepper showing identity as the current step.
     """
     # AC-FR0101-01
     page, base_url = browser_page
     page.goto(f"{base_url}/setup/", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
-    assert page.url.endswith("/setup/identity/")
 
     stepper = _wizard_stepper_text(page)
     identity_state = _stepper_state(stepper, "Identity") or ""
@@ -55,6 +54,10 @@ def test_wizard_root_redirects_to_identity(live_server, browser_page):
     for expected in ("Repository", "Runtime", "Review", "Apply", "Complete"):
         expected_state = _stepper_state(stepper, expected) or ""
         assert expected_state != "", f"stepper is missing {expected}"
+
+    # First-user form is rendered inside the wizard shell
+    first_user_form = page.query_selector('form[action="/setup/first-user"]')
+    assert first_user_form is not None
 
 
 def test_wizard_identity_completes_and_advances_to_repository(
@@ -188,9 +191,8 @@ def test_wizard_full_happy_path(live_server, browser_page):
     page, base_url = browser_page
 
     # Step 1: identity
-    page.goto(f"{base_url}/setup/", wait_until="domcontentloaded")
+    page.goto(f"{base_url}/setup/identity/", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
-    assert page.url.endswith("/setup/identity/"), page.url
     page.fill('input[name="name"]', "demo_owner")
     page.fill('input[name="credential"]', "demo_secret")
     page.click('button[type="submit"]')
@@ -266,9 +268,8 @@ def test_wizard_return_endpoint_rewinds(live_server, browser_page):
 
     # Return to identity
     page.request.post(f"{base_url}/setup/return/identity")
-    page.goto(f"{base_url}/setup/", wait_until="domcontentloaded")
+    page.goto(f"{base_url}/setup/identity/", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
-    assert page.url.endswith("/setup/identity/"), page.url
 
     stepper = _wizard_stepper_text(page)
     assert "current" in (_stepper_state(stepper, "Identity") or "")

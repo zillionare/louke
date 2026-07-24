@@ -258,8 +258,10 @@ async def _common_render(
 async def step_identity_get(request: Request) -> Response:
     """GET /setup/identity/: render the first-user step form.
 
-    If no principal exists yet, render the first-user creation form. Once
-    a user exists, mark identity completed and advance to repository.
+    If no principal exists yet, render the first-user creation form.
+    Once a user exists, show the established panel. The wizard does
+    NOT auto-advance; if the user returned to this step, the journey
+    stays put until they explicitly proceed.
     """
     api_base = _api_base(request)
     journey = _journey_from_payload(_read_persisted_state(api_base, request))
@@ -272,10 +274,6 @@ async def step_identity_get(request: Request) -> Response:
         # backward-compatible form, but inside the wizard shell.
         body = await _first_user_form_html(status)
         return await _common_render(request, journey, body, can_advance=False)
-    if SetupStep.IDENTITY not in journey.completed_steps:
-        updated = journey.complete_current()
-        _persist_state(api_base, _payload_from_journey(updated), request)
-        journey = updated
     body = _identity_done_html(status)
     return await _common_render(request, journey, body, can_advance=False)
 
@@ -612,18 +610,19 @@ def _dependencies_html(items: list[dict[str, str]], *, error: str = "") -> str:
 
 
 def _review_html(journey: SetupJourney) -> str:
-    """Render the Review step with the proposed apply summary."""
+    """Render the Review step with the writable summary before Apply."""
     mode = journey.get_selection("mode") or "(not selected)"
     remote = journey.get_selection("remote_url") or "(none)"
     return f"""
 <section>
   <h2>Review</h2>
   <p>These operations will run on Confirm. Nothing is executed yet.</p>
+  <p>Every value below carries its provenance (the source of the fact):</p>
   <table class="summary">
-    <tr><th>Local identity</th><td>established</td><td class="provenance">first principal persisted</td></tr>
-    <tr><th>Repository mode</th><td>{_esc(mode)}</td><td class="provenance">selected at /setup/repository/</td></tr>
-    <tr><th>Remote URL</th><td>{_esc(remote)}</td><td class="provenance">selected at /setup/repository/</td></tr>
-    <tr><th>Dependencies</th><td>all required READY</td><td class="provenance">readiness report</td></tr>
+    <tr><th>Local identity</th><td>established</td><td class="provenance">provenance: first principal persisted</td></tr>
+    <tr><th>Repository mode</th><td>{_esc(mode)}</td><td class="provenance">provenance: selected at /setup/repository/</td></tr>
+    <tr><th>Remote URL</th><td>{_esc(remote)}</td><td class="provenance">provenance: selected at /setup/repository/</td></tr>
+    <tr><th>Dependencies</th><td>all required READY</td><td class="provenance">provenance: readiness report</td></tr>
   </table>
   <form method="post" action="/setup/review/complete">
     <button type="submit">Confirm and Apply</button>
