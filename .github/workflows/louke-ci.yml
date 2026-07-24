@@ -10,7 +10,7 @@ name: Louke CI
 #   - unit matrix (Python 3.11..3.14, coverage >=95%)
 #   - integration (tests/e2e/run-project-venv integration, manifest-driven)
 #   - e2e-standin (tests/e2e/run-project-venv e2e --profile all --runtime both)
-#   - ac-trace (tools/check_ac_traceability.py, 82/82 closure)
+#   - ac-trace (tools/check_ac_traceability.py, v0.14-001 + v0.14-004 closure)
 #   - install-matrix (Linux/macOS/Windows first-install)
 #   - Louke CI / required (fail-closed aggregation of all mandatory jobs)
 #   - real-smoke (tag/manual only; needs required+build+verify)
@@ -127,6 +127,12 @@ jobs:
             [ -f "$artifact" ] || { echo "::error::missing artifact $artifact"; exit 1; }
             metadata=$(python tools/louke_python_release_adapter.py inspect --artifact "$artifact")
             echo "$metadata"
+      - name: Verify distribution identity
+        run: |
+          python tools/louke_python_release_adapter.py verify-dist \
+            --source pyproject.toml \
+            --dist dist \
+            --evidence dist/verified-identity.json
           done
       - name: Clean-venv install + lk --version
         run: |
@@ -278,6 +284,10 @@ jobs:
           python tools/check_ac_traceability.py \
             --acceptance .louke/project/specs/v0.14-001-workflow-reflow-spec/acceptance.md \
             --tests tests
+          python tools/check_ac_traceability.py \
+            --acceptance .louke/project/specs/v0.14-004-workspace-onboarding-workflow-status/acceptance.md \
+            --tests tests \
+            --expected-count 43
 
   install-matrix:
     name: first install (${{ matrix.os }}, Python ${{ matrix.python-version }})
