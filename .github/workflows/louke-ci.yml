@@ -327,7 +327,7 @@ jobs:
           python tools/check_ac_traceability.py \
             --acceptance .louke/project/specs/v0.14-004-workspace-onboarding-workflow-status/acceptance.md \
             --tests tests \
-            --expected-count 43
+            --expected-count 44
 
   install-matrix:
     name: first install (${{ matrix.os }}, Python ${{ matrix.python-version }})

@@ -69,7 +69,13 @@ def test_integration_tests_have_ac_references():
 
 
 def test_traceability_tool_finds_v014_004_acs():
-    """AC-NFR0501-01: traceability scanner discovers v0.14-004 AC references."""
+    """AC-NFR0501-01: traceability scanner discovers v0.14-004 AC references.
+
+    The locked Acceptance baseline contains 44 unique ACs; the host
+    CI scanner (``tools/check_ac_traceability.py``) is invoked with
+    ``--expected-count 44`` so the dedicated v0.14-004 gate matches
+    the canonical count.
+    """
     # AC-NFR0501-01
     acceptance = (
         REPO_ROOT
@@ -84,7 +90,7 @@ def test_traceability_tool_finds_v014_004_acs():
             "--tests",
             "tests",
             "--expected-count",
-            "43",
+            "44",
         ],
         capture_output=True,
         text=True,
@@ -94,4 +100,4 @@ def test_traceability_tool_finds_v014_004_acs():
     assert result.returncode == 0, (
         f"traceability scan failed:\n{result.stdout}\n{result.stderr}"
     )
-    assert "43/43 covered" in result.stdout
+    assert "44/44 covered" in result.stdout
