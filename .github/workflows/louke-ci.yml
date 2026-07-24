@@ -5,7 +5,7 @@ name: Louke CI
 # This workflow is the canonical CI for v0.14-001-workflow-reflow-spec per
 # architecture §9 and IF-CI-01. It aggregates:
 #   - quality (pre-commit + mypy)
-#   - build-artifacts (python -m build)
+#   - build-artifacts (PyPI-first isolated build with Aliyun network fallback)
 #   - artifact-verify (release adapter prepare/inspect/install outlets)
 #   - unit matrix (Python 3.11..3.14, coverage >=95%)
 #   - integration (tests/e2e/run-project-venv integration, manifest-driven)
@@ -90,7 +90,7 @@ jobs:
           cp -r .github/ISSUE_TEMPLATE louke/.github/ISSUE_TEMPLATE
           cp -r .github/workflows louke/.github/workflows
       - name: Build wheel + sdist
-        run: python -m build
+        run: python tools/build_with_index_fallback.py --wheel --sdist
       - name: Upload wheel + sdist
         uses: actions/upload-artifact@v4
         with:
