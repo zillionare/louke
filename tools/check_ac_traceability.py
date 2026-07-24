@@ -223,6 +223,12 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="Path to the tests/ directory",
     )
+    parser.add_argument(
+        "--expected-count",
+        type=int,
+        default=None,
+        help="Expected number of declared acceptance IDs; mismatch fails closed",
+    )
     args = parser.parse_args(argv)
     if not args.acceptance.is_file():
         print(f"acceptance file not found: {args.acceptance}", file=sys.stderr)
@@ -235,6 +241,12 @@ def main(argv: list[str] | None = None) -> int:
         tests_path=args.tests,
     )
     print(_format_report(report))
+    if args.expected_count is not None and report.total_ac_count != args.expected_count:
+        print(
+            f"Acceptance declaration count {report.total_ac_count} does not match "
+            f"expected {args.expected_count}"
+        )
+        return 1
     if report.uncovered_ids or report.unknown_ids:
         return 1
     return 0
